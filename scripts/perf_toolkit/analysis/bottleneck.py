@@ -11,6 +11,8 @@ CPU Bottleneck Detection - Check for resource throttling and single-core saturat
 import json
 from collections import defaultdict
 from ..core.reliability import assess_data_quality
+from ..core.format_utils import format_time_range, format_percent
+from ..core.risk_mixin import RiskAwareOutput
 
 
 def parse_cpu_quota(value):
@@ -37,15 +39,22 @@ def cmd_check_bottleneck(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
+    output = RiskAwareOutput()
+    
     if not samples:
-        print(json.dumps({
+        result = output.add_risk(
+            "warning",
+            "指定时间范围内未找到样本",
+            "检查时间范围或移除过滤条件"
+        ).build({
             "error": "No samples found in the specified time range",
-            "time_range": {
-                "start": getattr(args, 'start_time', None),
-                "end": getattr(args, 'end_time', None)
-            },
+            "time_range": format_time_range(
+                getattr(args, 'start_time', None),
+                getattr(args, 'end_time', None)
+            ),
             "available_range": engine.get_time_range()
-        }, indent=2, ensure_ascii=False))
+        })
+        print(json.dumps(result, indent=2, ensure_ascii=False))
         return
     
     # Calculate duration from filtered samples
@@ -71,7 +80,6 @@ def cmd_check_bottleneck(engine, args):
     max_cpu_core_sec = cpu_core_per_sec.get(max_cpu_id, 0)
     
     # Calculate max core usage: average core/s on that CPU per second
-    # Total core-seconds divided by duration gives average CPU utilization
     if duration > 0:
         max_core_usage = max_cpu_core_sec / duration
     else:
@@ -81,20 +89,36 @@ def cmd_check_bottleneck(engine, args):
     cpu_limit = getattr(args, 'cpu_limit', 0) or 0
     
     # Determine verdict based on CPU utilization percentage
-    # max_core_usage is already a ratio (e.g., 0.63 = 63%)
     verdict = "HEALTHY"
     if cpu_limit > 0 and max_core_usage > (cpu_limit * 0.9):
-        verdict = "CPU_LIMIT_SATURATION (near CPU limit)"
+        verdict = "CPU_LIMIT_SATURATION"
+        output.add_risk(
+            "critical",
+            f"CPU 限制接近饱和: {format_percent(max_core_usage * 100)}",
+            "检查 cgroup CPU 限制或扩容",
+            patterns=["CPU_LIMIT_SATURATION"]
+        )
     elif max_core_usage > 0.9:
-        verdict = "SINGLE_CORE_SATURATION (one CPU core at max capacity)"
+        verdict = "SINGLE_CORE_SATURATION"
+        output.add_risk(
+            "warning",
+            "单核满载，可能存在串行化瓶颈",
+            f"执行: analyze-core-distribution --pid {getattr(args, 'pid', '<pid>')}",
+            patterns=["SINGLE_CORE_SATURATION"]
+        )
     
-    result = {
+    # Data quality risk
+    if quality_level == "CRITICAL":
+        output.add_risk(
+            "critical",
+            "数据质量不足！所有结论都不可信",
+            "使用更长的采样时间重新采集数据",
+            patterns=["CRITICAL_DATA_QUALITY"]
+        )
+    
+    result = output.build({
         "verdict": verdict,
-        "time_range": {
-            "start": samples[0]['ts'],
-            "end": samples[-1]['ts'],
-            "duration_sec": round(duration, 2)
-        },
+        "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
         "record_count": record_count,
         "data_quality": {
             "level": quality_level,
@@ -103,16 +127,12 @@ def cmd_check_bottleneck(engine, args):
         },
         "max_core_load": {
             "cpu_id": max_cpu_id,
-            "load": f"{max_core_usage*100:.2f}%"
+            "load": format_percent(max_core_usage * 100)
         },
         "limit_info": {
             "cpu_limit_cores": cpu_limit,
             "cpu_limit_detected": cpu_limit > 0
         }
-    }
-    
-    # Add explicit warning for CRITICAL quality
-    if quality_level == "CRITICAL":
-        result["_WARNING"] = "数据质量不足！所有结论（包括 CPU 利用率）都不可信。请使用更长的采样时间重新采集数据。"
+    })
     
     print(json.dumps(result, indent=2, ensure_ascii=False))

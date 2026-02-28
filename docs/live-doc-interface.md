@@ -384,7 +384,7 @@ perf-doc export --format markdown --output report.md
 # perf_toolkit/analysis/hotspots.py
 def cmd_get_hotspots(engine, args):
     # ... 分析逻辑 ...
-    
+
     # 发现高内核态进程
     if kernel_ratio > 0.8:
         doc = LiveDoc()
@@ -394,7 +394,7 @@ def cmd_get_hotspots(engine, args):
             risk="可能是系统瓶颈",
             hint=f"cluster-symbols --comm {comm}"
         )
-    
+
     # ... 返回结果 ...
 ```
 
@@ -505,38 +505,38 @@ from typing import List, Dict, Optional
 
 class LiveDoc:
     """Live Document for tracking diagnostic issues"""
-    
+
     DEFAULT_PATH = ".perf-doc.json"
-    
+
     def __init__(self, path: Optional[str] = None):
         self.path = path or self._find_doc()
         self.data = self._load()
-    
+
     def _find_doc(self) -> str:
         """Find existing doc or return default path"""
         if os.path.exists(self.DEFAULT_PATH):
             return self.DEFAULT_PATH
         # TODO: Check ~/.perf-diagnosis/
         return self.DEFAULT_PATH
-    
+
     def _load(self) -> Dict:
         """Load document from disk"""
         if os.path.exists(self.path):
             with open(self.path, 'r') as f:
                 return json.load(f)
         return {"version": "1.0", "issues": []}
-    
+
     def save(self):
         """Save document to disk"""
         self.data["updated_at"] = datetime.utcnow().isoformat() + "Z"
         with open(self.path, 'w') as f:
             json.dump(self.data, f, indent=2)
-    
+
     def init(self, data_file: str, path: Optional[str] = None):
         """Initialize new document"""
         if path:
             self.path = path
-        
+
         self.data = {
             "version": "1.0",
             "data_file": data_file,
@@ -546,13 +546,13 @@ class LiveDoc:
         }
         self.save()
         return self
-    
+
     def add(self, id: str, desc: str, risk: str = "", hint: str = ""):
         """Add new issue"""
         # Check duplicate
         if any(i["id"] == id for i in self.data["issues"]):
             raise ValueError(f"Duplicate issue ID: {id}")
-        
+
         issue = {
             "id": id,
             "desc": desc,
@@ -564,7 +564,7 @@ class LiveDoc:
         self.data["issues"].append(issue)
         self.save()
         return self
-    
+
     def complete(self, id: str, result: str):
         """Mark issue as completed"""
         for issue in self.data["issues"]:
@@ -574,21 +574,21 @@ class LiveDoc:
                 issue["completed_at"] = datetime.utcnow().isoformat() + "Z"
                 self.save()
                 return self
-        
+
         raise ValueError(f"Issue not found: {id}")
-    
+
     def list(self, status: str = "all") -> Dict:
         """List issues"""
         issues = self.data["issues"]
-        
+
         if status == "pending":
             issues = [i for i in issues if i["status"] == "pending"]
         elif status == "completed":
             issues = [i for i in issues if i["status"] == "completed"]
-        
+
         pending = [i for i in issues if i["status"] == "pending"]
         completed = [i for i in issues if i["status"] == "completed"]
-        
+
         return {
             "pending_count": len(pending),
             "completed_count": len(completed),
@@ -596,7 +596,7 @@ class LiveDoc:
             "pending": pending,
             "completed": completed
         }
-    
+
     def next_id(self) -> str:
         """Generate next issue ID"""
         count = len(self.data["issues"]) + 1
