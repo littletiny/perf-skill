@@ -1,3 +1,109 @@
+# SPEAR-perf-hunter v2.3 更新日志
+
+## 更新概览
+
+本次更新包含以下改进：
+1. **文档完善**: 重构 AGENTS.md，添加完整的目录结构说明
+2. **CLI 帮助增强**: 为所有子命令的复杂参数添加详细说明和使用示例
+
+---
+
+## 1. 重构 AGENTS.md
+
+### 修改理由
+原 AGENTS.md 仅包含简单的开发约定，缺乏项目结构说明，新开发者难以快速理解代码组织。
+
+### 修改内容
+1. **添加项目简介**: 说明 perf-hunter 的用途和核心特性
+2. **添加目录结构**: 完整的树状目录说明，标注每个文件的用途
+3. **添加子命令清单**: 表格形式列出所有 14 个子命令及其用途
+4. **添加输入数据格式说明**: 如何生成 perf script 输出
+5. **保留原有开发约定**: 修改记录规范、代码规范、版本控制
+
+### 文件变更
+- `AGENTS.md`: 完全重构，从 3 行扩展到结构化文档
+
+---
+
+## 2. CLI 帮助信息增强
+
+### 修改理由
+原 --help 输出对复杂参数缺乏详细说明，用户难以理解：
+- `--cpu-limit` 的格式不明确
+- `--custom-rules` 的 JSON 格式没有示例
+- `--target` 不知道可以指定哪些函数
+- `--spike-threshold`、`--storm-pid-threshold` 等阈值参数的意义不清楚
+
+### 修改内容
+
+#### 2.1 主命令 epilog 增强
+添加使用示例和输入数据格式说明：
+- 5 个典型使用示例（hotspots、bottleneck、find-callers、anomalies、core-distribution）
+- 输入数据生成方法（perf record / perf script）
+- v2.0 移除 --freq 参数的说明
+
+#### 2.2 check-cpu-bottleneck 的 --cpu-limit
+原："CPU limit in cores (e.g., '0.1c', '2c', '0.5' for 0.5 cores)"
+
+新："CPU limit in cores for cgroup environments. Examples: '0.1c' (0.1 core), '2c' (2 cores), '0.5' (0.5 cores). Default: 0 (no limit check)"
+
+#### 2.3 cluster-symbols 的 --custom-rules
+原："JSON format regex rules"
+
+新："JSON format custom rules. Example: '{"MyPattern": [{"pattern": "my_func_.*", "weight": 1.0}]}'. Rules are list of {pattern, weight} objects."
+
+#### 2.4 find-callers 的 --target
+原："Target function name to trace (e.g., 'pthread_mutex_lock'). If not provided, use --auto-target"
+
+新："Target function name to trace. Examples: 'pthread_mutex_lock', 'sched_yield', 'malloc'. Use with --min-ratio to filter significant callers. If not provided, use --auto-target to trace top hotspots automatically"
+
+#### 2.5 detect-anomalies 的阈值参数
+- `--window-size`: 添加滑动窗口分析说明，解释窗口大小对检测的影响
+- `--spike-threshold`: 解释 spike 检测机制，说明变化比率范围
+- `--min-utilization`: 解释最小利用率阈值的作用
+
+#### 2.6 count-process-variety 的 storm 阈值
+- `--storm-pid-threshold`: 解释进程风暴检测机制，说明 PID 数量的意义
+- `--storm-ratio-threshold`: 解释 samples_per_pid 比率的意义，低值表示短生命周期
+
+### 文件变更
+- `scripts/perf_expert.py`: 
+  - 更新主 parser 的 epilog
+  - 更新 6 个子命令的参数 help 文本
+  - 为复杂参数添加 metaclass 以改善显示
+
+---
+
+## 验证测试
+
+### AGENTS.md 验证
+```bash
+cat AGENTS.md
+# 输出包含完整的目录结构和说明
+```
+
+### CLI 帮助验证
+```bash
+# 主命令帮助包含示例
+python scripts/perf_expert.py --help
+
+# 各子命令参数有详细说明
+python scripts/perf_expert.py check-cpu-bottleneck --help
+python scripts/perf_expert.py cluster-symbols --help
+python scripts/perf_expert.py find-callers --help
+python scripts/perf_expert.py detect-anomalies --help
+python scripts/perf_expert.py count-process-variety --help
+```
+
+---
+
+更新日期: 2026-02-28
+版本: v2.3
+
+---
+
+# 历史版本
+
 # SPEAR-perf-hunter v2.2 更新日志
 
 ## 更新概览

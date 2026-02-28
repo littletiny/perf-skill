@@ -64,10 +64,32 @@ class HelpOnErrorParser(argparse.ArgumentParser):
 def main():
     parser = HelpOnErrorParser(
         description="Perf Expert Diagnostic Toolkit - Analyze Linux performance data using SPEAR methodology",
-        epilog="Use '<command> --help' for detailed help on each subcommand.\n\n"
-               "Note: The --freq parameter has been removed in v2.0. CPU utilization is now\n"
-               "calculated directly from perf script's core/s values, and reliability is assessed\n"
-               "based on actual CPU utilization rather than sampling frequency."
+        epilog="""Usage Examples:
+  # Analyze hotspots in a specific process
+  python perf_expert.py get-hotspots --data perf.data.txt --comm myapp --top-n 20
+  
+  # Check CPU bottleneck with cgroup limit
+  python perf_expert.py check-cpu-bottleneck --data perf.data.txt --cpu-limit 0.5c
+  
+  # Find callers of a specific function
+  python perf_expert.py find-callers --data perf.data.txt --target pthread_mutex_lock
+  
+  # Detect anomalies in a time window
+  python perf_expert.py detect-anomalies --data perf.data.txt --window-size 1.0
+  
+  # Analyze core distribution for load balancing issues
+  python perf_expert.py analyze-core-distribution --data perf.data.txt --comm myapp
+
+Input Data Format:
+  Requires 'perf script' output with core/s field. Generate with:
+    perf record -F 19 -a -g -- sleep 30
+    perf script > perf.data.txt
+
+Note: The --freq parameter has been removed in v2.0. CPU utilization is now
+calculated directly from perf script's core/s values, and reliability is assessed
+based on actual CPU utilization rather than sampling frequency.
+
+Use '<command> --help' for detailed help on each subcommand."""
     )
     subparsers = parser.add_subparsers(dest="command")
 
@@ -76,7 +98,8 @@ def main():
                                help="Determine resource throttling and single-core saturation")
     p1.add_argument("--data", required=True, help="Path to perf script output file")
     p1.add_argument("--cpu-limit", type=parse_cpu_quota, default=0, dest="cpu_limit", metavar="LIMIT",
-                    help="CPU limit in cores (e.g., '0.1c', '2c', '0.5' for 0.5 cores)")
+                    help="CPU limit in cores for cgroup environments. Examples: '0.1c' (0.1 core), "
+                         "'2c' (2 cores), '0.5' (0.5 cores). Default: 0 (no limit check)")
     # REMOVED: --freq parameter - now calculated from core/s values
     p1.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p1.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
@@ -104,7 +127,9 @@ def main():
                                help="Cluster samples by expert rules (scheduling, locks, memory, IRQ, etc.)")
     p3.add_argument("--data", required=True, help="Path to perf script output file")
     # REMOVED: --freq parameter
-    p3.add_argument("--custom-rules", help="JSON format regex rules")
+    p3.add_argument("--custom-rules", metavar="RULES",
+                    help="JSON format custom rules. Example: '{\"MyPattern\": [{\"pattern\": \"my_func_.*\", "
+                         "\"weight\": 1.0}]}'. Rules are list of {pattern, weight} objects.")
     p3.add_argument("--include-experts", action="store_true", default=True, 
                     help="Include built-in expert rules (default: True)")
     p3.add_argument("--no-include-experts", action="store_true", 
@@ -121,8 +146,10 @@ def main():
                                help="Find and analyze callers of a specific function or auto-trace top hotspots")
     p4.add_argument("--data", required=True, help="Path to perf script output file")
     # REMOVED: --freq parameter
-    p4.add_argument("--target", help="Target function name to trace (e.g., 'pthread_mutex_lock'). "
-                    "If not provided, use --auto-target")
+    p4.add_argument("--target", metavar="FUNC",
+                    help="Target function name to trace. Examples: 'pthread_mutex_lock', "
+                         "'sched_yield', 'malloc'. Use with --min-ratio to filter significant callers. "
+                         "If not provided, use --auto-target to trace top hotspots automatically")
     p4.add_argument("--auto-target", action="store_true", 
                     help="Automatically trace top N hotspot functions")
     p4.add_argument("--top-n", "--auto-target-top-n", type=int, default=5, 
@@ -142,12 +169,17 @@ def main():
                                help="Detect CPU utilization anomalies or export window data")
     p5.add_argument("--data", required=True, help="Path to perf script output file")
     # REMOVED: --freq parameter
-    p5.add_argument("--window-size", type=float, default=0.5, 
-                    help="Time window size in seconds (default: 0.5)")
-    p5.add_argument("--spike-threshold", type=float, default=0.5, 
-                    help="Utilization change threshold for spike detection (default: 0.5 = 50%%)")
-    p5.add_argument("--min-utilization", type=float, default=0.3, 
-                    help="Minimum utilization to consider as significant (default: 0.3 = 30%%)")
+    p5.add_argument("--window-size", type=float, default=0.5, metavar="SECONDS",
+                    help="Time window size in seconds for sliding window analysis. Smaller windows "
+                         "detect rapid changes but may produce more noise. (default: 0.5)")
+    p5.add_argument("--spike-threshold", type=float, default=0.5, metavar="RATIO",
+                    help="Utilization change threshold for spike detection. A spike is detected when "
+                         "CPU utilization changes by this ratio between consecutive windows. "
+                         "Range: 0.0-1.0 (default: 0.5 = 50%% change)")
+    p5.add_argument("--min-utilization", type=float, default=0.3, metavar="RATIO",
+                    help="Minimum utilization to consider as significant. Windows with CPU utilization "
+                         "below this threshold are excluded from anomaly detection. "
+                         "Range: 0.0-1.0 (default: 0.3 = 30%%)")
     p5.add_argument("--cpu-id", type=int, help="Analyze specific CPU only")
     p5.add_argument("--top-n", type=int, default=10, help="Top N anomalies to report")
     p5.add_argument("--export-mode", action="store_true", 
@@ -253,10 +285,14 @@ def main():
     # REMOVED: --freq parameter
     p12.add_argument("--top-n", type=int, default=20, 
                      help="Number of top process names to display (default: 20)")
-    p12.add_argument("--storm-pid-threshold", type=int, default=50, 
-                     help="PID count threshold for process storm detection (default: 50)")
-    p12.add_argument("--storm-ratio-threshold", type=float, default=2.0, 
-                     help="Samples per PID threshold for process storm detection (default: 2.0)")
+    p12.add_argument("--storm-pid-threshold", type=int, default=50, metavar="N",
+                     help="PID count threshold for process storm detection. A storm is detected when "
+                          "the number of unique PIDs for a process name exceeds this threshold. "
+                          "Indicates short-lived process creation (fork-bomb style). (default: 50)")
+    p12.add_argument("--storm-ratio-threshold", type=float, default=2.0, metavar="RATIO",
+                     help="Samples per PID threshold for process storm detection. A storm is also "
+                          "detected when samples_per_pid falls below this ratio. Low values indicate "
+                          "processes with very short lifetime. (default: 2.0)")
     p12.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p12.add_argument("--pid", type=int, help="Filter by process ID")
     p12.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
