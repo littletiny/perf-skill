@@ -29,9 +29,9 @@ def cmd_count_process_variety(engine, args):
         comm=getattr(args, 'comm', None),
         comm_regex=getattr(args, 'comm_regex', None)
     )
-    
+
     output = RiskAwareOutput()
-    
+
     if not samples:
         result = output.add_risk(
             "warning",
@@ -47,52 +47,52 @@ def cmd_count_process_variety(engine, args):
         })
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return
-    
+
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     record_count = len(samples)
-    
+
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
     quality_level, warning_msg, metrics = assess_data_quality(
         duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
-    
+
     comm_pid_stats = defaultdict(lambda: defaultdict(lambda: {
         'core_sec': 0.0,
         'seconds': set(),
     }))
-    
+
     for s in samples:
         comm = s['comm']
         pid = s['pid']
         ts = s['ts']
         core_per_sec = s.get('core_per_sec', 0)
-        
+
         comm_pid_stats[comm][pid]['core_sec'] += core_per_sec
         second_key = int(ts)
         comm_pid_stats[comm][pid]['seconds'].add(second_key)
-    
+
     variety_results = []
     storm_comms = []
-    
+
     STORM_PID_THRESHOLD = args.storm_pid_threshold
     STORM_CPU_THRESHOLD = getattr(args, 'storm_cpu_threshold', 0.5)
-    
+
     for comm, pid_dict in sorted(comm_pid_stats.items(), key=lambda x: -len(x[1])):
         pid_count = len(pid_dict)
         total_comm_core_sec = sum(stats['core_sec'] for stats in pid_dict.values())
         cpu_per_pid = total_comm_core_sec / pid_count if pid_count > 0 else 0
-        
+
         single_second_pids = sum(1 for stats in pid_dict.values() if len(stats['seconds']) == 1)
         short_lived_ratio = single_second_pids / pid_count if pid_count > 0 else 0
-        
+
         behavior = "normal"
-        
+
         if pid_count >= STORM_PID_THRESHOLD and cpu_per_pid <= STORM_CPU_THRESHOLD:
             behavior = "process_storm"
             storm_comms.append(comm)
         elif short_lived_ratio > 0.8 and pid_count > 20:
             behavior = "short_lived_heavy"
-        
+
         variety_results.append({
             "comm": comm,
             "unique_pids": pid_count,
@@ -100,7 +100,7 @@ def cmd_count_process_variety(engine, args):
             "cpu_per_pid": round(cpu_per_pid, 4),
             "behavior": behavior
         })
-    
+
     # Add risk for process storm
     if storm_comms:
         output.add_risk(
@@ -110,7 +110,7 @@ def cmd_count_process_variety(engine, args):
             patterns=["PROCESS_STORM"],
             targets=storm_comms
         )
-    
+
     # Data quality risk
     if quality_level == "CRITICAL":
         output.add_risk(
@@ -119,7 +119,7 @@ def cmd_count_process_variety(engine, args):
             "使用更长的采样时间重新采集数据",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
-    
+
     result = output.build({
         "summary": {
             "total_processes": len(comm_pid_stats),
@@ -129,5 +129,5 @@ def cmd_count_process_variety(engine, args):
         "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
         "process_variety": variety_results[:args.top_n]
     })
-    
+
     print(json.dumps(result, indent=2, ensure_ascii=False))

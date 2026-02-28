@@ -14,20 +14,20 @@ from typing import List, Dict, Optional
 
 class RiskMixin:
     """Mixin for standardized risk hints in output"""
-    
+
     RISK_LEVELS = ["critical", "warning", "info", "none"]
-    
+
     # Risk level priority for comparison
     PRIORITY = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-    
+
     def __init__(self):
         self.risks = []
-    
+
     def add_risk(self, level: str, message: str, hint: str = "",
                  patterns: List[str] = None, targets: List[str] = None):
         """
         Add a risk hint.
-        
+
         Args:
             level: Risk level - critical/warning/info/none
             message: One-sentence risk description
@@ -37,7 +37,7 @@ class RiskMixin:
         """
         if level not in self.RISK_LEVELS:
             level = "info"
-        
+
         self.risks.append({
             "level": level,
             "message": message,
@@ -45,11 +45,11 @@ class RiskMixin:
             "patterns": patterns or [],
             "pending_targets": targets or []
         })
-    
+
     def get_top_risk(self) -> Dict:
         """
         Get the highest level risk.
-        
+
         Returns:
             Risk dict with action_required flag
         """
@@ -62,22 +62,22 @@ class RiskMixin:
                 "pending_targets": [],
                 "action_required": False
             }
-        
+
         # Find highest priority (lowest number) risk
         top = min(self.risks, key=lambda r: self.PRIORITY.get(r["level"], 3))
-        
+
         return {
             **top,
             "action_required": top["level"] in ["critical", "warning"]
         }
-    
+
     def format_output(self, data: Dict) -> Dict:
         """
         Add _risk field to output data.
-        
+
         Args:
             data: Output data dict
-            
+
         Returns:
             Data with _risk field prepended
         """
@@ -85,7 +85,7 @@ class RiskMixin:
             "_risk": self.get_top_risk(),
             **data
         }
-    
+
     def clear_risks(self):
         """Clear all recorded risks"""
         self.risks = []
@@ -94,22 +94,22 @@ class RiskMixin:
 class RiskAwareOutput:
     """
     Helper class for building risk-aware output.
-    
+
     Usage:
         output = RiskAwareOutput()
         output.add_risk("warning", "发现高内核态进程", "cluster-symbols --comm xxx")
         result = output.build({"data": "..."})
     """
-    
+
     def __init__(self):
         self._risk_mixin = RiskMixin()
-    
+
     def add_risk(self, level: str, message: str, hint: str = "",
                  patterns: List[str] = None, targets: List[str] = None):
         """Add a risk hint"""
         self._risk_mixin.add_risk(level, message, hint, patterns, targets)
         return self
-    
+
     def build(self, data: Dict) -> Dict:
         """Build final output with _risk field"""
         return self._risk_mixin.format_output(data)
