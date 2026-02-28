@@ -3052,10 +3052,65 @@ tool 输出 risk → Agent 看到 "[必须] 添加到 Live Document" → 执行 
 
 ---
 
+## 7. 补充更新: get-comm-top 高内核态检测增强 (v2.16 补充)
+
+### 7.1 问题背景
+
+原 `get-comm-top` 对高内核态进程组的检测阈值过高（kernel% > 80%），且 hint 未明确要求对每个标记进程执行 `cluster-symbols`。
+
+### 7.2 改进内容
+
+**文件**: `scripts/perf_toolkit/analysis/comm_top.py`
+
+#### 修改 1: 降低检测阈值
+- 从 `kernel_ratio > 80` 改为 `kernel_ratio > 50`
+- 确保所有 kernel% > 50% 的进程都被标记
+
+#### 修改 2: 强化 hint 语义
+**修改前**:
+```python
+output.add_risk(
+    risk_level,
+    f"发现 {len(high_kernel_groups)} 个高内核态进程组未分析",
+    f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '...' --hint 'cluster-symbols --comm {high_kernel_groups[0]}'",
+    patterns=["MULTI_HIGH_KERNEL"],
+    targets=high_kernel_groups[:3]
+)
+```
+
+**修改后**:
+```python
+# 构建必须对每个进程执行 cluster-symbols 的 hint
+cluster_commands = [f"cluster-symbols --comm {comm}" for comm in high_kernel_groups]
+output.add_risk(
+    risk_level,
+    f"发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%)未分析",
+    f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '...' --hint '必须对每个进程运行: {'; '.join(cluster_commands)}'",
+    patterns=["MULTI_HIGH_KERNEL"],
+    targets=high_kernel_groups  # 返回所有高内核态进程，不只是前3个
+)
+```
+
+**关键改进**:
+1. 检测阈值从 80% 降至 50%，覆盖更多潜在问题进程
+2. hint 明确说明"必须对每个进程运行"
+3. 在 desc 中列出所有被标记的进程名
+4. `targets` 返回所有高内核态进程（不只是前3个）
+
+### 7.3 预期效果
+
+| 场景 | 修改前 | 修改后 |
+|------|--------|--------|
+| kernel% 51-79% 的进程 | 不被标记 | 被标记并需要分析 |
+| hint 指导 | 仅提示分析第一个进程 | 明确要求分析**每个**进程 |
+| targets 列表 | 最多3个 | 所有符合条件的进程 |
+
+---
+
 更新日期: 2026-03-01
 
 版本: v2.16
 
-核心改进: 强化 risk 结果必须添加到 Live Document 的强制性要求
+核心改进: 强化 risk 结果必须添加到 Live Document 的强制性要求，增强 get-comm-top 高内核态检测
 
 ---

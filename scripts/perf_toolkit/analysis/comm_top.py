@@ -109,8 +109,8 @@ def cmd_get_comm_top(engine, args):
         else:
             kernel_ratio = user_ratio = 0
 
-        # Track high kernel groups for risk
-        if kernel_ratio > 80 and aggregate_cpu_util > 5:
+        # Track high kernel groups for risk (kernel% > 50%)
+        if kernel_ratio > 50 and aggregate_cpu_util > 5:
             high_kernel_groups.append(comm)
 
         density_index = aggregate_cpu_util / pid_count if pid_count > 0 else 0
@@ -138,15 +138,17 @@ def cmd_get_comm_top(engine, args):
     top_n = getattr(args, 'top_n', 10)
     top_results = results[:top_n]
 
-    # Add risk for high kernel groups
+    # Add risk for high kernel groups (kernel% > 50%)
     if len(high_kernel_groups) > 0:
         risk_level = "warning" if len(high_kernel_groups) <= 2 else "critical"
+        # 构建必须对每个进程执行 cluster-symbols 的 hint
+        cluster_commands = [f"cluster-symbols --comm {comm}" for comm in high_kernel_groups]
         output.add_risk(
             risk_level,
-            f"发现 {len(high_kernel_groups)} 个高内核态进程组未分析",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 {len(high_kernel_groups)} 个高内核态进程组未分析' --risk '{risk_level}' --hint 'cluster-symbols --comm {high_kernel_groups[0]}'",
+            f"发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%)未分析",
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%): {', '.join(high_kernel_groups)}' --risk '{risk_level}' --hint '必须对每个进程运行: {'; '.join(cluster_commands)}'",
             patterns=["MULTI_HIGH_KERNEL"],
-            targets=high_kernel_groups[:3]
+            targets=high_kernel_groups
         )
 
     # Data quality risk
