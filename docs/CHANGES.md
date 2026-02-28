@@ -2139,3 +2139,152 @@ python /path/to/perf_expert.py doc export --format markdown
 版本: v2.11
 
 ---
+
+# SPEAR-perf-hunter v2.12 更新日志
+
+## 更新概览
+
+本次更新将 Live Document（perf-doc）机制整合到 Skill 文档体系，建立**强制审计规则**，防止诊断过程中因搜索空间不足导致关键问题遗漏。
+
+**核心改进**:
+1. **SKILL.md 新增 Live Document 章节**: 明确强制审计规则和禁止行为
+2. **workflow.md 整合审计检查点**: 在 Phase 1/7 中嵌入 Live Document 使用时机
+3. **建立覆盖率保障机制**: 从"建议"变为"强制"，确保诊断完整性
+
+---
+
+## 1. 问题背景
+
+### 1.1 netstat/containerd-shim 案例复盘
+
+分析 `netstat_perf.data` 时：
+
+```
+get-comm-top 发现 4 个高内核态进程组:
+  netstat:          2623 PIDs, 94.7% kernel  ← 分析 ✓
+  containerd-shim:   240 PIDs, 89.9% kernel  ← 遗漏 ✗
+  sh:                 45 PIDs, 86.8% kernel  ← 遗漏 ✗
+  python3:           826 PIDs, 82.3% kernel  ← 遗漏 ✗
+```
+
+**搜索覆盖率**: 1/4 = 25% (严重不足)
+
+**根本原因**: 人脑记忆有限，工具输出后无持久化，信息必然淹没。
+
+---
+
+## 2. SKILL.md 更新
+
+### 2.1 新增"Live Document 机制"章节
+
+**位置**: 在"文档规范"章节之后，"典型陷阱与自检"之前
+
+**内容结构**:
+- **机制概述**: 介绍核心命令（init/add/complete/list/finalize）
+- **强制审计规则**:
+  1. 发现问题时必须记录（`doc add`）
+  2. 定期执行审计检查（`doc list`，每 2-3 个工具后）
+  3. 生成报告前必须最终审计（`doc finalize`）
+- **禁止行为**: 4 条明确禁止的操作
+- **典型使用流程**: 完整示例演示
+
+**关键规则**:
+```markdown
+- ❌ 未执行 `doc init` 直接开始分析
+- ❌ 发现多个问题只记录一个
+- ❌ `pending` 列表不为空时生成最终报告
+- ❌ 未执行 `doc finalize` 结束诊断
+```
+
+---
+
+## 3. workflow.md 更新
+
+### 3.1 Phase 1: 问题定义
+
+**修改**: 在"第一步"提示中增加 Live Document 初始化
+
+```markdown
+> ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Live Document
+> 
+> 1. 使用 `templates.md` 模板创建 `debug/[问题描述].md`
+> 2. **执行 `perf-expert.py doc init --data <perf-data>` 初始化 Live Document**
+```
+
+**新增**: 1.5 节 "记录待验证问题"
+- 说明何时记录（发现多个高消耗进程、异常模式等）
+- 提供 `doc add` 示例
+- ⚠️ 警示数字偏见问题
+
+### 3.2 Phase 7: 专家经验查缺补漏
+
+**修改**: 将"7.2 全局一致性检查"改为"7.2 审计检查点" + "7.3 全局一致性检查"
+
+**7.2 审计检查点（⚠️ 强制执行）**:
+- 定期审计（每 2-3 个工具后执行 `doc list`）
+- 最终审计（生成报告前执行 `doc finalize`）
+
+**7.3 全局一致性检查**:
+- 新增检查项："Live Document 中是否还有未处理的 `PENDING` 问题？"
+
+---
+
+## 4. 预期效果
+
+### 4.1 诊断流程变化
+
+**修改前**:
+```
+get-comm-top → 被 2623 PIDs 吸引 → 只分析 netstat → 遗漏其他问题
+```
+
+**修改后**:
+```
+get-comm-top → doc add 记录所有 4 个问题 → doc list 显示待办 → 
+被迫分析所有问题 → doc finalize 确认完整性 → 生成报告
+```
+
+### 4.2 覆盖率保障
+
+| 指标 | 修改前 | 修改后 |
+|------|--------|--------|
+| 问题跟踪 | 人脑记忆 | Live Document 持久化 |
+| 审计机制 | 无 | `doc list` / `doc finalize` 强制检查 |
+| 提前收敛 | 易发生 | `finalize` 阻止未完成时生成报告 |
+| 覆盖率 | 依赖主观 | 强制 100% 或显式接受风险 |
+
+---
+
+## 5. 文件变更清单
+
+### 修改的文件
+
+1. `SKILL.md`
+   - 新增"Live Document 机制（⚠️ 强制执行）"章节
+   - 包含核心命令、强制审计规则、禁止行为、典型使用流程
+
+2. `references/workflow.md`
+   - Phase 1: 更新"第一步"提示，增加 `doc init`
+   - Phase 1: 新增 1.5 节"记录待验证问题"
+   - Phase 7: 拆分原 7.2 为"审计检查点"和"全局一致性检查"
+
+3. `docs/CHANGES.md` (本文件)
+   - 添加 v2.12 变更记录
+
+---
+
+## 6. 参考文档
+
+- [Live Document 设计意图文档](./design-rationale-live-doc.md)
+- [Live Document 接口设计文档](./live-doc-interface.md)
+- v2.11 更新日志（perf-doc 工具实现）
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.12
+
+核心改进: 建立 Live Document 强制审计机制，保障诊断覆盖率
+
+---

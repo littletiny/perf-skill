@@ -81,10 +81,18 @@
 
 ## Phase 1: 问题定义
 
-> ⚠️ **Phase 1 第一步**: 创建诊断文档
+> ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Live Document
 > 
-> 在开始任何分析之前，立即使用 [`templates.md`](./templates.md) 中的模板创建 `debug/[问题描述].md` 文档。
+> 在开始任何分析之前：
+> 1. 使用 [`templates.md`](./templates.md) 中的模板创建 `debug/[问题描述].md` 文档
+> 2. **执行 `perf-expert.py doc init --data <perf-data>` 初始化 Live Document**
+> 
 > 这是强制要求，用于维护问题演进记录和竞争性假设追踪。
+> 
+> ```bash
+> # 初始化 Live Document（必须）
+> perf-expert.py doc init --data netstat_perf.data
+> ```
 
 ### 1.1 目标范围界定
 
@@ -150,6 +158,27 @@
   验证: count-process-variety
   证伪: PID数量正常，样本/PID比值正常
 ```
+
+### 1.5 记录待验证问题
+
+**目标**: 将发现的潜在问题记录到 Live Document，防止遗漏
+
+**何时记录**:
+- 发现多个高消耗进程/进程组时
+- 检测到异常模式（如 `SINGLE_CORE_SATURATION`, `PROCESS_STORM`）
+- 发现高内核态比例或其他异常指标
+
+**如何记录**:
+```bash
+# 示例：get-comm-top 发现 4 个高内核态进程组，全部记录
+perf-expert.py doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
+  --risk "进程风暴" --hint "cluster-symbols --comm netstat"
+perf-expert.py doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
+  --risk "可能比 netstat 更严重" --hint "cluster-symbols --comm containerd-shim"
+# ... 继续记录其他问题
+```
+
+**⚠️ 重要**: 不要只记录最显眼的问题！数字偏见（2623 PIDs vs 240 PIDs）会导致遗漏同样严重的问题。
 
 ---
 
@@ -339,7 +368,33 @@
 | 系统 CPU 高但无明显高耗进程 | 检查：是否存在大量小进程集体消耗 | `get-comm-top` | **不加** 过滤参数，系统级视图 |
 | 疑似内核瓶颈 | 检查：全局锁、中断、调度器 | `get-hotspots` / `cluster-symbols` | **不加** `--pid`，分析 kernel 空间热点 |
 
-### 7.2 全局一致性检查
+### 7.2 审计检查点（⚠️ 强制执行）
+
+#### 定期审计（每 2-3 个工具后）
+
+**必须执行 `doc list` 检查待办问题**：
+
+```bash
+perf-expert.py doc list
+```
+
+**输出解读**:
+- 如有 `PENDING` 问题 → 继续分析，不要提前收敛
+- 确保所有重要问题都得到处理
+
+#### 最终审计（生成报告前）
+
+**必须执行 `doc finalize` 确认完整性**：
+
+```bash
+perf-expert.py doc finalize
+```
+
+**可能输出**:
+1. **全部完成**: ✅ 所有问题已处理 → 可以生成报告
+2. **有未处理问题**: ⚠️ 剩余风险确认 → 选择 [A]继续分析 / [B]接受风险 / [C]标记为无需处理
+
+### 7.3 全局一致性检查
 
 在得出结论前，必须确认：
 
@@ -348,6 +403,10 @@
   - 负载分布异常
   - 时序异常
   - 进程行为异常
+
+- [ ] **Live Document 中是否还有未处理的 `PENDING` 问题？**
+  - 执行 `doc list` 确认
+  - 执行 `doc finalize` 完成最终审计
 
 - [ ] **是否符合领域应有表现？**
   - 该类型应用的典型 CPU 模式

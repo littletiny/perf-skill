@@ -121,6 +121,123 @@ Step 5: 全局审计
 
 ---
 
+## Live Document 机制（⚠️ 强制执行）
+
+### 机制概述
+
+Live Document 是诊断过程的**结构化状态容器**，用于跟踪所有待验证问题，防止搜索空间不足导致关键问题遗漏。
+
+**核心命令** (通过 `perf_expert.py doc <command>` 调用):
+
+| 命令 | 用途 | 示例 |
+|------|------|------|
+| `doc init` | 初始化诊断文档 | `doc init --data perf.data` |
+| `doc add` | 记录发现的问题 | `doc add --id ISS-001 --desc "高内核态" --risk "可能遗漏"` |
+| `doc complete` | 标记问题已分析 | `doc complete --id ISS-001 --result "锁竞争 38%"` |
+| `doc list` | 查看待办列表 | `doc list` |
+| `doc finalize` | 最终审计（生成报告前必须执行） | `doc finalize` |
+
+### 强制审计规则
+
+**⚠️ 非常重要**: 以下规则必须严格遵守，否则可能导致诊断遗漏。
+
+**1. 发现问题时必须记录**
+
+当工具输出显示多个潜在问题时（如 `get-comm-top` 显示多个高内核态进程组），**立即记录所有问题**：
+
+```bash
+# 发现 4 个高内核态进程组，全部记录
+perf-expert.py doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
+  --risk "进程风暴" --hint "cluster-symbols --comm netstat"
+perf-expert.py doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
+  --risk "单进程影响可能更大" --hint "cluster-symbols --comm containerd-shim"
+# ... 继续记录其他问题
+```
+
+**2. 定期执行审计检查**
+
+**每执行 2-3 个工具后，必须运行审计**：
+
+```bash
+perf-expert.py doc list
+```
+
+输出示例：
+```
+⚠️  PENDING  ← 需处理
+ISS-002  containerd-shim 高内核态 89.9%
+         ├─ 风险: 可能比 netstat 更严重，单进程影响大
+         └─ 建议: cluster-symbols --comm containerd-shim
+```
+
+**3. 生成报告前必须最终审计**
+
+**在生成最终诊断报告前，必须执行 finalize**：
+
+```bash
+perf-expert.py doc finalize
+```
+
+如有未处理问题，输出：
+```
+⚠️  剩余风险确认
+以下问题尚未处理：
+  ISS-002  containerd-shim 高内核态 89.9%
+
+强制选择:
+[A] 继续分析剩余问题（推荐）
+[B] 接受风险，生成报告（必须提供理由）
+[C] 标记为无需处理
+```
+
+### 禁止行为
+
+- ❌ **未执行 `doc init` 直接开始分析** - 无法跟踪问题状态
+- ❌ **发现多个问题只记录一个** - 导致搜索覆盖率不足
+- ❌ **`pending` 列表不为空时生成最终报告** - 可能遗漏关键问题
+- ❌ **未执行 `doc finalize` 结束诊断** - 无法确认审计完整性
+
+### 典型使用流程
+
+```bash
+# 1. 初始化文档（Phase 1）
+perf-expert.py doc init --data netstat_perf.data
+
+# 2. 宏观评估，发现问题（Phase 2）
+perf-expert.py get-comm-top --data netstat_perf.data
+# 发现: 4 个高内核态进程组
+
+# 3. 记录所有问题
+perf-expert.py doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
+  --risk "进程风暴" --hint "cluster-symbols --comm netstat"
+perf-expert.py doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
+  --risk "可能比 netstat 更严重" --hint "cluster-symbols --comm containerd-shim"
+
+# 4. 审计检查
+perf-expert.py doc list
+# 输出: 2 pending
+
+# 5. 分析问题并记录结果
+perf-expert.py cluster-symbols --comm netstat --data netstat_perf.data
+perf-expert.py doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+
+# 6. 再次审计（发现还有 ISS-002 未处理）
+perf-expert.py doc list
+# 输出: 1 pending → 被迫继续分析 ISS-002
+
+perf-expert.py cluster-symbols --comm containerd-shim --data netstat_perf.data
+perf-expert.py doc complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
+
+# 7. 最终审计
+perf-expert.py doc finalize
+# 输出: ✅ 所有问题已处理
+
+# 8. 导出报告
+perf-expert.py doc export --format markdown --output report.md
+```
+
+---
+
 ## 典型陷阱与自检
 
 | 陷阱 | 表现 | 自检问题 |
