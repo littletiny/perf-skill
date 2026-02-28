@@ -1991,3 +1991,151 @@ def format_time_range(start_ts, end_ts):
 版本: v2.10
 
 ---
+---
+
+# SPEAR-perf-hunter v2.11 更新日志
+
+## 更新概览
+
+本次更新实现 Live Document（perf-doc）CLI 工具，用于跟踪诊断过程中的问题记录：
+
+1. **新增 perf-doc 工具**: 6 个核心命令（init/add/complete/list/finalize/export）
+2. **集成到 perf_expert.py**: 通过 `perf_expert.py doc <command>` 调用
+3. **问题追踪流程**: 完整的问题生命周期管理
+
+---
+
+## 1. Live Document 功能
+
+### 1.1 设计目标
+
+解决诊断过程中问题追踪的痛点：
+- 多个问题并行分析时的状态管理
+- 最终审计前的强制检查点
+- 诊断报告的自动生成
+
+### 1.2 核心命令
+
+| 命令 | 用途 | 示例 |
+|------|------|------|
+| `doc init` | 初始化诊断文档 | `doc init --data perf.data` |
+| `doc add` | 添加问题记录 | `doc add --id ISS-001 --desc "高内核态"` |
+| `doc complete` | 标记问题完成 | `doc complete --id ISS-001 --result "锁竞争"` |
+| `doc list` | 列出所有问题 | `doc list --format text` |
+| `doc finalize` | 最终审计 | `doc finalize --accept-risk "低风险"` |
+| `doc export` | 导出报告 | `doc export --format markdown` |
+
+### 1.3 文档格式
+
+```json
+{
+  "version": "1.0",
+  "data_file": "perf.data",
+  "created_at": "2026-02-28T10:00:00Z",
+  "updated_at": "2026-02-28T11:30:00Z",
+  "issues": [
+    {
+      "id": "ISS-001",
+      "desc": "netstat 高内核态 94.7%",
+      "status": "completed",
+      "risk": "进程风暴",
+      "hint": "cluster-symbols --comm netstat",
+      "result": "LOCK_CONTENTION 38.36%",
+      "created_at": "2026-02-28T10:05:00Z",
+      "completed_at": "2026-02-28T11:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## 2. 文件变更
+
+### 新增文件
+1. `scripts/perf_toolkit/core/live_doc.py` - LiveDoc 类实现
+   - `init()`: 初始化 `.perf-doc.json`
+   - `add()`: 添加问题
+   - `complete()`: 标记完成
+   - `list()`: 列出问题
+   - `finalize()`: 最终审计
+   - `export_markdown()`: 导出 Markdown 报告
+
+### 修改文件
+1. `scripts/perf_expert.py`
+   - 导入 live_doc 命令
+   - 添加 `doc` 子命令及 6 个子命令解析
+   - 添加命令路由
+
+2. `scripts/perf_toolkit/core/__init__.py`
+   - 导出 `LiveDoc` 类
+
+---
+
+## 3. 使用流程示例
+
+```bash
+# 1. 初始化文档
+perf-expert.py doc init --data netstat_perf.data
+
+# 2. 发现问题并记录
+perf-expert.py get-comm-top --data netstat_perf.data
+# 发现: 4 个高内核态进程组
+
+perf-expert.py doc add --id ISS-001 \
+  --desc "netstat 高内核态 94.7%" \
+  --risk "进程风暴" \
+  --hint "cluster-symbols --comm netstat"
+
+# 3. 分析问题并记录结果
+perf-expert.py cluster-symbols --comm netstat --data netstat_perf.data
+perf-expert.py doc complete --id ISS-001 \
+  --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
+
+# 4. 检查待办
+perf-expert.py doc list
+
+# 5. 最终审计
+perf-expert.py doc finalize
+# 输出: ✅ 所有问题已处理
+
+# 6. 导出报告
+perf-expert.py doc export --format markdown --output report.md
+```
+
+---
+
+## 4. 验证测试
+
+```bash
+# 完整流程测试
+cd /tmp
+rm -f .perf-doc.json
+
+# 初始化
+python /path/to/perf_expert.py doc init --data test.data
+
+# 添加问题
+python /path/to/perf_expert.py doc add --id ISS-001 \
+  --desc "测试问题" --risk "高风险" --hint "执行分析"
+
+# 列出问题
+python /path/to/perf_expert.py doc list
+
+# 完成问题
+python /path/to/perf_expert.py doc complete --id ISS-001 --result "已解决"
+
+# 最终审计
+python /path/to/perf_expert.py doc finalize
+
+# 导出报告
+python /path/to/perf_expert.py doc export --format markdown
+```
+
+---
+
+更新日期: 2026-02-28
+
+版本: v2.11
+
+---
