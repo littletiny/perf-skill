@@ -30,7 +30,7 @@ def cmd_cluster_comm(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
         ).build({
             "error": "No samples found",
             "time_range": format_time_range(
@@ -100,7 +100,7 @@ def cmd_cluster_comm(engine, args):
         output.add_risk(
             "critical",
             "数据质量不足！进程组聚类结果完全不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！进程组聚类结果完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
     

@@ -32,7 +32,7 @@ def cmd_detect_anomalies(engine, args):
         result = output.add_risk(
             "warning",
             "指定时间范围内未找到样本",
-            "检查时间范围或移除过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '指定时间范围内未找到样本' --risk 'warning' --hint '检查时间范围或移除过滤条件'"
         ).build({
             "error": "No samples found in the specified time range",
             "time_range": format_time_range(
@@ -57,7 +57,7 @@ def cmd_detect_anomalies(engine, args):
         result = output.add_risk(
             "critical",
             "数据质量不足，异常检测结果完全不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足，异常检测结果完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         ).build({
             "data_quality": {
@@ -188,7 +188,7 @@ def cmd_detect_anomalies(engine, args):
         output.add_risk(
             "warning",
             f"检测到 {spike_count} 个 CPU 利用率异常尖峰",
-            f"分析 spike 时段热点: get-hotspots --start-time '{format_timestamp(samples[0]['ts'])}'",
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {spike_count} 个 CPU 利用率异常尖峰' --risk 'warning' --hint 'get-hotspots --start-time {format_timestamp(samples[0]['ts'])}'",
             patterns=["CPU_SPIKE"]
         )
     

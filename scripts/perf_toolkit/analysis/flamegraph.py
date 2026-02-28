@@ -32,7 +32,7 @@ def cmd_generate_flamegraph(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
         ).build({
             "error": "No samples found",
             "time_range": format_time_range(

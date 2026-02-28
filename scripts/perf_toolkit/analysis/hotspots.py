@@ -31,7 +31,7 @@ def cmd_get_hotspots(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
         ).build({
             "error": "No samples found",
             "time_range": format_time_range(
@@ -101,7 +101,7 @@ def cmd_get_hotspots(engine, args):
         output.add_risk(
             "warning",
             f"热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%",
-            f"溯源调用: find-callers --target {top_kernel_hotspot}",
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%' --risk 'warning' --hint 'find-callers --target {top_kernel_hotspot}'",
             patterns=["HIGH_KERNEL_HOTSPOT"]
         )
     
@@ -110,7 +110,7 @@ def cmd_get_hotspots(engine, args):
         output.add_risk(
             "critical",
             "数据质量不足！热点函数排序和百分比完全不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！热点函数排序和百分比完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
     

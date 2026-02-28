@@ -36,7 +36,7 @@ def cmd_get_comm_top(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件或数据文件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件或数据文件'"
         ).build({
             "error": "No samples found",
             "filters": {
@@ -140,10 +140,11 @@ def cmd_get_comm_top(engine, args):
 
     # Add risk for high kernel groups
     if len(high_kernel_groups) > 0:
+        risk_level = "warning" if len(high_kernel_groups) <= 2 else "critical"
         output.add_risk(
-            "warning" if len(high_kernel_groups) <= 2 else "critical",
+            risk_level,
             f"发现 {len(high_kernel_groups)} 个高内核态进程组未分析",
-            f"建议并行分析: cluster-symbols --comm {high_kernel_groups[0]}",
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 {len(high_kernel_groups)} 个高内核态进程组未分析' --risk '{risk_level}' --hint 'cluster-symbols --comm {high_kernel_groups[0]}'",
             patterns=["MULTI_HIGH_KERNEL"],
             targets=high_kernel_groups[:3]
         )
@@ -153,7 +154,7 @@ def cmd_get_comm_top(engine, args):
         output.add_risk(
             "critical",
             "数据质量不足！comm 组分析结果不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！comm 组分析结果不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
 

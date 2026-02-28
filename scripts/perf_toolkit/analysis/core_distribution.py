@@ -33,7 +33,7 @@ def cmd_analyze_core_distribution(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
         ).build({
             "error": "No samples found",
             "filters": {
@@ -117,14 +117,14 @@ def cmd_analyze_core_distribution(engine, args):
             output.add_risk(
                 "critical",
                 "负载严重不均衡: 单核满载，其他核心空闲",
-                f"检查锁竞争: cluster-symbols --comm {target_comm}",
+                f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '负载严重不均衡: 单核满载，其他核心空闲' --risk 'critical' --hint 'cluster-symbols --comm {target_comm}'",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
         elif len(saturated_cores) == 1 and len(core_list) > 1:
             output.add_risk(
                 "warning",
                 f"单核满载 (CPU {saturated_cores[0]['cpu_id']})",
-                f"检查锁竞争或CPU亲和性: cluster-symbols --comm {target_comm}",
+                f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载 (CPU {saturated_cores[0]['cpu_id']})' --risk 'warning' --hint 'cluster-symbols --comm {target_comm}'",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
     else:
@@ -137,7 +137,7 @@ def cmd_analyze_core_distribution(engine, args):
         output.add_risk(
             "critical",
             "数据质量不足！分布分析结果不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！分布分析结果不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
     

@@ -33,7 +33,7 @@ def cmd_trace_attribution(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
         ).build({
             "error": "No samples found",
             "time_range": format_time_range(
@@ -89,7 +89,7 @@ def cmd_trace_attribution(engine, args):
         output.add_risk(
             "warning",
             f"目标函数 '{target}' 几乎无 CPU 活动",
-            "检查目标函数名称是否正确",
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '目标函数 {target} 几乎无 CPU 活动' --risk 'warning' --hint '检查目标函数名称是否正确'",
             patterns=["LOW_TARGET_ACTIVITY"]
         )
     
@@ -98,7 +98,7 @@ def cmd_trace_attribution(engine, args):
         output.add_risk(
             "critical",
             "数据质量不足！归因分析不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！归因分析不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
     
@@ -129,7 +129,7 @@ def cmd_find_callers_auto(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
         ).build({
             "error": "No samples found",
             "time_range": format_time_range(

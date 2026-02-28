@@ -29,6 +29,16 @@
 
 ### 2.1 `_risk` 字段（必须）
 
+**⚠️ 强制性规则**: 当 `_risk.action_required=true` 时，**必须**将问题添加到 Live Document
+
+```bash
+# 任何返回 action_required=true 的 tool 输出，必须执行：
+perf-expert.py doc add --id <ISS-XXX> --desc "<_risk.message>" \
+  --risk "<_risk.level>" --hint "<_risk.hint>"
+```
+
+**强制执行**: 分析流程中禁止忽略 `action_required=true` 的风险提示。未添加到 Live Document 的风险视为分析不完整。
+
 ```json
 {
   "_risk": {

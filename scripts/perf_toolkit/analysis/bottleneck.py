@@ -45,7 +45,7 @@ def cmd_check_bottleneck(engine, args):
         result = output.add_risk(
             "warning",
             "指定时间范围内未找到样本",
-            "检查时间范围或移除过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '指定时间范围内未找到样本' --risk 'warning' --hint '检查时间范围或移除过滤条件'"
         ).build({
             "error": "No samples found in the specified time range",
             "time_range": format_time_range(
@@ -95,7 +95,7 @@ def cmd_check_bottleneck(engine, args):
         output.add_risk(
             "critical",
             f"CPU 限制接近饱和: {format_percent(max_core_usage * 100)}",
-            "检查 cgroup CPU 限制或扩容",
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc 'CPU 限制接近饱和: {format_percent(max_core_usage * 100)}' --risk 'critical' --hint '检查 cgroup CPU 限制或扩容'",
             patterns=["CPU_LIMIT_SATURATION"]
         )
     elif max_core_usage > 0.9:
@@ -103,13 +103,13 @@ def cmd_check_bottleneck(engine, args):
         # 构建 hint：如果有 pid 则直接使用，否则建议先获取进程排行
         pid = getattr(args, 'pid', None)
         if pid:
-            hint = f"执行: analyze-core-distribution --pid {pid}"
+            hint = f"analyze-core-distribution --pid {pid}"
         else:
             hint = "先定位高 CPU 进程: get-process-top --top-n 5，然后分析具体进程"
         output.add_risk(
             "warning",
             "单核满载，可能存在串行化瓶颈",
-            hint,
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载，可能存在串行化瓶颈' --risk 'warning' --hint '{hint}'",
             patterns=["SINGLE_CORE_SATURATION"]
         )
     
@@ -118,7 +118,7 @@ def cmd_check_bottleneck(engine, args):
         output.add_risk(
             "critical",
             "数据质量不足！所有结论都不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！所有结论都不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
     

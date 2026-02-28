@@ -184,12 +184,12 @@ ELSE IF (症状局限于单个进程) OR (无共同依赖路径):
 ```bash
 # Step 1: 行为检测
 count-process-variety
-get-comm-top  # 关注 pid_count 和 density_index
+get-comm-top  # 关注 cpu消耗总量，尤其是内核态cpu占用
 
 # Step 2: 如果检测到 PROCESS_STORM
 # 在 Live Document 中记录所有风暴进程组
 perf-expert.py doc add --id ISS-001 \
-  --desc "netstat 进程风暴 (2623 PIDs)" \
+  --desc "lsof 进程风暴 (40 PIDs)" \
   --risk "系统开销激增" \
   --hint "cluster-symbols --comm netstat"
 
@@ -299,7 +299,7 @@ find-callers --target schedule --comm <xxx>
 #   └─ 调用路径中有业务逻辑 → 主动休眠过多
 #   └─ 调用路径只有内核 → 调度器压制
 
-# CASE 2: LOCK_CONTENTION 高  
+# CASE 2: LOCK_CONTENTION 高
 find-callers --target <具体锁函数> --comm <xxx>
 #   └─ 确认是用户态锁还是内核态锁
 
@@ -364,7 +364,7 @@ cluster-symbols --comm <xxx>  # 看具体回收函数
 
 ## 审计检查点（所有模式通用）
 
-### 每 2-3 个工具后执行
+### 每 2-3 诊断工具后执行
 
 ```bash
 perf-expert.py doc list

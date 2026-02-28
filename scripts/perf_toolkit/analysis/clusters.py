@@ -43,7 +43,7 @@ def cmd_apply_cluster(engine, args):
         result = output.add_risk(
             "warning",
             "未找到样本数据",
-            "检查过滤条件"
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
         ).build({
             "error": "No samples found",
             "time_range": format_time_range(
@@ -117,14 +117,14 @@ def cmd_apply_cluster(engine, args):
         output.add_risk(
             "critical",
             f"锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈",
-            f"溯源锁调用: find-callers --target '{top_lock_func}'",
+            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈' --risk 'critical' --hint 'find-callers --target {top_lock_func}'",
             patterns=["HIGH_LOCK_CONTENTION"]
         )
     elif lock_contention_ratio > 20:
         output.add_risk(
             "warning",
             f"锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈",
-            "分析锁竞争: find-callers --target pthread_mutex_lock",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈' --risk 'warning' --hint 'find-callers --target pthread_mutex_lock'",
             patterns=["LOCK_CONTENTION"]
         )
     
@@ -133,7 +133,7 @@ def cmd_apply_cluster(engine, args):
         output.add_risk(
             "critical",
             "数据质量不足！聚类结果完全不可信",
-            "使用更长的采样时间重新采集数据",
+            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！聚类结果完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
             patterns=["CRITICAL_DATA_QUALITY"]
         )
     

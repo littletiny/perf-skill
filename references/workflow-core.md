@@ -185,7 +185,7 @@ perf-expert.py doc add --id ISS-001 --desc "redis 内核开销 94.7%" \
   --risk "内核负载过高" --hint "cluster-symbols --comm redis"
 ```
 
-**⚠️ 重要**: perf-expert 子命令的任何风险都需要记录
+**⚠️ 重要**: perf-expert 非doc子命令的任何风险都需要记录
 
 ---
 
@@ -377,10 +377,10 @@ perf-expert.py doc add --id ISS-001 --desc "redis 内核开销 94.7%" \
 
 | 信号 | 必须动作 | 验证工具 | 参数策略 |
 |------|---------|---------|---------|
-| 调度函数占比高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule` | **用户指定 PID** → 加 `--pid`<br>**系统级分析** → 不加，先看全局分布 |
-| 负载不均衡 (imbalance_level≥HIGH) | 分析：不能并行 vs 不想并行 | `analyze-core-distribution` | **用户指定 PID** → 加 `--pid`<br>**系统级分析** → 不加，确认影响范围 |
-| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers --target <lock>` | **用户指定 PID** → 加 `--pid`<br>**全局锁竞争** → 不加，分析全系统影响 |
-| 内存回收函数高 | 检查：内存压力或泄漏 | `cluster-symbols` (MEM_RECLAIM) | **用户指定 PID** → 加 `--pid`<br>**系统级内存压力** → 不加 |
+| 调度函数占比高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule` | **明确有特定进程异常** → 加 `--pid`<br>**系统级分析** → 不加，先看全局分布 |
+| 负载不均衡 (imbalance_level≥HIGH) | 分析：不能并行 vs 不想并行 | `analyze-core-distribution` | **明确有特定进程异常** → 加 `--pid`<br>**系统级分析** → 不加，确认影响范围 |
+| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers --target <lock>` | **明确有特定进程异常** → 加 `--pid`<br>**全局锁竞争** → 不加，分析全系统影响 |
+| 内存回收函数高 | 检查：内存压力或泄漏 | `cluster-symbols` (MEM_RECLAIM) | **明确有特定进程异常** → 加 `--pid`<br>**系统级内存压力** → 不加 |
 | 单进程 CPU 异常高 | 对比：是否符合其角色定位 | `get-hotspots --pid <PID>` | **必须加** `--pid` |
 | 系统 CPU 高但无明显高耗进程 | 检查：是否存在大量小进程集体消耗 | `get-comm-top` | **不加** 过滤参数，系统级视图 |
 | 疑似内核瓶颈 | 检查：全局锁、中断、调度器 | `get-hotspots` / `cluster-symbols` | **不加** `--pid`，分析 kernel 空间热点 |

@@ -2885,3 +2885,177 @@ SKILL.md
 核心改进: 文档体系 5 层重组，典型模式集中化，快速开始入口优化
 
 ---
+
+# SPEAR-perf-hunter v2.16 更新日志
+
+## 更新概览
+
+本次更新强化 risk 结果的强制性处理要求，确保所有 `action_required=true` 的风险都被记录到 Live Document 中：
+
+1. **文档规范**: 在 `output-format-spec.md` 中新增强制性规则：`_risk.action_required=true` 时必须添加到 Live Document
+2. **Hint 改造**: 所有 analysis 模块的 risk hint 从"建议"类语言改为"必须"类语言，并包含 Live Document 添加命令模板
+
+---
+
+## 1. 问题背景
+
+### 1.1 原有风险处理的问题
+
+虽然 v2.14 强化了 `add_risk` hint 的语义描述（使用"**强制性**"、"**必须**"等措辞），但实际风险信息提示仍然使用"建议"类语言：
+
+| 工具 | 原 hint | 问题 |
+|------|---------|------|
+| `bottleneck.py` | `"检查 cgroup CPU 限制或扩容"` | 未明确必须添加到 Live Document |
+| `clusters.py` | `"溯源锁调用: find-callers..."` | 仅提示执行命令，未提示记录问题 |
+| `core_distribution.py` | `"检查锁竞争或CPU亲和性..."` | 建议性语气，缺乏强制性 |
+
+### 1.2 导致的后果
+
+- Agent 看到 hint 后执行建议命令，但**忘记记录到 Live Document**
+- `doc finalize` 时发现问题列表为空，无法阻止提前收敛
+- 诊断覆盖率无法保障
+
+---
+
+## 2. 文档规范更新
+
+### 2.1 output-format-spec.md 新增强制性规则
+
+**新增内容**（在 `_risk` 字段说明前）：
+
+```markdown
+**⚠️ 强制性规则**: 当 `_risk.action_required=true` 时，**必须**将问题添加到 Live Document
+
+```bash
+# 任何返回 action_required=true 的 tool 输出，必须执行：
+perf-expert.py doc add --id <ISS-XXX> --desc "<_risk.message>" \
+  --risk "<_risk.level>" --hint "<_risk.hint>"
+```
+
+**强制执行**: 分析流程中禁止忽略 `action_required=true` 的风险提示。
+未添加到 Live Document 的风险视为分析不完整。
+```
+
+---
+
+## 3. Hint 语言改造
+
+### 3.1 改造原则
+
+所有 risk hint 统一改为以下格式：
+
+```
+[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '<message>' --risk '<level>' --hint '<next_step>'
+```
+
+### 3.2 改造范围
+
+**涉及文件**（共 13 个 analysis 模块）：
+
+| 文件 | 改造内容 |
+|------|----------|
+| `bottleneck.py` | 4 处 risk hint |
+| `hotspots.py` | 3 处 risk hint |
+| `trace.py` | 4 处 risk hint |
+| `anomalies.py` | 3 处 risk hint |
+| `core_distribution.py` | 3 处 risk hint |
+| `clusters.py` | 3 处 risk hint |
+| `process_variety.py` | 3 处 risk hint |
+| `process_top.py` | 2 处 risk hint |
+| `comm_top.py` | 3 处 risk hint |
+| `cpu_usage.py` | 3 处 risk hint |
+| `path_clusters.py` | 2 处 risk hint |
+| `comm_clusters.py` | 2 处 risk hint |
+| `flamegraph.py` | 1 处 risk hint |
+| `callgraph.py` | 1 处 risk hint |
+
+### 3.3 改造示例
+
+**改造前** (`bottleneck.py`):
+```python
+output.add_risk(
+    "critical",
+    f"CPU 限制接近饱和: {format_percent(max_core_usage * 100)}",
+    "检查 cgroup CPU 限制或扩容",
+    patterns=["CPU_LIMIT_SATURATION"]
+)
+```
+
+**改造后**:
+```python
+output.add_risk(
+    "critical",
+    f"CPU 限制接近饱和: {format_percent(max_core_usage * 100)}",
+    f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc 'CPU 限制接近饱和: {format_percent(max_core_usage * 100)}' --risk 'critical' --hint '检查 cgroup CPU 限制或扩容'",
+    patterns=["CPU_LIMIT_SATURATION"]
+)
+```
+
+---
+
+## 4. 文件变更清单
+
+### 修改的文件
+
+1. `docs/output-format-spec.md`
+   - 新增 `_risk` 字段强制性规则说明
+   - 明确 `action_required=true` 时必须添加到 Live Document
+
+2. `scripts/perf_toolkit/analysis/bottleneck.py`
+3. `scripts/perf_toolkit/analysis/hotspots.py`
+4. `scripts/perf_toolkit/analysis/trace.py`
+5. `scripts/perf_toolkit/analysis/anomalies.py`
+6. `scripts/perf_toolkit/analysis/core_distribution.py`
+7. `scripts/perf_toolkit/analysis/clusters.py`
+8. `scripts/perf_toolkit/analysis/process_variety.py`
+9. `scripts/perf_toolkit/analysis/process_top.py`
+10. `scripts/perf_toolkit/analysis/comm_top.py`
+11. `scripts/perf_toolkit/analysis/cpu_usage.py`
+12. `scripts/perf_toolkit/analysis/path_clusters.py`
+13. `scripts/perf_toolkit/analysis/comm_clusters.py`
+14. `scripts/perf_toolkit/analysis/flamegraph.py`
+15. `scripts/perf_toolkit/analysis/callgraph.py`
+    - 统一改造所有 `add_risk()` 调用的 hint 参数格式
+
+---
+
+## 5. 预期效果
+
+### 5.1 分析流程变化
+
+**改造前**:
+```
+tool 输出 risk → Agent 看到 hint → 执行建议命令 → 可能忘记记录 → finalize 无问题
+```
+
+**改造后**:
+```
+tool 输出 risk → Agent 看到 "[必须] 添加到 Live Document" → 执行 doc add → finalize 检查到问题 → 强制处理
+```
+
+### 5.2 覆盖率保障
+
+| 指标 | 改造前 | 改造后 |
+|------|--------|--------|
+| 风险提示方式 | 建议性语气 | 强制性语气 + Live Document 命令模板 |
+| 问题记录 | 依赖 Agent 记忆 | hint 直接包含 doc add 命令 |
+| 遗漏风险 | 可能发生 | 强制要求记录，finalize 会检查 |
+
+---
+
+## 6. 验证检查清单
+
+- [x] `output-format-spec.md` 新增强制性规则
+- [x] 所有 13 个 analysis 模块的 risk hint 已改造
+- [x] hint 格式统一为 `[必须] 添加到 Live Document: doc add ...`
+- [x] 包含完整的 `--desc`、`--risk`、`--hint` 参数
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.16
+
+核心改进: 强化 risk 结果必须添加到 Live Document 的强制性要求
+
+---

@@ -39,7 +39,7 @@ python3 $SKILL_DIR/scripts/perf_expert.py doc init --data <perf.data>
 | 整个系统都很慢 | `check-cpu-bottleneck` | [模式 B](./references/workflow-patterns.md#模式-b-系统整体缓慢) |
 | 大量进程频繁创建 | `count-process-variety` | [模式 C](./references/workflow-patterns.md#模式-c-进程风暴) |
 | 单核满载其他空闲 | `analyze-core-distribution` | [模式 D](./references/workflow-patterns.md#模式-d-负载不均衡) |
-| kernel% > 50% | `cluster-symbols` | [模式 E](./references/workflow-patterns.md#模式-e-高内核态分析) |
+| kernel 开销高 | `cluster-symbols` | [模式 E](./references/workflow-patterns.md#模式-e-高内核态分析) |
 
 **工具路径**: `$SKILL_DIR/scripts/perf_expert.py`
 
@@ -129,7 +129,7 @@ python3 $SKILL_DIR/scripts/perf_expert.py doc init --data <perf.data>
 # 发现问题时记录
 perf-expert.py doc add --id ISS-001 --desc "高内核态" --hint "cluster-symbols"
 
-# 每 2-3 个工具后审计
+# 每 2-3 个perf-expert工具后审计
 perf-expert.py doc list
 
 # 生成报告前最终审计
@@ -142,7 +142,7 @@ perf-expert.py doc finalize
 
 | 工具 | 用途 | 典型场景 |
 |------|------|---------|
-| `check-cpu-bottleneck` | 资源限制判定 | 环境边界检查 |
+| `check-cpu-bottleneck` | 资源限制判定 | 环境边界检查 | top-down |
 | `show-cpu-usage` | CPU 利用率概览 | user/kernel 分解 |
 | `get-comm-top` | 进程组资源识别 | 大量小进程集体消耗 |
 | `get-hotspots` | 热点函数识别 | `--sort-by self/inclusive` |
