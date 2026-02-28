@@ -8,6 +8,18 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 > **S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning
 > 通过"领域知识驱动的假设验证"实现根因定位
 
+
+## 快速开始
+
+**工具路径**: `/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py`
+
+```bash
+python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py <子命令> [选项]
+```
+
+**使用工具之前仔细阅读 `references/tools.md` 和 `references/workflow.md` 文档**
+💡 每个子命令均支持 `--help` 参数获取完整帮助
+
 ## 参考文档
 
 | 文档 | 内容 | 路径 |
@@ -18,7 +30,6 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 | 📊 数据格式 | perf script 解析、core/s 说明 | `references/data-format.md` |
 | 📋 文档模板 | 诊断报告格式、检查清单 | `references/templates.md` |
 
-💡 每个子命令均支持 `--help` 参数获取完整帮助
 
 ---
 
@@ -71,9 +82,9 @@ Step 5: 全局审计
 
 | 信号 | 必须动作 | 工具 |
 |------|---------|------|
-| 调度函数高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule` |
-| 负载不均衡 | 分析：不能并行 vs 不想并行 | `analyze-core-distribution` |
-| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers` + 代码审查 |
+| 调度函数高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule [--pid <PID>]` |
+| 负载不均衡 | 分析：不能并行 vs 不想并行 | `analyze-core-distribution [--pid <PID>]` |
+| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers [--pid <PID>]` + 代码审查 |
 
 ---
 

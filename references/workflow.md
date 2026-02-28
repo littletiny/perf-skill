@@ -81,7 +81,24 @@
 
 ## Phase 1: 问题定义
 
-### 1.1 分析原始问题
+### 1.1 目标范围界定
+
+**核心原则**: **目标问题与工具参数必须一致**
+
+用户明确指定了分析目标（如特定 PID、特定进程名、特定时间窗口），所有工具命令必须携带对应的过滤参数，否则分析结果将偏离目标。
+
+| 目标类型 | 用户描述示例 | 必须添加的参数 | 错误后果 |
+|---------|-------------|---------------|---------|
+| **特定进程** | "PID 12345 的 CPU 上不去" | `--pid 12345` | 分析全系统数据，得出错误结论 |
+| **特定进程组** | "worker 进程集体高消耗" | `--comm worker` | 混入其他进程数据，稀释信号 |
+| **特定时段** | "每天晚上 8 点卡顿" | `--start-time/--end-time` | 被其他时段数据干扰 |
+
+**一致性检查清单**:
+- [ ] 用户是否指定了具体 PID？→ 所有命令加 `--pid`
+- [ ] 用户是否提及进程名/服务名？→ 考虑加 `--comm`
+- [ ] 问题是否有明确时间特征？→ 考虑加 `--start-time/--end-time`
+
+### 1.2 分析原始问题
 
 **目标**: 明确观测到的异常现象，建立问题陈述
 
@@ -90,7 +107,7 @@
 - 是否有明确的性能指标基线？
 - 异常是否可以复现？发生时有什么特征？
 
-### 1.2 感知手段框架
+### 1.3 感知手段框架
 
 从不同维度收集证据，形成完整的性能画像：
 
@@ -102,7 +119,7 @@
 | **语义分类** | 函数名 | 业务模块归类 | 确定优化层级 |
 | **进程视角** | PID/comm | 进程聚合统计 | 资源归属判定 |
 
-### 1.3 提出可能性
+### 1.4 提出可能性
 
 **目标**: 基于领域知识枚举竞争性假设（至少 3 条）
 
@@ -307,12 +324,12 @@
 
 | 信号 | 必须动作 | 验证工具 |
 |------|---------|---------|
-| 调度函数占比高 | 溯源：主动休眠 vs 被动抢占 | find-callers --target schedule |
-| 负载不均衡 (imbalance_level≥HIGH) | 分析：不能并行 vs 不想并行 | analyze-core-distribution |
-| 锁函数出现 | 评估：锁粒度和竞争范围 | find-callers + 代码审查 |
-| 内存回收函数高 | 检查：内存压力或泄漏 | cluster-symbols (MEM_RECLAIM) |
-| 单进程 CPU 异常高 | 对比：是否符合其角色定位 | get-hotspots --pid |
-| 系统 CPU 高但无明显高耗进程 | 检查：是否存在大量小进程集体消耗 | get-comm-top |
+| 调度函数占比高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule [--pid <PID>]` |
+| 负载不均衡 (imbalance_level≥HIGH) | 分析：不能并行 vs 不想并行 | `analyze-core-distribution [--pid <PID>]` |
+| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers [--pid <PID>]` + 代码审查 |
+| 内存回收函数高 | 检查：内存压力或泄漏 | `cluster-symbols [--pid <PID>]` (MEM_RECLAIM) |
+| 单进程 CPU 异常高 | 对比：是否符合其角色定位 | `get-hotspots --pid <PID>` |
+| 系统 CPU 高但无明显高耗进程 | 检查：是否存在大量小进程集体消耗 | `get-comm-top` |
 
 ### 7.2 全局一致性检查
 
@@ -343,8 +360,11 @@
 
 ### 模式 A: 单进程 CPU 高 (Top-Down → Bottom-Up)
 
+**场景**: 用户明确反馈"某个 PID 的 CPU 上不去/异常高"
+**关键**: 所有命令必须携带 `--pid`，保持目标一致
+
 ```bash
-# Step 1: 宏观确认
+# Step 1: 宏观确认（注意：--pid 参数一致）
 show-cpu-usage --pid 1234
 analyze-core-distribution --pid 1234
 
@@ -352,13 +372,15 @@ analyze-core-distribution --pid 1234
 #   sleeping 多 → 主动休眠问题
 #   active 多 → 锁竞争问题
 
-# Step 3: 热点溯源
+# Step 3: 热点溯源（注意：--pid 参数一致）
 get-hotspots --pid 1234 --sort-by self
-find-callers --auto-target --pid 1234
+find-callers --auto-target --pid 1234  # ❌ 不要遗漏 --pid
 
-# Step 4: 语义聚类
+# Step 4: 语义聚类（注意：--pid 参数一致）
 cluster-symbols --pid 1234 --custom-rules '{"SCHED": "schedule|sleep"}'
 ```
+
+**⚠️ 常见错误**: 在 `find-callers` 时遗漏 `--pid`，导致分析全系统数据，得出错误结论。
 
 ### 模式 B: 系统整体缓慢 (Top-Down 优先)
 
@@ -395,6 +417,9 @@ find-callers --auto-target --comm <storm-comm>
 
 ### 模式 D: 负载不均衡专项分析
 
+**场景**: `analyze-core-distribution` 显示 `imbalance_level=HIGH/CRITICAL`
+**关键**: 溯源时必须携带 `--pid`，避免分析全系统调度行为
+
 ```bash
 # Step 1: 确认不均衡程度
 analyze-core-distribution --pid 1234
@@ -403,10 +428,14 @@ analyze-core-distribution --pid 1234
 # SINGLE_CORE_SATURATION → 检查调度/锁
 # WIDE_DISTRIBUTION_LOW_UTIL → 检查资源充足性
 
-# Step 3: 定向分析
+# Step 3: 定向分析（注意：--pid 参数一致）
 cluster-symbols --pid 1234  # 看 SCHEDULING/LOCK 占比
-find-callers --target <调度函数或锁函数>
+
+# Step 4: 溯源（必须带 --pid，否则分析的是全系统）
+find-callers --target <调度函数或锁函数> --pid 1234  # ❌ 不要遗漏 --pid
 ```
+
+**⚠️ 常见错误**: `find-callers` 时不带 `--pid`，得到的是全系统的 `futex_wait` 等调度函数调用，而非目标进程的行为。
 
 ---
 
