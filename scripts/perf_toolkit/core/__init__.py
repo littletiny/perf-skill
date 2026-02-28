@@ -19,6 +19,7 @@ from .format_utils import (
     format_percent, format_core_sec, safe_time_range
 )
 from .risk_mixin import RiskMixin, RiskAwareOutput
+from .live_doc import LiveDoc
 
 __all__ = [
     'PerfExpertEngine',
@@ -33,5 +34,6 @@ __all__ = [
     'format_core_sec',
     'safe_time_range',
     'RiskMixin',
-    'RiskAwareOutput'
+    'RiskAwareOutput',
+    'LiveDoc'
 ]

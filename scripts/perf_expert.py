@@ -52,6 +52,15 @@ from perf_toolkit.analysis.process_variety import cmd_count_process_variety
 from perf_toolkit.analysis.core_distribution import cmd_analyze_core_distribution
 from perf_toolkit.analysis.comm_top import cmd_get_comm_top
 
+# Import live doc commands
+from perf_toolkit.core.live_doc import (
+    cmd_doc_init, cmd_doc_add, cmd_doc_complete,
+    cmd_doc_list, cmd_doc_finalize, cmd_doc_export
+)
+
+# Import live document
+from perf_toolkit.core.live_doc import LiveDoc
+
 
 class HelpOnErrorParser(argparse.ArgumentParser):
     """Custom parser that prints full help on error"""
@@ -325,12 +334,65 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p14.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
 
+    # perf-doc subcommands
+    doc_parser = subparsers.add_parser('doc', help="Live document for tracking diagnostic issues")
+    doc_subparsers = doc_parser.add_subparsers(dest="doc_command")
+    
+    # doc init
+    doc_init = doc_subparsers.add_parser('init', help="Initialize a new diagnosis document")
+    doc_init.add_argument("--data", required=True, help="Path to perf data file")
+    doc_init.add_argument("--path", default=".perf-doc.json", help="Document storage path (default: .perf-doc.json)")
+    
+    # doc add
+    doc_add = doc_subparsers.add_parser('add', help="Add a new issue to the document")
+    doc_add.add_argument("--id", required=True, help="Issue unique identifier (e.g., ISS-001)")
+    doc_add.add_argument("--desc", required=True, help="Issue description")
+    doc_add.add_argument("--risk", default="", help="Risk of not handling this issue")
+    doc_add.add_argument("--hint", default="", help="Recommended next action")
+    
+    # doc complete
+    doc_complete = doc_subparsers.add_parser('complete', help="Mark an issue as completed")
+    doc_complete.add_argument("--id", required=True, help="Issue identifier")
+    doc_complete.add_argument("--result", required=True, help="Analysis result and conclusion")
+    
+    # doc list
+    doc_list = doc_subparsers.add_parser('list', help="List all issues")
+    doc_list.add_argument("--format", choices=['text', 'json'], default='text', help="Output format (default: text)")
+    doc_list.add_argument("--status", choices=['pending', 'completed', 'all'], default='all', help="Filter by status")
+    
+    # doc finalize
+    doc_finalize = doc_subparsers.add_parser('finalize', help="Final audit before generating report")
+    doc_finalize.add_argument("--accept-risk", help="Reason for accepting remaining risks")
+    doc_finalize.add_argument("--format", choices=['text', 'json'], default='text', help="Output format")
+    
+    # doc export
+    doc_export = doc_subparsers.add_parser('export', help="Export document to other formats")
+    doc_export.add_argument("--format", choices=['markdown', 'json'], default='markdown', help="Export format")
+    doc_export.add_argument("--output", help="Output file path (default: stdout)")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         return
 
-    # Initialize engine (no hz parameter needed anymore)
+    # Handle perf-doc subcommands (doesn't require --data or engine)
+    if args.command == "doc":
+        if not args.doc_command:
+            doc_parser.print_help()
+            return
+        
+        doc_commands = {
+            "init": cmd_doc_init,
+            "add": cmd_doc_add,
+            "complete": cmd_doc_complete,
+            "list": cmd_doc_list,
+            "finalize": cmd_doc_finalize,
+            "export": cmd_doc_export
+        }
+        doc_commands[args.doc_command](args)
+        return
+
+    # Initialize engine for analysis commands (requires --data)
     engine = PerfExpertEngine(args.data)
 
     # Route find-callers to appropriate handler
