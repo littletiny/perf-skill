@@ -240,7 +240,7 @@ Agent 在分析时没有创建诊断文档，或创建的文档结构不完整�
 
 ---
 
-## 更新日期: 2026-02-28
+更新日期: 2026-02-28
 
 版本: v2.7
 
@@ -594,8 +594,6 @@ python scripts/perf_expert.py count-process-variety --help
 
 ---
 
-# 历史版本
-
 # SPEAR-perf-hunter v2.2 更新日志
 
 ## 更新概览
@@ -653,17 +651,23 @@ python3 scripts/perf_expert.py get-comm-top --data perf.script --comm worker
 
 ---
 
-## 2. 重构 tools.md
+## 2. 重构 tools.md —— Top-Down + Bottom-Up 混合分析模式
+
+### 修改理由
+原 tools.md 采用平铺式的工具列表组织方式，缺乏结构化的分析流程指导。实际性能分析需要结合：
+1. **Top-Down 宏观切入**: 从系统级概览建立上下文
+2. **Bottom-Up 微观溯源**: 从热点函数逐层深入
 
 ### 修改内容
-1. **新增分析流程总览图**: 7 阶段 Top-Down + Bottom-Up 混合流程
-2. **按分析阶段重组工具**: Phase 1→7 渐进式分析路径
-3. **新增语义分析章节**: 符号名领域映射
+1. **新增分析流程总览图**: 清晰展示 7 个分析阶段及其关系
+2. **按分析阶段重组工具**: Phase 1→7 的渐进式分析路径
+3. **新增语义分析章节**: 根据符号名猜测 workload 和技术领域
 4. **新增专家经验查缺补漏章节**: 关键信号检查清单和全局一致性检查
-5. **新增典型分析模式**: 5 种快捷路径（含新增的大量小进程模式）
+5. **新增典型分析模式**: 4 种快捷路径（单进程高 CPU、系统缓慢、进程风暴、负载不均衡）
+6. **保留原有内容**: 内核函数规范化、CPU 利用率计算、可靠性评估、通用参数
 
 ### 文件变更
-- `references/tools.md`: 完全重构
+- `references/tools.md`: 完全重构，从 392 行扩展为结构化文档
 
 ---
 
@@ -710,11 +714,13 @@ if re.search(pattern_str, sym):
 # 方式 1: 字符串格式 (正则表达式)
 python3 scripts/perf_expert.py cluster-symbols \
   --data perf.script \
+  --pid 2573405 \
   --custom-rules '{"SCHEDULING": "schedule|nanosleep"}'
 
 # 方式 2: 列表格式 (自动转换)
 python3 scripts/perf_expert.py cluster-symbols \
   --data perf.script \
+  --pid 2573405 \
   --custom-rules '{"SCHEDULING": ["schedule", "nanosleep"]}'
 ```
 
@@ -780,9 +786,9 @@ python3 scripts/perf_expert.py analyze-core-distribution \
 
 ---
 
-## 3. 文档重构
+## 3. 文档重构 —— 从决策树到规则驱动的方法论
 
-### SKILL.md 改进
+### 3.1 SKILL.md 改进
 
 **从**: 决策树驱动的步骤指南 (Step 1→2→3→4→5)
 
@@ -806,7 +812,20 @@ python3 scripts/perf_expert.py analyze-core-distribution \
    - 发现负载不均衡 → 必须用 `analyze-core-distribution`
    - 发现锁函数 → 必须评估粒度
 
-### tools.md 改进
+### 3.2 决策树取消说明
+
+**取消原因**: 
+- **过于死板**: 决策树的严格分支结构（"如果 A 则做 B"）导致模型灵活度严重受限
+- **难以应对复杂场景**: 实际性能问题往往是多因素交织，难以用简单的条件分支覆盖
+- **抑制探索性思维**: 固定的流程限制了 Agent 根据具体场景灵活调整分析策略的能力
+
+**替代方案**: 
+- 采用**规则驱动 + 启发式指导**的柔性框架
+- 保留关键检查点作为"必须遵守的约束"
+- 提供典型分析模式作为参考而非强制路径
+- 强调"发散→探索→收敛"的循环思维
+
+### 3.3 tools.md 改进
 
 1. **新增工具**: `analyze-core-distribution` 详细说明
 2. **新增模式**: "负载不均衡分析"工作流
@@ -845,7 +864,7 @@ check-cpu-bottleneck → analyze-core-distribution → find-callers --target <�
    - 添加命令映射
 
 3. `SKILL.md`
-   - 重构为规则驱动的泛化方法论
+   - **重构为规则驱动的泛化方法论**（取消决策树）
    - 添加 `analyze-core-distribution` 说明
    - 添加工具参考附录
 
@@ -901,27 +920,4 @@ python3 scripts/perf_expert.py analyze-core-distribution \
 
 ---
 
-## v2.2 (2026-02-28)
-
-### 重构 tools.md —— Top-Down + Bottom-Up 混合分析模式
-
-#### 修改理由
-原 tools.md 采用平铺式的工具列表组织方式，缺乏结构化的分析流程指导。实际性能分析需要结合：
-1. **Top-Down 宏观切入**: 从系统级概览建立上下文
-2. **Bottom-Up 微观溯源**: 从热点函数逐层深入
-
-#### 修改内容
-1. **新增分析流程总览图**: 清晰展示 7 个分析阶段及其关系
-2. **按分析阶段重组工具**: Phase 1→7 的渐进式分析路径
-3. **新增语义分析章节**: 根据符号名猜测 workload 和技术领域
-4. **新增专家经验查缺补漏章节**: 关键信号检查清单和全局一致性检查
-5. **新增典型分析模式**: 4 种快捷路径（单进程高 CPU、系统缓慢、进程风暴、负载不均衡）
-6. **保留原有内容**: 内核函数规范化、CPU 利用率计算、可靠性评估、通用参数
-
-#### 文件变更
-- `references/tools.md`: 完全重构，从 392 行扩展为结构化文档
-
----
-
 更新日期: 2026-02-28
-版本: v2.2
