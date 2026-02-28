@@ -13,11 +13,12 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 
 import json
 from ..core.reliability import assess_data_quality
+from ..core.format_utils import format_time_range, format_percent
+from ..core.risk_mixin import RiskAwareOutput
 
 
 def cmd_show_cpu_usage(engine, args):
     """[Skill] Show CPU utilization for OS or specific PID (user/kernel/total)"""
-    # Get filtered samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -26,26 +27,27 @@ def cmd_show_cpu_usage(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
+    output = RiskAwareOutput()
+    
     if not samples:
-        print(json.dumps({
+        result = output.add_risk(
+            "warning",
+            "未找到样本数据",
+            "检查过滤条件"
+        ).build({
             "error": "No samples found",
-            "filters": {
-                "pid": getattr(args, 'pid', None),
-                "comm": getattr(args, 'comm', None),
-                "comm_regex": getattr(args, 'comm_regex', None),
-                "cpu_id": getattr(args, 'cpu_id', None),
-                "start_time": getattr(args, 'start_time', None),
-                "end_time": getattr(args, 'end_time', None)
-            },
+            "time_range": format_time_range(
+                getattr(args, 'start_time', None),
+                getattr(args, 'end_time', None)
+            ),
             "available_range": engine.get_time_range()
-        }, indent=2))
+        })
+        print(json.dumps(result, indent=2, ensure_ascii=False))
         return
     
-    # Calculate duration from samples
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     record_count = len(samples)
     
-    # Determine target description
     pid = getattr(args, 'pid', None)
     comm = getattr(args, 'comm', None)
     comm_regex = getattr(args, 'comm_regex', None)
@@ -59,59 +61,39 @@ def cmd_show_cpu_usage(engine, args):
     else:
         target_desc = "System-wide"
     
-    # Get accurate CPU utilization breakdown using the new method
-    # This uses Symbol.is_kernel for accurate user/kernel classification
     util_stats = engine.get_cpu_utilization(samples)
     total_core_per_sec = util_stats['total_core_seconds']
     
-    # Assess data quality (no sample_count parameter needed)
     quality_level, warning_msg, metrics = assess_data_quality(
         duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
-    result = {
-        "target": target_desc,
-        "time_range": {
-            "start": samples[0]['ts'],
-            "end": samples[-1]['ts'],
-            "duration_sec": round(duration, 2)
-        },
-        "filters": {
-            "pid": pid,
-            "comm": comm,
-            "comm_regex": comm_regex,
-            "cpu_id": getattr(args, 'cpu_id', None),
-            "start_time": getattr(args, 'start_time', None),
-            "end_time": getattr(args, 'end_time', None)
-        },
-        "data_coverage": {
-            "record_count": record_count,
-            "user_records": util_stats['user_records'],
-            "kernel_records": util_stats['kernel_records']
-        },
-        "data_quality": {
-            "level": quality_level,
-            "warning": warning_msg,
-            "metrics": metrics
-        },
-        "cpu_utilization": {
-            "total_pct": util_stats['total_pct'],
-            "user_pct": util_stats['user_pct'],
-            "kernel_pct": util_stats['kernel_pct'],
-            "breakdown": {
-                "user_core_seconds": util_stats['user_core_seconds'],
-                "kernel_core_seconds": util_stats['kernel_core_seconds'],
-                "total_core_seconds": util_stats['total_core_seconds'],
-                "user_records": util_stats['user_records'],
-                "kernel_records": util_stats['kernel_records'],
-                "total_records": record_count
-            }
-        }
-    }
+    # Add risk for high kernel usage
+    if util_stats['kernel_pct'] > 50:
+        output.add_risk(
+            "warning",
+            f"内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高",
+            "分析内核热点: cluster-symbols",
+            patterns=["HIGH_KERNEL_USAGE"]
+        )
     
+    # Data quality risk
     if quality_level == "CRITICAL":
-        result["_WARNING"] = "数据质量不足！CPU 利用率数据完全不可信。"
-    elif quality_level in ["WARNING", "ACCEPTABLE"]:
-        result["_NOTICE"] = "数据质量中等，利用率数据仅供参考，关注相对比例而非精确值。"
+        output.add_risk(
+            "critical",
+            "数据质量不足！CPU 利用率数据完全不可信",
+            "使用更长的采样时间重新采集数据",
+            patterns=["CRITICAL_DATA_QUALITY"]
+        )
+    
+    result = output.build({
+        "target": target_desc,
+        "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
+        "cpu_utilization": {
+            "total_pct": format_percent(util_stats['total_pct']),
+            "user_pct": format_percent(util_stats['user_pct']),
+            "kernel_pct": format_percent(util_stats['kernel_pct'])
+        }
+    })
     
     print(json.dumps(result, indent=2, ensure_ascii=False))

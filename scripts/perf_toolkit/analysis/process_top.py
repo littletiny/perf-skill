@@ -12,45 +12,46 @@ Process Top - Get top N processes by CPU utilization
 import json
 from collections import defaultdict
 from ..core.reliability import assess_data_quality
+from ..core.format_utils import format_time_range, format_percent
+from ..core.risk_mixin import RiskAwareOutput
 
 
 def cmd_get_process_top(engine, args):
     """[Skill] Get top N processes by CPU utilization"""
-    # Get filtered samples by time range and CPU
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
         cpu_id=getattr(args, 'cpu_id', None)
     )
     
+    output = RiskAwareOutput()
+    
     if not samples:
-        print(json.dumps({
+        result = output.add_risk(
+            "warning",
+            "未找到样本数据",
+            "检查过滤条件"
+        ).build({
             "error": "No samples found",
-            "filters": {
-                "cpu_id": getattr(args, 'cpu_id', None),
-                "start_time": getattr(args, 'start_time', None),
-                "end_time": getattr(args, 'end_time', None)
-            },
+            "time_range": format_time_range(
+                getattr(args, 'start_time', None),
+                getattr(args, 'end_time', None)
+            ),
             "available_range": engine.get_time_range()
-        }, indent=2))
+        })
+        print(json.dumps(result, indent=2, ensure_ascii=False))
         return
     
-    # Calculate duration from samples
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     record_count = len(samples)
     
-    # Get total core/s for accurate CPU utilization
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
     quality_level, warning_msg, metrics = assess_data_quality(
         duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
-    # Aggregate by (comm, pid) - 使用 core/s 作为主要指标
     process_stats = defaultdict(lambda: {
         'comm': '',
-        'record_count': 0,
-        'kernel_records': 0,
-        'user_records': 0,
         'kernel_core_sec': 0.0,
         'user_core_sec': 0.0,
         'total_core_sec': 0.0
@@ -60,86 +61,72 @@ def cmd_get_process_top(engine, args):
         key = (s['comm'], s['pid'])
         process_stats[key]['comm'] = s['comm']
         process_stats[key]['pid'] = s['pid']
-        process_stats[key]['record_count'] += 1
         
         core_val = s.get('core_per_sec') or 0
         process_stats[key]['total_core_sec'] += core_val
         
-        # 使用 SymbolStack.is_leaf_kernel 准确判断 user/kernel 模式
         stack = s.get('stack')
         if stack and stack.is_leaf_kernel:
-            process_stats[key]['kernel_records'] += 1
             process_stats[key]['kernel_core_sec'] += core_val
         else:
-            process_stats[key]['user_records'] += 1
             process_stats[key]['user_core_sec'] += core_val
     
-    # Calculate utilization and prepare results
     results = []
+    high_kernel_processes = []
     
     for (comm, pid), stats in process_stats.items():
         proc_core_sec = stats['total_core_sec']
         
-        # Calculate CPU utilization directly from core/s
-        # Process utilization = (total_core / duration) * 100
         if duration > 0:
             cpu_util = (proc_core_sec / duration) * 100
         else:
             cpu_util = 0
         
-        # For user/kernel breakdown, use core/s ratio
         if proc_core_sec > 0:
             kernel_ratio = (stats['kernel_core_sec'] / proc_core_sec) * 100
-            user_ratio = (stats['user_core_sec'] / proc_core_sec) * 100
         else:
-            kernel_ratio = user_ratio = 0
+            kernel_ratio = 0
+        
+        # Track high kernel processes for risk
+        if kernel_ratio > 80 and cpu_util > 5:
+            high_kernel_processes.append(f"{comm}({pid})")
         
         results.append({
             'comm': comm,
             'pid': pid,
-            'record_count': stats['record_count'],
-            'core_sec': round(proc_core_sec, 4),
-            'cpu_utilization_pct': round(cpu_util, 2),
-            'kernel_ratio_pct': round(kernel_ratio, 2),
-            'user_ratio_pct': round(user_ratio, 2)
+            'cpu_pct': format_percent(cpu_util),
+            'kernel_pct': format_percent(kernel_ratio)
         })
     
-    # Sort by CPU utilization descending
-    results.sort(key=lambda x: x['cpu_utilization_pct'], reverse=True)
-    
-    # Apply top-n limit
+    results.sort(key=lambda x: float(x['cpu_pct'].rstrip('%')), reverse=True)
     top_results = results[:args.top_n]
     
-    # Calculate summary statistics
-    total_proc_util = sum(r['cpu_utilization_pct'] for r in results)
+    # Add risk for high kernel processes
+    if len(high_kernel_processes) > 0:
+        output.add_risk(
+            "warning" if len(high_kernel_processes) <= 2 else "critical",
+            f"发现 {len(high_kernel_processes)} 个高内核态进程",
+            f"分析热点: cluster-symbols --comm {results[0]['comm']}",
+            patterns=["HIGH_KERNEL_PROCESSES"],
+            targets=high_kernel_processes[:3]
+        )
     
-    output = {
-        'time_range': {
-            'start': samples[0]['ts'],
-            'end': samples[-1]['ts'],
-            'duration_sec': round(duration, 2)
-        },
-        'filters': {
-            'cpu_id': getattr(args, 'cpu_id', None),
-            'start_time': getattr(args, 'start_time', None),
-            'end_time': getattr(args, 'end_time', None)
-        },
-        'data_quality': {
-            'level': quality_level,
-            'warning': warning_msg,
-            'metrics': metrics
-        },
-        'summary': {
-            'total_processes': len(results),
-            'shown_processes': len(top_results),
-            'total_cpu_utilization_pct': round(total_proc_util, 2)
-        },
-        'processes': top_results
-    }
-    
+    # Data quality risk
     if quality_level == "CRITICAL":
-        output["_WARNING"] = "数据质量不足！进程 CPU 利用率排序完全不可信。"
-    elif quality_level in ["WARNING", "ACCEPTABLE"]:
-        output["_NOTICE"] = "数据质量中等，进程 CPU 利用率数据仅供参考，关注相对排序而非精确值。"
+        output.add_risk(
+            "critical",
+            "数据质量不足！进程 CPU 利用率排序完全不可信",
+            "使用更长的采样时间重新采集数据",
+            patterns=["CRITICAL_DATA_QUALITY"]
+        )
     
-    print(json.dumps(output, indent=2, ensure_ascii=False))
+    result = output.build({
+        "summary": {
+            "total_processes": len(results),
+            "shown_processes": len(top_results)
+        },
+        "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
+        "processes": top_results
+    })
+    
+    print(json.dumps(result, indent=2, ensure_ascii=False))
