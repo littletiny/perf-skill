@@ -181,33 +181,6 @@ python3 scripts/perf_expert.py get-comm-top \
 - 微服务实例过度分片
 - 进程泄漏（不断创建新进程处理请求）
 
-**关键输出字段**:
-```json
-{
-  "comm": "worker",
-  "pid_count": 128,
-  "aggregate_cpu_utilization_pct": 65.4,
-  "avg_cpu_per_process_pct": 0.51,
-  "density_index": 0.51,
-  "is_many_small_pattern": true
-}
-```
-
-| 字段 | 含义 | 诊断价值 |
-|------|------|---------|
-| `pid_count` | 该 comm 的进程数量 | 识别进程风暴 |
-| `aggregate_cpu_utilization_pct` | 聚合 CPU 利用率 | 总资源消耗 |
-| `avg_cpu_per_process_pct` | 单进程平均 CPU | 识别是否单进程过载 |
-| `density_index` | 密度指数 = 总CPU / 进程数 | **越小表示过度分片越严重** |
-| `is_many_small_pattern` | 是否符合"大量小进程"模式 | 快速识别问题模式 |
-
-**自动检测模式**:
-| 模式 | 触发条件 | 建议 |
-|------|---------|------|
-| `MANY_SMALL_PROCESSES` | 聚合>10% 且 单进程<1% 且 进程数≥5 | 检查 worker pool 配置、连接池大小 |
-| `UNEVEN_LOAD_DISTRIBUTION` | 同类型进程间样本数差异>10倍 | 检查负载均衡策略 |
-| `EXTREME_PROCESS_PROLIFERATION` | 进程数≥10 且 密度指数<0.5 | 可能存在进程泄漏 |
-
 **与 `get-process-top` 的区别**:
 - `get-process-top`: 找"单个高消耗进程"（如某个进程占 40% CPU）
 - `get-comm-top`: 找"同类进程集体高消耗"（如 100 个 worker 各占 0.5% CPU，合计 50%）
@@ -240,7 +213,7 @@ python3 scripts/perf_expert.py find-callers \
   --target <function> \
   [--min-ratio <pct>]
 
-# 自动模式（不能过分依赖，用于启发思路，可能存在遗漏）
+# 自动模式（不能过分依赖，用于启发思路，容易存在遗漏）
 python3 scripts/perf_expert.py find-callers \
   --data <perf.script.txt> \
   --auto-target \
@@ -267,6 +240,7 @@ python3 scripts/perf_expert.py cluster-paths \
 ```
 
 **用途**:
+- 从top-down视角审视bottom-up收集到的信息，避免过度关注细节，忽略整体
 - 使用 Trie 识别共同的调用前缀
 - 识别高频调用模式
 - 发现"重复造轮子"的公共路径
@@ -283,7 +257,9 @@ python3 scripts/perf_expert.py cluster-paths \
 |---------|------------|--------------|
 | `grpc`/`protobuf` | RPC 框架 | 微服务调用 |
 | `rocksdb`/`leveldb` | 嵌入式 KV | 数据库/缓存 |
-| `redis`/`hiredis` | 缓存系统 | 高速缓存访问 |
+| `mysqld`/`postgres` | OLTP数据库 | 延迟敏感，平均利用率低，峰值高 |
+| `clickhouse`/`duckdb` | OLAP数据库 | 带宽敏感，资源利用率高 |
+| `redis`/`hiredis` | 缓存系统 | 高速缓存访问，延迟敏感 |
 | `tensorflow`/`torch` | 深度学习 | 训练/推理 |
 | `openssl`/`crypto` | 加密库 | HTTPS/加密通信 |
 | `zlib`/`snappy`/`lz4` | 压缩库 | 数据压缩/解压 |
@@ -298,18 +274,18 @@ python3 scripts/perf_expert.py cluster-paths \
 
 ```yaml
 领域档案示例:
-  应用类型: 分布式参数服务器
+  应用类型: OLTP数据库
   框架线索:
-    - ps-lite (参数服务器)
-    - grpc (通信)
-    - protobuf (序列化)
+    - mysqld
+    - postgres
   预期特征:
     CPU模式: 网络密集型 + 间歇性计算突发
-    典型热点: 序列化/反序列化、网络收发、参数更新
-    负载分布: 多worker并行，应呈现多核均衡
+    典型热点: 内核网络栈、磁盘IO栈、各种复杂的sql处理
+    负载分布: 多现成并行，延迟敏感
   异常信号:
     - 单核满载 → 不符合预期，可能存在串行化瓶颈
-    - 调度函数高 → 不符合预期，可能存在过度同步
+    - 调度函数出现频率高 → 不符合预期，可能存在过度同步
+    - 数据库往往有自己实现的spinlock，注意语义上等价spinlock的函数
 ```
 
 ---
@@ -454,6 +430,7 @@ cluster-symbols --pid 1234 --custom-rules '{"SCHED": "schedule|sleep"}'
 ### 模式 B: 系统整体缓慢 (Top-Down 优先)
 
 ```bash
+# 关注内核瓶颈
 # Step 1: 系统级概览
 check-cpu-bottleneck
 get-process-top
@@ -463,6 +440,7 @@ detect-anomalies
 
 # Step 3: 对异常窗口/进程深入
 cluster-paths --start-time <t1> --end-time <t2>
+get-hotspots --sort-by self
 find-callers --auto-target
 ```
 
@@ -471,6 +449,7 @@ find-callers --auto-target
 ```bash
 # Step 1: 行为检测
 count-process-variety
+get-comm-top
 
 # Step 2: 如果检测到 PROCESS_STORM
 cluster-comm
@@ -481,34 +460,7 @@ get-hotspots --comm <storm-comm>
 find-callers --auto-target --comm <storm-comm>
 ```
 
-### 模式 D: 大量小进程集体高消耗 (⭐ 新增)
-
-**场景**: 系统 CPU 很高，但 `get-process-top` 看不到明显的高消耗单进程
-
-```bash
-# Step 1: 使用 get-comm-top 识别进程组模式
-get-comm-top
-
-# Step 2: 检查输出中的关键信号
-# - is_many_small_pattern: true → 确认大量小进程模式
-# - density_index < 0.5 → 过度分片严重
-# - patterns 中的 MANY_SMALL_PROCESSES → 自动识别
-
-# Step 3: 对问题进程组深入分析
-get-hotspots --comm <problem-comm>
-cluster-symbols --comm <problem-comm>
-
-# Step 4: 检查是否是配置问题（worker 数过多）或逻辑问题（进程泄漏）
-# - avg_cpu_per_process_pct 极低 + pid_count 极高 → 可能配置不当
-# - min_samples_per_pid 和 max_samples_per_pid 差异大 → 负载不均
-```
-
-**典型案例**: 
-- Nginx worker_processes 配置为 auto，在 128 核机器上创建 128 个 worker，但每个只处理少量连接
-- Java 应用线程池配置过大，创建数千个线程
-- PHP-FPM pm.max_children 配置过高
-
-### 模式 E: 负载不均衡专项分析
+### 模式 D: 负载不均衡专项分析
 
 ```bash
 # Step 1: 确认不均衡程度
@@ -546,33 +498,6 @@ find-callers --target <调度函数或锁函数>
 
 ---
 
-## 内核函数名规范化
-
-工具自动处理内核函数名，合并编译器优化产生的变体：
-
-| 原始函数名 | 规范化后 | 说明 |
-|-----------|---------|------|
-| `func_[k]` | `func` | 内核标记后缀 |
-| `func.isra.7_[k]` | `func` | GCC `.isra.N` 优化 + 内核标记 |
-| `func.part.3_[k]` | `func` | GCC `.part.N` 部分内联 + 内核标记 |
-| `func.constprop.5` | `func` | GCC `.constprop.N` 常量传播 |
-
----
-
-## CPU 利用率计算
-
-工具使用 perf 提供的 `core/s` 值计算 CPU 利用率：
-
-```
-CPU利用率(%) = (total_core_seconds / duration) × 100
-```
-
-- `core/s`：表示该调用链每秒消耗的 CPU 核秒数
-- `total_core_seconds`：所有样本的 core/s 值之和
-- `duration`：采样持续时间（秒）
-
----
-
 ## 数据可靠性评估
 
 | 等级 | 条件 | 误差范围 | 建议 |
@@ -584,8 +509,9 @@ CPU利用率(%) = (total_core_seconds / duration) × 100
 | **EXCELLENT** | CPU≥60% 且 样本≥200 | < ±3% | 统计结论高度可信 |
 
 ---
-
-## 通用参数
+## 参数
+通过 --help 查看具体参数，每个子命令也都有——help功能
+### 通用参数
 
 所有命令支持:
 
@@ -598,5 +524,3 @@ CPU利用率(%) = (total_core_seconds / duration) × 100
 | `--comm-regex <pattern>` | 按进程名正则匹配 | `--comm-regex 'java.*'` |
 | `--start-time <ts>` | 起始时间戳（含） | `--start-time 1000.5` |
 | `--end-time <ts>` | 结束时间戳（含） | `--start-time 1010.0` |
-
-**注意**：`--freq` 参数已在 v2.0 中移除。CPU 利用率和数据可靠性直接基于 perf script 的 `core/s` 字段计算。
