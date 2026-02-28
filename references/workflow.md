@@ -149,27 +149,6 @@
 
 **目标**: 基于领域知识枚举竞争性假设（至少 3 条）
 
-**假设格式**:
-```yaml
-假设A_资源竞争:
-  机制: 进程内大量锁争抢
-  预期指纹: 热点函数包含锁操作，负载分散在多个核心但单核满载
-  验证: get-hotspots + find-callers + analyze-core-distribution
-  证伪: 热点中无锁函数，或所有核心均衡满载
-
-假设B_调度压制:
-  机制: 应用层主动休眠或系统调度限制
-  预期指纹: 调度函数占比高，imbalance_level=CRITICAL，states中sleeping多
-  验证: cluster-symbols + analyze-core-distribution
-  证伪: 调度开销正常，且无主动休眠证据
-
-假设C_进程风暴:
-  机制: 短生命周期进程频繁创建销毁
-  预期指纹: count-process-variety 检测到 PROCESS_STORM
-  验证: count-process-variety
-  证伪: PID数量正常，样本/PID比值正常
-```
-
 ### 1.5 记录待验证问题
 
 **目标**: 将发现的潜在问题记录到 Live Document，防止遗漏
