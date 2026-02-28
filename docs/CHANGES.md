@@ -1675,3 +1675,319 @@ ISS-002  containerd-shim 高内核态 89.9%
 版本: v2.9
 
 ---
+
+
+# SPEAR-perf-hunter v2.10 更新日志
+
+## 更新概览
+
+本次更新建立**工具输出格式规范**，解决现有输出格式不一致、嵌套过深、缺乏风险提示等问题。
+
+**核心改进**:
+1. **风险置顶**: 所有输出必须包含 `_risk` 字段，第一时间提示关键问题
+2. **时间字符串化**: 所有时间字段使用 ISO 8601 格式，禁止使用数字时间戳
+3. **扁平化结构**: JSON 嵌套不超过 3 层，简化 Agent 解析
+
+---
+
+## 1. 问题背景
+
+### 1.1 现有输出格式问题
+
+**问题 1: 嵌套过深**
+
+```json
+// anomalies.py - 5层嵌套
+{
+  "anomalies": [{
+    "window": {
+      "start": 1234567890.123  // 第4层
+    },
+    "utilization": {
+      "before": "10.0%"       // 第4层
+    }
+  }]
+}
+```
+
+**问题 2: 时间戳数字**
+
+```json
+// 不规范的时间表示
+{
+  "time_range": {
+    "start": 1677567600.123,  // 数字时间戳，难以阅读
+    "end": 1677569400.456
+  }
+}
+```
+
+**问题 3: 缺乏统一风险提示**
+
+不同工具使用不同方式提示风险：
+- `bottleneck.py`: 使用 `verdict` 字段
+- `core_distribution.py`: 使用 `imbalance_level` 字段
+- `clusters.py`: 无风险字段
+
+Agent 难以统一识别关键信息。
+
+---
+
+## 2. 输出格式规范 v1.0
+
+### 2.1 必须字段: `_risk`
+
+所有工具输出必须包含 `_risk` 字段，放在输出顶部：
+
+```json
+{
+  "_risk": {
+    "level": "critical | warning | info | none",
+    "message": "简短的风险描述",
+    "hint": "建议的下一步操作",
+    "patterns": ["检测到的模式"],
+    "pending_targets": ["待处理目标"],
+    "action_required": true
+  }
+}
+```
+
+**Level 定义**:
+
+| Level | 场景 | Agent 响应 |
+|-------|------|-----------|
+| `critical` | 严重问题，必须处理 | 立即停止，按 hint 执行 |
+| `warning` | 潜在问题，建议处理 | 优先处理，记录风险 |
+| `info` | 值得关注 | 了解即可 |
+| `none` | 无风险 | 正常流程 |
+
+### 2.2 时间字段规范
+
+**格式**: ISO 8601 字符串
+
+```json
+{
+  "time_range": {
+    "start_time": "2026-02-28T10:00:00",
+    "end_time": "2026-02-28T10:30:00",
+    "duration": 1800  // 秒，保留数字
+  }
+}
+```
+
+**禁止**: 时间戳数字、嵌套时间对象
+
+### 2.3 数值规范
+
+**百分比**: 字符串，带 % 符号
+
+```json
+{
+  "cpu_utilization": "45.5%",
+  "kernel_ratio": "89.9%"
+}
+```
+
+**core/s**: 数字，4位小数
+
+```json
+{
+  "core_seconds": 0.0526
+}
+```
+
+---
+
+## 3. 各工具改造计划
+
+### 3.1 P0 优先级（高优先级）
+
+| 工具 | 主要改造点 |
+|------|-----------|
+| `bottleneck.py` | 添加 `_risk`，时间字符串化 |
+| `comm_top.py` | 添加 `_risk`，简化字段，时间字符串化 |
+| `anomalies.py` | 扁平化结构（5层→3层），时间字符串化 |
+| `core_distribution.py` | 简化 `cores`，时间字符串化 |
+
+### 3.2 P1 优先级
+
+| 工具 | 主要改造点 |
+|------|-----------|
+| `clusters.py` | 添加 `_risk`，时间字符串化 |
+| `hotspots.py` | 添加 `_risk`，时间字符串化 |
+| `trace.py` | 时间字符串化 |
+| `cpu_usage.py` | 时间字符串化 |
+| `process_top.py` | 时间字符串化 |
+| `process_variety.py` | 时间字符串化 |
+
+### 3.3 P2 优先级
+
+| 工具 | 主要改造点 |
+|------|-----------|
+| `comm_clusters.py` | 时间字符串化 |
+| `path_clusters.py` | 时间字符串化 |
+| `flamegraph.py` | 时间字符串化 |
+| `callgraph.py` | 时间字符串化 |
+
+---
+
+## 4. 改造示例
+
+### 4.1 anomalies.py 改造
+
+**改造前**:
+```json
+{
+  "anomalies": [{
+    "type": "SPIKE",
+    "window": {
+      "start": 1234567890.123,
+      "end": 1234567890.623
+    },
+    "utilization": {
+      "before": "10.0%",
+      "during": "85.0%",
+      "after": "15.0%"
+    },
+    "z_score": 3.5,
+    "change_magnitude": 0.75
+  }]
+}
+```
+
+**改造后**:
+```json
+{
+  "_risk": {
+    "level": "warning",
+    "message": "检测到 3 个 CPU 利用率异常尖峰",
+    "hint": "分析 spike 时段: get-hotspots --start-time '2026-02-28T10:15:00'",
+    "action_required": true
+  },
+  "summary": {
+    "total_anomalies": 3,
+    "spike_count": 2
+  },
+  "time_range": {
+    "start_time": "2026-02-28T10:00:00",
+    "end_time": "2026-02-28T10:30:00"
+  },
+  "anomalies": [{
+    "type": "SPIKE",
+    "time_range": "2026-02-28T10:15:00 - 2026-02-28T10:16:00",
+    "utilization_change": "10% -> 85% -> 15%",
+    "severity": "high"
+  }]
+}
+```
+
+### 4.2 comm_top.py 改造
+
+**改造前**:
+```json
+{
+  "comm_groups": [{
+    "comm": "netstat",
+    "pid_count": 2623,
+    "aggregate_cpu_utilization_pct": 243.87,
+    "kernel_ratio_pct": 94.7,
+    "density_index": 0.093,
+    "avg_core_sec_per_process": 0.0012
+  }]
+}
+```
+
+**改造后**:
+```json
+{
+  "_risk": {
+    "level": "warning",
+    "message": "发现 2 个高内核态进程组未分析",
+    "hint": "建议并行分析: cluster-symbols --comm containerd-shim",
+    "pending_targets": ["containerd-shim", "sh"],
+    "action_required": true
+  },
+  "summary": {
+    "total_comm_groups": 4,
+    "high_kernel_groups": 2
+  },
+  "time_range": {
+    "start_time": "2026-02-28T10:00:00",
+    "end_time": "2026-02-28T10:30:00"
+  },
+  "comm_groups": [{
+    "comm": "netstat",
+    "pid_count": 2623,
+    "cpu_pct": "243.87%",
+    "kernel_pct": "94.7%"
+  }]
+}
+```
+
+---
+
+## 5. 辅助工具
+
+### 5.1 RiskMixin 基类
+
+```python
+# core/risk_mixin.py
+class RiskMixin:
+    """标准化风险提示"""
+    
+    def add_risk(self, level, message, hint="", patterns=None, targets=None):
+        # 添加风险记录
+        pass
+    
+    def format_output(self, data):
+        # 添加 _risk 字段到输出
+        return {"_risk": self.get_top_risk(), **data}
+```
+
+### 5.2 时间格式化工具
+
+```python
+# core/format_utils.py
+from datetime import datetime
+
+def format_timestamp(ts: float) -> str:
+    """时间戳转 ISO 8601 字符串"""
+    return datetime.fromtimestamp(ts).isoformat()
+
+def format_time_range(start_ts, end_ts):
+    """格式化时间范围"""
+    return {
+        "start_time": format_timestamp(start_ts),
+        "end_time": format_timestamp(end_ts),
+        "duration": round(end_ts - start_ts, 2)
+    }
+```
+
+---
+
+## 6. 验证检查清单
+
+改造后的工具必须满足：
+
+- [ ] 输出包含 `_risk` 字段且置顶
+- [ ] `_risk.level` 为有效值 (critical/warning/info/none)
+- [ ] 所有时间戳转换为 ISO 8601 字符串
+- [ ] JSON 嵌套不超过 3 层
+- [ ] 百分比使用字符串格式（带 %）
+- [ ] 风险消息简洁（一句话）
+- [ ] hint 包含可执行命令建议
+
+---
+
+## 7. 参考文档
+
+- [输出格式规范](./output-format-spec.md)
+- [Live Document 设计](./design-rationale-live-doc.md)
+
+---
+
+更新日期: 2026-02-28
+
+版本: v2.10
+
+---

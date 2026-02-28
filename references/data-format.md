@@ -79,16 +79,4 @@ perf-exec  215053 [002] 368330.780793:     0.0526 core/s:
 
 **工具处理**：工具优先使用 `core/s` 字段计算，样本数量仅作为数据覆盖度的参考。
 
-## 生成带 core/s 的 perf 数据
-
-使用 `perf script` 的 `-F` 参数指定输出字段：
-
-```bash
-# 生成带 core/s 的 script 输出
-perf script -F comm,pid,cpu,time,core,sym,dso > perf.script
-
-# 或使用 report 的 raw 输出
-perf report --stdio --show-nr-samples --show-total-period
-```
-
-**注意**：core/s 字段需要较新版本的 perf（Linux 5.x+），旧版本可能不支持。
+**注意**：core/s 字段是这个系统的独有字段，和perf不一样，他是一种基于perf机制实现的new perf的output format
