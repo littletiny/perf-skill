@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-perf-hunter 是一个基于 SPEAR (Systematic Performance Empirical Analysis & Reflection) 方法论的性能诊断工具集，用于分析 Linux 性能数据，特别适用于 Cgroup 约束、低频采样（19Hz）或复杂多线程应用环境。
+perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning) 方法论的性能诊断工具集，用于分析 Linux 性能数据，特别适用于 Cgroup 约束、低频采样（19Hz）或复杂多线程应用环境。
 
 ---
 
@@ -11,10 +11,16 @@ perf-hunter 是一个基于 SPEAR (Systematic Performance Empirical Analysis & R
 ```
 .
 ├── AGENTS.md              # 本文件 - 开发指南和约定
-├── SKILL.md               # 技能文档 - 面向用户的性能诊断方法论
+├── SKILL.md               # 技能文档 - 面向用户的性能诊断方法论（入口）
 ├── docs/
 │   └── CHANGES.md         # 修改记录 - 每次修改的理由和详情
 ├── references/            # 参考资料
+│   ├── workflow.md        # 分析流程指南（7个Phase、典型模式）
+│   ├── tools.md           # 工具命令参考（命令、参数）
+│   ├── heuristics.md      # 启发式规则手册（认知闭包、诊断规则）
+│   ├── templates.md       # 文档模板（诊断报告格式）
+│   ├── data-format.md     # 数据格式说明（perf script解析）
+│   └── EVOLUTION.md       # 项目演进历史
 ├── scripts/
 │   ├── perf_expert.py     # 主入口脚本 - 包含所有子命令的 CLI
 │   ├── parse_test2.py     # 测试脚本
@@ -46,13 +52,30 @@ perf-hunter 是一个基于 SPEAR (Systematic Performance Empirical Analysis & R
 
 ### 1. 修改记录规范
 - 每次修改 skill 都需要在 `docs/CHANGES.md` 中记录相关的修改信息和修改理由
-- 这些信息**不要**记录在 skill 本体（SKILL.md 或脚本）里面
+- 版本变化信息**不要**记录在 skill 本体（SKILL.md 或脚本）里面
 
 ### 2. 代码规范
 - 代码中尽量少使用 regex，尤其是对外参数
 - 遵循现有的模块化架构，新功能添加到 `perf_toolkit/analysis/` 目录
 
-### 3. 版本控制
+### 3. 文档引用准则
+
+SKILL.md 应保持精简，详细内容应放在 references/ 目录，通过引用方式组织：
+
+| 内容类型 | 应放在 | 不应放在 |
+|----------|--------|----------|
+| 完整文档模板 | `references/templates.md` | SKILL.md 附录 |
+| 详细分析流程 | `references/workflow.md` | SKILL.md 标准工作流 |
+| 工具命令详情 | `references/tools.md` | SKILL.md 工具清单 |
+| 启发式规则详情 | `references/heuristics.md` | SKILL.md 核心原则 |
+| 数据格式说明 | `references/data-format.md` | SKILL.md 正文 |
+
+**引用格式示例**:
+```markdown
+📗 **分析流程指南**: `references/workflow.md` - 标准工作流程
+```
+
+### 4. 版本控制
 - 每次修改 skill 都需要通过 git 来提交变更，做到历史改动可追溯
 
 ---
@@ -97,5 +120,7 @@ python scripts/perf_expert.py get-hotspots --data perf.data.txt
 
 ## 版本历史
 
+- **v2.4** (2026-02-28): 重构文档体系，SKILL.md 压缩 63%，新增 workflow.md/heuristics.md
+- **v2.3** (2026-02-28): 完善 AGENTS.md 和 CLI 帮助信息
 - **v2.1** (2026-02-28): 新增 `analyze-core-distribution` 工具，支持核心级负载分析
 - **v2.0** (Previous): 移除 `--freq` 参数，直接从 core/s 计算 CPU 利用率

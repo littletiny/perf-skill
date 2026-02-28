@@ -14,7 +14,9 @@
 
 ---
 
-## 一、问题演进表 (Table Question)
+## 一、问题演进记录
+
+记录问题定义随证据变化的迭代过程。
 
 | 版本 | 问题描述 | 关键证据引用 (工具/数据) |
 |------|----------|------------------------|
@@ -33,7 +35,7 @@
 
 ---
 
-## 二、路径追踪与机制评估表 (Table Analysis)
+## 二、竞争性假设追踪
 
 SPEAR 要求保持**竞争性假设**，并行追踪多条路径直至证伪。
 
@@ -175,7 +177,8 @@ python3 scripts/perf_expert.py cluster-symbols --data perf.script.fixed
 
 ### 参考文档
 
-- [methodology.md](references/methodology.md): SPEAR 完整方法论
+- [heuristics.md](references/heuristics.md): SPEAR 启发式规则（五大认知闭包、领域诊断规则）
+- [workflow.md](references/workflow.md): 分析流程指南与典型模式
 - [tools.md](references/tools.md): 工具命令详细说明
 - [data-format.md](references/data-format.md): perf script 格式说明
 
@@ -191,8 +194,8 @@ python3 scripts/perf_expert.py cluster-symbols --data perf.script.fixed
 
 ### 更新频率
 
-- **Table A**: 每次工具发现改变问题认知的证据后立即更新
-- **Table B**: 每个假设验证后更新"验证结果"和"状态"
+- **问题演进记录**: 每次工具发现改变问题认知的证据后立即更新
+- **竞争性假设追踪**: 每个假设验证后更新"验证结果"和"状态"
 - **深度审计**: 在热点溯源阶段，每发现关键调用链就记录一条
 
 ### 状态流转
@@ -201,13 +204,13 @@ python3 scripts/perf_expert.py cluster-symbols --data perf.script.fixed
 进行中 → 已定位 → 已验证 → 已关闭
    ↑        ↑         ↑
   发现    根因确认   修复验证
-  新证据   Table B   全局审计
-          主路径确认  通过
+  新证据   主路径确认  全局审计
+          通过
 ```
 
 ### 填写技巧
 
-1. **Table B 最少3条假设**: 避免搜索范围过窄，必须包含主动消耗和被动压制两类
+1. **竞争性假设追踪最少3条假设**: 避免搜索范围过窄，必须包含主动消耗和被动压制两类
 2. **机制评估要具体**: 不要写"可能有锁竞争"，要写"读取/proc/net/tcp需要获取tcp_hashinfo锁"
 3. **保留证伪记录**: 即使假设被推翻，也不要删除，标注❌并写明证伪原因和证据
 4. **引用要精确**: 写明工具名、关键指标数值、可靠性等级，方便他人复验

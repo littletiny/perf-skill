@@ -1,3 +1,154 @@
+# SPEAR-perf-hunter v2.4 更新日志
+
+## 更新概览
+
+本次更新是文档体系的大规模重构，核心目标是**提升信息密度、消除冗余、优化命名**：
+
+1. **SKILL.md 压缩**: 从 319 行精简至 118 行（-63%），保留核心方法论
+2. **文档拆分**: 将 tools.md 拆分为 workflow.md（方法论）和 tools.md（命令参考）
+3. **命名优化**: methodology.md → heuristics.md，优化 SPEAR 展开含义
+4. **内容整合**: 将 EVOLUTION.md 有价值内容合并到 workflow.md
+
+---
+
+## 1. SKILL.md 压缩重构
+
+### 修改理由
+原 SKILL.md 存在冗余：
+- 5 个 Step 的详细描述与 workflow.md 重复
+- 附录包含完整的文档模板（70+行），应引用 templates.md
+- 典型陷阱使用冗长的段落格式，可表格化
+- 工具清单与 tools.md 重复
+
+### 修改内容
+1. **合并导语和工具介绍**: 简化开篇，使用表格展示参考文档
+2. **Step 详情表格化**: 5 个 Step 转为流程图 + 要点表格
+3. **删除附录模板**: 改为引用 templates.md
+4. **陷阱表格化**: 5 段描述 → 1 个表格
+5. **精简工具清单**: 保留核心 8 个工具速查
+
+### 变更统计
+- 行数: 319 → 118 (-63%)
+- 文件大小: ~11KB → ~5KB (-55%)
+
+### 文件变更
+- `SKILL.md`: 完全重构
+
+---
+
+## 2. 文档体系重构
+
+### 2.1 拆分 tools.md
+
+**问题**: 原 tools.md (526 行) 同时包含方法论和命令参考，职责不清
+
+**解决方案**:
+- **workflow.md** (新增): 分析流程、7 个 Phase、典型模式、数据可靠性评估
+- **tools.md** (重写): 纯命令参考，仅包含命令、参数、使用示例
+
+**workflow.md 内容**:
+- 性能问题分类（按形态/层次）
+- 7 Phase 分析流程
+- 感知手段框架（5 维度）
+- 典型分析模式 A/B/C/D
+- 数据可靠性评估表
+
+**tools.md 内容**:
+- 工具速查表
+- 各工具命令和参数
+- 通用参数表
+
+### 2.2 重命名 methodology.md → heuristics.md
+
+**问题**: methodology 与 SKILL.md 的"方法论"概念重叠，名称不准确
+
+**新定位**: 专家经验手册，包含：
+- SPEAR 方法论命名解释
+- 五大认知闭包
+- 领域诊断规则（进程级/系统级）
+- 工具使用铁律
+
+### 2.3 更新 templates.md
+
+**问题**: "Table A/B" 等命名不清晰
+
+**修改**:
+- Table A → "问题演进记录"
+- Table B → "竞争性假设追踪"
+- 添加 workflow.md 引用
+
+### 文件变更
+- `references/workflow.md`: 新增 (429 行)
+- `references/tools.md`: 重写 (339 行)
+- `references/heuristics.md`: 新增，替代 methodology.md (76 行)
+- `references/methodology.md`: 删除
+- `references/templates.md`: 优化命名 (216 行)
+
+---
+
+## 3. 优化 SPEAR 展开含义
+
+### 修改理由
+原展开存在冗余和歧义：
+- **P**erformance 与 **A**nalysis 重复
+- **E**mpirical 过于学术
+- **R**eflection 易被误解为"反射"
+
+### 新展开
+**SPEAR** = **S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning
+
+（系统化问题证据驱动分析与推理）
+
+### 文件变更
+- `SKILL.md`: 更新描述和标题
+- `AGENTS.md`: 更新项目简介
+- `references/EVOLUTION.md`: 更新方法论定义
+
+---
+
+## 4. 整合 EVOLUTION.md 内容
+
+### 修改理由
+EVOLUTION.md 包含独特的性能问题分类和感知手段框架，但分散在独立文件中
+
+### 整合内容到 workflow.md
+1. **性能问题分类** (2.1-2.3 节)
+   - 按表现形态: 持续高耗/突发尖峰/长尾延迟/资源压制
+   - 按系统层次: 系统/进程/线程/代码
+
+2. **感知手段框架** (3.1 节)
+   - 资源边界 → 瓶颈判定 → 优化天花板
+   - 时间分布 → 异常识别 → 定位时刻
+   - 空间分布 → 热点路径 → 性能主干
+   - 语义分类 → 模块归类 → 优化层级
+   - 进程视角 → 聚合统计 → 资源归属
+
+### 文件变更
+- `references/workflow.md`: 新增"性能问题分类"章节
+- `references/EVOLUTION.md`: 保留作为项目历史档案
+
+---
+
+## 参考文档索引
+
+重构后的文档体系：
+
+| 文档 | 用途 | 大小 |
+|------|------|------|
+| `SKILL.md` | 入口，核心方法论 | 118 行 |
+| `references/workflow.md` | 分析流程指南 | 429 行 |
+| `references/tools.md` | 工具命令参考 | 339 行 |
+| `references/heuristics.md` | 启发式规则 | 76 行 |
+| `references/templates.md` | 文档模板 | 216 行 |
+| `references/data-format.md` | 数据格式说明 | 82 行 |
+| `references/EVOLUTION.md` | 项目演进历史 | 388 行 |
+
+---
+
+更新日期: 2026-02-28
+
+---
+
 # SPEAR-perf-hunter v2.3 更新日志
 
 ## 更新概览

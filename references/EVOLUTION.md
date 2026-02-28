@@ -4,7 +4,7 @@
 
 ### 1.1 SPEAR 核心原则
 
-SPEAR (Systematic Performance Empirical Analysis & Reflection) 是系统化的 Linux 性能诊断方法论：
+SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning) 是系统化的 Linux 性能诊断方法论：
 
 | 原则 | 说明 |
 |------|------|
