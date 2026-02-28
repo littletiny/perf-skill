@@ -2,6 +2,244 @@
 
 ---
 
+# SPEAR-perf-hunter v0.8 更新日志
+
+## 更新概览
+
+**本次更新是一个架构级转折点：彻底放弃严格的线性 SOP 流程，转向"多路径并行假设驱动"模式。**
+
+在 v0.7 尝试通过增加 Step 0（领域知识激活）来解决问题后，分析仍然失败了。根本原因是：**过于严格的线性决策树（Step 1→2→3→4→5）限制了分析灵活性**，导致：
+- 过早收敛：看到 FindInTableWithLock 就认定是锁竞争
+- 遗漏线索：看到 finish_task_switch 却没有溯源
+- 无法并行验证多条假设
+
+**核心转变**: 从"流程驱动"转向"假设驱动"，给 Agent 足够的自由度。
+
+---
+
+## 1. 为什么放弃严格 SOP？
+
+### 1.1 严格 SOP 的问题
+
+**原来的线性决策树**:
+```
+Step 1 → Step 2 → Step 3 → Step 4 → Step 5
+(单一串联路径)
+```
+
+**实际需要的分析**:
+```
+Step 1: 环境边界判定
+    ↓
+启动多条假设路径并行验证
+    ├─→ 路径 A: 锁竞争假设
+    │       tools: [get-hotspots, find-callers]
+    │       falsify_condition: 热点中无锁函数
+    │
+    ├─→ 路径 B: 调度问题假设  
+    │       tools: [analyze-core-distribution, find-callers finish_task_switch]
+    │       falsify_condition: finish_task_switch 来自抢占而非休眠
+    │
+    └─→ 路径 C: 配置问题假设
+            tools: [检查 ThreadManager 配置]
+            falsify_condition: 线程数配置合理
+    ↓
+对比证据强度 → 收敛结论
+```
+
+### 1.2 关键失败点复盘
+
+| 时间点 | 决策 | 结果 | 原因 |
+|--------|------|------|------|
+| T4 | 看到 finish_task_switch 3.92% | **没有溯源** | 决策树没有强调"调度函数必须追溯" |
+| T5 | 选择 find-callers targets | **遗漏 finish_task_switch** | 过早收敛到锁竞争假设 |
+| T6 | cluster-symbols --custom-rules 报错 | **转向 grep** | 没有 workaround，流程中断 |
+
+**根本问题**: 线性决策树无法支持"竞争性假设并行验证"。
+
+---
+
+## 2. 架构重构：从 SOP 到假设驱动
+
+### 2.1 放弃线性决策树
+
+**废除**:
+```yaml
+# 废除的线性流程
+Step 1: 环境边界判定 → Step 2: 进程行为检查 → Step 3: 热点识别 → ...
+```
+
+**改为**:
+```yaml
+# 新的假设驱动流程
+Phase 1: 信息收集（快速扫描）
+Phase 2: 假设生成（发散，至少 3 条竞争性假设）
+Phase 3: 并行验证（多条路径同时推进）
+Phase 4: 证据对比（对比各假设的证据强度）
+Phase 5: 收敛结论（证伪 N-1 条后才确认）
+```
+
+### 2.2 给 Agent 的自由度
+
+| 维度 | 原来 (SOP) | 现在 (假设驱动) |
+|------|-----------|----------------|
+| 工具选择 | 严格按 Step 选择 | 根据假设需要灵活选择 |
+| 分析顺序 | 固定 1→2→3→4→5 | 多条路径并行 |
+| 收敛时机 | 发现热点后立即深入 | 至少验证 3 条假设后才能收敛 |
+| 工具组合 | 预设组合 | 根据假设自定义组合 |
+
+### 2.3 竞争性假设执行指南（新增）
+
+```markdown
+## 如何执行竞争性假设
+
+当发现 SINGLE_CORE_SATURATION 时:
+
+1. **列出所有可能假设** (至少 3 条)
+   - 假设 A: 锁竞争导致串行化
+   - 假设 B: 调度压制导致无法运行
+   - 假设 C: 配置问题导致线程数不足
+
+2. **为每条假设设计验证实验**
+   - 假设 A: get-hotspots → find-callers 追溯锁函数
+   - 假设 B: analyze-core-distribution → find-callers finish_task_switch
+   - 假设 C: 检查 ThreadManager 配置
+
+3. **并行执行所有验证**
+   - 不要等一条路径走完再走另一条
+   - 同时收集各路径的证据
+
+4. **记录每条假设的证据强度**
+   - 假设 A 证据: FindInTableWithLock 占比 X%
+   - 假设 B 证据: finish_task_switch 来自 nanosleep 占 Y%
+   - 假设 C 证据: 线程配置为 Z
+
+5. **证伪后再收敛**
+   - 只有当 N-1 条假设被证伪后，才能确认第 N 条
+   - 如果多条假设都有证据，需要综合优化
+
+**不要**:
+- 看到一条证据就立即收敛
+- 忽略与主假设矛盾的证据
+- 机械执行预设流程
+```
+
+---
+
+## 3. 关键工具增强
+
+### 3.1 新增 analyze-core-distribution
+
+**用途**: 解决"单核饱和 + 负载不均衡"场景的工具缺失问题
+
+```bash
+python3 scripts/perf_expert.py analyze-core-distribution \
+  --pid 2573405 \
+  --show-sleep-reasons
+```
+
+**解决什么问题**:
+- 按核心分析负载分布
+- 区分锁竞争 vs 主动休眠
+- 自动检测 SINGLE_CORE_SATURATION 模式
+
+### 3.2 修复 cluster-symbols --custom-rules
+
+**问题**: TypeError: unhashable type: 'list'
+
+**修复**: 支持 pattern 为列表或字符串格式
+
+```python
+# 支持 pattern 为列表或字符串
+if isinstance(pattern, list):
+    pattern_str = '|'.join(pattern)
+else:
+    pattern_str = pattern
+```
+
+### 3.3 完善关键决策原则表
+
+**新增条目**:
+
+| 观察症状 | 必选工具链 | 验证目标 |
+|---------|-----------|---------|
+| SINGLE_CORE_SATURATION | **同时执行** A/B/C 三条路径 | 区分锁/调度/配置问题 |
+| finish_task_switch 出现 | `find-callers finish_task_switch` | 主动休眠 vs 被动抢占 |
+| 72 核分布但 1 核满载 | `analyze-core-distribution` | 锁竞争 vs 主动退避 |
+
+---
+
+## 4. 新旧模式对比
+
+### 4.1 同一个案例的不同分析方式
+
+**案例**: PID 2573405, SINGLE_CORE_SATURATION, finish_task_switch 出现
+
+**旧模式 (失败)**:
+```
+check-cpu-bottleneck → count-process-variety → get-hotspots → find-callers FindInTableWithLock
+↓
+过早收敛: "锁竞争导致串行化"
+```
+
+**新模式 (正确)**:
+```
+check-cpu-bottleneck
+    ↓
+启动三条假设路径:
+  ├─→ 路径 A (锁竞争): get-hotspots → find-callers FindInTableWithLock
+  ├─→ 路径 B (调度问题): analyze-core-distribution → find-callers finish_task_switch
+  └─→ 路径 C (配置问题): 检查 ThreadManager 配置
+    ↓
+证据对比:
+  - 路径 A: FindInTableWithLock 确实高，但只能解释部分问题
+  - 路径 B: **发现 finish_task_switch 66.67% 来自 nanosleep！**
+  - 路径 C: 线程配置正常
+    ↓
+综合结论:
+  "全局锁 + 应用层主动休眠 叠加导致伪单线程，需要架构重构"
+```
+
+### 4.2 责任分配反思
+
+| 问题 | 旧模式责任 | 新模式改进 |
+|------|-----------|-----------|
+| 过早收敛 | 40% 决策树引导 | 竞争性假设强制并行验证 |
+| 遗漏调度线索 | 50% 决策原则缺失 | 关键症状→必选工具链映射 |
+| 过度使用 grep | 70% 工具缺失/bug | 新增专用工具 |
+
+---
+
+## 5. 经验教训
+
+### 对 Skill 设计的核心认知转变
+
+1. **流程是手段，不是目的**
+   - SOP 的目的是确保不遗漏关键步骤
+   - 但过于严格的 SOP 会抑制灵活思考
+
+2. **假设驱动优于流程驱动**
+   - 不要问"Step 3 应该用什么工具"
+   - 要问"验证这个假设需要什么证据"
+
+3. **给 Agent 自由度 ≠ 放弃规范**
+   - 关键检查点仍然强制（如 finish_task_switch 必须溯源）
+   - 但工具组合和顺序由 Agent 根据假设决定
+
+4. **竞争性假设需要执行指南**
+   - 不只是说"保持双线思考"
+   - 要提供"如何启动多条路径"的具体方法
+
+---
+
+更新日期: 2026-02-28
+
+版本: v0.8
+
+核心转变: 从"严格 SOP"到"假设驱动"
+
+---
+
 # SPEAR-perf-hunter v0.7 更新日志
 
 ## 更新概览
