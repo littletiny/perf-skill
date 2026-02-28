@@ -50,6 +50,7 @@ from perf_toolkit.analysis.comm_clusters import cmd_cluster_comm
 from perf_toolkit.analysis.path_clusters import cmd_cluster_paths
 from perf_toolkit.analysis.process_variety import cmd_count_process_variety
 from perf_toolkit.analysis.core_distribution import cmd_analyze_core_distribution
+from perf_toolkit.analysis.comm_top import cmd_get_comm_top
 
 
 class HelpOnErrorParser(argparse.ArgumentParser):
@@ -274,6 +275,20 @@ def main():
     p13.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p13.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
 
+    # get-comm-top
+    p14 = subparsers.add_parser('get-comm-top', 
+                                help="Get top N comm groups by aggregated CPU (for many-small-processes analysis)")
+    p14.add_argument("--data", required=True, help="Path to perf script output file")
+    p14.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
+    p14.add_argument("--sort-by-density", action="store_true", 
+                     help="Sort by density index (CPU per process) instead of aggregate CPU")
+    p14.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
+    p14.add_argument("--pid", type=int, help="Filter by process ID")
+    p14.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
+    p14.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
+    p14.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
+    p14.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -302,7 +317,8 @@ def main():
         "cluster-comm": cmd_cluster_comm,
         "cluster-paths": cmd_cluster_paths,
         "count-process-variety": cmd_count_process_variety,
-        "analyze-core-distribution": cmd_analyze_core_distribution
+        "analyze-core-distribution": cmd_analyze_core_distribution,
+        "get-comm-top": cmd_get_comm_top
     }
     
     commands[args.command](engine, args)

@@ -79,6 +79,7 @@
 假设B_调度压制:
   机制: 应用层主动休眠或系统调度限制
   预期指纹: 调度函数占比高，imbalance_level=CRITICAL，states中sleeping多
+  **特别注意:调度相关函数占比一般很低但是很重要，过高的调度函数开销不是调度压制而是调度系统本身的performance bug**
   验证: cluster-symbols + analyze-core-distribution
   证伪: 调度开销正常，且无主动休眠证据
 
@@ -104,15 +105,6 @@ python3 scripts/perf_expert.py show-cpu-usage \
   [--comm <name>] \
   [--comm-regex <pattern>] \
   [--cpu-id <ID>]
-```
-
-**关键输出**:
-```json
-{
-  "user_pct": 45.2,      // 用户态 CPU 利用率
-  "kernel_pct": 12.5,    // 内核态 CPU 利用率
-  "total_pct": 57.7      // 总利用率
-}
 ```
 
 **分析要点**:
@@ -148,45 +140,9 @@ python3 scripts/perf_expert.py analyze-core-distribution \
   [--comm-regex <pattern>]
 ```
 
-**关键输出**:
-```json
-{
-  "summary": {
-    "total_cores_with_activity": 72,
-    "max_utilization_pct": 97.45,
-    "min_utilization_pct": 0.21,
-    "avg_utilization_pct": 2.0,
-    "imbalance_level": "CRITICAL",
-    "imbalance_description": "单核满载，其他核心几乎空闲"
-  },
-  "cores": [
-    {
-      "cpu_id": 40,
-      "utilization_pct": 97.45,
-      "states": {"active": 2}
-    }
-  ],
-  "patterns": [
-    {
-      "type": "SINGLE_CORE_SATURATION",
-      "suggestion": "检查锁竞争、CPU亲和性绑定或应用层主动休眠"
-    }
-  ]
-}
-```
-
-**决策分支**:
-| imbalance_level | 含义 | 下一步动作 |
-|----------------|------|-----------|
-| LOW | 负载均衡 | 检查整体资源是否充足 |
-| MEDIUM | 轻度不均衡 | 可能正常，视业务特性而定 |
-| HIGH | 明显不均衡 | 检查线程分配策略 |
-| CRITICAL | 严重不均衡 | **必须溯源**：锁竞争？调度压制？ |
-
-**关键检查点**:
-- `states` 中 sleeping 多 → 主动休眠，检查 `nanosleep`/`epoll_wait`
-- `states` 中 active 多但利用率低 → 锁竞争，检查 `mutex`/`spinlock`
-- 单核满载其他空闲 → 串行化瓶颈
+**典型用途**:
+- 是否存在单核瓶颈
+- 是否存在负载不均匀
 
 ---
 
@@ -203,14 +159,60 @@ python3 scripts/perf_expert.py get-process-top \
   [--cpu-id <ID>]
 ```
 
-**输出**:
-| comm | pid | user_pct | kernel_pct | total_pct | samples |
-|------|-----|----------|------------|-----------|---------|
-| myapp | 1234 | 35.2 | 5.1 | 40.3 | 1523 |
+**用途**: 快速定位主要消耗**单个进程**，为后续 `--pid` 过滤提供目标
 
-**用途**: 快速定位主要消耗进程，为后续 `--pid` 过滤提供目标
+**局限**: 无法识别"大量同类进程各自消耗少，但聚合消耗高"的场景
 
-### 3.2 get-hotspots —— 热点函数识别
+### 3.2 get-comm-top —— 高消耗进程组识别（大量小进程场景）⭐
+
+```bash
+python3 scripts/perf_expert.py get-comm-top \
+  --data <perf.script.txt> \
+  [--top-n <N>] \
+  [--sort-by-density] \
+  [--comm <name>]
+```
+
+**专门用于识别**: 大量同类进程吃满资源，但单个进程占用少的场景
+
+**典型场景**:
+- Worker pool 过度扩容（如 100 个 worker 每个只用 0.5% CPU，合计 50%）
+- 连接风暴（每个连接一个进程/线程，连接数过多）
+- 微服务实例过度分片
+- 进程泄漏（不断创建新进程处理请求）
+
+**关键输出字段**:
+```json
+{
+  "comm": "worker",
+  "pid_count": 128,
+  "aggregate_cpu_utilization_pct": 65.4,
+  "avg_cpu_per_process_pct": 0.51,
+  "density_index": 0.51,
+  "is_many_small_pattern": true
+}
+```
+
+| 字段 | 含义 | 诊断价值 |
+|------|------|---------|
+| `pid_count` | 该 comm 的进程数量 | 识别进程风暴 |
+| `aggregate_cpu_utilization_pct` | 聚合 CPU 利用率 | 总资源消耗 |
+| `avg_cpu_per_process_pct` | 单进程平均 CPU | 识别是否单进程过载 |
+| `density_index` | 密度指数 = 总CPU / 进程数 | **越小表示过度分片越严重** |
+| `is_many_small_pattern` | 是否符合"大量小进程"模式 | 快速识别问题模式 |
+
+**自动检测模式**:
+| 模式 | 触发条件 | 建议 |
+|------|---------|------|
+| `MANY_SMALL_PROCESSES` | 聚合>10% 且 单进程<1% 且 进程数≥5 | 检查 worker pool 配置、连接池大小 |
+| `UNEVEN_LOAD_DISTRIBUTION` | 同类型进程间样本数差异>10倍 | 检查负载均衡策略 |
+| `EXTREME_PROCESS_PROLIFERATION` | 进程数≥10 且 密度指数<0.5 | 可能存在进程泄漏 |
+
+**与 `get-process-top` 的区别**:
+- `get-process-top`: 找"单个高消耗进程"（如某个进程占 40% CPU）
+- `get-comm-top`: 找"同类进程集体高消耗"（如 100 个 worker 各占 0.5% CPU，合计 50%）
+
+### 3.3 get-hotspots —— 热点函数识别
 
 ```bash
 python3 scripts/perf_expert.py get-hotspots \
@@ -227,9 +229,9 @@ python3 scripts/perf_expert.py get-hotspots \
 
 **分析策略**:
 - CPU 高但不知道热点 → `--sort-by self` 找直接消耗
-- 已知入口函数想分析子调用 → `--sort-by inclusive`
+- 已知入口函数想分析子调用 → `--sort-by inclusive`，强烈推荐后续使用find-callers
 
-### 3.3 find-callers —— 热点函数溯源
+### 3.4 find-callers —— 热点函数溯源
 
 ```bash
 # 指定 target 模式
@@ -238,7 +240,7 @@ python3 scripts/perf_expert.py find-callers \
   --target <function> \
   [--min-ratio <pct>]
 
-# 自动模式（推荐用于初始探索）
+# 自动模式（不能过分依赖，用于启发思路，可能存在遗漏）
 python3 scripts/perf_expert.py find-callers \
   --data <perf.script.txt> \
   --auto-target \
@@ -253,7 +255,7 @@ python3 scripts/perf_expert.py find-callers \
   - 调用频率高但持有时间短 → 可能正常
   - 调用频率低但持有时间长 → 粗粒度锁问题
 
-### 3.4 cluster-paths —— 调用路径聚类
+### 3.5 cluster-paths —— 调用路径聚类
 
 ```bash
 python3 scripts/perf_expert.py cluster-paths \
@@ -401,6 +403,7 @@ python3 scripts/perf_expert.py cluster-comm \
 | 锁函数出现 | 评估：锁粒度和竞争范围 | find-callers + 代码审查 |
 | 内存回收函数高 | 检查：内存压力或泄漏 | cluster-symbols (MEM_RECLAIM) |
 | 单进程 CPU 异常高 | 对比：是否符合其角色定位 | get-hotspots --pid |
+| 系统 CPU 高但无明显高耗进程 | 检查：是否存在大量小进程集体消耗 | **get-comm-top** |
 
 ### 7.2 全局一致性检查
 
@@ -478,7 +481,34 @@ get-hotspots --comm <storm-comm>
 find-callers --auto-target --comm <storm-comm>
 ```
 
-### 模式 D: 负载不均衡专项分析
+### 模式 D: 大量小进程集体高消耗 (⭐ 新增)
+
+**场景**: 系统 CPU 很高，但 `get-process-top` 看不到明显的高消耗单进程
+
+```bash
+# Step 1: 使用 get-comm-top 识别进程组模式
+get-comm-top
+
+# Step 2: 检查输出中的关键信号
+# - is_many_small_pattern: true → 确认大量小进程模式
+# - density_index < 0.5 → 过度分片严重
+# - patterns 中的 MANY_SMALL_PROCESSES → 自动识别
+
+# Step 3: 对问题进程组深入分析
+get-hotspots --comm <problem-comm>
+cluster-symbols --comm <problem-comm>
+
+# Step 4: 检查是否是配置问题（worker 数过多）或逻辑问题（进程泄漏）
+# - avg_cpu_per_process_pct 极低 + pid_count 极高 → 可能配置不当
+# - min_samples_per_pid 和 max_samples_per_pid 差异大 → 负载不均
+```
+
+**典型案例**: 
+- Nginx worker_processes 配置为 auto，在 128 核机器上创建 128 个 worker，但每个只处理少量连接
+- Java 应用线程池配置过大，创建数千个线程
+- PHP-FPM pm.max_children 配置过高
+
+### 模式 E: 负载不均衡专项分析
 
 ```bash
 # Step 1: 确认不均衡程度
@@ -502,7 +532,8 @@ find-callers --target <调度函数或锁函数>
 | `show-cpu-usage` | 宏观评估 | 资源消耗概览 |
 | `detect-anomalies` | 宏观评估 | 时序异常定位 |
 | `analyze-core-distribution` | 宏观评估 | 核心级负载均衡分析 |
-| `get-process-top` | 敏感路径 | 高消耗进程识别 |
+| `get-process-top` | 敏感路径 | 高消耗**单进程**识别 |
+| `get-comm-top` | 敏感路径 | 高消耗**进程组**识别（大量小进程场景） |
 | `get-hotspots` | 敏感路径 | 热点函数排名 |
 | `find-callers` | 敏感路径 | 热点函数溯源 |
 | `cluster-paths` | 敏感路径 | 调用路径聚类 |

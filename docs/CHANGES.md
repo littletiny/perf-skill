@@ -1,4 +1,80 @@
-# SPEAR-perf-hunter v2.1 更新日志
+# SPEAR-perf-hunter v2.2 更新日志
+
+## 更新概览
+
+本次更新包含以下改进：
+1. **新功能**: 新增 `get-comm-top` 工具，专门用于识别"大量同类进程吃满资源，但单个进程占用少"的场景
+2. **重构 tools.md**: 采用 Top-Down + Bottom-Up 混合分析流程组织文档
+
+---
+
+## 1. 新功能: get-comm-top
+
+### 用途
+分析按进程名（comm）聚合的 CPU 消耗排名，专门识别以下场景：
+- Worker pool 过度扩容（大量 worker 每个消耗少量 CPU）
+- 连接风暴（每个连接一个进程/线程）
+- 微服务实例过度分片
+- 进程泄漏（不断创建新进程）
+
+### 与现有工具的区别
+| 工具 | 分析维度 | 适用场景 |
+|------|---------|---------|
+| `get-process-top` | 单个进程 | 找单个高消耗进程 |
+| `cluster-comm` | 进程组汇总 | 简单聚类，无排名 |
+| `get-comm-top` | 进程组排名 + 密度分析 | **大量小进程集体高消耗** |
+
+### 核心指标
+- `pid_count`: 该 comm 的进程数量
+- `aggregate_cpu_utilization_pct`: 聚合 CPU 利用率
+- `avg_cpu_per_process_pct`: 单进程平均 CPU
+- `density_index`: 密度指数（总CPU / 进程数），**越小表示过度分片越严重**
+- `is_many_small_pattern`: 是否符合"大量小进程"模式
+
+### 自动检测模式
+- `MANY_SMALL_PROCESSES`: 聚合>10% 且 单进程<1% 且 进程数≥5
+- `UNEVEN_LOAD_DISTRIBUTION`: 同类型进程间负载不均
+- `EXTREME_PROCESS_PROLIFERATION`: 进程数极多但单进程贡献极低
+
+### 使用方法
+```bash
+# 基本使用
+python3 scripts/perf_expert.py get-comm-top --data perf.script
+
+# 按密度指数排序（找过度分片最严重的）
+python3 scripts/perf_expert.py get-comm-top --data perf.script --sort-by-density
+
+# 过滤特定进程名
+python3 scripts/perf_expert.py get-comm-top --data perf.script --comm worker
+```
+
+### 文件变更
+1. `scripts/perf_toolkit/analysis/comm_top.py` - 新工具实现
+2. `scripts/perf_expert.py` - 添加子命令和参数解析
+3. `references/tools.md` - 添加工具说明和使用模式
+
+---
+
+## 2. 重构 tools.md
+
+### 修改内容
+1. **新增分析流程总览图**: 7 阶段 Top-Down + Bottom-Up 混合流程
+2. **按分析阶段重组工具**: Phase 1→7 渐进式分析路径
+3. **新增语义分析章节**: 符号名领域映射
+4. **新增专家经验查缺补漏章节**: 关键信号检查清单
+5. **新增典型分析模式**: 5 种快捷路径（含新增的大量小进程模式）
+
+### 文件变更
+- `references/tools.md`: 完全重构
+
+---
+
+更新日期: 2026-02-28
+版本: v2.2
+
+---
+
+# 历史版本
 
 ## 更新概览
 
