@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "data_file": "case.data",
+  "created_at": "2026-02-28T18:43:09.885513Z",
+  "updated_at": "2026-02-28T18:45:13.660587Z",
+  "issues": [
+    {
+      "id": "ISS-001",
+      "desc": "netstat\u8fdb\u7a0b\u98ce\u66b4: 2623\u4e2aPID, \u5185\u6838\u600194.7%",
+      "status": "completed",
+      "risk": "\u7cfb\u7edf\u5f00\u9500\u6fc0\u589e\uff0c\u7591\u4f3c\u76d1\u63a7\u811a\u672c\u5f02\u5e38",
+      "hint": "cluster-symbols --comm netstat; count-process-variety",
+      "created_at": "2026-02-28T18:43:26.384505Z",
+      "result": "PROCESS_STORM: 2623\u4e2anetstat\u8fdb\u7a0b(44\u4e2a/\u79d2)\u5bfc\u81f4\u5185\u6838\u9501\u7ade\u4e89",
+      "completed_at": "2026-02-28T18:45:10.111299Z"
+    },
+    {
+      "id": "ISS-002",
+      "desc": "\u5185\u6838\u6001CPU\u8fc7\u9ad8: 673.96%\uff0c\u8d85\u8fc7\u7528\u6237\u6001",
+      "status": "completed",
+      "risk": "\u53ef\u80fd\u5b58\u5728\u5185\u6838\u9501\u7ade\u4e89\u6216\u7cfb\u7edf\u8c03\u7528\u5f00\u9500",
+      "hint": "cluster-symbols \u68c0\u67e5EVENT_LOCK_CONTENTION",
+      "created_at": "2026-02-28T18:43:27.932950Z",
+      "result": "\u5185\u6838\u9501\u7ade\u4e8914.43%\uff0c\u7531\u5e76\u53d1\u8bfb\u53d6/proc/net/tcp\u5f15\u53d1",
+      "completed_at": "2026-02-28T18:45:11.559782Z"
+    },
+    {
+      "id": "ISS-003",
+      "desc": "sh\u811a\u672c\u9ad8\u5185\u6838\u6001: 408\u4e2aPID, \u5185\u6838\u600186.76%",
+      "status": "completed",
+      "risk": "\u53ef\u80fd\u4e0enetstat\u98ce\u66b4\u76f8\u5173\u7684\u811a\u672c\u5faa\u73af",
+      "hint": "cluster-symbols --comm sh; find-callers --comm sh",
+      "created_at": "2026-02-28T18:43:29.835655Z",
+      "result": "sh\u811a\u672c\u9ad8\u9891\u6267\u884cexecve\uff0c\u786e\u8ba4\u662f\u76d1\u63a7\u811a\u672c\u8f7d\u4f53",
+      "completed_at": "2026-02-28T18:45:12.541027Z"
+    },
+    {
+      "id": "ISS-004",
+      "desc": "containerd-shim\u9ad8\u5185\u6838\u6001: 240\u4e2aPID, \u5185\u6838\u600189.92%",
+      "status": "completed",
+      "risk": "\u5bb9\u5668\u8fd0\u884c\u65f6\u5f02\u5e38",
+      "hint": "cluster-symbols --comm containerd-shim",
+      "created_at": "2026-02-28T18:43:31.113370Z",
+      "result": "containerd-shim\u9ad8\u5185\u6838\u6001\u4e3a\u6b21\u8981\u95ee\u9898\uff0c\u975e\u4e3b\u56e0",
+      "completed_at": "2026-02-28T18:45:13.660580Z"
+    }
+  ]
+}

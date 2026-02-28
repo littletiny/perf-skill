@@ -2451,3 +2451,186 @@ hint = f"检查锁竞争: cluster-symbols --comm {target_comm}"
 核心改进: 消除 risk hint 中的占位符，提供更具体、可执行的建议
 
 ---
+
+# SPEAR-perf-hunter v2.14 更新日志
+
+## 更新概览
+
+本次更新强化 risk hint 的语义强制性，并改进进程风暴检测逻辑：
+
+1. **强化 `add_risk` hint 语义**: hint 描述中明确使用"**强制性**"、"**必须**"等措辞，强调对 pending_targets 的后续操作不可跳过
+2. **改进 `count-process-variety` 进程风暴检测**: 严格按照 hint 执行，忽略进程绝对数量，基于 ratio 检测短生命周期进程
+
+---
+
+## 1. 强化 add_risk hint 语义
+
+### 修改理由
+原 `add_risk` 方法的 docstring 对 `hint` 和 `targets` 参数的描述过于平淡，未能体现其在诊断工作流中的关键作用，导致 Agent 容易忽略 pending targets 的后续处理。
+
+### 修改内容
+
+**文件**: `scripts/perf_toolkit/core/risk_mixin.py`
+
+**修改前**:
+```python
+def add_risk(self, level: str, message: str, hint: str = "",
+             patterns: List[str] = None, targets: List[str] = None):
+    """
+    Add a risk hint.
+
+    Args:
+        level: Risk level - critical/warning/info/none
+        message: One-sentence risk description
+        hint: Recommended next action (executable command)
+        patterns: List of detected pattern names
+        targets: List of pending targets to process
+    """
+```
+
+**修改后**:
+```python
+def add_risk(self, level: str, message: str, hint: str = "",
+             patterns: List[str] = None, targets: List[str] = None):
+    """
+    Add a risk hint.
+
+    Args:
+        level: Risk level - critical/warning/info/none
+        message: One-sentence risk description
+        hint: **强制性**下一步操作命令，必须严格执行。该 hint 是诊断工作流的关键步骤，
+              用于对 pending_targets 中的每个目标执行深入分析。不得跳过、不得忽略。
+        patterns: List of detected pattern names
+        targets: **必须处理的目标列表**。hint 中指定的操作必须逐个应用于这些目标，
+                 确保每个 pending target 都得到后续分析和处理。
+    """
+```
+
+**关键改进**:
+- 使用 `**强制性**`、`**必须**`、`**必须处理**` 等强语气标记
+- 明确说明 hint 用于对 pending_targets 执行深入分析
+- 强调"不得跳过、不得忽略"
+
+---
+
+## 2. 改进 count-process-variety 进程风暴检测
+
+### 修改理由
+原进程风暴检测逻辑过度依赖 PID 绝对数量阈值（`STORM_PID_THRESHOLD`），忽略了 `--storm-ratio-threshold` 参数的实际使用。在低频采样场景下，应更关注"短生命周期特征"而非绝对进程数。
+
+### 修改内容
+
+**文件**: `scripts/perf_toolkit/analysis/process_variety.py`
+
+#### 2.1 检测逻辑改进
+
+**修改前**:
+```python
+STORM_PID_THRESHOLD = args.storm_pid_threshold
+STORM_CPU_THRESHOLD = getattr(args, 'storm_cpu_threshold', 0.5)
+
+# ...
+
+if pid_count >= STORM_PID_THRESHOLD and cpu_per_pid <= STORM_CPU_THRESHOLD:
+    behavior = "process_storm"
+    storm_comms.append(comm)
+elif short_lived_ratio > 0.8 and pid_count > 20:
+    behavior = "short_lived_heavy"
+```
+
+**修改后**:
+```python
+STORM_PID_THRESHOLD = args.storm_pid_threshold
+STORM_CPU_THRESHOLD = getattr(args, 'storm_cpu_threshold', 0.5)
+STORM_RATIO_THRESHOLD = getattr(args, 'storm_ratio_threshold', 2.0)
+
+# ...
+
+# 计算 samples_per_pid 比值（用于检测短生命周期进程）
+total_samples_for_comm = sum(len(stats['seconds']) for stats in pid_dict.values())
+samples_per_pid = total_samples_for_comm / pid_count if pid_count > 0 else 0
+
+# ...
+
+# 进程风暴检测：严格按照 hint 执行，基于 ratio 而非绝对数量
+# 核心逻辑：samples_per_pid 低 或 单秒进程比例高，表示短生命周期进程风暴
+if samples_per_pid <= STORM_RATIO_THRESHOLD and short_lived_ratio > 0.5:
+    behavior = "process_storm"
+    storm_comms.append(comm)
+elif cpu_per_pid <= STORM_CPU_THRESHOLD and short_lived_ratio > 0.5:
+    # 备选检测：CPU 利用率极低且大量进程仅存活 1 秒
+    behavior = "process_storm"
+    storm_comms.append(comm)
+```
+
+**关键改进**:
+- 新增 `samples_per_pid` 计算，实际使用 `--storm-ratio-threshold` 参数
+- 检测条件改为基于 ratio（`samples_per_pid <= STORM_RATIO_THRESHOLD`）
+- 降低 `short_lived_ratio` 阈值从 0.8 到 0.5，提高检测灵敏度
+- 移除对 `pid_count > 20` 的绝对数量依赖
+
+#### 2.2 Risk hint 强化
+
+**修改前**:
+```python
+output.add_risk(
+    "critical",
+    f"检测到 {len(storm_comms)} 个进程风暴",
+    f"分析进程: cluster-comm --comm {storm_comms[0]}",
+    patterns=["PROCESS_STORM"],
+    targets=storm_comms
+)
+```
+
+**修改后**:
+```python
+output.add_risk(
+    "critical",
+    f"检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）",
+    f"**必须立即执行**: 对每个进程名运行 'cluster-comm --comm <comm>' 进行详细分析",
+    patterns=["PROCESS_STORM"],
+    targets=storm_comms
+)
+```
+
+**关键改进**:
+- 使用 `**必须立即执行**` 强调强制性
+- 明确要求"对每个进程名"执行操作
+- 使用 `<comm>` 占位符配合 `targets` 列表，表明需要逐个处理
+
+---
+
+## 3. 文件变更清单
+
+### 修改的文件
+
+1. `scripts/perf_toolkit/core/risk_mixin.py`
+   - 强化 `add_risk` 方法 docstring 中 `hint` 和 `targets` 参数的语义描述
+   - 使用强制性措辞，强调不得跳过 pending targets 的后续操作
+
+2. `scripts/perf_toolkit/analysis/process_variety.py`
+   - 改进进程风暴检测逻辑，基于 `samples_per_pid` ratio 而非绝对 PID 数量
+   - 实际使用 `--storm-ratio-threshold` 参数
+   - 强化 risk hint 的强制性语义
+   - 更新检测条件，降低 `short_lived_ratio` 阈值
+
+---
+
+## 4. 设计原则
+
+本次改进遵循以下原则：
+
+1. **语义强制性**: hint 描述使用强烈措辞（"必须"、"强制"、"不得跳过"），确保 Agent 重视
+2. **目标全覆盖**: pending_targets 列表中的每个目标都必须执行 hint 指定的操作
+3. **ratio 优先**: 进程风暴检测基于相对比例（samples_per_pid、short_lived_ratio）而非绝对数量
+4. **参数兑现**: 实际使用已定义但未使用的 `--storm-ratio-threshold` 参数
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.14
+
+核心改进: 强化 risk hint 语义强制性，改进进程风暴检测逻辑
+
+---

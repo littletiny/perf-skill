@@ -31,9 +31,11 @@ class RiskMixin:
         Args:
             level: Risk level - critical/warning/info/none
             message: One-sentence risk description
-            hint: Recommended next action (executable command)
+            hint: **强制性**下一步操作命令，必须严格执行。该 hint 是诊断工作流的关键步骤，
+                  用于对 pending_targets 中的每个目标执行深入分析。不得跳过、不得忽略。
             patterns: List of detected pattern names
-            targets: List of pending targets to process
+            targets: **必须处理的目标列表**。hint 中指定的操作必须逐个应用于这些目标，
+                     确保每个 pending target 都得到后续分析和处理。
         """
         if level not in self.RISK_LEVELS:
             level = "info"

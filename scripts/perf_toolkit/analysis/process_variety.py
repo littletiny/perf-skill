@@ -76,6 +76,7 @@ def cmd_count_process_variety(engine, args):
 
     STORM_PID_THRESHOLD = args.storm_pid_threshold
     STORM_CPU_THRESHOLD = getattr(args, 'storm_cpu_threshold', 0.5)
+    STORM_RATIO_THRESHOLD = getattr(args, 'storm_ratio_threshold', 2.0)
 
     for comm, pid_dict in sorted(comm_pid_stats.items(), key=lambda x: -len(x[1])):
         pid_count = len(pid_dict)
@@ -85,13 +86,21 @@ def cmd_count_process_variety(engine, args):
         single_second_pids = sum(1 for stats in pid_dict.values() if len(stats['seconds']) == 1)
         short_lived_ratio = single_second_pids / pid_count if pid_count > 0 else 0
 
+        # 计算 samples_per_pid 比值（用于检测短生命周期进程）
+        total_samples_for_comm = sum(len(stats['seconds']) for stats in pid_dict.values())
+        samples_per_pid = total_samples_for_comm / pid_count if pid_count > 0 else 0
+
         behavior = "normal"
 
-        if pid_count >= STORM_PID_THRESHOLD and cpu_per_pid <= STORM_CPU_THRESHOLD:
+        # 进程风暴检测：严格按照 hint 执行，基于 ratio 而非绝对数量
+        # 核心逻辑：samples_per_pid 低 或 单秒进程比例高，表示短生命周期进程风暴
+        if samples_per_pid <= STORM_RATIO_THRESHOLD and short_lived_ratio > 0.5:
             behavior = "process_storm"
             storm_comms.append(comm)
-        elif short_lived_ratio > 0.8 and pid_count > 20:
-            behavior = "short_lived_heavy"
+        elif cpu_per_pid <= STORM_CPU_THRESHOLD and short_lived_ratio > 0.5:
+            # 备选检测：CPU 利用率极低且大量进程仅存活 1 秒
+            behavior = "process_storm"
+            storm_comms.append(comm)
 
         variety_results.append({
             "comm": comm,
@@ -105,8 +114,8 @@ def cmd_count_process_variety(engine, args):
     if storm_comms:
         output.add_risk(
             "critical",
-            f"检测到 {len(storm_comms)} 个进程风暴",
-            f"分析进程: cluster-comm --comm {storm_comms[0]}",
+            f"检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）",
+            f"**必须立即执行**: 对每个进程名运行 'cluster-comm --comm <comm>' 进行详细分析",
             patterns=["PROCESS_STORM"],
             targets=storm_comms
         )
