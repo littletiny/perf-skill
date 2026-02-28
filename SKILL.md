@@ -1,7 +1,6 @@
 ---
 name: SPEAR-perf-hunter
-description: Systematic Linux performance diagnosis using SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning)
-methodology. Use when analyzing CPU bottlenecks, high latency, resource contention, or performance regression in Linux environments - especially with Cgroup constraints, low-frequency sampling (19Hz), or complex multi-threaded applications. Requires perf script data with core/s field as input.
+description: Systematic Linux performance diagnosis using SPEAR methodology. Use when analyzing CPU bottlenecks, high latency, resource contention, or performance regression in Linux environments - especially with Cgroup constraints, low-frequency sampling (19Hz), or complex multi-threaded applications. Requires perf script data with core/s field as input.
 ---
 
 # SPEAR 性能诊断
