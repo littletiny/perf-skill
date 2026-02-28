@@ -11,10 +11,12 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 
 ## 快速开始
 
-**工具路径**: `/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py`
+**工具路径**: `$SKILL_DIR/scripts/perf_expert.py`
+
+环境变量 `SKILL_DIR` 为 skill 的根目录路径。
 
 ```bash
-python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py <子命令> [选项]
+python3 $SKILL_DIR/scripts/perf_expert.py <子命令> [选项]
 ```
 
 **使用工具之前仔细阅读 `references/tools.md` 和 `references/workflow.md` 文档**
@@ -70,9 +72,11 @@ Step 5: 全局审计
 
 ### 各步骤要点
 
+所有的关键信息都需要文档记录
+
 | 步骤 | 核心动作 | 关键输出 |
 |------|---------|---------|
-| **Step 1** | 识别应用类型，激活领域知识，对比预期 vs 现实 | 异常判定 |
+| **Step 1** | 分析原始问题，记录关键信息。识别应用类型，激活领域知识，对比预期 vs 现实 | 异常判定 |
 | **Step 2** | 假设格式：机制、预期指纹、验证方法、证伪条件 | 假设列表 ≥3 条 |
 | **Step 3** | 机制可行性评估（是否符合领域知识？） | 剪枝后的假设 |
 | **Step 4** | 工具验证：`check-cpu-bottleneck` → `analyze-core-distribution` → `get-hotspots` → `find-callers` | 深度审计记录 |
