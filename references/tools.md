@@ -1,39 +1,31 @@
 # Perf Expert 工具命令参考
 
-所有工具通过 `perf_expert.py` 统一入口调用：
-
-```bash
-python3 scripts/perf_expert.py <子命令> [选项]
-```
-
-每个子命令支持 `--help` 查看详细参数说明。
-
-详细分析流程和方法论请参考 [workflow.md](./workflow.md)。
+> 纯命令参考手册。分析策略和方法论请查阅 [workflow-patterns.md](./workflow-patterns.md) 和 [workflow-core.md](./workflow-core.md)。
 
 ---
 
-## 工具速查表
+## 命令速查表
 
-| 工具 | 分析阶段 | 核心用途 |
-|------|---------|---------|
-| `check-cpu-bottleneck` | 边界检查 | 资源限制判定 |
-| `show-cpu-usage` | 宏观评估 | 资源消耗概览 |
-| `detect-anomalies` | 宏观评估 | 时序异常定位 |
-| `analyze-core-distribution` | 宏观评估 | 核心级负载均衡分析 |
-| `get-process-top` | 敏感路径 | 高消耗**单进程**识别 |
-| `get-comm-top` | 敏感路径 | 高消耗**进程组**识别（大量小进程场景） |
-| `get-hotspots` | 敏感路径 | 热点函数排名 |
-| `find-callers` | 敏感路径 | 热点函数溯源 |
-| `cluster-paths` | 敏感路径 | 调用路径聚类 |
-| `cluster-symbols` | 空间搜索 | 语义规则聚类 |
-| `count-process-variety` | 领域定位 | 进程风暴检测 |
-| `cluster-comm` | 领域定位 | 进程名聚类 |
-| `generate-flamegraph` | 可视化 | FlameGraph 导出 |
-| `generate-callgraph` | 可视化 | 调用图导出 |
+| 工具 | 用途 | 典型场景 |
+|------|------|---------|
+| `check-cpu-bottleneck` | 资源限制判定 | 环境边界检查 |
+| `show-cpu-usage` | CPU 利用率概览 | user/kernel 分解 |
+| `detect-anomalies` | 时序异常定位 | 突发问题分析 |
+| `analyze-core-distribution` | 核心级负载分析 | 负载不均衡检查 |
+| `get-process-top` | 高消耗单进程识别 | 定位主要消耗者 |
+| `get-comm-top` | 高消耗进程组识别 | 大量小进程场景 |
+| `get-hotspots` | 热点函数排名 | 代码级优化 |
+| `find-callers` | 热点函数溯源 | 调用链分析 |
+| `cluster-paths` | 调用路径聚类 | 共同前缀模式 |
+| `cluster-symbols` | 语义规则聚类 | 行为模式识别 |
+| `count-process-variety` | 进程风暴检测 | 短生命周期进程 |
+| `cluster-comm` | 进程名聚类 | 进程组行为分析 |
+| `generate-flamegraph` | FlameGraph 导出 | 可视化报告 |
+| `generate-callgraph` | 调用图导出 | 可视化报告 |
 
 ---
 
-## 宏观评估工具
+## 环境评估工具
 
 ### check-cpu-bottleneck
 
@@ -44,6 +36,22 @@ python3 scripts/perf_expert.py check-cpu-bottleneck \
   --data <perf.script.txt> \
   [--cpu-limit-threshold <ratio>]
 ```
+
+**参数**:
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `--data` | string | perf script 文件路径（必填） |
+| `--cpu-limit-threshold` | float | CPU 限制阈值比例（默认 0.8） |
+
+**退出码**:
+| 码值 | 含义 |
+|------|------|
+| 0 | 无瓶颈 |
+| 1 | 检测到 CPU 限制瓶颈 |
+| 2 | 检测到单核饱和 |
+| 3 | 同时存在限制和单核饱和 |
+
+---
 
 ### show-cpu-usage
 
@@ -58,10 +66,16 @@ python3 scripts/perf_expert.py show-cpu-usage \
   [--cpu-id <ID>]
 ```
 
-**分析要点**:
-- 总利用率与预期是否匹配？
-- user/kernel 比例是否正常？（计算密集型 user 高，IO 型 kernel 可能高）
-- 结合 cgroup limit 判断是否被压制
+**输出字段**:
+| 字段 | 说明 |
+|------|------|
+| `user_pct` | 用户态 CPU 百分比 |
+| `kernel_pct` | 内核态 CPU 百分比 |
+| `total_pct` | 总 CPU 利用率 |
+| `user_records` | 用户态聚合记录数 |
+| `kernel_records` | 内核态聚合记录数 |
+
+---
 
 ### detect-anomalies
 
@@ -76,12 +90,22 @@ python3 scripts/perf_expert.py detect-anomalies \
   [--cpu-id <ID>]
 ```
 
-**检测类型**: `SPIKE` | `DROP` | `LEVEL_SHIFT` | `BURST`
+**检测类型**:
+| 类型 | 说明 |
+|------|------|
+| `SPIKE` | 利用率突增 |
+| `DROP` | 利用率突降 |
+| `LEVEL_SHIFT` | 水平迁移 |
+| `BURST` | 短时爆发 |
 
-**典型用途**:
-- 定位异常发生的时间窗口
-- 区分持续问题 vs 间歇性问题
-- 为后续定向分析提供 `--start-time` / `--end-time` 参数
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--window-size` | int | 5 | 滑动窗口大小（秒） |
+| `--spike-threshold` | float | 2.0 | 变化倍数阈值 |
+| `--min-utilization` | float | 0.05 | 最小利用率阈值 |
+
+---
 
 ### analyze-core-distribution
 
@@ -95,17 +119,27 @@ python3 scripts/perf_expert.py analyze-core-distribution \
   [--comm-regex <pattern>]
 ```
 
-**典型用途**:
-- 是否存在单核瓶颈
-- 是否存在负载不均匀
+**输出字段**:
+| 字段 | 说明 |
+|------|------|
+| `imbalance_level` | 不均衡等级: LOW/MEDIUM/HIGH/CRITICAL |
+| `max_utilization_pct` | 最高核心利用率 |
+| `min_utilization_pct` | 最低核心利用率 |
+| `patterns` | 检测到的模式数组 |
+
+**检测模式**:
+| 模式 | 说明 |
+|------|------|
+| `SINGLE_CORE_SATURATION` | 单核满载，其他核心空闲 |
+| `WIDE_DISTRIBUTION_LOW_UTIL` | 广泛分布但利用率低 |
 
 ---
 
-## 敏感路径识别工具
+## 进程分析工具
 
 ### get-process-top
 
-识别高消耗**单个进程**。
+识别高消耗单个进程。
 
 ```bash
 python3 scripts/perf_expert.py get-process-top \
@@ -114,13 +148,25 @@ python3 scripts/perf_expert.py get-process-top \
   [--cpu-id <ID>]
 ```
 
-**用途**: 快速定位主要消耗单个进程，为后续 `--pid` 过滤提供目标
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--top-n` | int | 10 | 显示进程数 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
 
-**局限**: 无法识别"大量同类进程各自消耗少，但聚合消耗高"的场景
+**输出字段**:
+| 字段 | 说明 |
+|------|------|
+| `pid` | 进程 ID |
+| `comm` | 进程名 |
+| `cpu_pct` | CPU 利用率 |
+| `kernel_pct` | 内核态占比 |
+
+---
 
 ### get-comm-top
 
-识别高消耗**进程组**（大量小进程场景）。
+识别高消耗进程组（大量小进程场景）。
 
 ```bash
 python3 scripts/perf_expert.py get-comm-top \
@@ -130,17 +176,25 @@ python3 scripts/perf_expert.py get-comm-top \
   [--comm <name>]
 ```
 
-**专门用于识别**: 大量同类进程吃满资源，但单个进程占用少的场景
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--top-n` | int | 10 | 显示进程组数 |
+| `--sort-by-density` | flag | - | 按密度指数排序 |
+| `--comm` | string | - | 过滤指定进程名 |
 
-**典型场景**:
-- Worker pool 过度扩容（如 100 个 worker 每个只用 0.5% CPU，合计 50%）
-- 连接风暴（每个连接一个进程/线程，连接数过多）
-- 微服务实例过度分片
-- 进程泄漏（不断创建新进程处理请求）
+**输出字段**:
+| 字段 | 说明 |
+|------|------|
+| `comm` | 进程名 |
+| `pid_count` | 进程数量 |
+| `aggregate_cpu_pct` | 聚合 CPU 利用率 |
+| `kernel_pct` | 平均内核态占比 |
+| `density_index` | 密度指数（总CPU/进程数） |
 
-**与 `get-process-top` 的区别**:
-- `get-process-top`: 找"单个高消耗进程"（如某个进程占 40% CPU）
-- `get-comm-top`: 找"同类进程集体高消耗"（如 100 个 worker 各占 0.5% CPU，合计 50%）
+---
+
+## 热点分析工具
 
 ### get-hotspots
 
@@ -155,13 +209,29 @@ python3 scripts/perf_expert.py get-hotspots \
   [--comm <name>]
 ```
 
-**排序方式**:
-- `inclusive`: 包含子调用的时间，反映整体影响
-- `self`: 仅函数自身执行时间，反映直接消耗
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--sort-by` | string | self | 排序方式: inclusive/self |
+| `--top-n` | int | 20 | 显示热点数 |
+| `--pid` | int | - | 过滤指定进程 |
+| `--comm` | string | - | 过滤指定进程名 |
 
-**分析策略**:
-- CPU 高但不知道热点 → `--sort-by self` 找直接消耗
-- 已知入口函数想分析子调用 → `--sort-by inclusive`，强烈推荐后续使用 `find-callers`
+**排序方式**:
+| 方式 | 说明 |
+|------|------|
+| `inclusive` | 包含子调用时间，反映整体影响 |
+| `self` | 仅自身执行时间，反映直接消耗 |
+
+**输出字段**:
+| 字段 | 说明 |
+|------|------|
+| `symbol` | 函数名 |
+| `self_pct` | 自身消耗百分比 |
+| `inclusive_pct` | 包含子调用百分比 |
+| `core_sec` | core/s 值 |
+
+---
 
 ### find-callers
 
@@ -172,22 +242,38 @@ python3 scripts/perf_expert.py get-hotspots \
 python3 scripts/perf_expert.py find-callers \
   --data <perf.script.txt> \
   --target <function> \
-  [--min-ratio <pct>]
+  [--min-ratio <pct>] \
+  [--pid <PID>] \
+  [--comm <name>]
 
-# 自动模式（不能过分依赖，用于启发思路，容易存在遗漏）
+# 自动模式
 python3 scripts/perf_expert.py find-callers \
   --data <perf.script.txt> \
   --auto-target \
-  [--auto-target-top-n <N>]
+  [--auto-target-top-n <N>] \
+  [--pid <PID>]
 ```
 
-**关键检查点**:
-- 发现调度函数 (`schedule`/`nanosleep`/`epoll_wait`) → **必须溯源**
-  - 调用路径中有业务逻辑 → 主动休眠
-  - 调用路径只有内核 → 被动抢占
-- 发现锁函数 (`pthread_mutex_lock`/`spinlock`) → **评估粒度**
-  - 调用频率高但持有时间短 → 可能正常
-  - 调用频率低但持有时间长 → 粗粒度锁问题
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--target` | string | - | 目标函数名（与 --auto-target 互斥） |
+| `--auto-target` | flag | - | 自动追踪热点 |
+| `--auto-target-top-n` | int | 3 | 自动追踪热点数 |
+| `--min-ratio` | float | 5.0 | 最小占比阈值（%） |
+| `--pid` | int | - | 过滤指定进程 |
+| `--comm` | string | - | 过滤指定进程名 |
+
+**常用 target 函数**:
+| 函数 | 用途 |
+|------|------|
+| `schedule` | 分析调度原因 |
+| `nanosleep` | 分析主动休眠 |
+| `pthread_mutex_lock` | 分析锁竞争 |
+| `epoll_wait` | 分析 IO 等待 |
+| `futex_wait` | 分析用户态锁 |
+
+---
 
 ### cluster-paths
 
@@ -202,15 +288,17 @@ python3 scripts/perf_expert.py cluster-paths \
   [--pid <PID>]
 ```
 
-**用途**:
-- 从 top-down 视角审视 bottom-up 收集到的信息，避免过度关注细节，忽略整体
-- 使用 Trie 识别共同的调用前缀
-- 识别高频调用模式
-- 发现"重复造轮子"的公共路径
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--min-depth` | int | 3 | 最小调用深度 |
+| `--min-samples` | int | 5 | 最小样本数 |
+| `--top-n` | int | 10 | 显示路径数 |
+| `--pid` | int | - | 过滤指定进程 |
 
 ---
 
-## 空间搜索工具
+## 语义聚类工具
 
 ### cluster-symbols
 
@@ -221,8 +309,17 @@ python3 scripts/perf_expert.py cluster-symbols \
   --data <perf.script.txt> \
   [--no-include-experts] \
   [--custom-rules <json>] \
-  [--pid <PID>]
+  [--pid <PID>] \
+  [--comm <name>]
 ```
+
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--no-include-experts` | flag | - | 禁用内置专家规则 |
+| `--custom-rules` | json | - | 自定义规则 |
+| `--pid` | int | - | 过滤指定进程 |
+| `--comm` | string | - | 过滤指定进程名 |
 
 **内置规则分类**:
 | 类别 | 匹配模式 | 含义 |
@@ -251,28 +348,6 @@ python3 scripts/perf_expert.py cluster-symbols \
 
 ---
 
-## 领域定位工具
-
-### count-process-variety
-
-检测进程风暴/短生命周期进程。
-
-```bash
-python3 scripts/perf_expert.py count-process-variety \
-  --data <perf.script.txt> \
-  [--storm-pid-threshold <N>] \
-  [--storm-cpu-threshold <core/s>]
-```
-
-**检测模式**:
-| 模式 | 条件 | 含义 |
-|------|------|------|
-| `PROCESS_STORM` | PID ≥ 阈值 且 平均 CPU/PID ≤ 阈值 | 短生命周期进程风暴 |
-| `SHORT_LIVED_HEAVY` | 单秒进程 > 80% 且 PID > 20 | 大量瞬时进程 |
-| `LONG_RUNNING` | 单进程主导 | 正常长期运行进程 |
-
-**注意**：由于数据按 1 秒聚合，检测基于 CPU 利用率（core/s）而非样本数量。
-
 ### cluster-comm
 
 按进程名聚类分析进程组行为。
@@ -283,10 +358,43 @@ python3 scripts/perf_expert.py cluster-comm \
   [--top-n <N>]
 ```
 
-**用途**:
-- 识别同类型进程的资源消耗汇总
-- 发现异常进程类型（如预期外的辅助进程）
-- 评估进程间资源分配合理性
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--top-n` | int | 20 | 显示进程组数 |
+
+---
+
+## 领域定位工具
+
+### count-process-variety
+
+检测进程风暴/短生命周期进程。
+
+```bash
+python3 scripts/perf_expert.py count-process-variety \
+  --data <perf.script.txt> \
+  [--top-n <N>] \
+  [--storm-pid-threshold <N>] \
+  [--storm-ratio-threshold <ratio>] \
+  [--storm-cpu-threshold <core/s>] \
+  [--pid <PID>] \
+  [--comm <name>]
+```
+
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--top-n` | int | 20 | 显示进程名数 |
+| `--storm-pid-threshold` | int | 50 | PID 数量阈值 |
+| `--storm-ratio-threshold` | float | 2.0 | samples/PID 阈值 |
+| `--storm-cpu-threshold` | float | 0.5 | 单 PID CPU 阈值 |
+
+**检测模式**:
+| 模式 | 条件 |
+|------|------|
+| `PROCESS_STORM` | samples_per_pid ≤ 阈值 且 short_lived_ratio > 50% |
+| `LONG_RUNNING` | 单进程主导 |
 
 ---
 
@@ -304,6 +412,17 @@ python3 scripts/perf_expert.py generate-flamegraph \
   [--comm <name>]
 ```
 
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--output` | string | - | 输出文件路径（默认 stdout） |
+| `--pid` | int | - | 过滤指定进程 |
+| `--comm` | string | - | 过滤指定进程名 |
+
+**输出格式**: 符合 FlameGraph 标准的折叠栈格式
+
+---
+
 ### generate-callgraph
 
 生成调用图（DOT/JSON 格式）。
@@ -316,26 +435,106 @@ python3 scripts/perf_expert.py generate-callgraph \
   [--target <function>]
 ```
 
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--output` | string | - | 输出文件路径 |
+| `--format` | string | dot | 输出格式: dot/json |
+| `--target` | string | - | 从指定函数开始生成 |
+
+---
+
+## Live Document 命令
+
+### doc init
+
+初始化诊断文档。
+
+```bash
+python3 scripts/perf_expert.py doc init --data <perf.data>
+```
+
+**作用**: 创建 `.perf-doc.json` 用于问题状态追踪
+
+---
+
+### doc add
+
+添加问题记录。
+
+```bash
+python3 scripts/perf_expert.py doc add \
+  --id <ISS-XXX> \
+  --desc "问题描述" \
+  [--risk "风险等级"] \
+  [--hint "建议操作"]
+```
+
+---
+
+### doc complete
+
+标记问题完成。
+
+```bash
+python3 scripts/perf_expert.py doc complete \
+  --id <ISS-XXX> \
+  --result "分析结果"
+```
+
+---
+
+### doc list
+
+列出所有问题。
+
+```bash
+python3 scripts/perf_expert.py doc list [--format text|json]
+```
+
+---
+
+### doc finalize
+
+最终审计（生成报告前必须执行）。
+
+```bash
+python3 scripts/perf_expert.py doc finalize
+```
+
+---
+
+### doc export
+
+导出报告。
+
+```bash
+python3 scripts/perf_expert.py doc export \
+  [--format markdown|json] \
+  [--output <path>]
+```
+
 ---
 
 ## 通用参数
 
 所有命令支持:
 
-| 参数 | 说明 | 示例 |
-|------|------|------|
-| `--data <path>` | perf script 文件路径（必填） | `--data perf.txt` |
-| `--cpu-id <ID>` | 仅分析指定 CPU | `--cpu-id 0` |
-| `--pid <PID>` | 仅分析指定进程 | `--pid 1234` |
-| `--comm <name>` | 按进程名过滤（逗号分隔多值） | `--comm nginx,php-fpm` |
-| `--comm-regex <pattern>` | 按进程名正则匹配 | `--comm-regex 'java.*'` |
-| `--start-time <ts>` | 起始时间戳（含） | `--start-time 1000.5` |
-| `--end-time <ts>` | 结束时间戳（含） | `--end-time 1010.0` |
+| 参数 | 类型 | 说明 | 示例 |
+|------|------|------|------|
+| `--data <path>` | string | perf script 文件路径（必填） | `--data perf.txt` |
+| `--cpu-id <ID>` | int | 仅分析指定 CPU | `--cpu-id 0` |
+| `--pid <PID>` | int | 仅分析指定进程 | `--pid 1234` |
+| `--comm <name>` | string | 按进程名过滤（逗号分隔多值） | `--comm nginx,php-fpm` |
+| `--comm-regex <pattern>` | string | 按进程名正则匹配 | `--comm-regex 'java.*'` |
+| `--start-time <ts>` | float | 起始时间戳（含） | `--start-time 1000.5` |
+| `--end-time <ts>` | float | 结束时间戳（含） | `--end-time 1010.0` |
 
 ---
 
 ## 参考文档
 
-- 📗 **分析流程指南**: [workflow.md](./workflow.md) - 标准工作流程、典型分析模式
+- 📗 **典型分析模式**: [workflow-patterns.md](./workflow-patterns.md) - 5 种场景的完整分析路径
+- 📘 **核心流程详解**: [workflow-core.md](./workflow-core.md) - 7 Phase 分析流程
 - 📕 **启发式规则手册**: [heuristics.md](./heuristics.md) - 五大认知闭包、诊断规则
 - 📋 **文档模板**: [templates.md](./templates.md) - 诊断报告格式
