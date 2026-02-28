@@ -445,8 +445,8 @@ class PerfExpertEngine:
                 'user_core_sec': user mode core-seconds,
                 'kernel_core_sec': kernel mode core-seconds,
                 'total_core_sec': total core-seconds,
-                'user_samples': number of user samples,
-                'kernel_samples': number of kernel samples
+                'user_records': number of user mode records,
+                'kernel_records': number of kernel mode records
             }
         """
         if samples is None:
@@ -454,8 +454,8 @@ class PerfExpertEngine:
         
         user_core_sec = 0.0
         kernel_core_sec = 0.0
-        user_samples = 0
-        kernel_samples = 0
+        user_records = 0
+        kernel_records = 0
         
         for s in samples:
             core_val = s.get('core_per_sec') or 0
@@ -464,17 +464,17 @@ class PerfExpertEngine:
             # 使用 SymbolStack.is_leaf_kernel 准确判断
             if stack and stack.is_leaf_kernel:
                 kernel_core_sec += core_val
-                kernel_samples += 1
+                kernel_records += 1
             else:
                 user_core_sec += core_val
-                user_samples += 1
+                user_records += 1
         
         return {
             'user_core_sec': user_core_sec,
             'kernel_core_sec': kernel_core_sec,
             'total_core_sec': user_core_sec + kernel_core_sec,
-            'user_samples': user_samples,
-            'kernel_samples': kernel_samples
+            'user_records': user_records,
+            'kernel_records': kernel_records
         }
     
     def is_kernel_symbol(self, symbol):
@@ -516,8 +516,8 @@ class PerfExpertEngine:
                 'user_core_seconds': user core-seconds,
                 'kernel_core_seconds': kernel core-seconds,
                 'duration': duration in seconds,
-                'user_samples': user sample count,
-                'kernel_samples': kernel sample count
+                'user_records': number of user mode records,
+                'kernel_records': number of kernel mode records
             }
         """
         if samples is None:
@@ -532,8 +532,8 @@ class PerfExpertEngine:
                 'user_core_seconds': 0.0,
                 'kernel_core_seconds': 0.0,
                 'duration': 0.0,
-                'user_samples': 0,
-                'kernel_samples': 0
+                'user_records': 0,
+                'kernel_records': 0
             }
         
         duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
@@ -560,6 +560,6 @@ class PerfExpertEngine:
             'user_core_seconds': round(user_core_sec, 4),
             'kernel_core_seconds': round(kernel_core_sec, 4),
             'duration': round(duration, 2),
-            'user_samples': uk_stats['user_samples'],
-            'kernel_samples': uk_stats['kernel_samples']
+            'user_records': uk_stats['user_records'],
+            'kernel_records': uk_stats['kernel_records']
         }

@@ -2,11 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 Anomaly Detection - Detect CPU utilization anomalies
+
+检测 CPU 利用率异常。
+
+注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
 import json
 from collections import defaultdict
-from ..core.reliability import assess_sample_reliability
+from ..core.reliability import assess_data_quality
 
 
 def cmd_detect_anomalies(engine, args):
@@ -33,24 +37,24 @@ def cmd_detect_anomalies(engine, args):
     
     # Calculate duration from filtered samples
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    total_samples = len(samples)
+    record_count = len(samples)
     
     # Get total core/s for accurate CPU utilization
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    reliability_level, warning_msg, metrics = assess_sample_reliability(
-        total_samples, duration, total_core_per_sec=total_core_per_sec
+    quality_level, warning_msg, metrics = assess_data_quality(
+        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
-    # Early warning for critical reliability
-    if reliability_level == "CRITICAL":
+    # Early warning for critical quality
+    if quality_level == "CRITICAL":
         print(json.dumps({
-            "_WARNING": f"样本数过少 ({total_samples})，异常检测结果完全不可信。",
-            "reliability": {
-                "level": reliability_level,
+            "_WARNING": "数据质量不足，异常检测结果完全不可信。",
+            "data_quality": {
+                "level": quality_level,
                 "warning": warning_msg,
                 "metrics": metrics
             },
-            "error": "Insufficient samples for anomaly detection"
+            "error": "Insufficient data quality for anomaly detection"
         }, indent=2, ensure_ascii=False))
         return
 
@@ -93,7 +97,7 @@ def cmd_detect_anomalies(engine, args):
             win_end = win_start + window_size
             win_samples_raw = [s for s in cpu_samples_list if win_start <= s['ts'] < win_end]
             
-            actual_samples = len(win_samples_raw)
+            record_count_in_window = len(win_samples_raw)
             
             # Calculate utilization using core/s values (accurate method)
             # Sum of core/s values divided by window size gives average CPU utilization
@@ -105,7 +109,7 @@ def cmd_detect_anomalies(engine, args):
                 "start_time": win_start,
                 "end_time": win_end,
                 "duration_sec": round(win_end - win_start, 3),
-                "actual_samples": actual_samples,
+                "record_count": record_count_in_window,
                 "utilization": round(utilization, 4),
                 "utilization_pct": f"{utilization*100:.1f}%",
                 "total_core_per_sec": round(win_core_per_sec, 4)
@@ -167,8 +171,8 @@ def cmd_detect_anomalies(engine, args):
                 "end_time": getattr(args, 'end_time', None),
                 "cpu_id": getattr(args, 'cpu_id', None)
             },
-            "reliability": {
-                "level": reliability_level,
+            "data_quality": {
+                "level": quality_level,
                 "warning": warning_msg,
                 "metrics": metrics
             },
@@ -191,10 +195,10 @@ def cmd_detect_anomalies(engine, args):
         if args.detect_in_export and all_anomalies:
             result["anomalies_detected"] = all_anomalies[:args.top_n]
         
-        if reliability_level == "CRITICAL":
-            result["_WARNING"] = "样本数过少，时间窗口数据完全不可信。"
-        elif reliability_level in ["WARNING", "ACCEPTABLE"]:
-            result["_NOTICE"] = "采样率偏低，时间窗口中的利用率数据仅供参考。"
+        if quality_level == "CRITICAL":
+            result["_WARNING"] = "数据质量不足，时间窗口数据完全不可信。"
+        elif quality_level in ["WARNING", "ACCEPTABLE"]:
+            result["_NOTICE"] = "数据质量中等，时间窗口中的利用率数据仅供参考。"
         
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return
@@ -224,8 +228,8 @@ def cmd_detect_anomalies(engine, args):
             "end_time": getattr(args, 'end_time', None),
             "cpu_id": getattr(args, 'cpu_id', None)
         },
-        "reliability": {
-            "level": reliability_level,
+        "data_quality": {
+            "level": quality_level,
             "warning": warning_msg,
             "metrics": metrics
         },
@@ -234,8 +238,8 @@ def cmd_detect_anomalies(engine, args):
         "recommendations": _generate_recommendations(all_anomalies)
     }
     
-    if reliability_level in ["WARNING", "ACCEPTABLE"]:
-        result["_NOTICE"] = "采样率偏低，可能遗漏短时异常。检测到的异常模式可信，但可能有未捕获的事件。"
+    if quality_level in ["WARNING", "ACCEPTABLE"]:
+        result["_NOTICE"] = "数据质量中等，可能遗漏短时异常。检测到的异常模式可信，但可能有未捕获的事件。"
     
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
@@ -248,7 +252,7 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
         return anomalies
     
     # Calculate global stats for Z-score based detection
-    utilizations = [w["utilization"] for w in windows if w["actual_samples"] > 0]
+    utilizations = [w["utilization"] for w in windows if w["record_count"] > 0]
     if not utilizations:
         return anomalies
     
@@ -260,8 +264,8 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
         curr_win = windows[i]
         next_win = windows[i+1]
         
-        # Skip windows with no samples
-        if curr_win["actual_samples"] == 0:
+        # Skip windows with no records
+        if curr_win["record_count"] == 0:
             continue
         
         curr_util = curr_win["utilization"]
@@ -296,7 +300,7 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
                 },
                 "change_magnitude": round(change_from_prev, 3),
                 "z_score": round(z_score, 2),
-                "sample_count": curr_win["actual_samples"],
+                "core_sec": round(curr_win["total_core_per_sec"], 4),
                 "description": f"CPU spike detected: {prev_util*100:.1f}% -> {curr_util*100:.1f}% -> {next_util*100:.1f}%"
             }
         
@@ -319,7 +323,7 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
                 },
                 "change_magnitude": round(abs(change_from_prev), 3),
                 "z_score": round(abs(z_score), 2),
-                "sample_count": curr_win["actual_samples"],
+                "core_sec": round(curr_win["total_core_per_sec"], 4),
                 "description": f"CPU drop detected: {prev_util*100:.1f}% -> {curr_util*100:.1f}% -> {next_util*100:.1f}%"
             }
         
@@ -344,7 +348,7 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
                 },
                 "change_magnitude": round(abs(change_from_prev), 3),
                 "z_score": round(abs(z_score), 2),
-                "sample_count": curr_win["actual_samples"],
+                "core_sec": round(curr_win["total_core_per_sec"], 4),
                 "description": f"Baseline shift {shift_type}: {prev_util*100:.1f}% -> {curr_util*100:.1f}% (sustained)"
             }
         
@@ -366,7 +370,7 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
                 },
                 "change_magnitude": round(curr_util, 3),
                 "z_score": round(z_score, 2),
-                "sample_count": curr_win["actual_samples"],
+                "core_sec": round(curr_win["total_core_per_sec"], 4),
                 "description": f"Micro-burst detected: isolated {curr_util*100:.1f}% utilization spike"
             }
         

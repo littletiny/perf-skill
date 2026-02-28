@@ -2,11 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 CPU Bottleneck Detection - Check for resource throttling and single-core saturation
+
+检测资源限制和单核饱和。
+
+注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
 import json
 from collections import defaultdict
-from ..core.reliability import assess_sample_reliability
+from ..core.reliability import assess_data_quality
 
 
 def parse_cpu_quota(value):
@@ -46,14 +50,14 @@ def cmd_check_bottleneck(engine, args):
     
     # Calculate duration from filtered samples
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    actual_total = len(samples)
+    record_count = len(samples)
     
     # Get total core/s for accurate CPU utilization
-    total_core_per_sec, core_count = engine.get_total_core_per_sec(samples)
+    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
     
-    # Assess sample reliability (without hz parameter)
-    reliability_level, warning_msg, metrics = assess_sample_reliability(
-        actual_total, duration, total_core_per_sec=total_core_per_sec
+    # Assess data quality
+    quality_level, warning_msg, metrics = assess_data_quality(
+        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
     # Calculate per-CPU utilization using core/s values
@@ -91,9 +95,9 @@ def cmd_check_bottleneck(engine, args):
             "end": samples[-1]['ts'],
             "duration_sec": round(duration, 2)
         },
-        "total_samples": actual_total,
-        "reliability": {
-            "level": reliability_level,
+        "record_count": record_count,
+        "data_quality": {
+            "level": quality_level,
             "warning": warning_msg,
             "metrics": metrics
         },
@@ -107,8 +111,8 @@ def cmd_check_bottleneck(engine, args):
         }
     }
     
-    # Add explicit warning for CRITICAL reliability
-    if reliability_level == "CRITICAL":
-        result["_WARNING"] = "数据可信度极低！所有结论（包括 CPU 利用率）都不可信。请使用更长的采样时间重新采集数据。"
+    # Add explicit warning for CRITICAL quality
+    if quality_level == "CRITICAL":
+        result["_WARNING"] = "数据质量不足！所有结论（包括 CPU 利用率）都不可信。请使用更长的采样时间重新采集数据。"
     
     print(json.dumps(result, indent=2, ensure_ascii=False))

@@ -2,6 +2,66 @@
 
 ---
 
+# SPEAR-perf-hunter v2.8 更新日志
+
+## 更新概览
+
+本次更新修复代码中关于数据权重和字段命名的一致性问题：
+
+1. **修复 `callgraph.py` 权重统计**: 改为使用 `core/s` 作为权重，而非简单计数
+2. **统一字段命名**: 将 `user_samples` / `kernel_samples` 改为 `user_records` / `kernel_records`，避免与原始采样混淆
+
+---
+
+## 1. 修复 `generate-callgraph` 权重统计
+
+### 问题
+`callgraph.py` 使用简单计数（`+= 1`）统计节点和边，未遵循 "基于 core/s 权重" 的约定。
+
+### 修复内容
+- 使用 `core_per_sec` 作为权重累加节点和边
+- DOT 格式：节点标签显示 core/s 值（如 `function (0.0526)`）
+- JSON 格式：字段从 `count` 改为 `core_sec`
+- 输出字段：`total_samples` → `total_records`，新增 `total_core_seconds`
+
+### 文件变更
+- `scripts/perf_toolkit/analysis/callgraph.py`
+
+---
+
+## 2. 统一字段命名
+
+### 问题
+代码中使用 `user_samples` / `kernel_samples` 容易与原始 perf 采样混淆（数据已按 1 秒聚合，"样本数"概念不适用）。
+
+### 修复内容
+| 原字段名 | 新字段名 | 说明 |
+|---------|---------|------|
+| `user_samples` | `user_records` | 用户态模式的聚合记录数 |
+| `kernel_samples` | `kernel_records` | 内核态模式的聚合记录数 |
+| `total_samples` | `total_records` | 总聚合记录数 |
+
+### 文件变更
+- `scripts/perf_toolkit/core/engine.py`: 修改 `get_user_kernel_core_per_sec()` 和 `get_cpu_utilization()` 返回值
+- `scripts/perf_toolkit/analysis/cpu_usage.py`: 更新字段引用
+- `scripts/parse_test2.py`: 测试脚本一致性更新
+
+---
+
+## 验证检查清单
+
+- [x] 所有统计模块使用 `core/s` 作为权重
+- [x] 字段命名统一为 `records` 而非 `samples`
+- [x] 文档字符串说明 "数据已按 1 秒聚合，记录数量无参考价值"
+
+---
+
+更新日期: 2026-02-28
+
+版本: v2.8
+
+---
+
 # v2.0 之前的早期迭代
 
 ## v1.0 → v2.0 演进背景

@@ -261,15 +261,17 @@ python3 scripts/perf_expert.py cluster-symbols \
 python3 scripts/perf_expert.py count-process-variety \
   --data <perf.script.txt> \
   [--storm-pid-threshold <N>] \
-  [--storm-ratio-threshold <ratio>]
+  [--storm-cpu-threshold <core/s>]
 ```
 
 **检测模式**:
 | 模式 | 条件 | 含义 |
 |------|------|------|
-| `PROCESS_STORM` | PID ≥ 阈值 且 样本/PID ≤ 阈值 | 短生命周期进程风暴 |
-| `SHORT_LIVED_HEAVY` | 单样本进程 > 80% 且 PID > 20 | 大量瞬时进程 |
+| `PROCESS_STORM` | PID ≥ 阈值 且 平均 CPU/PID ≤ 阈值 | 短生命周期进程风暴 |
+| `SHORT_LIVED_HEAVY` | 单秒进程 > 80% 且 PID > 20 | 大量瞬时进程 |
 | `LONG_RUNNING` | 单进程主导 | 正常长期运行进程 |
+
+**注意**：由于数据按 1 秒聚合，检测基于 CPU 利用率（core/s）而非样本数量。
 
 ### cluster-comm
 

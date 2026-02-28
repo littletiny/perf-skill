@@ -3,13 +3,15 @@
 """
 Symbol Clustering - Cluster samples by expert rules (scheduling, locks, memory, IRQ, etc.)
 
-使用 Symbol.normalized_name 进行规则匹配，保留 kernel/user 信息
+使用 Symbol.normalized_name 进行规则匹配，基于 core/s（CPU 利用率）而非记录数统计。
+
+注意：数据已按 1 秒聚合，记录数量无参考价值。
 """
 
 import json
 import re
 from collections import defaultdict
-from ..core.reliability import assess_sample_reliability, format_percentage_with_ci
+from ..core.reliability import assess_data_quality
 
 
 # Symbol-based event classification (for cluster-symbols)
@@ -47,12 +49,12 @@ def cmd_apply_cluster(engine, args):
     
     # Calculate duration from filtered samples
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    total_samples = len(samples)
+    record_count = len(samples)
     
     # Get total core/s for accurate CPU utilization
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    reliability_level, warning_msg, metrics = assess_sample_reliability(
-        total_samples, duration, total_core_per_sec=total_core_per_sec
+    quality_level, warning_msg, metrics = assess_data_quality(
+        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
     rules = {}
@@ -61,12 +63,15 @@ def cmd_apply_cluster(engine, args):
     if args.custom_rules:
         rules.update(json.loads(args.custom_rules))
     
-    cluster_hits = defaultdict(int)
+    # 使用 core/s 作为权重进行聚类统计
+    cluster_core_sec = defaultdict(float)
     
     for s in samples:
         stack = s.get('stack')
         if not stack:
             continue
+        
+        core_per_sec = s.get('core_per_sec', 0)
         
         # 使用规范化后的符号名进行匹配
         normalized_names = stack.get_normalized_names()
@@ -83,20 +88,20 @@ def cmd_apply_cluster(engine, args):
                 if re.search(pattern_str, sym):
                     matched_groups.add(group)
         for g in matched_groups:
-            cluster_hits[g] += 1
+            cluster_core_sec[g] += core_per_sec
 
+    # 计算百分比
     results = []
-    for group, count in cluster_hits.items():
-        ratio_with_ci = format_percentage_with_ci(count, total_samples)
+    for group, core_sec in cluster_core_sec.items():
+        ratio = (core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
         ref = "Custom" if group not in EXPERT_RULES else group.split('_')[0]
         results.append({
             "cluster": group,
-            "ratio": f"{(count/total_samples)*100:.2f}%",
-            "ratio_with_ci": ratio_with_ci,
-            "reference": ref,
-            "sample_count": count
+            "ratio_pct": round(ratio, 2),
+            "core_sec": round(core_sec, 4),
+            "reference": ref
         })
-    results.sort(key=lambda x: float(x['ratio'].replace('%', '')), reverse=True)
+    results.sort(key=lambda x: x['ratio_pct'], reverse=True)
     
     output = {
         "time_range": {
@@ -109,15 +114,16 @@ def cmd_apply_cluster(engine, args):
             "end_time": getattr(args, 'end_time', None),
             "cpu_id": getattr(args, 'cpu_id', None)
         },
-        "reliability": {
-            "level": reliability_level,
+        "data_quality": {
+            "level": quality_level,
             "warning": warning_msg,
             "metrics": metrics
         },
+        "total_core_seconds": round(total_core_per_sec, 4),
         "clusters": results
     }
     
-    if reliability_level == "CRITICAL":
-        output["_WARNING"] = "样本数过少！聚类结果完全不可信。"
+    if quality_level == "CRITICAL":
+        output["_WARNING"] = "数据质量不足！聚类结果完全不可信。"
     
     print(json.dumps(output, indent=2, ensure_ascii=False))

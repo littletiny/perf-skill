@@ -7,10 +7,12 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 - Kernel 函数在原始数据中带有 `_[k]` 后缀（如 `osq_lock_[k]`）
 - Symbol 类在解析时保留这一信息
 - 利用率计算基于准确的符号类型，而非启发式规则
+
+注意：数据已按 1 秒聚合，样本数量仅作为记录数参考，分析基于 core/s 值。
 """
 
 import json
-from ..core.reliability import assess_sample_reliability
+from ..core.reliability import assess_data_quality
 
 
 def cmd_show_cpu_usage(engine, args):
@@ -41,6 +43,7 @@ def cmd_show_cpu_usage(engine, args):
     
     # Calculate duration from samples
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    record_count = len(samples)
     
     # Determine target description
     pid = getattr(args, 'pid', None)
@@ -61,9 +64,9 @@ def cmd_show_cpu_usage(engine, args):
     util_stats = engine.get_cpu_utilization(samples)
     total_core_per_sec = util_stats['total_core_seconds']
     
-    # Assess reliability (without hz parameter)
-    reliability_level, warning_msg, metrics = assess_sample_reliability(
-        len(samples), duration, total_core_per_sec=total_core_per_sec
+    # Assess data quality (no sample_count parameter needed)
+    quality_level, warning_msg, metrics = assess_data_quality(
+        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
     result = {
@@ -81,13 +84,13 @@ def cmd_show_cpu_usage(engine, args):
             "start_time": getattr(args, 'start_time', None),
             "end_time": getattr(args, 'end_time', None)
         },
-        "sampling": {
-            "actual_samples": len(samples),
-            "user_samples": util_stats['user_samples'],
-            "kernel_samples": util_stats['kernel_samples']
+        "data_coverage": {
+            "record_count": record_count,
+            "user_records": util_stats['user_records'],
+            "kernel_records": util_stats['kernel_records']
         },
-        "reliability": {
-            "level": reliability_level,
+        "data_quality": {
+            "level": quality_level,
             "warning": warning_msg,
             "metrics": metrics
         },
@@ -99,18 +102,16 @@ def cmd_show_cpu_usage(engine, args):
                 "user_core_seconds": util_stats['user_core_seconds'],
                 "kernel_core_seconds": util_stats['kernel_core_seconds'],
                 "total_core_seconds": util_stats['total_core_seconds'],
-                "user_samples": util_stats['user_samples'],
-                "kernel_samples": util_stats['kernel_samples'],
-                "total_samples": len(samples),
-                "user_sample_ratio_pct": round((util_stats['user_samples'] / len(samples)) * 100, 2) if len(samples) > 0 else 0,
-                "kernel_sample_ratio_pct": round((util_stats['kernel_samples'] / len(samples)) * 100, 2) if len(samples) > 0 else 0
+                "user_records": util_stats['user_records'],
+                "kernel_records": util_stats['kernel_records'],
+                "total_records": record_count
             }
         }
     }
     
-    if reliability_level == "CRITICAL":
-        result["_WARNING"] = "样本数过少！CPU 利用率数据完全不可信。"
-    elif reliability_level in ["WARNING", "ACCEPTABLE"]:
-        result["_NOTICE"] = "采样率偏低，利用率数据仅供参考，关注相对比例而非精确值。"
+    if quality_level == "CRITICAL":
+        result["_WARNING"] = "数据质量不足！CPU 利用率数据完全不可信。"
+    elif quality_level in ["WARNING", "ACCEPTABLE"]:
+        result["_NOTICE"] = "数据质量中等，利用率数据仅供参考，关注相对比例而非精确值。"
     
     print(json.dumps(result, indent=2, ensure_ascii=False))

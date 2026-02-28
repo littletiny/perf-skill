@@ -3,12 +3,13 @@
 """
 Hotspot Analysis - Extract function rankings by self/inclusive time
 
-使用 Symbol.normalized_name 作为符号标识，保留原始 kernel/user 信息
+使用 Symbol.normalized_name 作为符号标识，基于 core/s（CPU 利用率）进行统计，
+而非样本数量（因为数据已按 1 秒聚合，样本数无意义）。
 """
 
 import json
 from collections import defaultdict
-from ..core.reliability import assess_sample_reliability, format_percentage_with_ci
+from ..core.reliability import assess_data_quality
 
 
 def cmd_get_hotspots(engine, args):
@@ -36,48 +37,58 @@ def cmd_get_hotspots(engine, args):
 
     # Calculate duration from filtered samples
     duration = filtered[-1]['ts'] - filtered[0]['ts'] if len(filtered) > 1 else 0
-    total = len(filtered)
+    record_count = len(filtered)
     
     # Get total core/s for accurate CPU utilization
     total_core_per_sec, _ = engine.get_total_core_per_sec(filtered)
-    reliability_level, warning_msg, metrics = assess_sample_reliability(
-        total, duration, total_core_per_sec=total_core_per_sec
+    quality_level, warning_msg, metrics = assess_data_quality(
+        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
 
-    self_counts = defaultdict(int)
-    incl_counts = defaultdict(int)
+    # 使用 core/s 作为权重进行统计，而非样本数量
+    self_core_sec = defaultdict(float)  # Self time: 栈顶函数
+    incl_core_sec = defaultdict(float)  # Inclusive time: 栈中所有函数
 
     for s in filtered:
         stack = s.get('stack')
         if not stack or len(stack) == 0:
             continue
         
+        core_per_sec = s.get('core_per_sec', 0)
+        
         # 使用规范化后的符号名进行统计
-        # SymbolStack.get_normalized_names() 返回规范化后的名称列表
         normalized_names = stack.get_normalized_names()
         
-        # Self count: 栈顶函数 (leaf)
-        self_counts[normalized_names[0]] += 1
+        # Self time: 栈顶函数 (leaf) 的 core/s
+        self_core_sec[normalized_names[0]] += core_per_sec
         
-        # Inclusive count: 栈中所有唯一函数
-        for sym in set(normalized_names):
-            incl_counts[sym] += 1
+        # Inclusive time: 栈中所有唯一函数的 core/s
+        # 注意：同一个函数在栈中多次出现只计算一次
+        seen = set()
+        for sym in normalized_names:
+            if sym not in seen:
+                incl_core_sec[sym] += core_per_sec
+                seen.add(sym)
+    
+    # 计算总 core/s 用于百分比计算
+    total_self_core_sec = sum(self_core_sec.values())
+    total_incl_core_sec = sum(incl_core_sec.values())
     
     results = []
-    for sym, count in incl_counts.items():
-        self_ci = format_percentage_with_ci(self_counts[sym], total)
-        incl_ci = format_percentage_with_ci(count, total)
+    for sym, core_sec in incl_core_sec.items():
+        self_pct = (self_core_sec[sym] / total_self_core_sec * 100) if total_self_core_sec > 0 else 0
+        incl_pct = (core_sec / total_incl_core_sec * 100) if total_incl_core_sec > 0 else 0
         results.append({
             "symbol": sym,
-            "self_ratio": f"{(self_counts[sym]/total)*100:.2f}%",
-            "self_ratio_with_ci": self_ci,
-            "inclusive_ratio": f"{(count/total)*100:.2f}%",
-            "inclusive_ratio_with_ci": incl_ci,
-            "raw_count": count
+            "self_core_sec": round(self_core_sec[sym], 4),
+            "self_ratio_pct": round(self_pct, 2),
+            "inclusive_core_sec": round(core_sec, 4),
+            "inclusive_ratio_pct": round(incl_pct, 2)
         })
     
-    key = "inclusive_ratio" if args.sort_by == "inclusive" else "self_ratio"
-    results.sort(key=lambda x: float(x[key].replace('%', '')), reverse=True)
+    # 按指定方式排序
+    key = "inclusive_ratio_pct" if args.sort_by == "inclusive" else "self_ratio_pct"
+    results.sort(key=lambda x: x[key], reverse=True)
     
     output = {
         "time_range": {
@@ -90,18 +101,18 @@ def cmd_get_hotspots(engine, args):
             "end_time": getattr(args, 'end_time', None),
             "cpu_id": getattr(args, 'cpu_id', None)
         },
-        "reliability": {
-            "level": reliability_level,
+        "data_quality": {
+            "level": quality_level,
             "warning": warning_msg,
-            "metrics": metrics,
-            "sample_count": total
+            "metrics": metrics
         },
+        "total_core_seconds": round(total_core_per_sec, 4),
         "hotspots": results[:args.top_n]
     }
     
-    if reliability_level == "CRITICAL":
-        output["_WARNING"] = "样本数过少！热点函数排序和百分比完全不可信。"
-    elif reliability_level in ["WARNING", "ACCEPTABLE"]:
-        output["_NOTICE"] = "置信区间较宽，百分比数值仅供参考，关注相对排序而非精确值。"
+    if quality_level == "CRITICAL":
+        output["_WARNING"] = "数据质量不足！热点函数排序和百分比完全不可信。"
+    elif quality_level in ["WARNING", "ACCEPTABLE"]:
+        output["_NOTICE"] = "数据质量中等，百分比数值仅供参考，关注相对排序而非精确值。"
     
     print(json.dumps(output, indent=2, ensure_ascii=False))

@@ -1,6 +1,6 @@
 ---
 name: SPEAR-perf-hunter
-description: Systematic Linux performance diagnosis using SPEAR methodology. Use when analyzing CPU bottlenecks, high latency, resource contention, or performance regression in Linux environments - especially with Cgroup constraints, low-frequency sampling (19Hz), or complex multi-threaded applications. Requires perf script data with core/s field as input.
+description: Systematic Linux performance diagnosis using SPEAR methodology. Use when analyzing CPU bottlenecks, high latency, resource contention, or performance regression in Linux environments - especially with Cgroup constraints, time-aggregated data (1s), or complex multi-threaded applications.
 ---
 
 # SPEAR 性能诊断
@@ -29,7 +29,7 @@ python3 $SKILL_DIR/scripts/perf_expert.py <子命令> [选项]
 | 📗 分析流程 | 标准工作流程、典型分析模式 | `references/workflow.md` |
 | 📘 工具命令 | 详细命令、参数、使用说明 | `references/tools.md` |
 | 📕 启发式规则 | 五大认知闭包、诊断规则 | `references/heuristics.md` |
-| 📊 数据格式 | perf script 解析、core/s 说明 | `references/data-format.md` |
+| 📊 数据格式 | 输入数据格式说明 | `references/data-format.md` |
 | 📋 文档模板 | 诊断报告格式、检查清单 | `references/templates.md` |
 
 

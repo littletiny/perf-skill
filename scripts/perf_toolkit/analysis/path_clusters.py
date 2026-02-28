@@ -3,28 +3,37 @@
 """
 Path Clustering - Cluster samples by common call path prefixes using Trie
 
-使用 SymbolStack 和规范化后的符号名进行路径聚类
+使用 SymbolStack 和规范化后的符号名进行路径聚类。
+基于 core/s（CPU 利用率）而非记录数统计。
+
+注意：数据已按 1 秒聚合，记录数量无参考价值。
 """
 
 import json
 from collections import defaultdict
-from ..core.reliability import assess_sample_reliability
+from ..core.reliability import assess_data_quality
 
 
 class PathCluster:
     """Trie-based path clustering for stack samples"""
     
-    def __init__(self, min_depth=2, min_samples=5):
+    def __init__(self, min_depth=2, min_core_sec=0.01):
+        """
+        Args:
+            min_depth: Minimum path depth to form a cluster
+            min_core_sec: Minimum core/s to form a cluster
+        """
         self.min_depth = min_depth
-        self.min_samples = min_samples
-        self.trie = {'_count': 0, '_samples': []}
+        self.min_core_sec = min_core_sec
+        self.trie = {'_core_sec': 0.0, '_samples': []}
     
-    def add_sample(self, stack):
+    def add_sample(self, stack, core_per_sec=0):
         """
         Add a stack sample to the trie.
         
         Args:
             stack: SymbolStack object (leaf-first order, reverse for root-first)
+            core_per_sec: CPU utilization for this sample
         """
         if not stack:
             return
@@ -34,11 +43,11 @@ class PathCluster:
         # 使用规范化后的符号名
         for func in reversed(stack.get_normalized_names()):
             if func not in node:
-                node[func] = {'_count': 0, '_samples': []}
+                node[func] = {'_core_sec': 0.0, '_samples': []}
             node = node[func]
-            node['_count'] += 1
-            # Store the normalized names list for leaf analysis
-            node['_samples'].append(stack.get_normalized_names())
+            node['_core_sec'] += core_per_sec
+            # Store the normalized names list and core/s for leaf analysis
+            node['_samples'].append((stack.get_normalized_names(), core_per_sec))
     
     def extract_clusters(self, node=None, path=None, clusters=None):
         """Extract clusters that meet the criteria"""
@@ -50,27 +59,27 @@ class PathCluster:
             clusters = []
         
         # Check if current node qualifies as a cluster
-        if len(path) >= self.min_depth and node['_count'] >= self.min_samples:
-            # Collect leaf distribution
-            leaf_counts = defaultdict(int)
-            for stack_names in node['_samples']:
+        if len(path) >= self.min_depth and node['_core_sec'] >= self.min_core_sec:
+            # Collect leaf distribution (weighted by core/s)
+            leaf_core_sec = defaultdict(float)
+            for stack_names, core_sec in node['_samples']:
                 if stack_names:
-                    leaf_counts[stack_names[0]] += 1
+                    leaf_core_sec[stack_names[0]] += core_sec
             
             # Collect representative sub-paths (most common full stacks)
-            stack_counts = defaultdict(int)
-            for stack_names in node['_samples']:
+            stack_core_sec = defaultdict(float)
+            for stack_names, core_sec in node['_samples']:
                 stack_key = '→'.join(reversed(stack_names))
-                stack_counts[stack_key] += 1
+                stack_core_sec[stack_key] += core_sec
             
-            top_stacks = sorted(stack_counts.items(), key=lambda x: -x[1])[:5]
+            top_stacks = sorted(stack_core_sec.items(), key=lambda x: -x[1])[:5]
             
             clusters.append({
                 'path_signature': '→'.join(path),
                 'depth': len(path),
-                'sample_count': node['_count'],
-                'leaves': dict(sorted(leaf_counts.items(), key=lambda x: -x[1])[:10]),
-                'representative_stacks': [{'stack': s, 'count': c} for s, c in top_stacks]
+                'core_sec': node['_core_sec'],
+                'leaves': dict(sorted(leaf_core_sec.items(), key=lambda x: -x[1])[:10]),
+                'representative_stacks': [{'stack': s, 'core_sec': round(c, 4)} for s, c in top_stacks]
             })
             
             # Don't recurse deeper - we've captured this cluster
@@ -110,46 +119,48 @@ def cmd_cluster_paths(engine, args):
         }, indent=2))
         return
     
-    # Calculate duration and reliability
+    # Calculate duration and data quality
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    total_samples = len(samples)
+    record_count = len(samples)
     
     # Get total core/s for accurate CPU utilization
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    reliability_level, warning_msg, metrics = assess_sample_reliability(
-        total_samples, duration, total_core_per_sec=total_core_per_sec
+    quality_level, warning_msg, metrics = assess_data_quality(
+        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
     # Build trie and extract clusters
-    cluster_builder = PathCluster(min_depth=args.min_depth, min_samples=args.min_samples)
+    # 将 min_samples 参数转换为 min_core_sec (默认 0.01 core/s)
+    min_core_sec = getattr(args, 'min_samples', 5) * 0.001  # 简单映射
+    cluster_builder = PathCluster(min_depth=args.min_depth, min_core_sec=min_core_sec)
     
     for s in samples:
         stack = s.get('stack')
         if stack and len(stack) > 0:
-            cluster_builder.add_sample(stack)
+            core_per_sec = s.get('core_per_sec', 0)
+            cluster_builder.add_sample(stack, core_per_sec)
     
     clusters = cluster_builder.extract_clusters()
     
-    # Calculate ratios and sort
+    # Calculate ratios and sort (基于 core/s)
     for c in clusters:
-        c['ratio'] = f"{(c['sample_count'] / total_samples * 100):.2f}%"
-        c['ratio_value'] = c['sample_count'] / total_samples * 100
-        # Calculate leaf distribution percentages
+        c['ratio_pct'] = round((c['core_sec'] / total_core_per_sec * 100), 2) if total_core_per_sec > 0 else 0
+        # Calculate leaf distribution percentages (weighted by core/s)
         leaf_total = sum(c['leaves'].values())
         c['leaf_ratios'] = {
-            leaf: f"{(count / leaf_total * 100):.1f}%"
-            for leaf, count in sorted(c['leaves'].items(), key=lambda x: -x[1])
-        }
+            leaf: f"{(core_sec / leaf_total * 100):.1f}%"
+            for leaf, core_sec in sorted(c['leaves'].items(), key=lambda x: -x[1])
+        } if leaf_total > 0 else {}
     
-    # Sort by sample count descending
-    clusters.sort(key=lambda x: -x['sample_count'])
+    # Sort by core/s descending
+    clusters.sort(key=lambda x: -x['core_sec'])
     
     # Apply top-n limit
     top_clusters = clusters[:args.top_n]
     
     # Calculate unclustered ratio
-    clustered_samples = sum(c['sample_count'] for c in clusters)
-    unclustered_ratio = (total_samples - clustered_samples) / total_samples * 100 if total_samples > 0 else 0
+    clustered_core_sec = sum(c['core_sec'] for c in clusters)
+    unclustered_ratio = ((total_core_per_sec - clustered_core_sec) / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
     
     output = {
         'time_range': {
@@ -165,30 +176,31 @@ def cmd_cluster_paths(engine, args):
             'start_time': getattr(args, 'start_time', None),
             'end_time': getattr(args, 'end_time', None)
         },
-        'reliability': {
-            'level': reliability_level,
+        'data_quality': {
+            'level': quality_level,
             'warning': warning_msg,
             'metrics': metrics
         },
         'cluster_config': {
             'min_depth': args.min_depth,
-            'min_samples': args.min_samples
+            'min_core_sec': min_core_sec
         },
         'summary': {
-            'total_samples': total_samples,
+            'record_count': record_count,
+            'total_core_seconds': round(total_core_per_sec, 4),
             'total_clusters': len(clusters),
             'shown_clusters': len(top_clusters),
-            'clustered_samples': clustered_samples,
-            'clustered_ratio': f"{(clustered_samples / total_samples * 100):.2f}%" if total_samples > 0 else "0%",
-            'unclustered_ratio': f"{unclustered_ratio:.2f}%"
+            'clustered_core_sec': round(clustered_core_sec, 4),
+            'clustered_ratio_pct': round((clustered_core_sec / total_core_per_sec * 100), 2) if total_core_per_sec > 0 else 0,
+            'unclustered_ratio_pct': round(unclustered_ratio, 2)
         },
         'clusters': [
             {
                 'cluster_id': f"c_{i+1:03d}",
                 'path_signature': c['path_signature'],
                 'depth': c['depth'],
-                'sample_count': c['sample_count'],
-                'ratio': c['ratio'],
+                'core_sec': round(c['core_sec'], 4),
+                'ratio_pct': c['ratio_pct'],
                 'leaf_ratios': c['leaf_ratios'],
                 'representative_stacks': c['representative_stacks']
             }
@@ -196,9 +208,9 @@ def cmd_cluster_paths(engine, args):
         ]
     }
     
-    if reliability_level == "CRITICAL":
-        output["_WARNING"] = "样本数过少！调用路径聚类结果完全不可信。"
-    elif reliability_level in ["WARNING", "ACCEPTABLE"]:
-        output["_NOTICE"] = "采样率偏低，路径聚类结果仅供参考，关注相对排序而非精确值。"
+    if quality_level == "CRITICAL":
+        output["_WARNING"] = "数据质量不足！调用路径聚类结果完全不可信。"
+    elif quality_level in ["WARNING", "ACCEPTABLE"]:
+        output["_NOTICE"] = "数据质量中等，路径聚类结果仅供参考，关注相对排序而非精确值。"
     
     print(json.dumps(output, indent= 2, ensure_ascii=False))

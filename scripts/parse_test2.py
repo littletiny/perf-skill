@@ -120,7 +120,7 @@ class Test2Parser:
             by_pid[s.pid] = by_pid.get(s.pid, 0) + s.core_s
             
         return {
-            'total_samples': len(self.samples),
+            'total_records': len(self.samples),
             'total_core_s': total_core_s,
             'avg_core_s': avg_core_s,
             'min_core_s': min(s.core_s for s in self.samples),
@@ -141,7 +141,7 @@ class Test2Parser:
         print("=" * 60)
         print("PERF DATA SUMMARY")
         print("=" * 60)
-        print(f"Total Samples:     {stats['total_samples']}")
+        print(f"Total Records:     {stats['total_records']}")
         print(f"Total core/s:      {stats['total_core_s']:.4f}")
         print(f"Average core/s:    {stats['avg_core_s']:.4f}")
         print(f"Min core/s:        {stats['min_core_s']:.4f}")

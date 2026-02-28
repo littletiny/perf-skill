@@ -7,11 +7,13 @@ Specialized for identifying "many small processes consuming resources collective
 - High aggregate CPU usage across many processes with same comm
 - Low individual process CPU usage
 - Useful for detecting worker pool issues, connection storms, etc.
+
+注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
 import json
 from collections import defaultdict
-from ..core.reliability import assess_sample_reliability
+from ..core.reliability import assess_data_quality
 
 
 def cmd_get_comm_top(engine, args):
@@ -47,28 +49,26 @@ def cmd_get_comm_top(engine, args):
         }, indent=2))
         return
     
-    # Calculate duration and reliability
+    # Calculate duration and data quality
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    total_samples = len(samples)
+    record_count = len(samples)
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    reliability_level, warning_msg, metrics = assess_sample_reliability(
-        total_samples, duration, total_core_per_sec=total_core_per_sec
+    quality_level, warning_msg, metrics = assess_data_quality(
+        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
     )
     
-    # Aggregate by comm - collect detailed per-process stats
+    # Aggregate by comm - 使用 core/s 作为主要指标
     # comm_stats[comm] = {
-    #   'pids': {pid: {'samples': N, 'core_per_sec': X}},
-    #   'total_samples': N,
-    #   'total_core_per_sec': X,
-    #   'kernel_samples': N,
-    #   'user_samples': N
+    #   'pids': {pid: {'core_sec': X, 'kernel_core_sec': X, 'user_core_sec': X}},
+    #   'total_core_sec': X,
+    #   'kernel_core_sec': X,
+    #   'user_core_sec': X
     # }
     comm_stats = defaultdict(lambda: {
-        'pids': defaultdict(lambda: {'samples': 0, 'core_per_sec': 0.0, 'kernel_samples': 0, 'user_samples': 0}),
-        'total_samples': 0,
-        'total_core_per_sec': 0.0,
-        'kernel_samples': 0,
-        'user_samples': 0
+        'pids': defaultdict(lambda: {'core_sec': 0.0, 'kernel_core_sec': 0.0, 'user_core_sec': 0.0}),
+        'total_core_sec': 0.0,
+        'kernel_core_sec': 0.0,
+        'user_core_sec': 0.0
     })
     
     for s in samples:
@@ -77,21 +77,19 @@ def cmd_get_comm_top(engine, args):
         core_val = s.get('core_per_sec') or 0
         
         # Update per-pid stats
-        comm_stats[comm]['pids'][pid]['samples'] += 1
-        comm_stats[comm]['pids'][pid]['core_per_sec'] += core_val
+        comm_stats[comm]['pids'][pid]['core_sec'] += core_val
         
         # Update comm-level stats
-        comm_stats[comm]['total_samples'] += 1
-        comm_stats[comm]['total_core_per_sec'] += core_val
+        comm_stats[comm]['total_core_sec'] += core_val
         
         # User/kernel breakdown
         stack = s.get('stack')
         if stack and stack.is_leaf_kernel:
-            comm_stats[comm]['kernel_samples'] += 1
-            comm_stats[comm]['pids'][pid]['kernel_samples'] += 1
+            comm_stats[comm]['kernel_core_sec'] += core_val
+            comm_stats[comm]['pids'][pid]['kernel_core_sec'] += core_val
         else:
-            comm_stats[comm]['user_samples'] += 1
-            comm_stats[comm]['pids'][pid]['user_samples'] += 1
+            comm_stats[comm]['user_core_sec'] += core_val
+            comm_stats[comm]['pids'][pid]['user_core_sec'] += core_val
     
     # Calculate aggregated statistics
     total_unique_pids = sum(len(stats['pids']) for stats in comm_stats.values())
@@ -100,32 +98,31 @@ def cmd_get_comm_top(engine, args):
     for comm, stats in comm_stats.items():
         pids_data = stats['pids']
         pid_count = len(pids_data)
-        total_samples_comm = stats['total_samples']
-        total_core = stats['total_core_per_sec']
+        total_core_sec = stats['total_core_sec']
         
         # Aggregate CPU utilization (total across all processes)
         if duration > 0:
-            aggregate_cpu_util = (total_core / duration) * 100
+            aggregate_cpu_util = (total_core_sec / duration) * 100
         else:
             aggregate_cpu_util = 0
         
         # Per-process averages
         avg_cpu_per_process = aggregate_cpu_util / pid_count if pid_count > 0 else 0
-        avg_samples_per_process = total_samples_comm / pid_count if pid_count > 0 else 0
+        avg_core_sec_per_process = total_core_sec / pid_count if pid_count > 0 else 0
         
         # Process count percentage
         process_count_pct = (pid_count / total_unique_pids * 100) if total_unique_pids > 0 else 0
         
-        # Sample ratio percentage
-        sample_ratio_pct = (total_samples_comm / total_samples * 100) if total_samples > 0 else 0
-        
-        # User/kernel ratio for this comm group
-        kernel_ratio = (stats['kernel_samples'] / total_samples_comm * 100) if total_samples_comm > 0 else 0
-        user_ratio = (stats['user_samples'] / total_samples_comm * 100) if total_samples_comm > 0 else 0
+        # User/kernel ratio for this comm group (based on core/s)
+        if total_core_sec > 0:
+            kernel_ratio = (stats['kernel_core_sec'] / total_core_sec) * 100
+            user_ratio = (stats['user_core_sec'] / total_core_sec) * 100
+        else:
+            kernel_ratio = user_ratio = 0
         
         # Per-process user/kernel averages
-        total_pid_kernel = sum(p['kernel_samples'] for p in pids_data.values())
-        total_pid_user = sum(p['user_samples'] for p in pids_data.values())
+        total_pid_kernel = sum(p['kernel_core_sec'] for p in pids_data.values())
+        total_pid_user = sum(p['user_core_sec'] for p in pids_data.values())
         avg_kernel_per_process = total_pid_kernel / pid_count if pid_count > 0 else 0
         avg_user_per_process = total_pid_user / pid_count if pid_count > 0 else 0
         
@@ -134,10 +131,10 @@ def cmd_get_comm_top(engine, args):
         # Low value = many processes with tiny contribution
         density_index = aggregate_cpu_util / pid_count if pid_count > 0 else 0
         
-        # Calculate min/max per-process samples for variance analysis
-        pid_sample_counts = [p['samples'] for p in pids_data.values()]
-        min_samples_per_pid = min(pid_sample_counts) if pid_sample_counts else 0
-        max_samples_per_pid = max(pid_sample_counts) if pid_sample_counts else 0
+        # Calculate min/max per-process core/s for variance analysis
+        pid_core_sec = [p['core_sec'] for p in pids_data.values()]
+        min_core_sec_per_pid = min(pid_core_sec) if pid_core_sec else 0
+        max_core_sec_per_pid = max(pid_core_sec) if pid_core_sec else 0
         
         # Check if this looks like a "many small processes" pattern
         # Criteria: high aggregate CPU, low per-process average, high process count
@@ -152,17 +149,16 @@ def cmd_get_comm_top(engine, args):
             'pid_count': pid_count,
             'process_count_pct': round(process_count_pct, 2),
             'aggregate_cpu_utilization_pct': round(aggregate_cpu_util, 2),
-            'sample_count': total_samples_comm,
-            'sample_ratio_pct': round(sample_ratio_pct, 2),
+            'total_core_sec': round(total_core_sec, 4),
             'avg_cpu_per_process_pct': round(avg_cpu_per_process, 2),
-            'avg_samples_per_process': round(avg_samples_per_process, 2),
+            'avg_core_sec_per_process': round(avg_core_sec_per_process, 4),
             'density_index': round(density_index, 4),
             'kernel_ratio_pct': round(kernel_ratio, 2),
             'user_ratio_pct': round(user_ratio, 2),
-            'avg_kernel_samples_per_process': round(avg_kernel_per_process, 2),
-            'avg_user_samples_per_process': round(avg_user_per_process, 2),
-            'min_samples_per_pid': min_samples_per_pid,
-            'max_samples_per_pid': max_samples_per_pid,
+            'avg_kernel_core_sec_per_process': round(avg_kernel_per_process, 4),
+            'avg_user_core_sec_per_process': round(avg_user_per_process, 4),
+            'min_core_sec_per_pid': round(min_core_sec_per_pid, 4),
+            'max_core_sec_per_pid': round(max_core_sec_per_pid, 4),
             'is_many_small_pattern': is_many_small_pattern
         })
     
@@ -190,10 +186,10 @@ def cmd_get_comm_top(engine, args):
             'suggestion': '检查 worker pool 配置、连接池大小、或请求分发策略。考虑减少进程数或合并任务。'
         })
     
-    # Check for high variance in samples per process (uneven load distribution)
+    # Check for high variance in core/s per process (uneven load distribution)
     high_variance_comms = []
     for r in top_results:
-        if r['pid_count'] >= 3 and r['max_samples_per_pid'] > r['min_samples_per_pid'] * 10:
+        if r['pid_count'] >= 3 and r['max_core_sec_per_pid'] > r['min_core_sec_per_pid'] * 10:
             high_variance_comms.append(r['comm'])
     if high_variance_comms:
         patterns.append({
@@ -231,8 +227,8 @@ def cmd_get_comm_top(engine, args):
             'start_time': getattr(args, 'start_time', None),
             'end_time': getattr(args, 'end_time', None)
         },
-        'reliability': {
-            'level': reliability_level,
+        'data_quality': {
+            'level': quality_level,
             'warning': warning_msg,
             'metrics': metrics
         },
@@ -251,12 +247,13 @@ def cmd_get_comm_top(engine, args):
     output['_interpretation'] = {
         'density_index': '密度指数 = 总CPU利用率 / 进程数。值越小表示单进程贡献越低，可能存在过度分片。',
         'avg_cpu_per_process_pct': '单进程平均CPU利用率，用于识别是否单个进程过载。',
+        'avg_core_sec_per_process': '单进程平均消耗的 core/s，直接反映 CPU 消耗。',
         'is_many_small_pattern': '标记符合"大量小进程集体高消耗"特征的进程组。'
     }
     
-    if reliability_level == "CRITICAL":
-        output["_WARNING"] = "样本数过少！comm 组 CPU 利用率排序完全不可信。"
-    elif reliability_level in ["WARNING", "ACCEPTABLE"]:
-        output["_NOTICE"] = "采样率偏低，comm 组 CPU 利用率数据仅供参考，关注相对排序而非精确值。"
+    if quality_level == "CRITICAL":
+        output["_WARNING"] = "数据质量不足！comm 组 CPU 利用率排序完全不可信。"
+    elif quality_level in ["WARNING", "ACCEPTABLE"]:
+        output["_NOTICE"] = "数据质量中等，comm 组 CPU 利用率数据仅供参考，关注相对排序而非精确值。"
     
     print(json.dumps(output, indent=2, ensure_ascii=False))

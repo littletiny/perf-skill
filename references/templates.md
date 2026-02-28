@@ -8,7 +8,7 @@
 # SPEAR 诊断报告: [简短的问题描述]
 
 - **状态**: [进行中 / 已定位 / 已验证 / 已关闭]
-- **数据文件**: `perf.script` (6.48s, 6479样本, EXCELLENT可靠性)
+- **数据文件**: `perf.script` (6.48s, EXCELLENT 数据质量)
 - **诊断者**: [Name]
 - **最后更新**: [Date]
 
@@ -20,7 +20,7 @@
 
 | 版本 | 问题描述 | 关键证据引用 (工具/数据) |
 |------|----------|------------------------|
-| V1 | [原始现象描述] | [工具名]: [关键指标] ([可靠性]) |
+| V1 | [原始现象描述] | [工具名]: [关键指标] ([数据质量]) |
 | V2 | [更新后的描述] | [工具名]: [新发现] |
 | V3 | [精确定位] | [工具名]: [根因证据] |
 
@@ -28,9 +28,9 @@
 
 | 版本 | 问题描述 | 关键证据引用 |
 |------|----------|-------------|
-| V1 | 用户反馈系统性能抖动 | `show-cpu-usage`: 系统CPU 6276.51%, 内核态50.4% (6479样本/EXCELLENT) |
+| V1 | 用户反馈系统性能抖动 | `show-cpu-usage`: 系统CPU 6276.51%, 内核态50.4% (EXCELLENT 数据质量) |
 | V2 | 发现单核饱和，用户态/内核态异常均衡 | `check-cpu-bottleneck`: SINGLE_CORE_SATURATION, max_load=6276%@cpu0 |
-| V3 | 存在严重进程风暴，netstat高频创建 | `count-process-variety`: 1308个netstat进程, 样本/PID=1.05, 判定=PROCESS_STORM |
+| V3 | 存在严重进程风暴，netstat高频创建 | `count-process-variety`: 1308个netstat进程, CPU/PID=0.05 core/s, 判定=PROCESS_STORM |
 | V4 | netstat读取/proc/net/tcp引发内核锁竞争 | `cluster-symbols`: EVENT_LOCK_CONTENTION 16.01%, `find-callers`: established_get_first ← seq_read |
 
 ---
@@ -51,7 +51,7 @@ SPEAR 要求保持**竞争性假设**，并行追踪多条路径直至证伪。
 | **主动消耗**: 业务代码计算密集型 | **机制**: 用户态CPU占用主导<br>**副作用**: 内核态比例<30% | `show-cpu-usage`: user% > 60% | user%=49.6%, kernel%=50.4% | ❌ 证伪 |
 | **被动压制**: Cgroup CPU限流 | **机制**: throttling触发调度延迟<br>**副作用**: check-cpu-bottleneck报告CPU_LIMIT_SATURATION | `check-cpu-bottleneck`: verdict=CPU_LIMIT_SATURATION | verdict=SINGLE_CORE_SATURATION, cpu_limit_detected=false | ❌ 证伪 |
 | **被动压制**: 内核瓶颈(调度/锁/IRQ) | **机制**: 内核态消耗高，调度器/锁竞争事件占比>10%<br>**副作用**: cluster-symbols报告高比例EVENT_SCHEDULER/EVENT_LOCK_CONTENTION | `cluster-symbols`: EVENT_SCHEDULER>10% 或 EVENT_LOCK_CONTENTION显著 | EVENT_LOCK_CONTENTION=16.01%, 调度器=0.31% | ⚠️ 部分匹配 |
-| **主动消耗**: 进程风暴导致频繁系统调用 | **机制**: 短生命周期进程大量创建/销毁，系统调用开销激增<br>**副作用**: 进程多样性高，netstat/grep/awk等组合出现 | `count-process-variety`: PROCESS_STORM检测<br>`cluster-comm`: 同类进程聚合消耗高 | netstat: 1308 PIDs, ratio=1.05, storm_detected=true<br>netstat总消耗1117%, 内核态94% | ✅ 确认 |
+| **主动消耗**: 进程风暴导致频繁系统调用 | **机制**: 短生命周期进程大量创建/销毁，系统调用开销激增<br>**副作用**: 进程多样性高，netstat/grep/awk等组合出现 | `count-process-variety`: PROCESS_STORM检测<br>`cluster-comm`: 同类进程聚合消耗高 | netstat: 1308 PIDs, CPU/PID=0.05 core/s, storm_detected=true<br>netstat总消耗1117 core/s, 内核态94% | ✅ 确认 |
 
 ---
 
@@ -65,7 +65,7 @@ SPEAR 要求保持**竞争性假设**，并行追踪多条路径直至证伪。
   {
     "netstat": {
       "unique_pids": 1308,
-      "samples_per_pid": 1.05,
+      "cpu_per_pid": 0.05,
       "behavior": "process_storm",
       "alert": {
         "type": "BEHAVIOR_PROCESS_STORM",
@@ -74,7 +74,7 @@ SPEAR 要求保持**竞争性假设**，并行追踪多条路径直至证伪。
     }
   }
   ```
-- **机制发现**: 6.48秒内创建1308个netstat进程，平均每个进程仅1.05个样本，符合短生命周期进程特征。结合`grep`/`awk`/`xargs`/`sh`等进程同时出现，推断为监控脚本循环执行。
+- **机制发现**: 6.48秒内创建1308个netstat进程，平均每个进程仅消耗0.05 core/s，符合短生命周期进程特征。结合`grep`/`awk`/`xargs`/`sh`等进程同时出现，推断为监控脚本循环执行。
 - **推论**: 存在监控脚本以过高频率调用netstat命令，需进一步确认其调用来源和目的。
 
 ### 记录 2: [热点溯源]
@@ -213,4 +213,11 @@ python3 scripts/perf_expert.py cluster-symbols --data perf.script.fixed
 1. **竞争性假设追踪最少3条假设**: 避免搜索范围过窄，必须包含主动消耗和被动压制两类
 2. **机制评估要具体**: 不要写"可能有锁竞争"，要写"读取/proc/net/tcp需要获取tcp_hashinfo锁"
 3. **保留证伪记录**: 即使假设被推翻，也不要删除，标注❌并写明证伪原因和证据
-4. **引用要精确**: 写明工具名、关键指标数值、可靠性等级，方便他人复验
+4. **引用要精确**: 写明工具名、关键指标数值、数据质量等级，方便他人复验
+
+### 关于数据质量
+
+由于数据已按 1 秒聚合：
+- **记录数**仅代表不同 (进程, CPU, 秒) 的组合数，无绝对统计意义
+- **core/s 值**是唯一可信的度量指标
+- **数据质量**由 CPU 利用率和数据覆盖时长决定，而非记录数
