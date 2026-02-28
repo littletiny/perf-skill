@@ -11,7 +11,7 @@ Call Graph Generation - Generate Call Graph SVG/Graphviz DOT format
 
 import json
 from collections import defaultdict
-from ..core.format_utils import format_time_range
+from ..core.format_utils import format_time_range, format_core_sec
 from ..core.risk_mixin import RiskAwareOutput
 
 
@@ -68,6 +68,8 @@ def cmd_generate_callgraph(engine, args):
     
     edge_weights = {k: v for k, v in edge_weights.items() if v >= args.min_edge_count * 0.001}
     
+    total_core_sec = sum(node_weights.values())
+    
     if args.format == 'dot':
         dot_lines = ['digraph callgraph {', '  rankdir=TB;', '  node [shape=box, style=rounded];', '']
         
@@ -90,8 +92,8 @@ def cmd_generate_callgraph(engine, args):
         
         result = output.build({
             "format": "graphviz-dot",
+            "total_core_seconds": format_core_sec(total_core_sec),
             "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
-            "total_core_seconds": round(sum(node_weights.values()), 4),
             "nodes": len(set(node for edge in edge_weights for node in edge)),
             "edges": len(edge_weights),
             "data": '\n'.join(dot_lines)
@@ -99,10 +101,10 @@ def cmd_generate_callgraph(engine, args):
     else:
         result = output.build({
             "format": "json",
+            "total_core_seconds": format_core_sec(total_core_sec),
             "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
-            "total_core_seconds": round(sum(node_weights.values()), 4),
-            "nodes": {k: round(v, 4) for k, v in node_weights.items()},
-            "edges": [{"caller": k[0], "callee": k[1], "core_sec": round(v, 4)} for k, v in edge_weights.items()]
+            "nodes": {k: format_core_sec(v) for k, v in node_weights.items()},
+            "edges": [{"caller": k[0], "callee": k[1], "core_sec": format_core_sec(v)} for k, v in edge_weights.items()]
         })
     
     print(json.dumps(result, indent=2, ensure_ascii=False))
