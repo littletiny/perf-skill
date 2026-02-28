@@ -146,11 +146,15 @@ python scripts/perf_expert.py get-hotspots --data perf.data.txt
 
 ## 版本历史
 
+- **v2.7** (2026-02-28): 建立目标范围界定准则，修复 templates.md 引用问题
+- **v2.6** (2026-02-28): 统一字段名 `tid` → `pid`，与数据格式保持一致
 - **v2.5** (2026-02-28): 新增问题边界判定规则和样本丢失评估规则
 - **v2.4** (2026-02-28): 重构文档体系，SKILL.md 压缩 63%，新增 workflow.md/heuristics.md
 - **v2.3** (2026-02-28): 完善 AGENTS.md 和 CLI 帮助信息
+- **v2.2** (2026-02-28): 新增 `get-comm-top` 工具，重构 tools.md 为 7-Phase 流程
 - **v2.1** (2026-02-28): 新增 `analyze-core-distribution` 工具，支持核心级负载分析
 - **v2.0** (Previous): 移除 `--freq` 参数，直接从 core/s 计算 CPU 利用率
+- **v1.x → v2.0**: PID 2573405 案例分析驱动的诊断决策树新增、工具链关联明确化
 
 ---
 

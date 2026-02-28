@@ -326,9 +326,65 @@ EVENT_IRQ_OFF, EVENT_SCHEDULER, EVENT_MEM_RECLAIM, EVENT_LOCK_CONTENTION, EVENT_
 
 ---
 
-## 5. 最终工具集全景
+## 5. 早期迭代: v1.0 反思与改进
 
-### 5.1 工具清单
+### 5.1 触发事件: PID 2573405 案例分析
+
+**背景**: 2026-02-28 的 parameter_server CPU 使用率不足分析案例，暴露了 Skill 文档的关键设计缺陷。
+
+**问题症状**:
+- 72 核心机器上进程分布广泛，但仅 1 个核心满载 (97.45%)
+- `finish_task_switch` 自消耗 3.92%
+- 初步分析误用 `grep "nanosleep"` 导致统计不可靠
+
+**暴露的文档缺陷**:
+
+| 缺陷 | 影响 | 改进 |
+|-----|------|------|
+| 工具孤立呈现 | 不知道热点后应追溯 | 建立 `get-hotspots` → `find-callers` 强制链路 |
+| `--auto-target` 误导 | 非热点函数未被选中 | 文档强调 `--target` 针对性追溯 |
+| 缺乏决策树 | 不知道看到 X 后做 Y | 新增 Step 1-6 条件分支流程 |
+| 未强调扩展参数 | 不知道 `--custom-rules` | 增加使用场景说明 |
+
+**关键洞察**:
+
+1. **分析入口选择**: `finish_task_switch` 是调度问题的自然入口，而非 `nanosleep`
+   ```bash
+   # 最优路径
+   find-callers --target finish_task_switch
+   # → 66.67% 来自 nanosleep 路径，33.33% 来自 epoll_wait 路径
+   ```
+
+2. **工具链思维**: 建立明确的 A → B 工具流转
+   ```
+   环境边界 (check-cpu-bottleneck)
+       ↓
+   热点识别 (get-hotspots --sort-by self)
+       ↓
+   热点溯源 (find-callers --target <热点>)
+       ↓
+   深层归因 (find-callers --target <阻塞函数>)
+   ```
+
+3. **扩展能力挖掘**: `--custom-rules` 可解决默认规则未覆盖的场景
+   ```bash
+   cluster-symbols --custom-rules '{"EVENT_SLEEP":"nanosleep|usleep|sleep"}'
+   # 结果: EVENT_SLEEP 13.73% (95% CI: 8.4%-21.7%), 样本数 14
+   ```
+
+### 5.2 v1 → v2 → v3 工作流演进
+
+| 版本 | 核心新增 | 工作流 |
+|-----|---------|--------|
+| **v1** | 基础工具集 | `check-cpu-bottleneck → get-hotspots → find-callers --target <func>` |
+| **v2** | 进程视角 (`cluster-comm`, `--comm`) | `check-cpu-bottleneck → get-process-top → cluster-comm → get-hotspots` |
+| **v3** | 路径视角 (`cluster-paths`, `--auto-target`) | `check-cpu-bottleneck → get-process-top → cluster-paths → find-callers --auto-target` |
+
+---
+
+## 6. 最终工具集全景
+
+### 6.1 工具清单
 
 | 命令 | 添加版本 | 解决的核心问题 |
 |------|---------|---------------|
@@ -346,7 +402,7 @@ EVENT_IRQ_OFF, EVENT_SCHEDULER, EVENT_MEM_RECLAIM, EVENT_LOCK_CONTENTION, EVENT_
 | `--comm` 过滤 | v2 | 按进程名过滤所有命令 |
 | `--auto-target` | v3 | 自动热点追溯 |
 
-### 5.2 诊断工作流演进
+### 6.2 诊断工作流演进
 
 **v1 工作流（基础）**：
 ```
@@ -363,7 +419,7 @@ check-cpu-bottleneck → get-process-top → cluster-comm → get-hotspots
 check-cpu-bottleneck → get-process-top → cluster-paths → find-callers --auto-target
 ```
 
-### 5.3 未实现功能清单（未来方向）
+### 6.3 未实现功能清单（未来方向）
 
 | 功能 | 价值 | 未实现原因 |
 |------|------|-----------|
@@ -374,7 +430,7 @@ check-cpu-bottleneck → get-process-top → cluster-paths → find-callers --au
 
 ---
 
-## 6. 方法论验证
+## 7. 方法论验证
 
 通过本轮演化，SPEAR 方法论的各项原则得到验证：
 

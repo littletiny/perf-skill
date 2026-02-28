@@ -1,3 +1,99 @@
+# SPEAR-perf-hunter 更新日志
+
+---
+
+# v2.0 之前的早期迭代
+
+## v1.0 → v2.0 演进背景
+
+### 触发事件: PID 2573405 案例分析 (2026-02-28)
+
+**原始问题**: 某台机器上 parameter_server 进程 CPU 使用率不够高，但其他实例正常。
+
+**暴露的 Skill 设计缺陷**:
+
+| 缺陷类型 | 问题描述 | 改进方案 |
+|---------|---------|---------|
+| 工具孤立呈现 | 工具被列举为表格，未作为工作流环节 | 建立 Step 1→6 的流程链路 |
+| 关键链接缺失 | `get-hotspots` → `find-callers` 关联不明确 | 增加"发现调度类热点必须追溯"的强制链路 |
+| `--auto-target` 副作用 | 便利功能掩盖针对性追溯价值 | 文档强调 `--target` 在特定场景的必要性 |
+| 诊断决策树缺失 | 只有工具列表，没有条件分支 | 新增约 180 行诊断决策树 |
+
+### 关键改进实施
+
+#### 1. 诊断决策树新增
+
+**内容**: 约 180 行的 Step 1-6 流程图
+
+```
+Step 3: 热点识别 (get-hotspots --sort-by self)
+    ├── 发现: 调度类函数高占比 → Step 4-a: 调度开销溯源
+    ├── 发现: 内存操作类函数高占比 → Step 4-b: 内存开销溯源
+    └── ...
+
+Step 4-a: 调度开销溯源 (find-callers --target <调度函数>)
+    ├── 发现: 定时器睡眠类 → 追溯睡眠触发点
+    ├── 发现: IO等待类 → 检查IO并发配置
+    └── 发现: 同步原语等待类 → 追溯锁持有者
+```
+
+**文件变更**: `SKILL.md` - 新增"诊断决策树"章节
+
+#### 2. 工具链关联明确化
+
+**核心链路建立**:
+- 明确 `get-hotspots --sort-by self` → `find-callers --target <热点>` 的分析链路
+- 使用类别描述（调度类、内存操作类）而非具体函数名
+- 提供条件触发的工具选择指南
+
+#### 3. `--auto-target` 警示
+
+**新增文档提示**:
+> "`--auto-target` 适用于初步探索。当发现特定类别热点（如调度、内存）时，**必须**使用 `--target` 针对性追溯。"
+
+**原因**: PID 2573405 案例中，`nanosleep` 不是热点（self 低），未被 `--auto-target` 选中，导致误以为 `find-callers` 无法解决而转向 `grep`。
+
+#### 4. 从错误方法到最优路径
+
+**原错误方法**:
+```bash
+check-cpu-bottleneck → show-cpu-usage → get-hotspots --sort-by self
+grep "nanosleep"  # ❌ 违反"工具优先"原则，无统计置信度
+```
+
+**改进后的最优化路径**:
+```bash
+# Step 1: 环境边界
+check-cpu-bottleneck --pid 2573405
+
+# Step 2: 热点识别（自消耗视角）
+get-hotspots --sort-by self
+# 输出: finish_task_switch 3.92% self (调度切换开销)
+
+# Step 3: 热点溯源（关键改进！）
+find-callers --target finish_task_switch
+# 输出: 66.67% 来自 nanosleep 路径，33.33% 来自 epoll_wait 路径
+
+# Step 4: 深层归因
+find-callers --target __GI___nanosleep
+# 输出: 追溯到 DoubleHash::FindInTableWithLock (57.14%)
+```
+
+### 经验教训总结
+
+**对个人执行**:
+1. 工具优先原则: 遇到缺口先质疑工具配置，再考虑裸命令
+2. 穷尽工具能力: 尝试 `--target`, `--custom-rules` 等扩展参数
+3. 建立链路思维: 明确 A 工具输出 → B 工具输入的关联
+4. 选择正确入口: `finish_task_switch` 是调度问题的自然入口
+
+**对 Skill 设计**:
+1. 工具不应孤立呈现: 应作为工作流环节，明确前置条件和输出
+2. 必须提供决策树: "如果看到 X，就做 Y" 的条件指引
+3. 便利功能需警示: `--auto-target` 应提示其局限性
+
+---
+
 # SPEAR-perf-hunter v2.7 更新日志
 
 ## 更新概览
