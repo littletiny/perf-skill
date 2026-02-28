@@ -91,7 +91,7 @@
 > 
 > ```bash
 > # 初始化 Live Document（必须）
-> perf-expert.py doc init --data netstat_perf.data
+> perf-expert.py doc init --data xxx.data
 > ```
 
 ### 1.1 目标范围界定
@@ -170,15 +170,14 @@
 
 **如何记录**:
 ```bash
-# 示例：get-comm-top 发现 4 个高内核态进程组，全部记录
-perf-expert.py doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
-  --risk "进程风暴" --hint "cluster-symbols --comm netstat"
-perf-expert.py doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
-  --risk "可能比 netstat 更严重" --hint "cluster-symbols --comm containerd-shim"
+# 示例：get-comm-top 发现 1 个异常进程组，全部记录
+perf-expert.py doc add --id ISS-001 --desc "异常xxxx" \
+  --risk "异常可能影响" --hint "根据领域知识和方法论选择合适决策"
+
 # ... 继续记录其他问题
 ```
 
-**⚠️ 重要**: 不要只记录最显眼的问题！数字偏见（2623 PIDs vs 240 PIDs）会导致遗漏同样严重的问题。
+**⚠️ 重要**: perf-expect子命令的任何风险都需要记录
 
 ---
 

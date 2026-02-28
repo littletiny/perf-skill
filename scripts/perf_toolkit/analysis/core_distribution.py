@@ -55,16 +55,20 @@ def cmd_analyze_core_distribution(engine, args):
         'record_count': 0,
         'total_core_per_sec': 0.0,
     })
+    comm_core_sec = defaultdict(float)  # 统计各 comm 的 CPU 使用，用于提示
     
     for s in samples:
         cpu_id = s.get('cpu')
         core_per_sec = s.get('core_per_sec', 0)
+        comm = s.get('comm', '')
         
         if cpu_id is None:
             continue
         
         core_stats[cpu_id]['record_count'] += 1
         core_stats[cpu_id]['total_core_per_sec'] += core_per_sec
+        if comm:
+            comm_core_sec[comm] += core_per_sec
     
     active_cores = len(core_stats)
     
@@ -103,19 +107,24 @@ def cmd_analyze_core_distribution(engine, args):
         
         saturated_cores = [c for c in core_list if c['state'] == "saturated"]
         
+        # 确定 hint 中使用的目标进程：优先用户使用 --comm 指定的，否则取 CPU 最高的
+        user_comm = getattr(args, 'comm', None)
+        top_comm = max(comm_core_sec, key=comm_core_sec.get) if comm_core_sec else None
+        target_comm = user_comm or top_comm or '<comm>'
+        
         # Add risk for critical imbalance
         if imbalance_level == "CRITICAL":
             output.add_risk(
                 "critical",
                 "负载严重不均衡: 单核满载，其他核心空闲",
-                f"检查锁竞争: cluster-symbols --comm {getattr(args, 'comm', '<target>')}",
+                f"检查锁竞争: cluster-symbols --comm {target_comm}",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
         elif len(saturated_cores) == 1 and len(core_list) > 1:
             output.add_risk(
                 "warning",
                 f"单核满载 (CPU {saturated_cores[0]['cpu_id']})",
-                f"检查锁竞争或CPU亲和性: cluster-symbols --comm {getattr(args, 'comm', '<target>')}",
+                f"检查锁竞争或CPU亲和性: cluster-symbols --comm {target_comm}",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
     else:

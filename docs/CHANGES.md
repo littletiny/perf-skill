@@ -2288,3 +2288,166 @@ get-comm-top → doc add 记录所有 4 个问题 → doc list 显示待办 →
 核心改进: 建立 Live Document 强制审计机制，保障诊断覆盖率
 
 ---
+
+# SPEAR-perf-hunter v2.13 更新日志
+
+## 更新概览
+
+本次更新改进 risk message 中的 hint 信息质量，消除 `<target>`、`<pid>`、`<lock_func>` 等占位符，提供更具体、可执行的建议。
+
+---
+
+## 1. 问题背景
+
+### 1.1 原有问题
+
+部分工具的 risk hint 使用了占位符，导致用户无法直接执行建议的命令：
+
+| 工具 | 原 hint | 问题 |
+|------|---------|------|
+| `bottleneck.py` | `analyze-core-distribution --pid <pid>` | `<pid>` 占位符，未提供 pid 时无法执行 |
+| `clusters.py` | `find-callers --target <lock_func>` | `<lock_func>` 占位符，未指定具体锁函数 |
+| `core_distribution.py` | `cluster-symbols --comm <target>` | `<target>` 占位符，未提供 comm 时无法执行 |
+
+### 1.2 影响
+
+- 用户看到 hint 后仍需手动查找参数值
+- 打断分析流程，降低工具链的连贯性
+- 在自动化场景下无法直接执行建议命令
+
+---
+
+## 2. 改进方案
+
+### 2.1 bottleneck.py - 单核满载场景
+
+**改进前**:
+```python
+hint = f"执行: analyze-core-distribution --pid {getattr(args, 'pid', '<pid>')}"
+```
+
+**改进后**:
+```python
+pid = getattr(args, 'pid', None)
+if pid:
+    hint = f"执行: analyze-core-distribution --pid {pid}"
+else:
+    hint = "先定位高 CPU 进程: get-process-top --top-n 5，然后分析具体进程"
+```
+
+**改进点**: 当用户未指定 pid 时，提供获取 pid 的具体方法，而非占位符。
+
+---
+
+### 2.2 clusters.py - 锁竞争场景
+
+**改进前**:
+```python
+# 仅记录锁竞争比例，未记录具体锁函数
+hint = "溯源锁调用: find-callers --target <lock_func>"
+```
+
+**改进后**:
+```python
+# 在匹配时记录各锁函数的 core_sec
+lock_func_core_sec = defaultdict(float)
+for sym in normalized_names:
+    if re.search(pattern_str, sym):
+        matched_groups.add(group)
+        if group == "EVENT_LOCK_CONTENTION":
+            lock_func_core_sec[sym] += core_per_sec
+
+# 找出最频繁的锁函数用于溯源提示
+top_lock_func = max(lock_func_core_sec, key=lock_func_core_sec.get) if lock_func_core_sec else "pthread_mutex_lock"
+
+hint = f"溯源锁调用: find-callers --target '{top_lock_func}'"
+```
+
+**改进点**: 
+- 在聚类过程中统计各锁函数的 CPU 消耗
+- 使用实际最频繁的锁函数名作为 `--target` 参数
+- 无锁函数数据时提供合理的默认值 `pthread_mutex_lock`
+
+---
+
+### 2.3 core_distribution.py - 负载不均衡场景
+
+**改进前**:
+```python
+hint = f"检查锁竞争: cluster-symbols --comm {getattr(args, 'comm', '<target>')}"
+```
+
+**改进后**:
+```python
+# 统计各 comm 的 CPU 使用
+comm_core_sec = defaultdict(float)
+for s in samples:
+    comm = s.get('comm', '')
+    if comm:
+        comm_core_sec[comm] += core_per_sec
+
+# 确定 hint 中使用的目标进程：优先用户使用 --comm 指定的，否则取 CPU 最高的
+user_comm = getattr(args, 'comm', None)
+top_comm = max(comm_core_sec, key=comm_core_sec.get) if comm_core_sec else None
+target_comm = user_comm or top_comm or '<comm>'
+
+hint = f"检查锁竞争: cluster-symbols --comm {target_comm}"
+```
+
+**改进点**:
+- 在样本分析过程中统计各进程名（comm）的 CPU 消耗
+- 优先使用用户通过 `--comm` 指定的值
+- 未指定时自动选择 CPU 消耗最高的进程名
+- 极端情况下保留 `<comm>` 作为兜底
+
+---
+
+## 3. 文件变更清单
+
+### 修改的文件
+
+1. `scripts/perf_toolkit/analysis/bottleneck.py`
+   - 改进单核满载场景的 hint 构建逻辑
+   - 无 pid 时提供获取进程排行的命令
+
+2. `scripts/perf_toolkit/analysis/clusters.py`
+   - 新增 `lock_func_core_sec` 字典统计锁函数使用
+   - 使用最频繁的锁函数名作为 hint 参数
+
+3. `scripts/perf_toolkit/analysis/core_distribution.py`
+   - 新增 `comm_core_sec` 字典统计各 comm 的 CPU 使用
+   - 自动选择用户指定或 CPU 最高的 comm 作为 hint 参数
+
+4. `docs/CHANGES.md` (本文件)
+   - 添加 v2.13 变更记录
+
+---
+
+## 4. 改进效果对比
+
+| 场景 | 改进前 | 改进后 |
+|------|--------|--------|
+| 单核满载，无 pid 参数 | `analyze-core-distribution --pid <pid>` ❌ | `get-process-top --top-n 5` → 获取 pid ✅ |
+| 锁竞争检测到 | `find-callers --target <lock_func>` ❌ | `find-callers --target 'pthread_mutex_lock'` ✅ |
+| 负载不均衡，无 comm 参数 | `cluster-symbols --comm <target>` ❌ | `cluster-symbols --comm 'parameter_serve'` ✅ |
+
+---
+
+## 5. 设计原则
+
+本次改进遵循以下原则：
+
+1. **渐进式具体化**: 优先使用用户提供的参数 → 其次从数据中推断 → 最后提供获取方法
+2. **可执行性**: hint 应该是可以立即执行或明确知道如何获取参数的
+3. **智能推断**: 利用已有数据（如样本中的 comm、锁函数名）推断最可能的参数值
+4. **向后兼容**: 当无法推断时，提供合理的默认行为而非报错
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.13
+
+核心改进: 消除 risk hint 中的占位符，提供更具体、可执行的建议
+
+---

@@ -132,7 +132,7 @@ Live Document 是诊断过程的**结构化状态容器**，用于跟踪所有�
 | 命令 | 用途 | 示例 |
 |------|------|------|
 | `doc init` | 初始化诊断文档 | `doc init --data perf.data` |
-| `doc add` | 记录发现的问题 | `doc add --id ISS-001 --desc "高内核态" --risk "可能遗漏"` |
+| `doc add` | 记录发现的问题 | `doc add --id ISS-001 --desc "高内核态" --risk "高sys开销意味着全局风险"` |
 | `doc complete` | 标记问题已分析 | `doc complete --id ISS-001 --result "锁竞争 38%"` |
 | `doc list` | 查看待办列表 | `doc list` |
 | `doc finalize` | 最终审计（生成报告前必须执行） | `doc finalize` |
@@ -143,31 +143,24 @@ Live Document 是诊断过程的**结构化状态容器**，用于跟踪所有�
 
 **1. 发现问题时必须记录**
 
-当工具输出显示多个潜在问题时（如 `get-comm-top` 显示多个高内核态进程组），**立即记录所有问题**：
+当工具输出显示多个潜在问题时（如 `get-comm-top` 显示多个高内核态进程组），**根据方法论记录hint，并使用`doc add`记录所有问题**：
 
 ```bash
 # 发现 4 个高内核态进程组，全部记录
-perf-expert.py doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
-  --risk "进程风暴" --hint "cluster-symbols --comm netstat"
-perf-expert.py doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
-  --risk "单进程影响可能更大" --hint "cluster-symbols --comm containerd-shim"
+perf-expert.py doc add --id ISS-001 --desc "redis 内核开销 94.7%" \
+  --risk "内核负载过高" --hint "cluster-symbols --comm redis"
+perf-expert.py doc add --id ISS-002 --desc "xxxx 高内核态 89.9%" \
+  --risk "单进程影响可能更大" --hint "cluster-symbols --comm xxxx"
 # ... 继续记录其他问题
 ```
 
-**2. 定期执行审计检查**
+**2. 定期执行审计检查: perf-expert.py doc list**
 
-**每执行 2-3 个工具后，必须运行审计**：
+**每次要对当前问题输出结论之前，必须审计**：
+**每次按照方法论完成一轮问题追踪后，必须审计**
 
 ```bash
 perf-expert.py doc list
-```
-
-输出示例：
-```
-⚠️  PENDING  ← 需处理
-ISS-002  containerd-shim 高内核态 89.9%
-         ├─ 风险: 可能比 netstat 更严重，单进程影响大
-         └─ 建议: cluster-symbols --comm containerd-shim
 ```
 
 **3. 生成报告前必须最终审计**
@@ -176,18 +169,6 @@ ISS-002  containerd-shim 高内核态 89.9%
 
 ```bash
 perf-expert.py doc finalize
-```
-
-如有未处理问题，输出：
-```
-⚠️  剩余风险确认
-以下问题尚未处理：
-  ISS-002  containerd-shim 高内核态 89.9%
-
-强制选择:
-[A] 继续分析剩余问题（推荐）
-[B] 接受风险，生成报告（必须提供理由）
-[C] 标记为无需处理
 ```
 
 ### 禁止行为
@@ -201,24 +182,26 @@ perf-expert.py doc finalize
 
 ```bash
 # 1. 初始化文档（Phase 1）
-perf-expert.py doc init --data netstat_perf.data
+perf-expert.py doc init --data xxx.data
 
 # 2. 宏观评估，发现问题（Phase 2）
-perf-expert.py get-comm-top --data netstat_perf.data
-# 发现: 4 个高内核态进程组
+perf-expert.py get-comm-top --data xxx.data
+# 发现: 异常1，异常2
 
 # 3. 记录所有问题
-perf-expert.py doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
-  --risk "进程风暴" --hint "cluster-symbols --comm netstat"
-perf-expert.py doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
-  --risk "可能比 netstat 更严重" --hint "cluster-symbols --comm containerd-shim"
+perf-expert.py doc add --id ISS-001 --desc "异常xxxx" \
+  --risk "异常可能影响" --hint "根据领域知识和方法论选择合适决策"
+
+... # 其他记录项
+
 
 # 4. 审计检查
 perf-expert.py doc list
 # 输出: 2 pending
 
 # 5. 分析问题并记录结果
-perf-expert.py cluster-symbols --comm netstat --data netstat_perf.data
+perf-expert.py cluster-symbols --comm xxxx --data xxx.data
+# 分析后，认为问题已经解决，标记complete
 perf-expert.py doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
 # 6. 再次审计（发现还有 ISS-002 未处理）

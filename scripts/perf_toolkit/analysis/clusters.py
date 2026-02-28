@@ -70,6 +70,7 @@ def cmd_apply_cluster(engine, args):
         rules.update(json.loads(args.custom_rules))
     
     cluster_core_sec = defaultdict(float)
+    lock_func_core_sec = defaultdict(float)  # 记录各锁函数的 core_sec 用于溯源
     
     for s in samples:
         stack = s.get('stack')
@@ -88,6 +89,9 @@ def cmd_apply_cluster(engine, args):
                     pattern_str = pattern
                 if re.search(pattern_str, sym):
                     matched_groups.add(group)
+                    # 记录锁函数用于后续溯源
+                    if group == "EVENT_LOCK_CONTENTION":
+                        lock_func_core_sec[sym] += core_per_sec
         for g in matched_groups:
             cluster_core_sec[g] += core_per_sec
     
@@ -105,12 +109,15 @@ def cmd_apply_cluster(engine, args):
         })
     results.sort(key=lambda x: float(x['ratio_pct'].rstrip('%')), reverse=True)
     
+    # 找出最频繁的锁函数用于溯源提示
+    top_lock_func = max(lock_func_core_sec, key=lock_func_core_sec.get) if lock_func_core_sec else "pthread_mutex_lock"
+    
     # Add risk for high lock contention
     if lock_contention_ratio > 50:
         output.add_risk(
             "critical",
             f"锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈",
-            "溯源锁调用: find-callers --target <lock_func>",
+            f"溯源锁调用: find-callers --target '{top_lock_func}'",
             patterns=["HIGH_LOCK_CONTENTION"]
         )
     elif lock_contention_ratio > 20:

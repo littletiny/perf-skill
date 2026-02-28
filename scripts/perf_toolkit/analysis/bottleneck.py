@@ -100,10 +100,16 @@ def cmd_check_bottleneck(engine, args):
         )
     elif max_core_usage > 0.9:
         verdict = "SINGLE_CORE_SATURATION"
+        # 构建 hint：如果有 pid 则直接使用，否则建议先获取进程排行
+        pid = getattr(args, 'pid', None)
+        if pid:
+            hint = f"执行: analyze-core-distribution --pid {pid}"
+        else:
+            hint = "先定位高 CPU 进程: get-process-top --top-n 5，然后分析具体进程"
         output.add_risk(
             "warning",
             "单核满载，可能存在串行化瓶颈",
-            f"执行: analyze-core-distribution --pid {getattr(args, 'pid', '<pid>')}",
+            hint,
             patterns=["SINGLE_CORE_SATURATION"]
         )
     
