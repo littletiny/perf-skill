@@ -116,7 +116,7 @@ def cmd_detect_anomalies(engine, args):
                 window_data["samples"] = [
                     {
                         "comm": s["comm"],
-                        "tid": s["tid"],
+                        "pid": s["pid"],
                         "cpu": s["cpu"],
                         "timestamp": s["ts"],
                         "stack": s["stack"].get_normalized_names() if s.get("stack") else []

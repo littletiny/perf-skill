@@ -54,9 +54,9 @@ def cmd_get_process_top(engine, args):
     })
     
     for s in samples:
-        key = (s['comm'], s['tid'])
+        key = (s['comm'], s['pid'])
         process_stats[key]['comm'] = s['comm']
-        process_stats[key]['pid'] = s['tid']
+        process_stats[key]['pid'] = s['pid']
         process_stats[key]['sample_count'] += 1
         
         core_val = s.get('core_per_sec') or 0

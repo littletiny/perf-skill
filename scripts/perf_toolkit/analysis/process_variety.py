@@ -58,7 +58,7 @@ def cmd_count_process_variety(engine, args):
     
     for s in samples:
         comm = s['comm']
-        pid = s['tid']
+        pid = s['pid']
         ts = s['ts']
         comm_pid_samples[comm][pid] += 1
         comm_timestamps[comm][pid].append(ts)

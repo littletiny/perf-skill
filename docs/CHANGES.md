@@ -1,3 +1,37 @@
+# SPEAR-perf-hunter v2.6 更新日志
+
+## 更新概览
+
+本次更新修复数据格式解析问题，将字段名从 `tid` 统一修正为 `pid`：
+
+- **问题**: 根据 `references/data-format.md`，perf script 格式中只有 `pid`（进程 ID），没有 `tid`（线程 ID）
+- **修复**: 统一将代码中的 `tid` 字段改为 `pid`，与实际数据格式保持一致
+
+### 修改内容
+
+#### 修改理由
+原代码中多处将 `pid` 存储为 `tid` 字段名，与实际数据格式不符：
+
+```
+# 实际数据格式（data-format.md）
+<comm> <pid> [<cpu>] <timestamp>: <core_per_sec> core/s:
+```
+
+#### 文件变更
+1. `scripts/perf_toolkit/core/engine.py`: 
+   - 修改 test2 格式解析： `"tid": pid` → `"pid": pid`
+   - 修改 perf_script 格式解析： `"tid": tid` → `"pid": pid`
+   - 修改过滤函数：`s['tid']` → `s['pid']`
+   - 更新注释：说明格式为 `comm pid [cpu]` 而非 `comm tid [cpu]`
+
+2. `scripts/perf_toolkit/analysis/comm_clusters.py`: `s['tid']` → `s['pid']`
+3. `scripts/perf_toolkit/analysis/process_variety.py`: `s['tid']` → `s['pid']`
+4. `scripts/perf_toolkit/analysis/process_top.py`: `s['tid']` → `s['pid']`
+5. `scripts/perf_toolkit/analysis/comm_top.py`: `s['tid']` → `s['pid']`
+6. `scripts/perf_toolkit/analysis/anomalies.py`: `s["tid"]` → `s["pid"]`
+
+---
+
 # SPEAR-perf-hunter v2.5 更新日志
 
 ## 更新概览

@@ -55,7 +55,7 @@ def cmd_cluster_comm(engine, args):
     for s in samples:
         comm = s['comm']
         comm_stats[comm]['sample_count'] += 1
-        comm_stats[comm]['pids'].add(s['tid'])
+        comm_stats[comm]['pids'].add(s['pid'])
         
         # Accumulate core/s values for accurate CPU utilization
         core_val = s.get('core_per_sec') or 0

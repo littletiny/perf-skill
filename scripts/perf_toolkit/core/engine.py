@@ -273,7 +273,7 @@ class PerfExpertEngine:
         
         return {
             "comm": comm,
-            "tid": pid,
+            "pid": pid,
             "cpu": cpuid,
             "ts": timestamp,
             "core_per_sec": core_per_sec,
@@ -322,7 +322,7 @@ class PerfExpertEngine:
                     continue
                 
                 # Parse header using space-based approach
-                # Format: "comm tid [cpu] timestamp: [value unit:]"
+                # Format: "comm pid [cpu] timestamp: [value unit:]"
                 # Examples:
                 #   "perf-exec  215053 [002] 368330.780793:     0.0526 core/s:"
                 #   "containerd-shim  2350748 [0] 0.000000:     0.0526 core/s:"
@@ -331,12 +331,12 @@ class PerfExpertEngine:
                 
                 # Check if this is a header line (contains timestamp with colon)
                 if len(parts) >= 4 and parts[3].endswith(':'):
-                    # parts[0] = comm, parts[1] = tid, parts[2] = [cpu], parts[3] = timestamp:
+                    # parts[0] = comm, parts[1] = pid, parts[2] = [cpu], parts[3] = timestamp:
                     if current_sample:
                         self.samples.append(current_sample)
                     
                     comm = parts[0]
-                    tid = parts[1]
+                    pid = parts[1]
                     cpu = int(parts[2].strip('[]'))  # Remove [ and ]
                     ts = float(parts[3].rstrip(':'))  # Remove trailing :
                     
@@ -347,7 +347,7 @@ class PerfExpertEngine:
                     
                     current_sample = {
                         "comm": comm,
-                        "tid": tid,
+                        "pid": pid,
                         "cpu": cpu,
                         "ts": ts,
                         "core_per_sec": core_per_sec,
@@ -400,7 +400,7 @@ class PerfExpertEngine:
             filtered = [s for s in filtered if s['cpu'] == cpu_id]
         
         if pid is not None:
-            filtered = [s for s in filtered if int(s['tid']) == pid]
+            filtered = [s for s in filtered if int(s['pid']) == pid]
         
         if comm is not None:
             # 支持多值，逗号分隔
