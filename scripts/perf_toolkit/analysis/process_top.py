@@ -72,7 +72,6 @@ def cmd_get_process_top(engine, args):
             process_stats[key]['user_core_sec'] += core_val
     
     results = []
-    high_kernel_processes = []
     
     for (comm, pid), stats in process_stats.items():
         proc_core_sec = stats['total_core_sec']
@@ -87,10 +86,6 @@ def cmd_get_process_top(engine, args):
         else:
             kernel_ratio = 0
         
-        # Track high kernel processes for risk
-        if kernel_ratio > 80 and cpu_util > 5:
-            high_kernel_processes.append(f"{comm}({pid})")
-        
         results.append({
             'comm': comm,
             'pid': pid,
@@ -100,16 +95,6 @@ def cmd_get_process_top(engine, args):
     
     results.sort(key=lambda x: float(x['cpu_pct'].rstrip('%')), reverse=True)
     top_results = results[:args.top_n]
-    
-    # Add risk for high kernel processes
-    if len(high_kernel_processes) > 0:
-        output.add_risk(
-            "warning" if len(high_kernel_processes) <= 2 else "critical",
-            f"发现 {len(high_kernel_processes)} 个高内核态进程",
-            f"分析热点: cluster-symbols --comm {results[0]['comm']}",
-            patterns=["HIGH_KERNEL_PROCESSES"],
-            targets=high_kernel_processes[:3]
-        )
     
     # Data quality risk
     if quality_level == "CRITICAL":

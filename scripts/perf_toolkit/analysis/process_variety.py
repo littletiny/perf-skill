@@ -6,6 +6,10 @@ Process Variety Analysis - Count process variety to detect short-lived process s
 检测进程风暴/短生命周期进程。
 
 注意：数据已按 1 秒聚合，样本数量无参考价值。
+检测基于：
+1. PID 数量（进程数）
+2. CPU 利用率分布（core/s per PID）
+3. 单秒出现频率（出现该进程的不同秒数）
 """
 
 import json
@@ -54,7 +58,7 @@ def cmd_count_process_variety(engine, args):
     
     comm_pid_stats = defaultdict(lambda: defaultdict(lambda: {
         'core_sec': 0.0,
-        'seconds': set()
+        'seconds': set(),
     }))
     
     for s in samples:
@@ -68,7 +72,7 @@ def cmd_count_process_variety(engine, args):
         comm_pid_stats[comm][pid]['seconds'].add(second_key)
     
     variety_results = []
-    storm_detected = False
+    storm_comms = []
     
     STORM_PID_THRESHOLD = args.storm_pid_threshold
     STORM_CPU_THRESHOLD = getattr(args, 'storm_cpu_threshold', 0.5)
@@ -81,32 +85,30 @@ def cmd_count_process_variety(engine, args):
         single_second_pids = sum(1 for stats in pid_dict.values() if len(stats['seconds']) == 1)
         short_lived_ratio = single_second_pids / pid_count if pid_count > 0 else 0
         
-        # Determine behavior pattern
         behavior = "normal"
         
         if pid_count >= STORM_PID_THRESHOLD and cpu_per_pid <= STORM_CPU_THRESHOLD:
             behavior = "process_storm"
-            storm_detected = True
+            storm_comms.append(comm)
         elif short_lived_ratio > 0.8 and pid_count > 20:
             behavior = "short_lived_heavy"
-            storm_detected = True
         
         variety_results.append({
             "comm": comm,
             "unique_pids": pid_count,
             "total_core_sec": round(total_comm_core_sec, 4),
             "cpu_per_pid": round(cpu_per_pid, 4),
-            "short_lived_ratio": round(short_lived_ratio, 2),
             "behavior": behavior
         })
     
     # Add risk for process storm
-    if storm_detected:
+    if storm_comms:
         output.add_risk(
             "critical",
-            "检测到进程风暴！大量短生命周期进程",
-            "检查脚本循环或监控风暴源",
-            patterns=["PROCESS_STORM"]
+            f"检测到 {len(storm_comms)} 个进程风暴",
+            f"分析进程: cluster-comm --comm {storm_comms[0]}",
+            patterns=["PROCESS_STORM"],
+            targets=storm_comms
         )
     
     # Data quality risk
@@ -121,7 +123,8 @@ def cmd_count_process_variety(engine, args):
     result = output.build({
         "summary": {
             "total_processes": len(comm_pid_stats),
-            "storm_detected": storm_detected
+            "storm_detected": len(storm_comms) > 0,
+            "storm_count": len(storm_comms)
         },
         "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
         "process_variety": variety_results[:args.top_n]
