@@ -322,6 +322,8 @@ def cmd_doc_finalize(args):
         print("=" * 60)
         print("ERROR: 存在未处理问题，无法直接生成报告")
         print("请选择 [A/B/C] 或提供 --accept-risk")
+        import sys
+        sys.exit(1)
 
 
 def cmd_doc_export(args):

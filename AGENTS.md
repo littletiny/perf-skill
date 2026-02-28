@@ -78,6 +78,7 @@ perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-drive
 ### 2. 代码规范
 - 代码中尽量少使用 regex，尤其是对外参数
 - 遵循现有的模块化架构，新功能添加到 `perf_toolkit/analysis/` 目录
+- **对skill中所有文档的描述要尽可能最小修改，修改了工具代码以后都需要同步更新文档**
 
 ### 3. 文档引用准则
 
