@@ -1451,3 +1451,227 @@ Agent 在分析时没有创建诊断文档，或创建的文档结构不完整�
 版本: v2.8
 
 ---
+
+
+# SPEAR-perf-hunter v2.9 更新日志
+
+## 更新概览
+
+本次更新引入 **Live Document（实时诊断文档）** 机制，解决 netstat/containerd-shim 案例中暴露的"搜索空间不足导致关键问题遗漏"问题。
+
+**核心问题**: Agent 分析过程中，人脑记忆无法跟踪多个并行的待验证目标，导致搜索覆盖率不足（25%），遗漏了同样严重的 containerd-shim 问题。
+
+**解决方案**: 
+1. 结构化记录所有发现的问题（`perf-doc add`）
+2. 标记已完成分析的问题（`perf-doc complete`）
+3. 强制审计剩余风险（`perf-doc list` / `perf-doc finalize`）
+4. 达到覆盖率阈值后才能生成报告
+
+---
+
+## 1. 问题复盘：搜索空间不足导致遗漏
+
+### 1.1 真实案例
+
+分析 `netstat_perf.data` 时：
+
+```
+get-comm-top 发现 4 个高内核态进程:
+  netstat:          2623 PIDs, 94.7% kernel  ← 分析 ✓
+  containerd-shim:   240 PIDs, 89.9% kernel  ← 遗漏 ✗
+  sh:                 45 PIDs, 86.8% kernel  ← 遗漏 ✗
+  python3:           826 PIDs, 82.3% kernel  ← 遗漏 ✗
+```
+
+**实际执行**: 只分析了 netstat（覆盖率 25%）
+**事后发现**: containerd-shim 锁竞争 79.84%，是 netstat（38.36%）的 2 倍
+
+### 1.2 根本原因
+
+| 原因 | 说明 |
+|------|------|
+| 人脑记忆有限 | 工具输出后无持久化，信息必然淹没 |
+| 数字偏见 | 2623 vs 240，被大数字吸引 |
+| 无客观审计 | 没有机制检查"还有哪些没分析" |
+| 缺乏强制收敛检查 | 找到根因后无机制阻止提前收敛 |
+
+---
+
+## 2. Live Document 机制设计
+
+### 2.1 核心理念
+
+- **状态化诊断**: 所有问题记录在结构化文档中，不依赖人脑记忆
+- **强制审计**: 生成报告前必须检查剩余风险
+- **覆盖率阈值**: 达到 80% 覆盖率或显式接受风险后才能收敛
+
+### 2.2 数据结构（极简扁平）
+
+```json
+{
+  "version": "1.0",
+  "data_file": "netstat_perf.data",
+  "issues": [
+    {
+      "id": "ISS-001",
+      "desc": "netstat 高内核态 94.7%",
+      "status": "completed",
+      "result": "LOCK_CONTENTION 38.36%",
+      "completed_at": "2026-02-28T11:00:00Z"
+    },
+    {
+      "id": "ISS-002",
+      "desc": "containerd-shim 高内核态 89.9%",
+      "status": "pending",
+      "risk": "可能比 netstat 更严重",
+      "hint": "cluster-symbols --comm containerd-shim"
+    }
+  ]
+}
+```
+
+**设计原则**: 
+- 最多 2 层嵌套
+- 仅两种状态: `pending` / `completed`
+- 字符串字段为主，对 agent 友好
+
+### 2.3 核心命令
+
+```bash
+# 初始化
+perf-doc init --data <file>
+
+# 发现问题时记录
+perf-doc add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
+
+# 分析完成后标记
+perf-doc complete --id <id> --result <result>
+
+# 查看剩余风险（强制检查点）
+perf-doc list
+
+# 最终审计（生成报告前必须执行）
+perf-doc finalize
+```
+
+### 2.4 输出格式（人类可读）
+
+```markdown
+═══════════════════════════════════════════════════════════════════
+ISSUES  STATUS  (1 completed, 1 pending)
+═══════════════════════════════════════════════════════════════════
+
+✅ COMPLETED
+───────────────────────────────────────────────────────────────────
+ISS-001  netstat 高内核态 94.7%
+         └─ 结果: LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争
+
+⚠️  PENDING  ← 需处理
+───────────────────────────────────────────────────────────────────
+ISS-002  containerd-shim 高内核态 89.9%
+         ├─ 风险: 可能比 netstat 更严重，单进程影响大
+         └─ 建议: cluster-symbols --comm containerd-shim
+
+═══════════════════════════════════════════════════════════════════
+```
+
+### 2.5 强制审计机制
+
+```bash
+$ perf-doc finalize
+
+⚠️  剩余风险确认
+───────────────────────────────────────────────────────────────────
+以下问题尚未处理：
+
+ISS-002  containerd-shim 高内核态 89.9%
+  - 状态: 完全未分析
+  - 风险: 锁竞争可能 >50%，单进程影响大于 netstat
+
+强制选择:
+[A] 继续分析剩余问题（推荐）
+[B] 接受风险，生成报告（必须提供理由）
+[C] 标记为无需处理（必须提供证据）
+```
+
+---
+
+## 3. 与 Skill 文档的整合
+
+### 3.1 SKILL.md 更新
+
+新增"Live Document 机制"章节，明确：
+- 发现风险时 **必须** 执行 `perf-doc add`
+- 每 2-3 个工具后 **必须** 执行 `perf-doc list`
+- 生成报告前 **必须** 执行 `perf-doc finalize`
+
+**禁止行为**:
+- ❌ 未记录问题直接分析
+- ❌ `pending` 列表不为空时生成报告
+- ❌ 未执行 `finalize` 结束诊断
+
+### 3.2 双 Table 机制演进
+
+传统方式（手工维护）:
+- Table 1: 问题演进记录（markdown）
+- Table 2: 假设验证状态（markdown）
+
+新方式（自动维护）:
+- Table 1 → Live Doc 的 `issues` 列表
+- Table 2 → 每个 issue 的 `desc`, `result`, `risk` 字段
+
+**优势**: 从"手工维护"变为"工具自动维护"
+
+---
+
+## 4. 设计讨论记录
+
+### 4.1 为什么不要奖励机制？
+
+**第一轮方案**: 进度条、徽章、积分、成就系统
+
+**反馈**: "不要玩那么多奖励机制，太复杂了，直接点"
+
+**决策**: 
+- 去掉所有激励元素
+- 直接展示剩余风险
+- 用 SKILL 规范强制要求
+
+### 4.2 为什么扁平结构？
+
+**第一轮方案**: 嵌套结构，按 phase 组织
+
+```json
+{
+  "phases": {
+    "phase_2": {
+      "critical_findings": {...}
+    }
+  }
+}
+```
+
+**问题**: 3 层嵌套，解析复杂
+
+**决策**: 扁平化为 `issues` 列表，最多 2 层
+
+### 4.3 为什么只有两种状态？
+
+**讨论**: 是否需要 `in_progress` / `verified` / `wontfix`？
+
+**决策**: 只有 `pending` / `completed`，简化认知负担
+
+---
+
+## 5. 参考文档
+
+- [Live Doc 设计意图文档](./design-rationale-live-doc.md)
+- [Live Doc 接口设计文档](./live-doc-interface.md)
+
+---
+
+更新日期: 2026-02-28
+
+版本: v2.9
+
+---
