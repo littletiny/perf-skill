@@ -55,7 +55,7 @@
 │  Phase 4: 语义分析 (领域认知)                                                  │
 │  └── 根据符号名猜测 workload 和技术领域                                        │
 │      ├── 记录领域 workload 特征                                               │
-│      ├── 识别框架/库类型 (Web框架、数据库、参数服务器等)                          │
+│      ├── 识别框架/库类型 (Web框架、数据库、linux kernel)                          │
 │      └── 建立"预期 vs 现实"对比基线                                            │
 │                              ↓                                              │
 │  Phase 5: 空间搜索 (模式聚类)                                                  │
@@ -81,18 +81,29 @@
 
 ## Phase 1: 问题定义
 
-> ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Live Document
-> 
-> 在开始任何分析之前：
-> 1. 使用 [`templates.md`](./templates.md) 中的模板创建 `debug/[问题描述].md` 文档
-> 2. **执行 `perf-expert.py doc init --data <perf-data>` 初始化 Live Document**
-> 
-> 这是强制要求，用于维护问题演进记录和竞争性假设追踪。
-> 
+> ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Live Document（强制执行）
+>
+> **必须按顺序执行以下步骤，缺一不可：**
+>
 > ```bash
-> # 初始化 Live Document（必须）
+> # 1. 创建 debug 目录（如果不存在）
+> mkdir -p debug
+>
+> # 2. 【关键】基于模板创建诊断文档 —— 这是主记录文档
+>
+> # 3. 用编辑器填写 debug/*.md 中的表格：
+> #    - 问题演进记录表（记录问题定义的变化）
+> #    - 竞争性假设追踪表（至少3条竞争性假设）
+>
+> # 4. 初始化 Live Document —— 这只是辅助状态追踪
 > perf-expert.py doc init --data xxx.data
 > ```
+>
+> **重要区分**：
+> - `debug/*.md` = **主文档**（手动维护，记录完整分析过程）
+> - `Live Document` = **状态追踪**（自动生成，只记录问题列表和状态）
+>
+> **禁止行为**：❌ 只执行 `doc init` 而不创建 `debug/*.md` 文档
 
 ### 1.1 目标范围界定
 
@@ -141,7 +152,7 @@
 **假设格式**:
 ```yaml
 假设A_资源竞争:
-  机制: 全局锁导致串行化
+  机制: 进程内大量锁争抢
   预期指纹: 热点函数包含锁操作，负载分散在多个核心但单核满载
   验证: get-hotspots + find-callers + analyze-core-distribution
   证伪: 热点中无锁函数，或所有核心均衡满载

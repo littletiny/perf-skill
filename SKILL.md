@@ -11,6 +11,25 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 
 ## 快速开始
 
+### ⚠️ 第一步：创建诊断文档（强制执行）
+
+**在开始任何分析之前，必须立即执行：**
+
+```bash
+# 1. 创建 debug 目录并基于模板创建诊断文档
+mkdir -p debug
+
+# 2. 初始化 Live Document（用于问题状态追踪）
+python3 $SKILL_DIR/scripts/perf_expert.py doc init --data <perf.data>
+```
+
+**为什么必须创建 debug/*.md？**
+- 这是诊断过程的**主记录文档**，包含问题演进记录、竞争性假设追踪、深度审计记录
+- `doc init` 创建只是**辅助状态追踪**，不能替代 markdown 文档
+- 所有关键发现、证据链、推理过程必须写入 `debug/*.md`
+
+---
+
 **工具路径**: `$SKILL_DIR/scripts/perf_expert.py`
 
 环境变量 `SKILL_DIR` 为 skill 的根目录路径。
@@ -94,11 +113,29 @@ Step 5: 全局审计
 
 ---
 
-## 文档规范（⚠️ 分析前必读）
+## 文档规范（⚠️ 强制执行）
+
+### 文档体系说明
+
+SPEAR 使用**双文档体系**：
+
+| 文档 | 格式 | 用途 | 创建方式 |
+|------|------|------|---------|
+| **诊断报告** | `debug/*.md` | **主文档**：问题演进、假设追踪、审计记录、结论 | 手动基于模板创建 |
+| **状态追踪** | Live Document | **辅助**：待办问题列表、完成状态 | `doc init` 自动生成 |
+
+**关键规则**：
+1. **`Live Document` 不能替代 `debug/*.md`** ——  只记录问题状态，不记录分析过程
+2. **所有证据、推理、结论必须写入 `debug/*.md`** —— 这是诊断的可复现基础
+3. **`doc add/complete` 只是状态标记** —— 真正的分析内容要在 markdown 中详细记录
 
 ### 第一步：创建诊断文档
 
+**在开始任何分析之前，立即执行：**
+
+```bash
 **在开始分析之前，立即创建 `debug/[问题描述].md` 文档，使用 `references/templates.md` 中的完整模板。**
+
 
 📋 **模板文件**: `references/templates.md` - 包含完整的诊断报告结构：
 - 问题演进记录（双表结构之一）
@@ -121,18 +158,28 @@ Step 5: 全局审计
 
 ---
 
-## Live Document 机制（⚠️ 强制执行）
+## Live Document 机制（状态追踪辅助工具）
 
 ### 机制概述
 
-Live Document 是诊断过程的**结构化状态容器**，用于跟踪所有待验证问题，防止搜索空间不足导致关键问题遗漏。
+Live Document 是诊断过程的**辅助状态追踪工具**，用于跟踪待验证问题的状态（pending/completed），防止遗漏关键问题。
+
+**⚠️ 重要：Live Document 不能替代 `debug/*.md` 主文档**
+
+| 对比项 | `debug/*.md` 主文档 | Live Document |
+|--------|---------------------|-------------------------------|
+| **内容** | 完整的问题演进、假设、证据、推理 | 仅问题ID、描述、状态 |
+| **创建方式** | 手动基于模板创建 | `doc init` 自动生成 |
+| **维护方式** | 用编辑器填写表格和记录 | `doc add/complete` 命令更新 |
+| **作用** | 诊断过程的可复现记录 | 防止遗漏待办问题的检查清单 |
+| **必要性** | **必须有** | 辅助工具 |
 
 **核心命令** (通过 `perf_expert.py doc <command>` 调用):
 
 | 命令 | 用途 | 示例 |
 |------|------|------|
-| `doc init` | 初始化诊断文档 | `doc init --data perf.data` |
-| `doc add` | 记录发现的问题 | `doc add --id ISS-001 --desc "高内核态" --risk "高sys开销意味着全局风险"` |
+| `doc init` | 初始化状态追踪 | `doc init --data perf.data` |
+| `doc add` | 记录发现的问题（仅标记状态） | `doc add --id ISS-001 --desc "高内核态" --risk "全局风险"` |
 | `doc complete` | 标记问题已分析 | `doc complete --id ISS-001 --result "锁竞争 38%"` |
 | `doc list` | 查看待办列表 | `doc list` |
 | `doc finalize` | 最终审计（生成报告前必须执行） | `doc finalize` |
@@ -173,51 +220,68 @@ perf-expert.py doc finalize
 
 ### 禁止行为
 
-- ❌ **未执行 `doc init` 直接开始分析** - 无法跟踪问题状态
-- ❌ **发现多个问题只记录一个** - 导致搜索覆盖率不足
-- ❌ **`pending` 列表不为空时生成最终报告** - 可能遗漏关键问题
-- ❌ **未执行 `doc finalize` 结束诊断** - 无法确认审计完整性
+#### 文档相关（严重）
+- ❌ **只执行 `doc init` 而不创建 `debug/*.md`** —— Live Document 不能替代主诊断文档
+- ❌ **`debug/*.md` 中缺少问题演进记录表** —— 无法追踪问题定义的变化
+- ❌ **`debug/*.md` 中少于3条竞争性假设** —— 搜索空间不足，容易过早收敛
+- ❌ **只在 Live Document 中记录状态，不在 markdown 中记录分析过程** —— 诊断不可复现
+
+#### 流程相关
+- ❌ **未执行 `doc init` 直接开始分析** —— 无法跟踪问题状态
+- ❌ **发现多个问题只记录一个** —— 导致搜索覆盖率不足
+- ❌ **`pending` 列表不为空时生成最终报告** —— 可能遗漏关键问题
+- ❌ **未执行 `doc finalize` 结束诊断** —— 无法确认审计完整性
 
 ### 典型使用流程
 
 ```bash
-# 1. 初始化文档（Phase 1）
+# ===== Phase 1: 问题定义（强制执行） =====
+
+# 1. 创建 debug 目录和主诊断文档
+
+# 2. 【关键】用编辑器填写 debug/*.md 中的表格：
+#    - 问题演进记录表（V1/V2/V3...）
+#    - 竞争性假设追踪表（至少3条假设：主动消耗/被动压制/其他）
+#    - 深度审计记录（后续填写）
+
+# 3. 初始化 Live Document（辅助状态追踪）
 perf-expert.py doc init --data xxx.data
 
-# 2. 宏观评估，发现问题（Phase 2）
+# ===== Phase 2-6: 分析与证据收集 =====
+
+# 4. 宏观评估，发现问题
 perf-expert.py get-comm-top --data xxx.data
 # 发现: 异常1，异常2
 
-# 3. 记录所有问题
-perf-expert.py doc add --id ISS-001 --desc "异常xxxx" \
-  --risk "异常可能影响" --hint "根据领域知识和方法论选择合适决策"
+# 5. 在 Live Document 中标记待办问题（同时在 debug/*.md 中记录详细分析）
+perf-expert.py doc add --id ISS-001 --desc "netstat进程风暴" \
+  --risk "系统开销激增" --hint "cluster-symbols --comm netstat"
+# 【同时写入 debug/*.md】: 问题演进记录V2、假设验证状态更新
 
-... # 其他记录项
+# 6. 循证分析
+perf-expert.py cluster-symbols --comm netstat --data xxx.data
+perf-expert.py find-callers --target established_get_first --comm netstat --data xxx.data
+# 【同时写入 debug/*.md】: 深度审计记录（工具输出、调用链、机制发现、推论）
 
+# 7. 标记问题完成
+perf-expert.py doc complete --id ISS-001 --result "PROCESS_STORM + LOCK_CONTENTION"
+# 【同时写入 debug/*.md】: 假设追踪表状态更新为"确认"
 
-# 4. 审计检查
+# 8. 定期审计检查
 perf-expert.py doc list
-# 输出: 2 pending
+# 输出: 1 pending → 继续分析下一个问题
 
-# 5. 分析问题并记录结果
-perf-expert.py cluster-symbols --comm xxxx --data xxx.data
-# 分析后，认为问题已经解决，标记complete
-perf-expert.py doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+# ===== Phase 7: 最终审计与报告 =====
 
-# 6. 再次审计（发现还有 ISS-002 未处理）
-perf-expert.py doc list
-# 输出: 1 pending → 被迫继续分析 ISS-002
-
-perf-expert.py cluster-symbols --comm containerd-shim --data netstat_perf.data
-perf-expert.py doc complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
-
-# 7. 最终审计
+# 9. 最终审计（强制执行）
 perf-expert.py doc finalize
-# 输出: ✅ 所有问题已处理
+# 【同时完成 debug/*.md】: 全局审计检查清单
 
-# 8. 导出报告
-perf-expert.py doc export --format markdown --output report.md
+# 10. 诊断报告已在 debug/*.md 中完成，可选导出 Live Document 摘要
+perf-expert.py doc export --format markdown --output summary.md
 ```
+
+**关键原则**：`doc add/complete` 只是状态标记，真正的分析内容（证据、调用链、推理）必须写入 `debug/*.md`！
 
 ---
 
