@@ -80,11 +80,13 @@ Step 5: 全局审计
 
 ### 关键检查点
 
-| 信号 | 必须动作 | 工具 |
-|------|---------|------|
-| 调度函数高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule [--pid <PID>]` |
-| 负载不均衡 | 分析：不能并行 vs 不想并行 | `analyze-core-distribution [--pid <PID>]` |
-| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers [--pid <PID>]` + 代码审查 |
+| 信号 | 必须动作 | 工具 | 参数策略 |
+|------|---------|------|---------|
+| 调度函数高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule` | 用户指定 PID → 加 `--pid`<br>系统级分析 → 不加 |
+| 负载不均衡 | 分析：不能并行 vs 不想并行 | `analyze-core-distribution` | 用户指定 PID → 加 `--pid`<br>系统级分析 → 不加 |
+| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers --target <lock>` | 用户指定 PID → 加 `--pid`<br>全局锁竞争 → 不加 |
+| 单进程 CPU 异常 | 对比：是否符合其角色定位 | `get-hotspots --pid <PID>` | **必须加** `--pid` |
+| 系统整体缓慢 | 检查：内核瓶颈/全局锁 | `get-hotspots` / `cluster-symbols` | **不加** `--pid`，系统级视图 |
 
 ---
 
