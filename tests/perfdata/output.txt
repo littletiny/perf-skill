@@ -149,6 +149,8 @@ Target: System-wide
 Testing: find-callers (auto)
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear find-callers --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data --auto-target
 ========================================
+# ... 153 hotspots below 3.0% threshold (total: 68.29%)
+
 # target (cpu_util) <- callstack
 >>> established_get_first (12.80%)
   #1 [6.70%] tcp_seq_next <- seq_read <- proc_reg_read <- vfs_read <- ksys_read
@@ -167,29 +169,6 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear find-callers
   #1 [1.83%] runtime.findRunnable <- runtime.schedule <- runtime.park_m <- runtime.mcall <- runtime.chanrecv
   #2 [0.92%] runtime.findRunnable <- runtime.schedule <- runtime.park_m <- runtime.mcall <- runtime.selectgo
   #3 [0.30%] runtime.findRunnable <- runtime.schedule <- runtime.park_m <- runtime.mcall <- time.Sleep
->>> runtime.findObject (2.44%)
-  #1 [1.52%] runtime.scanobject <- runtime.gcDrain <- runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0 <- runtime.gcBgMarkWorker
-  #2 [0.92%] runtime.scanobject <- runtime.gcDrain <- runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0
->>> finish_task_switch (2.13%)
-  #1 [0.91%] __schedule <- schedule <- futex_wait_queue_me <- futex_wait <- do_futex
-  #2 [0.61%] __schedule <- schedule <- do_nanosleep <- hrtimer_nanosleep <- __x64_sys_nanosleep
-  #3 [0.30%] __schedule <- schedule <- smpboot_thread_fn <- kthread <- ret_from_fork
-  #4 [0.30%] __schedule <- schedule <- schedule_hrtimeout_range_clock <- ep_poll <- do_epoll_wait
->>> _raw_spin_unlock_irqrestore (2.13%)
-  #1 [0.61%] __wake_up_common_lock <- pipe_write <- new_sync_write <- vfs_write <- ksys_write
-  #2 [0.30%] wake_up_new_task <- _do_fork <- __x64_sys_clone <- do_syscall_64 <- entry_SYSCALL_64_after_hwframe
-  #3 [0.30%] release_pages <- tlb_flush_mmu <- tlb_finish_mmu <- exit_mmap <- mmput
-  #4 [0.30%] try_to_wake_up <- wake_up_q <- futex_wake <- do_futex <- __x64_sys_futex
-  #5 [0.30%] hlist_insert_key <- _do_fork <- __x64_sys_clone <- do_syscall_64 <- entry_SYSCALL_64_after_hwframe
->>> runtime.greyobject (1.83%)
-  #1 [0.92%] runtime.scanobject <- runtime.gcDrain <- runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0
-  #2 [0.61%] runtime.scanobject <- runtime.gcDrainN <- runtime.gcAssistAlloc1 <- runtime.gcAssistAlloc.func1 <- runtime.systemstack.abi0
-  #3 [0.31%] runtime.scanobject <- runtime.gcDrain <- runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0 <- runtime.gcBgMarkWorker
->>> do_user_addr_fault (1.22%)
-  #1 [0.30%] do_page_fault <- page_fault <- (awk)
-  #2 [0.30%] do_page_fault <- page_fault <- 0xc164(bash) <- 0x40ec(bash) <- 0x18660(bash)
-  #3 [0.30%] do_page_fault <- page_fault <- (sh)
-  #4 [0.30%] do_page_fault <- page_fault <- 0x5cc109(python3) <- _PyEval_EvalCodeWithName <- _PyFunction_FastCallKeywords
 
 [✓ PASS] find-callers (auto)
 

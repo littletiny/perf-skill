@@ -171,8 +171,9 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Automatically trace top N hotspot functions")
     p4.add_argument("--top-n", type=int, default=10,
                     help="Number of top results to display (default: 10)")
-    p4.add_argument("--min-ratio", type=float, default=0.5,
-                    help="Minimum ratio (0-100) of target samples to include in results (default: 0.5%%)")
+    p4.add_argument("--min-cpu", type=float, default=3.0, metavar="PERCENT",
+                    help="Minimum CPU utilization %% to display a hotspot (default: 3.0%%). "
+                         "Hotspots below this threshold are hidden but counted.")
     p4.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p4.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p4.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")

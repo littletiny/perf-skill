@@ -149,12 +149,29 @@ def cmd_find_callers_auto(engine, args):
             leaf_name = stack.get_normalized_names()[0]
             self_core_sec[leaf_name] += core_per_sec
     
+    # Apply min-cpu threshold filter
+    min_cpu = getattr(args, 'min_cpu', 3.0)
+    filtered_hotspots = []
+    hidden_hotspots = []
+    for name, core_sec in sorted(self_core_sec.items(), key=lambda x: -x[1]):
+        cpu_util = (core_sec / total_core_per_sec) * 100 if total_core_per_sec > 0 else 0
+        if cpu_util >= min_cpu:
+            filtered_hotspots.append((name, core_sec, cpu_util))
+        else:
+            hidden_hotspots.append((name, cpu_util))
+    
+    # Print threshold filter info if any hotspots were hidden
+    if hidden_hotspots:
+        hidden_total_ratio = sum(h[1] for h in hidden_hotspots)
+        print(f"# ... {len(hidden_hotspots)} hotspots below {min_cpu}% threshold (total: {hidden_total_ratio:.2f}%)")
+        print()
+    
     top_n = getattr(args, 'top_n', 10)
-    top_hotspots = sorted(self_core_sec.items(), key=lambda x: -x[1])[:top_n]
+    top_hotspots = filtered_hotspots[:top_n]
     
     # Trace each hotspot
     results = []
-    for target, target_total_core_sec in top_hotspots:
+    for target, target_total_core_sec, target_cpu_util in top_hotspots:
         attribution = defaultdict(float)
         
         for s in samples:
@@ -182,10 +199,9 @@ def cmd_find_callers_auto(engine, args):
                 cpu_util=f"{stack_cpu_util:.2f}%"
             ))
         
-        target_ratio = (target_total_core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
         results.append(TraceItem(
             target=target,
-            target_ratio_pct=f"{target_ratio:.2f}%",
+            target_ratio_pct=f"{target_cpu_util:.2f}%",
             attributions=attr_results
         ))
     
