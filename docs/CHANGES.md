@@ -4058,3 +4058,183 @@ cd tests
 ```
 
 ---
+
+---
+
+# SPEAR-perf-hunter v2.8 更新日志
+
+## 更新概览
+
+本次更新解决两种数据格式（SPEAR 格式和原始 perf 格式）的兼容性问题：
+
+1. **新增 `--freq` 参数**：支持原始 perf 格式（无 core/s 字段）的 CPU 利用率计算
+2. **自动格式检测**：工具自动识别数据格式并使用正确的计算方法
+3. **统一权重计算**：通过 `get_sample_weight()` 方法统一处理两种格式
+
+---
+
+## 1. 问题背景
+
+### 1.1 两种数据格式的区别
+
+**SPEAR 格式**（有 core/s 字段）：
+```
+perf-exec  215053 [002] 368330.780793:     0.0526 core/s:
+        zap_pte_range+0x2d4 ([kernel.kallsyms])
+```
+- 直接包含预计算的 CPU 利用率（core/s）
+- 不需要采样频率信息
+
+**原始 perf 格式**（无 core/s 字段）：
+```
+swapper     0 [001] 460661.461601:     250000 cpu-clock:ppp:
+        cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+```
+- 只有样本记录，需要通过 `samples/(time*freq)` 计算利用率
+- **必须知道采样频率才能正确计算**
+
+### 1.2 原代码的问题
+
+原代码对所有没有 `core_per_sec` 的样本返回权重 1.0：
+```python
+def get_sample_weight(self, sample):
+    core_per_sec = sample.get('core_per_sec')
+    return core_per_sec if core_per_sec is not None else 1.0  # ❌ 错误！
+```
+
+这导致原始 perf 格式的 CPU 利用率计算结果不正确：
+- 实际：`samples / (duration * freq)`
+- 原代码：`samples / duration`（缺少 freq 除法，结果放大 freq 倍）
+
+---
+
+## 2. 解决方案
+
+### 2.1 在引擎中添加 `--freq` 参数
+
+修改 `PerfExpertEngine.__init__()`：
+```python
+def __init__(self, file_path, freq=19):
+    self.freq = freq  # 采样频率，默认 19Hz
+```
+
+### 2.2 修正样本权重计算
+
+修改 `get_sample_weight()` 方法：
+```python
+def get_sample_weight(self, sample):
+    core_per_sec = sample.get('core_per_sec')
+    if core_per_sec is not None:
+        return core_per_sec  # SPEAR 格式：直接使用 core/s
+    # 原始 perf 格式：每个样本代表 1/freq core/s
+    return 1.0 / self.freq
+```
+
+### 2.3 自动格式检测
+
+新增 `has_core_per_sec_data()` 方法：
+```python
+def has_core_per_sec_data(self):
+    if self._has_core_per_sec is None:
+        self._has_core_per_sec = any(
+            s.get('core_per_sec') is not None for s in self.samples
+        )
+    return self._has_core_per_sec
+```
+
+### 2.4 为所有子命令添加 `--freq` 参数
+
+所有 12 个分析子命令都添加：
+```python
+parser.add_argument("--freq", type=int, default=19, metavar="HZ",
+    help="Sampling frequency in Hz for raw perf format without core/s field. "
+         "Default: 19. Ignored for SPEAR format with core/s values.")
+```
+
+---
+
+## 3. 使用方式
+
+### 3.1 SPEAR 格式（有 core/s）
+```bash
+# 自动检测格式，core/s 字段优先
+python scripts/perf_expert.py show-cpu-usage --data perf.data
+
+# --freq 参数会被忽略（因为数据已有 core/s）
+python scripts/perf_expert.py show-cpu-usage --data perf.data --freq 99
+```
+
+### 3.2 原始 perf 格式（无 core/s）
+```bash
+# 使用默认 19Hz 频率
+python scripts/perf_expert.py show-cpu-usage --data perf.data
+
+# 如果 perf record 使用 -F 99 采样，必须指定频率
+python scripts/perf_expert.py show-cpu-usage --data perf.data --freq 99
+```
+
+---
+
+## 4. 文件变更
+
+### 4.1 修改的文件
+
+1. `scripts/perf_toolkit/core/engine.py`:
+   - `__init__()`: 添加 `freq` 参数（默认 19Hz）
+   - `get_sample_weight()`: 修正权重计算逻辑
+   - `has_core_per_sec_data()`: 新增格式检测方法
+   - `_load_and_parse_perf_script()`: 自动检测 core/s 字段
+
+2. `scripts/perf_expert.py`:
+   - 主命令 epilog 更新：说明两种格式支持
+   - 为 12 个子命令添加 `--freq` 参数
+   - 引擎初始化时传入 `freq` 参数
+
+3. `references/data-format.md`:
+   - 完全重写：详细说明两种格式
+   - 添加格式对比表格
+   - 说明 CPU 利用率计算原理
+
+### 4.2 更新记录
+
+- `docs/CHANGES.md`: 添加 v2.8 更新日志（本记录）
+
+---
+
+## 5. 验证测试
+
+### 5.1 SPEAR 格式测试
+```bash
+python scripts/perf_expert.py show-cpu-usage \
+  --data tests/perfdata/new_format/case_test.data
+# 输出正确的 CPU 利用率（使用 core/s 字段）
+```
+
+### 5.2 原始 perf 格式测试
+```bash
+python scripts/perf_expert.py show-cpu-usage \
+  --data tests/perfdata/perf_format/case_test.data \
+  --freq 19
+# 输出正确的 CPU 利用率（使用 samples/freq/duration 计算）
+```
+
+### 5.3 格式自动检测验证
+```bash
+# SPEAR 格式（自动检测，忽略 --freq）
+python scripts/perf_expert.py show-cpu-usage \
+  --data tests/perfdata/new_format/case_test.data \
+  --freq 999  # 被忽略
+
+# 原始格式（使用指定 --freq）
+python scripts/perf_expert.py show-cpu-usage \
+  --data tests/perfdata/perf_format/case_test.data \
+  --freq 99   # 生效
+```
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.8
+
+---

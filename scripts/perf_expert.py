@@ -86,13 +86,16 @@ def main():
   python perf_expert.py analyze-core-distribution --data perf.data.txt --comm myapp
 
 Input Data Format:
-  Requires 'perf script' output with core/s field. Generate with:
+  Supports two formats:
+  1. SPEAR format (with core/s field): perf script output processed with core/s values
+  2. Raw perf format: standard perf script output (requires --freq parameter)
+
+  Generate raw perf data with:
     perf record -F 19 -a -g -- sleep 30
     perf script > perf.data.txt
 
-Note: The --freq parameter has been removed in v2.0. CPU utilization is now
-calculated directly from perf script's core/s values, and reliability is assessed
-based on actual CPU utilization rather than sampling frequency.
+Note: For raw perf format without core/s field, use --freq to specify sampling
+frequency (default: 19Hz). For SPEAR format with core/s, the freq parameter is ignored.
 
 Use '<command> --help' for detailed help on each subcommand."""
     )
@@ -105,7 +108,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p1.add_argument("--cpu-limit", type=parse_cpu_quota, default=0, dest="cpu_limit", metavar="LIMIT",
                     help="CPU limit in cores for cgroup environments. Examples: '0.1c' (0.1 core), "
                          "'2c' (2 cores), '0.5' (0.5 cores). Default: 0 (no limit check)")
-    # REMOVED: --freq parameter - now calculated from core/s values
+    p1.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p1.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p1.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
     p1.add_argument("--pid", type=int, help="Filter by process ID")
@@ -116,7 +121,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p2 = subparsers.add_parser('get-hotspots',
                                help="Extract hotspot function rankings by self/inclusive time")
     p2.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p2.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p2.add_argument("--sort-by", choices=['inclusive', 'self'], default='inclusive',
                     help="Sort by 'inclusive' (total time in call chain) or 'self' (time in function only)")
     p2.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
@@ -131,7 +138,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p3 = subparsers.add_parser('cluster-symbols',
                                help="Cluster samples by expert rules (scheduling, locks, memory, IRQ, etc.)")
     p3.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p3.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p3.add_argument("--custom-rules", metavar="RULES",
                     help="JSON format custom rules. Example: '{\"MyPattern\": [{\"pattern\": \"my_func_.*\", "
                          "\"weight\": 1.0}]}'. Rules are list of {pattern, weight} objects.")
@@ -150,7 +159,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p4 = subparsers.add_parser('find-callers',
                                help="Find and analyze callers of a specific function or auto-trace top hotspots")
     p4.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p4.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p4.add_argument("--target", metavar="FUNC",
                     help="Target function name to trace. Examples: 'pthread_mutex_lock', "
                          "'sched_yield', 'malloc'. Use with --min-ratio to filter significant callers. "
@@ -173,7 +184,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p5 = subparsers.add_parser('detect-anomalies',
                                help="Detect CPU utilization anomalies or export window data")
     p5.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p5.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p5.add_argument("--window-size", type=float, default=0.5, metavar="SECONDS",
                     help="Time window size in seconds for sliding window analysis. Smaller windows "
                          "detect rapid changes but may produce more noise. (default: 0.5)")
@@ -203,7 +216,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p8 = subparsers.add_parser('show-cpu-usage',
                                help="Show CPU utilization for OS or specific PID (user/kernel/total)")
     p8.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p8.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p8.add_argument("--pid", type=int, help="Process ID to analyze (default: all processes)")
     p8.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p8.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
@@ -215,7 +230,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p9 = subparsers.add_parser('get-process-top',
                                help="Get top N processes by CPU utilization with user/kernel breakdown")
     p9.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p9.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p9.add_argument("--top-n", type=int, default=10, help="Number of top processes to display (default: 10)")
     p9.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p9.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
@@ -225,7 +242,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p10 = subparsers.add_parser('cluster-comm',
                                 help="Cluster samples by process name (comm) to analyze process group CPU usage")
     p10.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p10.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p10.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p10.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p10.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
@@ -235,7 +254,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p11 = subparsers.add_parser('cluster-paths',
                                 help="Cluster samples by common call path prefixes using Trie")
     p11.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p11.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p11.add_argument("--min-depth", type=int, default=2,
                      help="Minimum common prefix depth to form a cluster (default: 2)")
     p11.add_argument("--min-samples", type=int, default=5,
@@ -253,7 +274,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p12 = subparsers.add_parser('count-process-variety',
                                 help="Count process variety to detect short-lived process storms")
     p12.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
+    p12.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p12.add_argument("--top-n", type=int, default=20,
                      help="Number of top process names to display (default: 20)")
     p12.add_argument("--storm-pid-threshold", type=int, default=50, metavar="N",
@@ -275,6 +298,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p13 = subparsers.add_parser('analyze-core-distribution',
                                 help="Analyze per-core CPU utilization and thread states")
     p13.add_argument("--data", required=True, help="Path to perf script output file")
+    p13.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p13.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p13.add_argument("--pid", type=int, help="Filter by process ID")
     p13.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
@@ -286,6 +312,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14 = subparsers.add_parser('get-comm-top',
                                 help="Get top N comm groups by aggregated CPU (for many-small-processes analysis)")
     p14.add_argument("--data", required=True, help="Path to perf script output file")
+    p14.add_argument("--freq", type=int, default=19, metavar="HZ",
+                    help="Sampling frequency in Hz for raw perf format without core/s field. "
+                         "Default: 19. Ignored for SPEAR format with core/s values.")
     p14.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p14.add_argument("--sort-by-density", action="store_true",
                      help="Sort by density index (CPU per process) instead of aggregate CPU")
@@ -355,7 +384,9 @@ Use '<command> --help' for detailed help on each subcommand."""
         return
 
     # Initialize engine for analysis commands (requires --data)
-    engine = PerfExpertEngine(args.data)
+    # Get freq from args, default to 19Hz for raw perf format
+    freq = getattr(args, 'freq', 19)
+    engine = PerfExpertEngine(args.data, freq=freq)
 
     # Route find-callers to appropriate handler
     if args.command == "find-callers":

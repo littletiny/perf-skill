@@ -24,6 +24,10 @@ class PerfExpertEngine:
                            <symbol> (<module>)
                            ...
     
+    Supports two data formats:
+    1. SPEAR format (with core/s): Directly contains CPU utilization in core/s
+    2. Raw perf format (without core/s): Requires freq parameter to calculate utilization
+    
     Symbol handling:
     - Kernel symbols have `_[k]` suffix in raw data (e.g., `osq_lock_[k]`)
     - Symbol class preserves this info via `is_kernel` attribute
@@ -48,15 +52,20 @@ class PerfExpertEngine:
         "SEQLOCK": r"write_seqlock|read_seqlock|raw_seqlock"
     }
     
-    def __init__(self, file_path):
+    def __init__(self, file_path, freq=19):
         """
         Initialize engine with perf script file.
         
         Args:
             file_path: Path to perf script output file
+            freq: Sampling frequency in Hz (default: 19).
+                  Only used for raw perf format without core/s field.
+                  For SPEAR format with core/s, this parameter is ignored.
         """
         self.file_path = file_path
+        self.freq = freq
         self.samples = []
+        self._has_core_per_sec = None  # Will be auto-detected during parsing
         self._load_and_parse()
     
     @staticmethod
@@ -313,8 +322,9 @@ class PerfExpertEngine:
             return Symbol.parse(symbol_part, None)
     
     def _load_and_parse_perf_script(self):
-        """Parse standard perf script output with core/s values"""
+        """Parse standard perf script output with or without core/s values"""
         current_sample = None
+        detected_core_per_sec = False
         
         with open(self.file_path, 'r') as f:
             for line in f:
@@ -326,6 +336,8 @@ class PerfExpertEngine:
                 # Examples:
                 #   "perf-exec  215053 [002] 368330.780793:     0.0526 core/s:"
                 #   "containerd-shim  2350748 [0] 0.000000:     0.0526 core/s:"
+                # Raw perf format:
+                #   "swapper     0 [001] 460661.461601:     250000 cpu-clock:ppp:"
                 
                 parts = line.strip().split()
                 
@@ -344,6 +356,8 @@ class PerfExpertEngine:
                     core_per_sec = None
                     if len(parts) >= 6 and parts[5] == 'core/s:':
                         core_per_sec = float(parts[4])
+                        detected_core_per_sec = True
+                    # Note: raw perf format has event name like "cpu-clock:ppp:" instead of "core/s:"
                     
                     current_sample = {
                         "comm": comm,
@@ -360,6 +374,9 @@ class PerfExpertEngine:
             
             if current_sample:
                 self.samples.append(current_sample)
+        
+        # Set the detected flag after parsing all samples
+        self._has_core_per_sec = detected_core_per_sec
     
     def get_duration(self):
         """Get total duration of samples"""
@@ -479,17 +496,41 @@ class PerfExpertEngine:
     def get_sample_weight(self, sample):
         """
         获取样本权重：
-        - core/s 格式：返回实际的 core/s 值
-        - 标准 perf 格式：返回 1（每个样本权重相等）
+        - SPEAR格式（有core/s）：返回实际的 core/s 值
+        - 原始perf格式（无core/s）：返回 1/freq，表示单个样本占用的 core/s
+        
+        对于原始perf格式，CPU利用率的计算方式是：
+        utilization = sum(sample_weights) / duration = samples * (1/freq) / duration
+                    = samples / (duration * freq)
         
         Args:
             sample: Sample dict with 'core_per_sec' field
             
         Returns:
-            float: Sample weight (core/s value or 1.0)
+            float: Sample weight (core/s value or 1.0/freq)
         """
         core_per_sec = sample.get('core_per_sec')
-        return core_per_sec if core_per_sec is not None else 1.0
+        if core_per_sec is not None:
+            return core_per_sec
+        # Raw perf format: each sample represents 1/freq core/s
+        return 1.0 / self.freq
+    
+    def has_core_per_sec_data(self):
+        """
+        检查数据是否包含 core/s 字段（SPEAR格式）
+        
+        Returns:
+            bool: True if data has core/s field, False for raw perf format
+        """
+        if self._has_core_per_sec is None:
+            # Auto-detect based on samples
+            if self.samples:
+                self._has_core_per_sec = any(
+                    s.get('core_per_sec') is not None for s in self.samples
+                )
+            else:
+                self._has_core_per_sec = False
+        return self._has_core_per_sec
     
     def is_kernel_symbol(self, symbol):
         """
