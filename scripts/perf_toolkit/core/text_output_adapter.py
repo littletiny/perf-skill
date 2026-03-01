@@ -379,7 +379,6 @@ class TextOutputAdapter:
         if 'verdict' in data:
             verdict = data.get('verdict', 'N/A')
             events = data.get('events', [])
-            flags = data.get('flags', [])
             max_load = data.get('max_core_load', {})
             limit_info = data.get('limit_info', {})
             high_cpu_cores = data.get('high_cpu_cores', [])
@@ -387,12 +386,11 @@ class TextOutputAdapter:
             threshold = data.get('threshold', 80)
             sys_threshold = threshold + 10
             
-            # 显示主要 verdict 和所有 events
-            lines.append(f"Verdict: {verdict}")
+            # Verdict 包含所有 events，用逗号分隔
             if len(events) > 1:
-                lines.append(f"Events: {','.join(events)}")
-            if len(flags) > 1:
-                lines.append(f"Flags: {','.join(flags)}")
+                lines.append(f"Verdict: {','.join(events)}")
+            else:
+                lines.append(f"Verdict: {verdict}")
             
             # 显示检测到的瓶颈核心
             if high_cpu_cores:

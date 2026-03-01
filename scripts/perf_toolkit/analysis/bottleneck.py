@@ -93,13 +93,11 @@ def cmd_check_bottleneck(engine, args):
     
     # 收集所有检测到的 events
     events = []
-    flags = []
     risk = None
     
     # Event 1: CPU 限制饱和 (最高优先级)
     if cpu_limit > 0 and max_usage_pct / 100 > (cpu_limit * 0.9):
         events.append("CPU_LIMIT_SATURATION")
-        flags.append("CPU_LIMIT_SATURATION")
         risk = create_risk_info(
             level="critical",
             message=f"CPU 限制接近饱和: {format_percent(max_usage_pct)}",
@@ -110,7 +108,6 @@ def cmd_check_bottleneck(engine, args):
     # Event 2: 单核 sys 过高
     if high_sys_cores:
         events.append("HIGH_SYS_CORES")
-        flags.append("HIGH_SYS_CORES")
         if risk is None:
             core_list_str = ",".join(map(str, high_sys_cores))
             risk = create_risk_info(
@@ -123,7 +120,6 @@ def cmd_check_bottleneck(engine, args):
     # Event 3: 单核满载 (至少1个核心高负载)
     if high_cpu_cores:
         events.append("SINGLE_CORE_SATURATION")
-        flags.append("SINGLE_CORE_SATURATION")
         if risk is None:
             core_list_str = ",".join(map(str, high_cpu_cores))
             pid = getattr(args, 'pid', None)
@@ -141,7 +137,6 @@ def cmd_check_bottleneck(engine, args):
     # Event 4: 多核高负载 (>=3 个核心高负载，区别于单核满载)
     if len(high_cpu_cores) >= 3:
         events.append("HIGH_CORES")
-        flags.append("HIGH_CORES")
         # 不覆盖 risk，因为 HIGH_CORES 是信息性的，优先级低于 SINGLE_CORE_SATURATION
         if risk is None:
             core_list_str = ",".join(map(str, high_cpu_cores))
@@ -164,7 +159,6 @@ def cmd_check_bottleneck(engine, args):
     else:
         verdict = "HEALTHY"
         events.append("HEALTHY")
-        flags.append("HEALTHY")
     
     # 无风险时创建空 risk
     if risk is None:
@@ -174,7 +168,6 @@ def cmd_check_bottleneck(engine, args):
     data = BottleneckData(
         verdict=verdict,
         events=events,
-        flags=flags,
         high_cpu_cores=high_cpu_cores,
         high_sys_cores=high_sys_cores,
         threshold=threshold,
