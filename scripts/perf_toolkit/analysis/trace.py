@@ -9,15 +9,17 @@ Trace Attribution - Bottom-up attribution for specific bottleneck functions
 注意：数据已按 1 秒聚合，记录数量无参考价值。
 """
 
-import json
 from collections import defaultdict
-from ..core.reliability import assess_data_quality
-from ..core.format_utils import format_time_range, format_core_sec
-from ..core.risk_mixin import RiskAwareOutput
+from ..core.format_utils import format_core_sec
+from ..core.output_builder import OutputBuilder
 
 
 def cmd_trace_attribution(engine, args):
     """[Skill] Bottom-up attribution for specific bottleneck functions"""
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -27,36 +29,18 @@ def cmd_trace_attribution(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
-    output = RiskAwareOutput()
-    
-    if not samples:
-        result = output.add_risk(
-            "warning",
-            "未找到样本数据",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
-        ).build({
-            "error": "No samples found",
-            "time_range": format_time_range(
-                getattr(args, 'start_time', None),
-                getattr(args, 'end_time', None)
-            ),
-            "available_range": engine.get_time_range()
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Check empty samples
+    if builder.check_empty_samples(samples):
         return
     
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    record_count = len(samples)
+    # Assess quality
+    builder.assess_quality(samples)
     
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    quality_level, warning_msg, metrics = assess_data_quality(
-        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
-    )
-    
+    # Trace attribution
     target = args.target
     attribution = defaultdict(float)
     target_core_sec = 0.0
-
+    
     for s in samples:
         stack = s.get('stack')
         if not stack:
@@ -71,49 +55,50 @@ def cmd_trace_attribution(engine, args):
             caller_stack = normalized_names[idx+1:idx+6]
             if caller_stack:
                 attribution[tuple(caller_stack)] += core_per_sec
-
+    
+    # Build results
     results = []
+    min_ratio = getattr(args, 'min_ratio', 0.5)
     for stack, core_sec in attribution.items():
         ratio_in_target = (core_sec / target_core_sec) * 100 if target_core_sec > 0 else 0
-        if ratio_in_target < args.min_ratio:
+        if ratio_in_target < min_ratio:
             continue
         results.append({
             "caller_stack": list(stack),
             "ratio_of_target_pct": f"{ratio_in_target:.2f}%",
             "core_sec": format_core_sec(core_sec)
         })
+    
     results.sort(key=lambda x: float(x['ratio_of_target_pct'].rstrip('%')), reverse=True)
     
     # Add risk if target has low activity
     if target_core_sec < 0.01:
-        output.add_risk(
+        builder.add_risk(
             "warning",
             f"目标函数 '{target}' 几乎无 CPU 活动",
             f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '目标函数 {target} 几乎无 CPU 活动' --risk 'warning' --hint '检查目标函数名称是否正确'",
             patterns=["LOW_TARGET_ACTIVITY"]
         )
     
-    # Data quality risk
-    if quality_level == "CRITICAL":
-        output.add_risk(
-            "critical",
-            "数据质量不足！归因分析不可信",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！归因分析不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
-            patterns=["CRITICAL_DATA_QUALITY"]
-        )
+    # Build and output
+    result = builder.build(
+        data_type="attributions",
+        data=results,
+        summary={
+            "target": target,
+            "target_core_sec": format_core_sec(target_core_sec)
+        }
+    )
     
-    result = output.build({
-        "target": target,
-        "target_core_sec": format_core_sec(target_core_sec),
-        "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
-        "attributions": results
-    })
-    
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    builder.print_json(result)
 
 
 def cmd_find_callers_auto(engine, args):
     """[Skill] Auto-trace top N hotspot functions"""
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -123,32 +108,17 @@ def cmd_find_callers_auto(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
-    output = RiskAwareOutput()
-    
-    if not samples:
-        result = output.add_risk(
-            "warning",
-            "未找到样本数据",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
-        ).build({
-            "error": "No samples found",
-            "time_range": format_time_range(
-                getattr(args, 'start_time', None),
-                getattr(args, 'end_time', None)
-            ),
-            "available_range": engine.get_time_range()
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Check empty samples
+    if builder.check_empty_samples(samples):
         return
     
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    record_count = len(samples)
-
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    quality_level, warning_msg, metrics = assess_data_quality(
-        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
-    )
+    # Assess quality
+    builder.assess_quality(samples)
     
+    # Get total for ratio calculation
+    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
+    
+    # Find top hotspots
     self_core_sec = defaultdict(float)
     for s in samples:
         stack = s.get('stack')
@@ -157,8 +127,10 @@ def cmd_find_callers_auto(engine, args):
             leaf_name = stack.get_normalized_names()[0]
             self_core_sec[leaf_name] += core_per_sec
     
-    top_hotspots = sorted(self_core_sec.items(), key=lambda x: -x[1])[:args.auto_target_top_n]
+    auto_target_top_n = getattr(args, 'auto_target_top_n', 5)
+    top_hotspots = sorted(self_core_sec.items(), key=lambda x: -x[1])[:auto_target_top_n]
     
+    # Trace each hotspot
     results = []
     for target, target_total_core_sec in top_hotspots:
         attribution = defaultdict(float)
@@ -194,21 +166,13 @@ def cmd_find_callers_auto(engine, args):
             "attributions": attr_results
         })
     
-    # Data quality risk
-    if quality_level == "CRITICAL":
-        output.add_risk(
-            "critical",
-            "数据质量不足！自动溯源结果完全不可信",
-            "使用更长的采样时间重新采集数据",
-            patterns=["CRITICAL_DATA_QUALITY"]
-        )
-    
-    result = output.build({
-        "summary": {
+    # Build and output
+    result = builder.build(
+        data_type="traces",
+        data=results,
+        summary={
             "hotspots_traced": len(results)
-        },
-        "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
-        "traces": results
-    })
+        }
+    )
     
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    builder.print_json(result)

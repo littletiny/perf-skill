@@ -7,15 +7,17 @@ Hotspot Analysis - Extract function rankings by self/inclusive time
 而非样本数量（因为数据已按 1 秒聚合，样本数无意义）。
 """
 
-import json
 from collections import defaultdict
-from ..core.reliability import assess_data_quality
-from ..core.format_utils import format_time_range, format_core_sec
-from ..core.risk_mixin import RiskAwareOutput
+from ..core.format_utils import format_core_sec
+from ..core.output_builder import OutputBuilder
 
 
 def cmd_get_hotspots(engine, args):
     """[Skill] Extract macro hotspot paths or function rankings"""
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Fetch samples
     filtered = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -25,35 +27,17 @@ def cmd_get_hotspots(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
-    output = RiskAwareOutput()
-    
-    if not filtered:
-        result = output.add_risk(
-            "warning",
-            "未找到样本数据",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
-        ).build({
-            "error": "No samples found",
-            "time_range": format_time_range(
-                getattr(args, 'start_time', None),
-                getattr(args, 'end_time', None)
-            ),
-            "available_range": engine.get_time_range()
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Check empty samples
+    if builder.check_empty_samples(filtered):
         return
-
-    duration = filtered[-1]['ts'] - filtered[0]['ts'] if len(filtered) > 1 else 0
-    record_count = len(filtered)
     
-    total_core_per_sec, _ = engine.get_total_core_per_sec(filtered)
-    quality_level, warning_msg, metrics = assess_data_quality(
-        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
-    )
-
+    # Assess quality
+    builder.assess_quality(filtered)
+    
+    # Calculate self and inclusive core/s
     self_core_sec = defaultdict(float)
     incl_core_sec = defaultdict(float)
-
+    
     for s in filtered:
         stack = s.get('stack')
         if not stack or len(stack) == 0:
@@ -73,6 +57,7 @@ def cmd_get_hotspots(engine, args):
     total_self_core_sec = sum(self_core_sec.values())
     total_incl_core_sec = sum(incl_core_sec.values())
     
+    # Build results
     results = []
     top_kernel_hotspot = None
     top_kernel_ratio = 0
@@ -93,33 +78,26 @@ def cmd_get_hotspots(engine, args):
             "core_sec": format_core_sec(core_sec)
         })
     
+    # Sort by inclusive ratio
     key = "inclusive_ratio_pct"
     results.sort(key=lambda x: float(x[key].rstrip('%')), reverse=True)
     
     # Add risk for high kernel hotspot
     if top_kernel_ratio > 30:
-        output.add_risk(
+        builder.add_risk(
             "warning",
             f"热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%",
             f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%' --risk 'warning' --hint 'find-callers --target {top_kernel_hotspot}'",
             patterns=["HIGH_KERNEL_HOTSPOT"]
         )
     
-    # Data quality risk
-    if quality_level == "CRITICAL":
-        output.add_risk(
-            "critical",
-            "数据质量不足！热点函数排序和百分比完全不可信",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！热点函数排序和百分比完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
-            patterns=["CRITICAL_DATA_QUALITY"]
-        )
+    # Build and output
+    result = builder.build(
+        data_type="hotspots",
+        data=results[:args.top_n],
+        summary={
+            "total_hotspots": len(results)
+        }
+    )
     
-    result = output.build({
-        "summary": {
-            "total_core_seconds": format_core_sec(total_core_per_sec)
-        },
-        "time_range": format_time_range(filtered[0]['ts'], filtered[-1]['ts']),
-        "hotspots": results[:args.top_n]
-    })
-    
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    builder.print_json(result)

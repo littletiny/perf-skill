@@ -9,14 +9,17 @@ FlameGraph Generation - Generate FlameGraph format data for visualization
 注意：数据已按 1 秒聚合，记录数量无参考价值。
 """
 
-import json
 from collections import defaultdict
-from ..core.format_utils import format_time_range, format_core_sec
-from ..core.risk_mixin import RiskAwareOutput
+from ..core.format_utils import format_core_sec
+from ..core.output_builder import OutputBuilder
 
 
 def cmd_generate_flamegraph(engine, args):
     """[Skill] Generate FlameGraph format data for visualization"""
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -26,23 +29,11 @@ def cmd_generate_flamegraph(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
-    output = RiskAwareOutput()
-    
-    if not samples:
-        result = output.add_risk(
-            "warning",
-            "未找到样本数据",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
-        ).build({
-            "error": "No samples found",
-            "time_range": format_time_range(
-                getattr(args, 'start_time', None),
-                getattr(args, 'end_time', None)
-            )
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Check empty samples
+    if builder.check_empty_samples(samples):
         return
     
+    # Aggregate stack core/s
     stack_core_sec = defaultdict(float)
     for s in samples:
         stack = s.get('stack')
@@ -53,32 +44,32 @@ def cmd_generate_flamegraph(engine, args):
     
     total_core_sec = sum(stack_core_sec.values())
     
+    # Build output based on format
     if args.format == 'folded':
         lines = []
         for stack, core_sec in sorted(stack_core_sec.items(), key=lambda x: -x[1]):
             lines.append(f"{stack} {core_sec:.4f}")
         data_output = '\n'.join(lines)
         
-        result = output.build({
+        result = builder.build_simple({
             "format": "folded",
             "total_core_seconds": format_core_sec(total_core_sec),
-            "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
             "data": data_output
         })
     else:
         stacks = []
-        for stack_str, core_sec in sorted(stack_core_sec.items(), key=lambda x: -x[1])[:args.top_n]:
+        top_n = getattr(args, 'top_n', 1000)
+        for stack_str, core_sec in sorted(stack_core_sec.items(), key=lambda x: -x[1])[:top_n]:
             funcs = stack_str.split(';')
             stacks.append({
                 "stack": funcs,
                 "core_sec": format_core_sec(core_sec)
             })
         
-        result = output.build({
+        result = builder.build_simple({
             "format": "json",
             "total_core_seconds": format_core_sec(total_core_sec),
-            "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
             "stacks": stacks
         })
     
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    builder.print_json(result)

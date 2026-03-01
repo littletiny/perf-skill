@@ -20,6 +20,7 @@ from .format_utils import (
 )
 from .risk_mixin import RiskMixin, RiskAwareOutput
 from .live_doc import LiveDoc
+from .output_builder import OutputBuilder, AnalysisExecutor
 
 __all__ = [
     'PerfExpertEngine',
@@ -35,5 +36,7 @@ __all__ = [
     'safe_time_range',
     'RiskMixin',
     'RiskAwareOutput',
-    'LiveDoc'
+    'LiveDoc',
+    'OutputBuilder',
+    'AnalysisExecutor'
 ]

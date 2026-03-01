@@ -9,14 +9,17 @@ Call Graph Generation - Generate Call Graph SVG/Graphviz DOT format
 注意：数据已按 1 秒聚合，记录数量无参考价值。
 """
 
-import json
 from collections import defaultdict
-from ..core.format_utils import format_time_range, format_core_sec
-from ..core.risk_mixin import RiskAwareOutput
+from ..core.format_utils import format_core_sec
+from ..core.output_builder import OutputBuilder
 
 
 def cmd_generate_callgraph(engine, args):
     """[Skill] Generate Call Graph SVG/Graphviz DOT format"""
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -26,23 +29,11 @@ def cmd_generate_callgraph(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
-    output = RiskAwareOutput()
-    
-    if not samples:
-        result = output.add_risk(
-            "warning",
-            "未找到样本数据",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'"
-        ).build({
-            "error": "No samples found",
-            "time_range": format_time_range(
-                getattr(args, 'start_time', None),
-                getattr(args, 'end_time', None)
-            )
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Check empty samples
+    if builder.check_empty_samples(samples):
         return
     
+    # Build edge and node weights
     edge_weights = defaultdict(float)
     node_weights = defaultdict(float)
     
@@ -62,14 +53,19 @@ def cmd_generate_callgraph(engine, args):
             edge_weights[(caller, callee)] += core_per_sec
             node_weights[caller] += core_per_sec
     
-    if args.max_nodes > 0:
-        top_nodes = set(sorted(node_weights.keys(), key=lambda x: -node_weights[x])[:args.max_nodes])
+    # Apply filters
+    max_nodes = getattr(args, 'max_nodes', 50)
+    min_edge_count = getattr(args, 'min_edge_count', 1)
+    
+    if max_nodes > 0:
+        top_nodes = set(sorted(node_weights.keys(), key=lambda x: -node_weights[x])[:max_nodes])
         edge_weights = {k: v for k, v in edge_weights.items() if k[0] in top_nodes and k[1] in top_nodes}
     
-    edge_weights = {k: v for k, v in edge_weights.items() if v >= args.min_edge_count * 0.001}
+    edge_weights = {k: v for k, v in edge_weights.items() if v >= min_edge_count * 0.001}
     
     total_core_sec = sum(node_weights.values())
     
+    # Build output based on format
     if args.format == 'dot':
         dot_lines = ['digraph callgraph {', '  rankdir=TB;', '  node [shape=box, style=rounded];', '']
         
@@ -90,21 +86,19 @@ def cmd_generate_callgraph(engine, args):
         
         dot_lines.append('}')
         
-        result = output.build({
+        result = builder.build_simple({
             "format": "graphviz-dot",
             "total_core_seconds": format_core_sec(total_core_sec),
-            "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
             "nodes": len(set(node for edge in edge_weights for node in edge)),
             "edges": len(edge_weights),
             "data": '\n'.join(dot_lines)
         })
     else:
-        result = output.build({
+        result = builder.build_simple({
             "format": "json",
             "total_core_seconds": format_core_sec(total_core_sec),
-            "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
             "nodes": {k: format_core_sec(v) for k, v in node_weights.items()},
             "edges": [{"caller": k[0], "callee": k[1], "core_sec": format_core_sec(v)} for k, v in edge_weights.items()]
         })
     
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    builder.print_json(result)

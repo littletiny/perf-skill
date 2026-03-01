@@ -8,16 +8,17 @@ Anomaly Detection - Detect CPU utilization anomalies
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
-import json
 from collections import defaultdict
-from ..core.reliability import assess_data_quality
-from ..core.format_utils import format_time_range, format_timestamp
-from ..core.risk_mixin import RiskAwareOutput
+from ..core.format_utils import format_timestamp
+from ..core.output_builder import OutputBuilder
 
 
 def cmd_detect_anomalies(engine, args):
     """[Skill] Detect CPU utilization anomalies or export window data"""
-    # Get filtered samples by time range, PID and comm
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -26,66 +27,33 @@ def cmd_detect_anomalies(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
-    output = RiskAwareOutput()
-    
-    if not samples:
-        result = output.add_risk(
-            "warning",
-            "指定时间范围内未找到样本",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '指定时间范围内未找到样本' --risk 'warning' --hint '检查时间范围或移除过滤条件'"
-        ).build({
-            "error": "No samples found in the specified time range",
-            "time_range": format_time_range(
-                getattr(args, 'start_time', None),
-                getattr(args, 'end_time', None)
-            ),
-            "available_range": engine.get_time_range()
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Check empty samples
+    if builder.check_empty_samples(samples):
         return
     
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    record_count = len(samples)
-    
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    quality_level, warning_msg, metrics = assess_data_quality(
-        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
-    )
-    
-    # Early return for critical quality
-    if quality_level == "CRITICAL":
-        result = output.add_risk(
-            "critical",
-            "数据质量不足，异常检测结果完全不可信",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足，异常检测结果完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
-            patterns=["CRITICAL_DATA_QUALITY"]
-        ).build({
-            "data_quality": {
-                "level": quality_level,
-                "warning": warning_msg,
-                "metrics": metrics
-            },
-            "error": "Insufficient data quality for anomaly detection"
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Assess quality with early return for critical
+    if builder.assess_quality(samples, early_return_critical=True):
         return
     
+    # Get parameters
     window_size = args.window_size
     spike_threshold = args.spike_threshold
     min_utilization = args.min_utilization
     export_mode = args.export_mode
     export_samples = args.export_samples
+    cpu_id = getattr(args, 'cpu_id', None)
+    top_n = getattr(args, 'top_n', 10)
     
     # Group samples by CPU
     cpu_samples = defaultdict(list)
     for s in samples:
-        if args.cpu_id is None or s['cpu'] == args.cpu_id:
+        if cpu_id is None or s['cpu'] == cpu_id:
             cpu_samples[s['cpu']].append(s)
     
     all_windows_by_cpu = {}
     all_anomalies = []
     
-    for cpu_id, cpu_samples_list in cpu_samples.items():
+    for cpu_id_val, cpu_samples_list in cpu_samples.items():
         if not cpu_samples_list:
             continue
         
@@ -105,15 +73,14 @@ def cmd_detect_anomalies(engine, args):
             win_end = win_start + window_size
             win_samples_raw = [s for s in cpu_samples_list if win_start <= s['ts'] < win_end]
             
-            record_count_in_window = len(win_samples_raw)
             win_core_per_sec = sum(s.get('core_per_sec') or 0 for s in win_samples_raw)
             utilization = win_core_per_sec / window_size if window_size > 0 else 0
             
             window_data = {
-                "cpu_id": cpu_id,
+                "cpu_id": cpu_id_val,
                 "start_time": format_timestamp(win_start),
                 "end_time": format_timestamp(win_end),
-                "utilization": format_percent(utilization * 100),
+                "utilization": f"{utilization*100:.2f}%",
                 "core_sec": round(win_core_per_sec, 4)
             }
             
@@ -132,15 +99,15 @@ def cmd_detect_anomalies(engine, args):
             
             windows.append(window_data)
         
-        all_windows_by_cpu[cpu_id] = windows
+        all_windows_by_cpu[cpu_id_val] = windows
         
         if not export_mode or args.detect_in_export:
-            cpu_anomalies = _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization)
+            cpu_anomalies = _detect_cpu_anomalies(cpu_id_val, windows, spike_threshold, min_utilization)
             all_anomalies.extend(cpu_anomalies)
     
     # Export mode
     if export_mode:
-        for cpu_id, windows in all_windows_by_cpu.items():
+        for cpu_id_val, windows in all_windows_by_cpu.items():
             for w in windows:
                 w.pop("_samples", None)
         
@@ -155,26 +122,26 @@ def cmd_detect_anomalies(engine, args):
         else:
             mean_util = std_util = 0
         
-        result = output.build({
-            "mode": "export",
-            "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
-            "export_config": {
+        result = builder.build(
+            data_type="windows",
+            data=[w for windows in all_windows_by_cpu.values() for w in windows],
+            summary={
+                "mode": "export",
                 "window_size_sec": window_size,
                 "export_samples": export_samples,
                 "cpu_count": len(all_windows_by_cpu),
                 "total_windows": sum(len(w) for w in all_windows_by_cpu.values())
             },
-            "statistics": {
-                "mean_utilization": format_percent(mean_util * 100),
-                "std_utilization": format_percent(std_util * 100)
-            },
-            "windows": [w for windows in all_windows_by_cpu.values() for w in windows]
-        })
+            statistics={
+                "mean_utilization": f"{mean_util*100:.2f}%",
+                "std_utilization": f"{std_util*100:.2f}%"
+            }
+        )
         
         if args.detect_in_export and all_anomalies:
-            result["anomalies"] = all_anomalies[:args.top_n]
+            result["anomalies"] = _format_anomalies(all_anomalies[:top_n])
         
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+        builder.print_json(result)
         return
     
     # Normal anomaly detection mode
@@ -185,35 +152,25 @@ def cmd_detect_anomalies(engine, args):
     
     # Add risk if anomalies found
     if spike_count > 0:
-        output.add_risk(
+        builder.add_risk(
             "warning",
             f"检测到 {spike_count} 个 CPU 利用率异常尖峰",
             f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {spike_count} 个 CPU 利用率异常尖峰' --risk 'warning' --hint 'get-hotspots --start-time {format_timestamp(samples[0]['ts'])}'",
             patterns=["CPU_SPIKE"]
         )
     
-    # Format anomalies - simplified structure
-    formatted_anomalies = []
-    for a in all_anomalies[:args.top_n]:
-        formatted_anomalies.append({
-            "type": a["type"],
-            "cpu_id": a["cpu_id"],
-            "time_range": f"{a['time_range']['start']} - {a['time_range']['end']}",
-            "utilization_change": a.get("utilization_change", ""),
-            "severity": "high" if a.get("z_score", 0) > 2.5 else "medium"
-        })
-    
-    result = output.build({
-        "summary": {
+    # Build and output
+    result = builder.build(
+        data_type="anomalies",
+        data=_format_anomalies(all_anomalies[:top_n]),
+        summary={
             "total_anomalies": len(all_anomalies),
             "spike_count": spike_count,
             "drop_count": drop_count
-        },
-        "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
-        "anomalies": formatted_anomalies
-    })
+        }
+    )
     
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    builder.print_json(result)
 
 
 def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
@@ -278,6 +235,15 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
     return anomalies
 
 
-def format_percent(value: float) -> str:
-    """Format value as percentage string with % symbol"""
-    return f"{value:.2f}%"
+def _format_anomalies(anomalies):
+    """Format anomalies to simplified structure"""
+    formatted = []
+    for a in anomalies:
+        formatted.append({
+            "type": a["type"],
+            "cpu_id": a["cpu_id"],
+            "time_range": f"{a['time_range']['start']} - {a['time_range']['end']}",
+            "utilization_change": a.get("utilization_change", ""),
+            "severity": "high" if a.get("z_score", 0) > 2.5 else "medium"
+        })
+    return formatted

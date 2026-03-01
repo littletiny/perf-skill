@@ -8,11 +8,9 @@ CPU Bottleneck Detection - Check for resource throttling and single-core saturat
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
-import json
 from collections import defaultdict
-from ..core.reliability import assess_data_quality
-from ..core.format_utils import format_time_range, format_percent
-from ..core.risk_mixin import RiskAwareOutput
+from ..core.format_utils import format_percent
+from ..core.output_builder import OutputBuilder
 
 
 def parse_cpu_quota(value):
@@ -30,7 +28,10 @@ def parse_cpu_quota(value):
 
 def cmd_check_bottleneck(engine, args):
     """[Skill] Determine resource throttling and single-core saturation"""
-    # Get filtered samples based on time range, PID and comm
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
@@ -39,38 +40,17 @@ def cmd_check_bottleneck(engine, args):
         comm_regex=getattr(args, 'comm_regex', None)
     )
     
-    output = RiskAwareOutput()
-    
-    if not samples:
-        result = output.add_risk(
-            "warning",
-            "指定时间范围内未找到样本",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '指定时间范围内未找到样本' --risk 'warning' --hint '检查时间范围或移除过滤条件'"
-        ).build({
-            "error": "No samples found in the specified time range",
-            "time_range": format_time_range(
-                getattr(args, 'start_time', None),
-                getattr(args, 'end_time', None)
-            ),
-            "available_range": engine.get_time_range()
-        })
-        print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Check empty samples
+    if builder.check_empty_samples(samples):
         return
     
-    # Calculate duration from filtered samples
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    record_count = len(samples)
-    
-    # Get total core/s for accurate CPU utilization
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    
-    # Assess data quality
-    quality_level, warning_msg, metrics = assess_data_quality(
-        duration, total_core_per_sec=total_core_per_sec, record_count=record_count
-    )
+    # Assess quality
+    builder.assess_quality(samples)
     
     # Calculate per-CPU utilization using core/s values
+    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     cpu_core_per_sec = defaultdict(float)
+    
     for s in samples:
         if s.get('core_per_sec'):
             cpu_core_per_sec[s['cpu']] += s['core_per_sec']
@@ -80,10 +60,7 @@ def cmd_check_bottleneck(engine, args):
     max_cpu_core_sec = cpu_core_per_sec.get(max_cpu_id, 0)
     
     # Calculate max core usage: average core/s on that CPU per second
-    if duration > 0:
-        max_core_usage = max_cpu_core_sec / duration
-    else:
-        max_core_usage = 0
+    max_core_usage = max_cpu_core_sec / duration if duration > 0 else 0
     
     # Parse CPU limit
     cpu_limit = getattr(args, 'cpu_limit', 0) or 0
@@ -92,7 +69,7 @@ def cmd_check_bottleneck(engine, args):
     verdict = "HEALTHY"
     if cpu_limit > 0 and max_core_usage > (cpu_limit * 0.9):
         verdict = "CPU_LIMIT_SATURATION"
-        output.add_risk(
+        builder.add_risk(
             "critical",
             f"CPU 限制接近饱和: {format_percent(max_core_usage * 100)}",
             f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc 'CPU 限制接近饱和: {format_percent(max_core_usage * 100)}' --risk 'critical' --hint '检查 cgroup CPU 限制或扩容'",
@@ -100,45 +77,33 @@ def cmd_check_bottleneck(engine, args):
         )
     elif max_core_usage > 0.9:
         verdict = "SINGLE_CORE_SATURATION"
-        # 构建 hint：如果有 pid 则直接使用，否则建议先获取进程排行
+        # Build hint: use pid if available, otherwise suggest getting process top
         pid = getattr(args, 'pid', None)
         if pid:
             hint = f"analyze-core-distribution --pid {pid}"
         else:
             hint = "先定位高 CPU 进程: get-process-top --top-n 5，然后分析具体进程"
-        output.add_risk(
+        builder.add_risk(
             "warning",
             "单核满载，可能存在串行化瓶颈",
             f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载，可能存在串行化瓶颈' --risk 'warning' --hint '{hint}'",
             patterns=["SINGLE_CORE_SATURATION"]
         )
     
-    # Data quality risk
-    if quality_level == "CRITICAL":
-        output.add_risk(
-            "critical",
-            "数据质量不足！所有结论都不可信",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！所有结论都不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
-            patterns=["CRITICAL_DATA_QUALITY"]
-        )
-    
-    result = output.build({
-        "verdict": verdict,
-        "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
-        "record_count": record_count,
-        "data_quality": {
-            "level": quality_level,
-            "warning": warning_msg,
-            "metrics": metrics
-        },
-        "max_core_load": {
-            "cpu_id": max_cpu_id,
-            "load": format_percent(max_core_usage * 100)
-        },
-        "limit_info": {
-            "cpu_limit_cores": cpu_limit,
-            "cpu_limit_detected": cpu_limit > 0
+    # Build and output
+    result = builder.build(
+        data_type="generic",
+        data={
+            "verdict": verdict,
+            "max_core_load": {
+                "cpu_id": max_cpu_id,
+                "load": format_percent(max_core_usage * 100)
+            },
+            "limit_info": {
+                "cpu_limit_cores": cpu_limit,
+                "cpu_limit_detected": cpu_limit > 0
+            }
         }
-    })
+    )
     
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    builder.print_json(result)
