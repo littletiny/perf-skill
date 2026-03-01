@@ -256,31 +256,33 @@ class TextOutputAdapter:
     
     def _format_attributions(self, items: List[Dict]):
         """格式化调用归因列表 (从调用者到被调用者)"""
-        format_header = "# index,(ratio|cpu_util),callstack"
+        format_header = "# index,ratio,callstack"
         lines = []
         for i, item in enumerate(items, 1):
             stack = item.get('caller_stack', [])
             ratio = item.get('ratio_of_target_pct', '0%')
-            cpu_util = item.get('cpu_util', '0.00%')
             stack_str = " <- ".join(stack) if stack else "(root)"
-            lines.append(f"#{i} [{ratio} | {cpu_util}] {stack_str}")
+            lines.append(f"#{i} [{ratio}] {stack_str}")
         return (format_header, lines)
     
     def _format_traces(self, items: List[Dict]):
         """格式化追踪热点列表 (从调用者到被调用者)"""
-        format_header = "# target (ratio) <- callstack"
+        format_header = "# target (cpu_util) <- callstack"
         lines = []
         for item in items:
             target = item.get('target', 'N/A')
-            ratio = item.get('target_ratio_pct', '0%')
-            lines.append(f">>> {target} ({ratio})")
+            target_ratio_str = item.get('target_ratio_pct', '0%')
+            target_ratio = float(target_ratio_str.rstrip('%'))
+            lines.append(f">>> {target} ({target_ratio_str})")
             attributions = item.get('attributions', [])
             for i, attr in enumerate(attributions, 1):
                 stack = attr.get('caller_stack', [])
-                attr_ratio = attr.get('ratio_of_target_pct', '0%')
-                attr_cpu_util = attr.get('cpu_util', '0.00%')
+                attr_ratio_str = attr.get('ratio_of_target_pct', '0%')
+                attr_ratio = float(attr_ratio_str.rstrip('%'))
+                # Calculate total ratio: target_ratio * attr_ratio / 100
+                total_ratio = target_ratio * attr_ratio / 100
                 stack_str = " <- ".join(stack) if stack else "(root)"
-                lines.append(f"  #{i} [{attr_ratio} | {attr_cpu_util}] {stack_str}")
+                lines.append(f"  #{i} [{total_ratio:.2f}%] {stack_str}")
         return (format_header, lines)
     
     def _format_path_clusters(self, items: List[Dict]):

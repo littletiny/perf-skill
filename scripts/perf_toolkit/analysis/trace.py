@@ -41,8 +41,9 @@ def cmd_trace_attribution(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Calculate duration for cpu_util conversion
+    # Calculate duration for cpu_util conversion and get total
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
     
     # Trace attribution
     target = args.target
@@ -64,19 +65,18 @@ def cmd_trace_attribution(engine, args):
             if caller_stack:
                 attribution[tuple(caller_stack)] += core_per_sec
     
-    # Build results
+    # Build results - show ratio relative to total samples (not just target)
     results = []
     min_ratio = getattr(args, 'min_ratio', 0.5)
-    target_cpu_util = (target_core_sec / duration * 100) if duration > 0 else 0
     for stack, core_sec in attribution.items():
-        ratio_in_target = (core_sec / target_core_sec) * 100 if target_core_sec > 0 else 0
-        if ratio_in_target < min_ratio:
+        # Calculate ratio relative to total samples
+        ratio_total = (core_sec / total_core_per_sec) * 100 if total_core_per_sec > 0 else 0
+        if ratio_total < min_ratio:
             continue
-        stack_cpu_util = (core_sec / duration * 100) if duration > 0 else 0
         results.append(AttributionItem(
             caller_stack=list(stack),
-            ratio_of_target_pct=f"{ratio_in_target:.2f}%",
-            cpu_util=f"{stack_cpu_util:.2f}%"
+            ratio_of_target_pct=f"{ratio_total:.2f}%",
+            cpu_util="0.00%"  # Not used in display
         ))
     
     results.sort(key=lambda x: float(x.ratio_of_target_pct.rstrip('%')), reverse=True)
@@ -94,6 +94,7 @@ def cmd_trace_attribution(engine, args):
         risk = RiskInfo(level="none")
     
     # Create summary
+    target_cpu_util = (target_core_sec / duration * 100) if duration > 0 else 0
     summary = AttributionSummary(
         target=target,
         target_cpu_util=f"{target_cpu_util:.2f}%"
