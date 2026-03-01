@@ -255,14 +255,14 @@ class TextOutputAdapter:
         return (format_header, lines)
     
     def _format_attributions(self, items: List[Dict]):
-        """格式化调用归因列表"""
+        """格式化调用归因列表 (从调用者到被调用者)"""
         format_header = "# index,(ratio|core_sec),callstack"
         lines = []
         for i, item in enumerate(items, 1):
             stack = item.get('caller_stack', [])
             ratio = item.get('ratio_of_target_pct', '0%')
             core_sec = item.get('core_sec', 0)
-            stack_str = " -> ".join(stack) if stack else "(root)"
+            stack_str = " <- ".join(stack) if stack else "(root)"
             lines.append(f"#{i} [{ratio} | {core_sec:.4f}s] {stack_str}")
         return (format_header, lines)
     
