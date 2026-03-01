@@ -22,7 +22,7 @@ def cmd_get_comm_top(engine, args):
     
     builder = OutputBuilder(engine, args)
     
-    # Live Document v2.0 - 自动记录命令开始
+    # Trace v2.0 - 自动记录命令开始
     builder.begin_command("get-comm-top")
     
     # Fetch samples
@@ -95,12 +95,12 @@ def cmd_get_comm_top(engine, args):
     top_n = getattr(args, 'top_n', 10)
     top_results = results[:top_n]
     
-    # Build RiskInfo + Live Document 自动记录
+    # Build RiskInfo + Trace 自动记录
     if len(high_kernel_groups) > 0:
         risk_level = "warning" if len(high_kernel_groups) <= 2 else "critical"
         cluster_commands = [f"cluster-symbols --comm {comm}" for comm in high_kernel_groups]
         
-        # Live Document v2.0 - 自动记录每个高内核态风险
+        # Trace v2.0 - 自动记录每个高内核态风险
         for comm in high_kernel_groups:
             # 找到对应的 kernel_ratio
             for item in top_results:

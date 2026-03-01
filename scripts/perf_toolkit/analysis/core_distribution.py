@@ -93,14 +93,14 @@ def cmd_analyze_core_distribution(engine, args):
             risk_info = create_risk_info(
                 level="critical",
                 message="负载严重不均衡: 单核满载，其他核心空闲",
-                hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '负载严重不均衡: 单核满载，其他核心空闲' --risk 'critical' --hint 'cluster-symbols --comm {target_comm}'",
+                hint=f"[必须] 添加到 Trace: spear trace add --desc '负载严重不均衡: 单核满载，其他核心空闲' --hint 'cluster-symbols --comm {target_comm}'",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
         elif len(saturated_cores) == 1 and len(core_list) > 1:
             risk_info = create_risk_info(
                 level="warning",
                 message=f"单核满载 (CPU {saturated_cores[0].cpu_id})",
-                hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载 (CPU {saturated_cores[0].cpu_id})' --risk 'warning' --hint 'cluster-symbols --comm {target_comm}'",
+                hint=f"[必须] 添加到 Trace: spear trace add --desc '单核满载 (CPU {saturated_cores[0].cpu_id})' --hint 'cluster-symbols --comm {target_comm}'",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
         else:

@@ -28,7 +28,7 @@ def cmd_apply_cluster(engine, args):
     
     builder = OutputBuilder(engine, args)
     
-    # Live Document v2.0 - 自动记录命令开始
+    # Trace v2.0 - 自动记录命令开始
     builder.begin_command("cluster-symbols")
     
     # Fetch samples
@@ -104,14 +104,14 @@ def cmd_apply_cluster(engine, args):
         risk = create_risk_info(
             level="critical",
             message=f"锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈",
-            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈' --risk 'critical' --hint 'find-callers --target {top_lock_func}'",
+            hint=f"[必须] 添加到 Trace: spear trace add --desc '锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈' --hint 'find-callers --target {top_lock_func}'",
             patterns=["HIGH_LOCK_CONTENTION"]
         )
     elif lock_contention_ratio > 20:
         risk = create_risk_info(
             level="warning",
             message=f"锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈",
-            hint="[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈' --risk 'warning' --hint 'find-callers --target pthread_mutex_lock'",
+            hint="[必须] 添加到 Trace: spear trace add --desc '锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈' --hint 'find-callers --target pthread_mutex_lock'",
             patterns=["LOCK_CONTENTION"]
         )
     else:

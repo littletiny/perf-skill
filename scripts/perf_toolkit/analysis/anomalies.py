@@ -224,7 +224,7 @@ def cmd_detect_anomalies(engine, args):
         risk = create_risk_info(
             level="warning",
             message=f"检测到 {spike_count} 个 CPU 利用率异常尖峰",
-            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {spike_count} 个 CPU 利用率异常尖峰' --risk 'warning' --hint 'get-hotspots --start-time {format_timestamp(samples[0]['ts'])}'",
+            hint=f"[必须] 添加到 Trace: spear trace add --desc '检测到 {spike_count} 个 CPU 利用率异常尖峰' --hint 'get-hotspots --start-time {format_timestamp(samples[0]['ts'])}'",
             patterns=["CPU_SPIKE"]
         )
     else:

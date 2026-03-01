@@ -77,14 +77,14 @@ def cmd_show_cpu_usage(engine, args):
         risk = create_risk_info(
             level="critical",
             message=f"检测到 {len(high_sys_cores)} 个核心 sys 利用率 >70%: {core_list}",
-            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {len(high_sys_cores)} 个核心 sys 利用率 >70%' --risk 'critical' --hint '分析内核热点: cluster-symbols'",
+            hint=f"[必须] 添加到 Trace: spear trace add --desc '检测到 {len(high_sys_cores)} 个核心 sys 利用率 >70%' --hint '分析内核热点: cluster-symbols'",
             patterns=["HIGH_SYS_CORES"]
         )
     elif util_stats['kernel_pct'] > 50:
         risk = create_risk_info(
             level="warning",
             message=f"内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高",
-            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高' --risk 'warning' --hint '分析内核热点: cluster-symbols'",
+            hint=f"[必须] 添加到 Trace: spear trace add --desc '内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高' --hint '分析内核热点: cluster-symbols'",
             patterns=["HIGH_KERNEL_USAGE"]
         )
     else:

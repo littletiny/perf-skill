@@ -7,7 +7,7 @@ OutputBuilder - 基于统一数据模型的输出构建器
 - 类型安全的输出构建
 - 统一的数据结构管理
 - 自动转换到 JSON
-- Live Document 自动记录 (v2.0)
+- Trace 自动记录 (v2.0)
 
 使用方式:
     from output_builder import OutputBuilder
@@ -69,7 +69,7 @@ class OutputBuilder:
     - 使用 dataclass 定义的数据模型
     - 类型安全的输出构建
     - 通过 OutputAdapter 自动转换为 JSON
-    - Live Document 自动记录 (v2.0)
+    - Trace 自动记录 (v2.0)
     """
     
     def __init__(self, engine, args, compact: bool = False, text_mode: bool = True):
@@ -97,18 +97,18 @@ class OutputBuilder:
         self._quality_metrics = None
         self._samples = None
         
-        # Live Document v2.0 自动记录
+        # Trace v2.0 自动记录
         self._trace = None
         self._command_name = None
         self._auto_trace = getattr(args, 'trace', True)  # 默认开启
     
     # =====================================================================
-    # Live Document v2.0 - 自动记录 API
+    # Trace v2.0 - 自动记录 API
     # =====================================================================
     
     def begin_command(self, command_name: str):
         """
-        命令开始时调用，自动初始化 LiveDoc 并记录命令
+        命令开始时调用，自动初始化 Trace 并记录命令
         
         Args:
             command_name: 命令名称，如 "get-comm-top"
@@ -132,9 +132,9 @@ class OutputBuilder:
         
         full_command = " ".join(cmd_parts)
         
-        # 初始化 LiveDoc
+        # 初始化 Trace
         try:
-            self._trace = LiveDoc()
+            self._trace = Trace()
             # 如果文档不存在，自动初始化
             if not self._trace.data.get('data_file') and data_file:
                 self._trace.init(data_file)
@@ -220,7 +220,7 @@ class OutputBuilder:
             pass
     
     def end_command(self):
-        """命令结束时调用，保存 LiveDoc"""
+        """命令结束时调用，保存 Trace"""
         if not self._auto_trace or not self._trace:
             return
         
@@ -229,8 +229,8 @@ class OutputBuilder:
         except Exception:
             pass
     
-    def get_live_doc_summary(self) -> Dict:
-        """获取 LiveDoc 摘要（用于输出）"""
+    def get_trace_summary(self) -> Dict:
+        """获取 Trace 摘要（用于输出）"""
         if not self._trace:
             return {"enabled": False}
         
@@ -267,7 +267,7 @@ class OutputBuilder:
         risk_output.add_risk(
             "warning",
             "未找到样本数据",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '未找到样本数据' --risk 'warning' --hint '检查过滤条件'",
+            "[必须] 添加到 Trace: spear trace add --desc '未找到样本数据' --hint '检查过滤条件'",
             patterns=["NO_SAMPLES"]
         )
         
@@ -309,7 +309,7 @@ class OutputBuilder:
                 risk_output.add_risk(
                     "critical",
                     "数据质量不足！分析结果完全不可信",
-                    "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！分析结果完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
+                    "[必须] 添加到 Trace: spear trace add --desc '数据质量不足！分析结果完全不可信' --hint '使用更长的采样时间重新采集数据'",
                     patterns=["CRITICAL_DATA_QUALITY"]
                 )
                 

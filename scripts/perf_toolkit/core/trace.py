@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Live Document v2.0 - Tracing 工具
+Trace v2.0 - 诊断过程追踪工具
 
 自动记录诊断过程，无需人工干预：
 - timeline: 按时间顺序记录所有命令执行
@@ -20,7 +20,7 @@ from typing import List, Dict, Optional, Any
 
 class Trace:
     """
-    Live Document v2.0 - 自动 Tracing 实现
+    Trace v2.0 - 诊断过程追踪实现
     
     数据文件: .perf-doc.json (当前目录)
     """

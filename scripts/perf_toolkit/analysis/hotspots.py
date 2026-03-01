@@ -62,7 +62,7 @@ def cmd_get_hotspots(engine, args):
         risk = create_risk_info(
             level="warning",
             message=f"热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%",
-            live_doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%' --risk 'warning' --hint 'find-callers --target {top_kernel_hotspot}'",
+            live_doc_hint=f"[必须] 添加到 Trace: spear trace add --desc '热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%' --hint 'find-callers --target {top_kernel_hotspot}'",
             patterns=["HIGH_KERNEL_HOTSPOT"]
         )
     else:
