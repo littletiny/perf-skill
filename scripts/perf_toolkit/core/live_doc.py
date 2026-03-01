@@ -495,6 +495,25 @@ def cmd_doc_issues(args):
             print()
 
 
+def cmd_doc_complete(args):
+    """标记 issue 为已完成（人工执行）"""
+    doc = LiveDoc()
+    
+    try:
+        doc.complete(args.id, args.result)
+        print(f"✓ 已完成: {args.id}")
+        print(f"  结果: {args.result}")
+        
+        # 显示剩余 open issues
+        open_issues = doc.get_open_issues()
+        if open_issues:
+            print(f"\n  剩余 {len(open_issues)} 个待处理 issue")
+        else:
+            print("\n  🎉 所有 issue 已处理完毕")
+    except ValueError as e:
+        print(f"✗ 错误: {e}")
+
+
 def cmd_doc_finalize(args):
     """最终审计"""
     doc = LiveDoc()

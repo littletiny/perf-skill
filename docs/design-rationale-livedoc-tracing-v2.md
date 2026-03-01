@@ -87,9 +87,8 @@ perf-doc complete --id ISS-001 --result "xxx"
       "timestamp": "2026-03-02T10:01:00Z",
       "findings": [
         {
-          "type": "issue_resolved",
-          "issue_id": "ISS-001",
-          "result": "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
+          "type": "info",
+          "message": "分析结果: LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
         }
       ]
     }
@@ -99,12 +98,10 @@ perf-doc complete --id ISS-001 --result "xxx"
       "id": "ISS-001",
       "desc": "netstat 高内核态 94.7%",
       "level": "warning",
-      "status": "resolved",
+      "status": "open",
       "created_at": "2026-03-02T10:00:00Z",
       "created_by_seq": 1,
-      "resolved_at": "2026-03-02T10:01:00Z",
-      "resolved_by_seq": 2,
-      "result": "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
+      "analysis_result": "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争 (由 seq=2 命令分析)"
     },
     "ISS-002": {
       "id": "ISS-002",
@@ -135,8 +132,9 @@ perf-doc complete --id ISS-001 --result "xxx"
 | type | 说明 |
 |------|------|
 | risk_created | 发现新风险，创建 issue |
-| issue_resolved | 分析完成，解决问题 |
-| info | 一般信息 |
+| info | 一般信息/分析结果记录 |
+
+**注意**: 不提供 `issue_resolved` 类型，解决 issue 需要人工执行命令。
 
 **issues[id] - 问题聚合**
 
@@ -154,6 +152,8 @@ perf-doc complete --id ISS-001 --result "xxx"
 ## 3. 自动记录机制
 
 ### 3.1 OutputBuilder 集成
+
+**原则：只自动添加 issue，不自动解决**
 
 ```python
 # 伪代码
@@ -176,60 +176,65 @@ class OutputBuilder:
         )
         return issue_id
     
-    def record_resolution(self, issue_id, result):
-        """分析完成时自动标记解决"""
-        self.live_doc.resolve_issue(
-            issue_id=issue_id,
-            result=result,
-            command_seq=self.current_seq
-        )
+    # ❌ 不提供自动解决功能
+    # def record_resolution(self, issue_id, result): ...
     
     def end_command(self):
         """命令结束时保存"""
         self.live_doc.save()
 ```
 
+**为什么只添加不解决？**
+- 自动解决容易误判（无法确定分析是否充分）
+- 解决 issue 是**决策行为**，需要人工确认
+- 保持灵活性：分析后可以选择继续深入或标记完成
+
 ### 3.2 使用示例
 
 ```python
-def cmd_cluster_symbols(engine, args):
+def cmd_get_comm_top(engine, args):
     builder = OutputBuilder(engine, args)
     
     # 1. 自动记录命令开始
-    builder.begin_command(f"cluster-symbols --comm {args.comm}")
+    builder.begin_command("get-comm-top")
     
     # ... 分析逻辑 ...
     
-    # 2. 如果这是针对某个 issue 的分析，自动标记解决
-    if hasattr(args, 'resolve_issue'):
-        builder.record_resolution(args.resolve_issue, "LOCK_CONTENTION 38.36%")
+    # 2. 发现风险时自动创建 issue
+    for comm in high_kernel_comms:
+        builder.record_risk(
+            level="warning",
+            desc=f"{comm} 高内核态 94.7%",
+            hint=f"cluster-symbols --comm {comm}"
+        )
     
-    # 3. 如果又发现新风险，自动创建 issue
-    if new_risk_found:
-        builder.record_risk("warning", "新发现的问题", "下一步操作...")
-    
-    # 4. 自动保存
+    # 3. 自动保存
     builder.end_command()
 ```
 
-### 3.3 风险自动匹配
-
-```python
-# 智能匹配：cluster-symbols --comm xxx 自动解析为解决对应 issue
-class LiveDoc:
-    def match_issue_by_command(self, command, comm):
-        """
-        根据命令自动匹配可能相关的 issue
-        
-        例如:
-        command: "cluster-symbols --comm netstat"
-        自动匹配 desc 包含 "netstat" 的 open issue
-        """
-        for issue_id, issue in self.issues.items():
-            if issue['status'] == 'open' and comm in issue['desc']:
-                return issue_id
-        return None
+**解决 issue 仍需人工执行**：
+```bash
+# 分析后，人工确认并标记完成
+perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 ```
+
+### 3.3 保留人工解决入口
+
+```bash
+# 查看待处理 issues
+perf-doc issues
+
+# 分析完成后，人工标记完成
+perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+
+# 或者选择忽略
+perf-doc complete --id ISS-001 --result "wontfix: 优先级低"
+```
+
+**为什么保留人工解决？**
+- 防止误判：自动匹配可能错误标记不相关的 issue
+- 深度控制：分析后可能决定继续深入（如 `find-callers`），而非直接标记完成
+- 明确意图：`complete` 是一个显式的
 
 ---
 
@@ -244,6 +249,9 @@ perf-doc timeline [--format json]
 # 查看 issues 状态  
 perf-doc issues [--status open|resolved|all]
 
+# 标记 issue 完成（人工执行）
+perf-doc complete --id <issue_id> --result <result>
+
 # 最终审计（检查是否还有 open issue）
 perf-doc finalize [--accept-risk <reason>]
 
@@ -254,9 +262,8 @@ perf-doc export [--format markdown|json]
 ### 4.2 移除命令
 
 ```bash
-# 不再需要手动操作
-perf-doc add      ← 移除，改为自动
-perf-doc complete ← 移除，改为自动
+# 不再需要手动操作（改为自动）
+perf-doc add      ← 移除，改为自动创建
 ```
 
 ### 4.3 timeline 输出示例
@@ -273,11 +280,16 @@ DIAGNOSIS TIMELINE  (2 commands executed)
 
 [2] 10:01:00  cluster-symbols --comm netstat --data netstat_perf.data
     ───────────────────────────────────────────────────────────
-    ✅ ISSUE_RESOLVED: ISS-001 → LOCK_CONTENTION 38.36%
+    ℹ️  分析结果: LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争
+        (ISS-001 仍需人工确认: perf-doc complete --id ISS-001 --result "...")
 
 ═══════════════════════════════════════════════════════════════════
-PENDING ISSUES (1 remaining)
+OPEN ISSUES (2 remaining, 需人工处理)
 ═══════════════════════════════════════════════════════════════════
+
+⚠️  ISS-001  netstat 高内核态 94.7%
+    ├─ 分析结果: LOCK_CONTENTION 38.36%
+    └─ 确认解决: perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
 ⚠️  ISS-002  containerd-shim 高内核态 89.9%
     └─ 建议: cluster-symbols --comm containerd-shim
