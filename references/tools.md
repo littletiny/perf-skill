@@ -33,7 +33,7 @@ spear status
 ### 方式 2: 直接调用
 
 ```bash
-python3 $SKILL_DIR/scripts/spear.py <subcommand> --data <perf.data> [options]
+spear <subcommand> [options]
 ```
 
 ---
@@ -64,7 +64,7 @@ python3 $SKILL_DIR/scripts/spear.py <subcommand> --data <perf.data> [options]
 检查资源限制和单核饱和。
 
 ```bash
-python3 scripts/spear.py check-cpu-bottleneck \
+spear check-cpu-bottleneck \
   --data <perf.script.txt> \
   [--cpu-limit-threshold <ratio>]
 ```
@@ -90,7 +90,7 @@ python3 scripts/spear.py check-cpu-bottleneck \
 查看 CPU 利用率 (user/kernel)。
 
 ```bash
-python3 scripts/spear.py show-cpu-usage \
+spear show-cpu-usage \
   --data <perf.script.txt> \
   [--pid <PID>] \
   [--comm <name>] \
@@ -114,7 +114,7 @@ python3 scripts/spear.py show-cpu-usage \
 时序异常检测与窗口定位。
 
 ```bash
-python3 scripts/spear.py detect-anomalies \
+spear detect-anomalies \
   --data <perf.script.txt> \
   [--window-size <sec>] \
   [--spike-threshold <ratio>] \
@@ -144,7 +144,7 @@ python3 scripts/spear.py detect-anomalies \
 核心级负载分布与均衡性分析。
 
 ```bash
-python3 scripts/spear.py analyze-core-distribution \
+spear analyze-core-distribution \
   --data <perf.script.txt> \
   [--pid <PID>] \
   [--comm <name>] \
@@ -174,7 +174,7 @@ python3 scripts/spear.py analyze-core-distribution \
 识别高消耗单个进程。
 
 ```bash
-python3 scripts/spear.py get-process-top \
+spear get-process-top \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--cpu-id <ID>]
@@ -209,7 +209,7 @@ redis(5678) 23.40%/5.60%
 识别高消耗进程组（大量小进程场景）。
 
 ```bash
-python3 scripts/spear.py get-comm-top \
+spear get-comm-top \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--sort-by-density] \
@@ -241,7 +241,7 @@ python3 scripts/spear.py get-comm-top \
 识别热点函数。
 
 ```bash
-python3 scripts/spear.py get-hotspots \
+spear get-hotspots \
   --data <perf.script.txt> \
   [--sort-by inclusive|self] \
   [--top-n <N>] \
@@ -279,7 +279,7 @@ python3 scripts/spear.py get-hotspots \
 
 ```bash
 # 指定 target 模式
-python3 scripts/spear.py find-callers \
+spear find-callers \
   --data <perf.script.txt> \
   --target <function> \
   [--min-ratio <pct>] \
@@ -287,7 +287,7 @@ python3 scripts/spear.py find-callers \
   [--comm <name>]
 
 # 自动模式
-python3 scripts/spear.py find-callers \
+spear find-callers \
   --data <perf.script.txt> \
   --auto-target \
   [--auto-target-top-n <N>] \
@@ -320,7 +320,7 @@ python3 scripts/spear.py find-callers \
 调用路径聚类，识别共同前缀模式。
 
 ```bash
-python3 scripts/spear.py cluster-paths \
+spear cluster-paths \
   --data <perf.script.txt> \
   [--min-depth <N>] \
   [--min-samples <N>] \
@@ -345,7 +345,7 @@ python3 scripts/spear.py cluster-paths \
 按专家规则语义聚类。
 
 ```bash
-python3 scripts/spear.py cluster-symbols \
+spear cluster-symbols \
   --data <perf.script.txt> \
   [--no-include-experts] \
   [--custom-rules <json>] \
@@ -393,7 +393,7 @@ python3 scripts/spear.py cluster-symbols \
 按进程名聚类分析进程组行为。
 
 ```bash
-python3 scripts/spear.py cluster-comm \
+spear cluster-comm \
   --data <perf.script.txt> \
   [--top-n <N>]
 ```
@@ -412,7 +412,7 @@ python3 scripts/spear.py cluster-comm \
 检测进程风暴/短生命周期进程。
 
 ```bash
-python3 scripts/spear.py count-process-variety \
+spear count-process-variety \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--storm-pid-threshold <N>] \
@@ -447,7 +447,7 @@ python3 scripts/spear.py count-process-variety \
 ```bash
 spear trace init --data <perf.data>
 # 或
-python3 scripts/spear.py trace init --data <perf.data>
+spear trace init --data <perf.data>
 ```
 
 **作用**: 创建 `.spear.json` 用于诊断过程追踪

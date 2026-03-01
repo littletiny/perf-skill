@@ -150,11 +150,11 @@ perf record -a -g -- sleep [时长]
 perf script -F comm,pid,cpu,time,core,sym,dso > perf.script.fixed
 
 # 验证指标1是否恢复
-python3 scripts/spear.py [工具1] --data perf.script.fixed
+spear [工具1]
 # 预期: [预期结果]
 
 # 验证指标2是否恢复
-python3 scripts/spear.py [工具2] --data perf.script.fixed
+spear [工具2]
 # 预期: [预期结果]
 ```
 

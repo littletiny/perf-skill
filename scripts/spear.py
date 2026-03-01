@@ -77,10 +77,10 @@ def main():
   spear find-callers --data perf.data.txt --target pthread_mutex_lock
 
   # Detect anomalies in a time window
-  python spear.py detect-anomalies --data perf.data.txt --window-size 1.0
+  spear detect-anomalies --window-size 1.0
 
   # Analyze core distribution for load balancing issues
-  python spear.py analyze-core-distribution --data perf.data.txt --comm myapp
+  spear analyze-core-distribution --comm myapp
 
 Input Data Format:
   Supports two formats:

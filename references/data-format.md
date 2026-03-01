@@ -93,10 +93,10 @@ swapper     0 [001] 460661.461601:     250000 cpu-clock:ppp:
 
 ```bash
 # 指定采样频率 19Hz
-python scripts/spear.py show-cpu-usage --data perf.data --freq 19
+spear show-cpu-usage --data perf.data --freq 19
 
 # 如果 perf record 使用 -F 99 采样
-python scripts/spear.py show-cpu-usage --data perf.data --freq 99
+spear show-cpu-usage --data perf.data --freq 99
 ```
 
 ### CPU 利用率计算原理
@@ -133,10 +133,10 @@ CPU利用率% = (core/s / 采样时长) × 100%
 可以通过 `--freq` 参数覆盖默认频率：
 ```bash
 # 自动检测格式，原始格式使用 19Hz
-python scripts/spear.py show-cpu-usage --data perf.data
+spear show-cpu-usage --data perf.data
 
 # 明确指定 99Hz 采样频率
-python scripts/spear.py show-cpu-usage --data perf.data --freq 99
+spear show-cpu-usage --data perf.data --freq 99
 ```
 
 ---
