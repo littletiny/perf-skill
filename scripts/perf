@@ -1,0 +1,292 @@
+#!/bin/bash
+#
+# perf - perf-hunter 包装脚本
+#
+# 简化 perf-hunter 命令执行，通过 env 文件保存常用配置
+#
+# 用法:
+#   perf init --data-path <data_file> [--script-path <script_path>]
+#   perf <subcommand> [options...]
+#   perf status
+#
+
+set -e
+
+# 默认配置
+ENV_FILE=".perf_env"
+
+# 加载环境变量
+load_env() {
+    if [[ -f "$ENV_FILE" ]]; then
+        source "$ENV_FILE"
+    fi
+}
+
+# 保存环境变量
+save_env() {
+    local key="$1"
+    local value="$2"
+    
+    # 如果文件存在且包含该 key，先删除旧值
+    if [[ -f "$ENV_FILE" ]]; then
+        grep -v "^${key}=" "$ENV_FILE" > "$ENV_FILE.tmp" 2>/dev/null || true
+        mv "$ENV_FILE.tmp" "$ENV_FILE"
+    fi
+    
+    # 追加新值
+    echo "${key}=${value}" >> "$ENV_FILE"
+}
+
+# 获取脚本所在目录
+get_script_dir() {
+    cd "$(dirname "${BASH_SOURCE[0]}")" && pwd
+}
+
+# 获取默认脚本路径
+get_default_script_path() {
+    echo "$(get_script_dir)/perf_expert.py"
+}
+
+# 显示帮助
+show_help() {
+    cat << 'EOF'
+perf - perf-hunter 包装脚本
+
+用法:
+  perf init --data-path <path> [--script-path <path>]  初始化环境配置
+  perf status                                           显示当前配置
+  perf <subcommand> [options...]                        执行 perf-hunter 命令
+  perf --help                                           显示此帮助
+
+子命令:
+  check-cpu-bottleneck    检查资源限制和单核饱和
+  get-hotspots            识别热点函数
+  cluster-symbols         按专家规则聚类符号
+  find-callers            热点溯源，调用链分析
+  detect-anomalies        检测时序异常
+  show-cpu-usage          查看 CPU 利用率
+  get-process-top         进程 CPU 排行
+  get-comm-top            按进程组统计 CPU
+  cluster-comm            按进程名聚类
+  cluster-paths           按调用路径聚类
+  count-process-variety   检测进程风暴
+  analyze-core-distribution  核心级负载分布分析
+  doc                     Live document 管理
+
+环境配置:
+  配置保存在 .perf_env 文件中，可通过以下方式初始化:
+
+    perf init --data-path /path/to/perf.data.txt
+
+  可选参数:
+    --script-path <path>   指定 perf_expert.py 路径（默认自动检测）
+
+示例:
+  # 初始化（只需执行一次）
+  perf init --data-path ./perf.data.txt
+
+  # 后续命令自动使用配置的数据文件
+  perf get-hotspots --comm myapp --top-n 20
+  perf check-cpu-bottleneck --cpu-limit 0.5c
+  perf find-callers --target pthread_mutex_lock
+
+  # 临时覆盖数据文件
+  PERF_DATA=/other/data.txt perf get-hotspots
+
+EOF
+}
+
+# 显示状态
+show_status() {
+    echo "=== perf-hunter 环境配置 ==="
+    echo ""
+    echo "配置文件: $(pwd)/$ENV_FILE"
+    echo ""
+    
+    if [[ -f "$ENV_FILE" ]]; then
+        echo "当前配置:"
+        while IFS='=' read -r key value; do
+            # 截断过长的路径显示
+            if [[ "${#value}" -gt 60 ]]; then
+                display_value="...${value: -57}"
+            else
+                display_value="$value"
+            fi
+            printf "  %-20s = %s\n" "$key" "$display_value"
+        done < "$ENV_FILE"
+    else
+        echo "未初始化。请运行: perf init --data-path <path>"
+    fi
+    echo ""
+    echo "提示: 使用 PERF_DATA 环境变量可临时覆盖数据文件路径"
+}
+
+# init 命令
+cmd_init() {
+    local data_path=""
+    local script_path=""
+    
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --data-path)
+                data_path="$2"
+                shift 2
+                ;;
+            --script-path)
+                script_path="$2"
+                shift 2
+                ;;
+            *)
+                echo "Error: 未知选项 $1"
+                echo "Usage: perf init --data-path <path> [--script-path <path>]"
+                exit 1
+                ;;
+        esac
+    done
+    
+    # 验证数据路径
+    if [[ -z "$data_path" ]]; then
+        echo "Error: --data-path 是必需的"
+        echo "Usage: perf init --data-path <path> [--script-path <path>]"
+        exit 1
+    fi
+    
+    # 转换为绝对路径
+    if [[ ! "$data_path" = /* ]]; then
+        data_path="$(cd "$(dirname "$data_path")" && pwd)/$(basename "$data_path")"
+    fi
+    
+    if [[ ! -f "$data_path" ]]; then
+        echo "Warning: 数据文件不存在: $data_path"
+        read -p "是否继续? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    fi
+    
+    # 设置默认脚本路径
+    if [[ -z "$script_path" ]]; then
+        script_path=$(get_default_script_path)
+    fi
+    
+    # 转换为绝对路径
+    if [[ ! "$script_path" = /* ]]; then
+        script_path="$(cd "$(dirname "$script_path")" && pwd)/$(basename "$script_path")"
+    fi
+    
+    if [[ ! -f "$script_path" ]]; then
+        echo "Error: 脚本不存在: $script_path"
+        exit 1
+    fi
+    
+    # 保存配置
+    echo "# perf-hunter environment configuration" > "$ENV_FILE"
+    save_env "PERF_SCRIPT_PATH" "$script_path"
+    save_env "PERF_DATA_PATH" "$data_path"
+    
+    echo "✓ 初始化完成! 配置已保存到 $ENV_FILE"
+    echo ""
+    show_status
+}
+
+# 执行 perf-hunter 命令
+cmd_exec() {
+    local subcommand="$1"
+    shift
+    
+    # 确定脚本路径
+    local script_path="${PERF_SCRIPT_PATH:-$(get_default_script_path)}"
+    
+    # 确定数据路径（优先级: 环境变量 > 配置文件）
+    local data_path="${PERF_DATA:-$PERF_DATA_PATH}"
+    
+    if [[ -z "$data_path" ]]; then
+        echo "Error: 未配置数据文件路径"
+        echo ""
+        echo "请运行以下命令初始化:"
+        echo "  perf init --data-path <path_to_perf.data.txt>"
+        echo ""
+        echo "或使用环境变量临时指定:"
+        echo "  PERF_DATA=<path> perf $subcommand ..."
+        exit 1
+    fi
+    
+    # 检查脚本是否存在
+    if [[ ! -f "$script_path" ]]; then
+        echo "Error: 脚本不存在: $script_path"
+        echo "请检查 PERF_SCRIPT_PATH 配置或重新运行 perf init"
+        exit 1
+    fi
+    
+    # 构建命令
+    local cmd_args=()
+    
+    # doc 子命令特殊处理
+    if [[ "$subcommand" == "doc" ]]; then
+        local doc_subcommand="$1"
+        shift || true
+        
+        if [[ "$doc_subcommand" == "init" ]]; then
+            # doc init 需要 --data 参数
+            cmd_args+=("$subcommand" "$doc_subcommand" "--data" "$data_path")
+        elif [[ -n "$doc_subcommand" ]]; then
+            # 其他 doc 子命令不需要 --data
+            cmd_args+=("$subcommand" "$doc_subcommand")
+        else
+            cmd_args+=("$subcommand")
+        fi
+    else
+        # 普通子命令自动添加 --data
+        cmd_args+=("$subcommand" "--data" "$data_path")
+    fi
+    
+    # 添加其他参数
+    cmd_args+=("$@")
+    
+    # 执行
+    if [[ "${PERF_DEBUG:-}" == "1" ]]; then
+        echo "[DEBUG] Executing: python3 $script_path ${cmd_args[*]}"
+        echo "[DEBUG] PERF_SCRIPT_PATH=$script_path"
+        echo "[DEBUG] PERF_DATA_PATH=$data_path"
+        echo ""
+    fi
+    
+    python3 "$script_path" "${cmd_args[@]}"
+}
+
+# 主逻辑
+main() {
+    # 加载已有配置
+    load_env
+    
+    # 无参数时显示帮助
+    if [[ $# -eq 0 ]]; then
+        show_help
+        exit 0
+    fi
+    
+    local command="$1"
+    shift
+    
+    case "$command" in
+        -h|--help|help)
+            show_help
+            ;;
+        init)
+            cmd_init "$@"
+            ;;
+        status)
+            show_status
+            ;;
+        -v|--version|version)
+            cmd_exec --version 2>/dev/null || echo "perf-hunter wrapper"
+            ;;
+        *)
+            # 其他都当作子命令执行
+            cmd_exec "$command" "$@"
+            ;;
+    esac
+}
+
+main "$@"

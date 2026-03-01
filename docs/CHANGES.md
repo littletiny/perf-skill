@@ -4238,3 +4238,205 @@ python scripts/perf_expert.py show-cpu-usage \
 版本: v2.8
 
 ---
+
+---
+
+# SPEAR-perf-hunter v2.18 更新日志
+
+## 更新概览
+
+本次更新新增 `perf` 包装脚本，简化命令执行流程，解决每次执行都需要写完整脚本路径和数据路径的问题。
+
+**核心改进**:
+1. **新增 wrap 脚本**: `scripts/perf` - 支持 env 文件配置，自动注入 `--data` 参数
+2. **简化命令执行**: 初始化一次后，后续命令无需重复指定路径
+3. **环境变量支持**: 支持 `PERF_DATA` 临时覆盖数据路径
+
+---
+
+## 1. 问题背景
+
+### 1.1 原有痛点
+
+原命令执行需要写完整的脚本路径和数据路径：
+
+```bash
+# 每次都要写这么长的命令
+python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py \
+  get-hotspots --data /path/to/perf.data.txt --comm myapp
+
+# 换一个子命令，又要重复一遍
+python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py \
+  check-cpu-bottleneck --data /path/to/perf.data.txt --cpu-limit 0.5c
+```
+
+### 1.2 痛点分析
+
+| 问题 | 影响 |
+|------|------|
+| 路径过长 | 输入繁琐，容易出错 |
+| 重复数据路径 | 同一分析 session 中重复输入 |
+| 脚本路径难记 | 需要记住完整的 skill 路径 |
+
+---
+
+## 2. 解决方案：perf 包装脚本
+
+### 2.1 脚本位置
+
+```
+scripts/
+├── perf_expert.py    # 主脚本（不变）
+├── perf              # 新增：wrap 脚本
+└── perf_toolkit/
+```
+
+### 2.2 核心功能
+
+**1. init 初始化**: 配置脚本路径和数据路径，保存到 `.perf_env`
+
+```bash
+# 只需执行一次
+./scripts/perf init --data-path /path/to/perf.data.txt
+```
+
+**2. 简化执行**: 后续命令自动注入 `--data` 参数
+
+```bash
+# 初始化后，命令大幅简化
+./scripts/perf get-hotspots --comm myapp
+./scripts/perf check-cpu-bottleneck --cpu-limit 0.5c
+./scripts/perf find-callers --target pthread_mutex_lock
+```
+
+**3. 状态查看**: 显示当前配置
+
+```bash
+./scripts/perf status
+```
+
+**4. 环境变量覆盖**: 临时切换数据文件
+
+```bash
+PERF_DATA=/other/data.txt ./scripts/perf get-hotspots
+```
+
+### 2.3 支持的命令
+
+| 命令 | 用途 |
+|------|------|
+| `perf init` | 初始化环境配置 |
+| `perf status` | 显示当前配置 |
+| `perf <subcommand>` | 执行 perf-hunter 子命令 |
+| `perf --help` | 显示帮助信息 |
+
+### 2.4 env 文件格式
+
+```bash
+# .perf_env（自动创建）
+PERF_SCRIPT_PATH=/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py
+PERF_DATA_PATH=/path/to/perf.data.txt
+```
+
+---
+
+## 3. 使用示例
+
+### 3.1 完整工作流程
+
+```bash
+# 1. 进入分析目录
+cd /path/to/analysis
+
+# 2. 初始化（只需一次）
+/home/tiny/.config/agents/skills/perf-hunter/scripts/perf init \
+  --data-path ./perf.data.txt
+
+# 3. 后续分析命令大幅简化
+perf get-hotspots --comm myapp --top-n 20
+perf check-cpu-bottleneck --cpu-limit 0.5c
+perf find-callers --target pthread_mutex_lock
+perf cluster-symbols --comm myapp
+
+# 4. Live Document 也支持
+perf doc init
+perf doc add --id ISS-001 --desc "CPU 瓶颈"
+perf doc list
+```
+
+### 3.2 多数据文件场景
+
+```bash
+# 默认使用配置的 data 文件
+perf get-hotspots
+
+# 临时使用其他数据文件
+PERF_DATA=./other.data.txt perf get-hotspots
+```
+
+---
+
+## 4. 文件变更清单
+
+### 新增文件
+
+1. `scripts/perf` (7769 行)
+   - wrap 脚本实现
+   - 支持 init/status/exec 三种模式
+   - 自动加载 `.perf_env` 配置文件
+   - 智能处理 doc 子命令（init 需要 --data，其他不需要）
+
+### 修改文件
+
+1. `docs/CHANGES.md` (本文件)
+   - 添加 v2.18 更新日志
+
+---
+
+## 5. 验证测试
+
+```bash
+# 测试初始化
+cd /tmp
+rm -f .perf_env
+/path/to/perf-hunter/scripts/perf init --data-path ./test.data
+
+# 验证配置已保存
+cat .perf_env
+
+# 测试状态显示
+/path/to/perf-hunter/scripts/perf status
+
+# 测试命令执行（会提示数据文件不存在，但验证参数注入正确）
+/path/to/perf-hunter/scripts/perf get-hotspots 2>&1 | head -5
+```
+
+---
+
+## 6. 设计说明
+
+### 6.1 为什么选择 env 文件而非全局配置
+
+| 方案 | 优点 | 缺点 |
+|------|------|------|
+| env 文件（当前） | 每个分析目录独立配置 | 需要每个目录初始化一次 |
+| 全局配置 | 一次配置到处使用 | 多项目切换麻烦 |
+| 环境变量 | 灵活 | 需要手动设置，易丢失 |
+
+**选择 env 文件的原因**: perf-hunter 通常是按项目/按 case 使用，每个 case 的数据文件不同，本地配置更合适。
+
+### 6.2 为什么不直接修改 perf_expert.py
+
+- 保持主脚本简洁，专注于分析逻辑
+- wrap 脚本可作为独立工具，便于个性化定制
+- 向后兼容，不影响已有使用方式
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.18
+
+核心改进: 新增 perf 包装脚本，简化命令执行流程
+
+---

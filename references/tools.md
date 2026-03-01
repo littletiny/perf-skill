@@ -4,6 +4,38 @@
 
 ---
 
+## 快速使用
+
+### 方式 1: wrap 脚本（推荐）
+
+使用 `perf` wrap 脚本简化命令执行，自动注入 `--data` 参数：
+
+```bash
+# 1. 初始化（配置数据路径，只需一次）
+$SKILL_DIR/scripts/perf init --data-path <perf.data>
+
+# 2. 后续命令大幅简化
+perf get-hotspots --comm myapp
+perf check-cpu-bottleneck --cpu-limit 0.5c
+perf find-callers --target pthread_mutex_lock
+
+# 3. 查看当前配置
+perf status
+```
+
+**特点**:
+- 自动从 `.perf_env` 加载配置
+- 自动为子命令注入 `--data` 参数
+- 支持 `PERF_DATA` 环境变量临时覆盖
+
+### 方式 2: 直接调用
+
+```bash
+python3 $SKILL_DIR/scripts/perf_expert.py <subcommand> --data <perf.data> [options]
+```
+
+---
+
 ## 命令速查表
 
 | 工具 | 用途 | 典型场景 |

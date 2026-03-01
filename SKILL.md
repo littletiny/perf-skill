@@ -13,6 +13,23 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 
 ## ⚡ 三分钟开始
 
+### 快速初始化（推荐）
+
+```bash
+# 1. 使用 wrap 脚本初始化（自动配置路径）
+$SKILL_DIR/scripts/perf init --data-path <perf.data>
+
+# 2. 后续命令大幅简化（自动注入 --data）
+perf get-hotspots --comm myapp
+perf check-cpu-bottleneck
+perf find-callers --target pthread_mutex_lock
+
+# 3. 查看配置状态
+perf status
+```
+
+### 传统方式（备用）
+
 ```bash
 # 1. 创建诊断文档（强制执行）
 mkdir -p debug
@@ -28,6 +45,8 @@ python3 $SKILL_DIR/scripts/perf_expert.py doc init --data <perf.data>
 ```
 
 **环境变量**: `SKILL_DIR` = skill 根目录
+
+> 💡 **提示**: wrap 脚本 `perf` 会自动加载 `.perf_env` 配置，无需每次都写完整路径。详情见 `docs/CHANGES.md` v2.18。
 
 ---
 
