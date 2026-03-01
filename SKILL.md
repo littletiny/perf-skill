@@ -135,24 +135,24 @@ python3 $SKILL_DIR/scripts/perf_expert.py doc init --data <perf.data>
 | 文档 | 格式 | 用途 | 创建方式 |
 |------|------|------|---------|
 | **诊断报告** | `debug/*.md` | 主文档：问题演进、假设追踪、审计记录 | 手动基于 templates.md |
-| **状态追踪** | Live Document | 辅助：待办问题列表 | `doc init` 自动生成 |
+| **状态追踪** | Trace | 辅助：待办问题列表 | `trace init` 自动生成 |
 
 **关键规则**：
-1. `Live Document` **不能替代** `debug/*.md`
+1. `Trace` **不能替代** `debug/*.md`
 2. 所有证据、推理、结论必须写入 `debug/*.md`
-3. `doc add/complete` 只是状态标记，分析内容要在 markdown 中详细记录
+3. `trace add/complete` 只是状态标记，分析内容要在 markdown 中详细记录
 
 ### 强制审计流程
 
 ```bash
 # 发现问题时记录
-spearert.py doc add --id ISS-001 --desc "高内核态" --hint "cluster-symbols"
+spear trace add --desc "高内核态" --hint "cluster-symbols"
 
 # 每 2-3 个spearert工具后审计
-spearert.py doc list
+spear trace issues
 
 # 生成报告前最终审计
-spearert.py doc finalize
+spear trace finalize
 ```
 
 ---
