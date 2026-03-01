@@ -11,19 +11,19 @@
 ```bash
 # Step 1: 重置环境，创建有 pending 的状态
 rm -f .perf-doc.json
-python ../../scripts/perf_expert.py doc init --data test.data
+python ../../scripts/spear.py doc init --data test.data
 
 # 添加并部分完成
-python ../../scripts/perf_expert.py doc add --id ISS-001 --desc "问题A" --risk "高"
-python ../../scripts/perf_expert.py doc add --id ISS-002 --desc "问题B" --risk "中"
-python ../../scripts/perf_expert.py doc complete --id ISS-001 --result "已解决"
+python ../../scripts/spear.py doc add --id ISS-001 --desc "问题A" --risk "高"
+python ../../scripts/spear.py doc add --id ISS-002 --desc "问题B" --risk "中"
+python ../../scripts/spear.py doc complete --id ISS-001 --result "已解决"
 
 # Step 2: 尝试 finalize（会被阻止）
-python ../../scripts/perf_expert.py doc finalize
+python ../../scripts/spear.py doc finalize
 
 # Step 3: 使用 --accept-risk 强制通过
 echo "问题B影响范围小，可接受风险" > /tmp/risk_reason.txt
-python ../../scripts/perf_expert.py doc finalize --accept-risk "问题B影响范围小，可接受风险"
+python ../../scripts/spear.py doc finalize --accept-risk "问题B影响范围小，可接受风险"
 ```
 
 ## 预期结果

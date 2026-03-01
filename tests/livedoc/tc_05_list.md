@@ -10,16 +10,16 @@
 
 ```bash
 # Step 1: 列出所有问题
-python ../../scripts/perf_expert.py doc list --status all
+python ../../scripts/spear.py doc list --status all
 
 # Step 2: 只列出 pending
-python ../../scripts/perf_expert.py doc list --status pending
+python ../../scripts/spear.py doc list --status pending
 
 # Step 3: 只列出 completed
-python ../../scripts/perf_expert.py doc list --status completed
+python ../../scripts/spear.py doc list --status completed
 
 # Step 4: JSON 格式输出
-python ../../scripts/perf_expert.py doc list --format json
+python ../../scripts/spear.py doc list --format json
 ```
 
 ## 预期结果

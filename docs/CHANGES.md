@@ -90,7 +90,7 @@
 **示例改写**:
 ```yaml
 # 验证负载分布是否符合预期
-python3 scripts/perf_expert.py analyze-core-distribution \
+python3 scripts/spear.py analyze-core-distribution \
   --pid 2573405 \
   --expected-balance "uniform"
 
@@ -450,7 +450,7 @@ Phase 5: 收敛结论（证伪 N-1 条后才确认）
 **用途**: 解决"单核饱和 + 负载不均衡"场景的工具缺失问题
 
 ```bash
-python3 scripts/perf_expert.py analyze-core-distribution \
+python3 scripts/spear.py analyze-core-distribution \
   --pid 2573405 \
   --show-sleep-reasons
 ```
@@ -593,13 +593,13 @@ if re.search(pattern_str, sym):
 ### 使用方式
 ```bash
 # 方式 1: 字符串格式 (正则表达式)
-python3 scripts/perf_expert.py cluster-symbols \
+python3 scripts/spear.py cluster-symbols \
   --data perf.script \
   --pid 2573405 \
   --custom-rules '{"SCHEDULING": "schedule|nanosleep"}'
 
 # 方式 2: 列表格式 (自动转换)
-python3 scripts/perf_expert.py cluster-symbols \
+python3 scripts/spear.py cluster-symbols \
   --data perf.script \
   --pid 2573405 \
   --custom-rules '{"SCHEDULING": ["schedule", "nanosleep"]}'
@@ -622,7 +622,7 @@ python3 scripts/perf_expert.py cluster-symbols \
 
 ### 使用方法
 ```bash
-python3 scripts/perf_expert.py analyze-core-distribution \
+python3 scripts/spear.py analyze-core-distribution \
   --data perf.script \
   --pid 2573405
 ```
@@ -739,7 +739,7 @@ check-cpu-bottleneck → analyze-core-distribution → find-callers --target <�
 1. `scripts/perf_toolkit/analysis/clusters.py`
    - 修复 `--custom-rules` 列表格式支持
 
-2. `scripts/perf_expert.py`
+2. `scripts/spear.py`
    - 导入 `cmd_analyze_core_distribution`
    - 添加 `analyze-core-distribution` 子命令
    - 添加命令映射
@@ -767,7 +767,7 @@ check-cpu-bottleneck → analyze-core-distribution → find-callers --target <�
 
 ### cluster-symbols 修复验证
 ```bash
-python3 scripts/perf_expert.py cluster-symbols \
+python3 scripts/spear.py cluster-symbols \
   --data perf.script \
   --pid 2573405 \
   --custom-rules '{"SCHEDULING": ["schedule", "nanosleep"]}'
@@ -776,7 +776,7 @@ python3 scripts/perf_expert.py cluster-symbols \
 
 ### analyze-core-distribution 功能验证
 ```bash
-python3 scripts/perf_expert.py analyze-core-distribution \
+python3 scripts/spear.py analyze-core-distribution \
   --data perf.script \
   --pid 2573405
 # 正确识别 SINGLE_CORE_SATURATION 和 WIDE_DISTRIBUTION_LOW_UTIL 模式
@@ -848,18 +848,18 @@ python3 scripts/perf_expert.py analyze-core-distribution \
 ### 使用方法
 ```bash
 # 基本使用
-python3 scripts/perf_expert.py get-comm-top --data perf.script
+python3 scripts/spear.py get-comm-top --data perf.script
 
 # 按密度指数排序（找过度分片最严重的）
-python3 scripts/perf_expert.py get-comm-top --data perf.script --sort-by-density
+python3 scripts/spear.py get-comm-top --data perf.script --sort-by-density
 
 # 过滤特定进程名
-python3 scripts/perf_expert.py get-comm-top --data perf.script --comm worker
+python3 scripts/spear.py get-comm-top --data perf.script --comm worker
 ```
 
 ### 文件变更
 1. `scripts/perf_toolkit/analysis/comm_top.py` - 新工具实现
-2. `scripts/perf_expert.py` - 添加子命令和参数解析
+2. `scripts/spear.py` - 添加子命令和参数解析
 3. `references/tools.md` - 添加工具说明和使用模式
 
 ---
@@ -959,7 +959,7 @@ python3 scripts/perf_expert.py get-comm-top --data perf.script --comm worker
 - `--storm-ratio-threshold`: 解释 samples_per_pid 比率的意义，低值表示短生命周期
 
 ### 文件变更
-- `scripts/perf_expert.py`:
+- `scripts/spear.py`:
   - 更新主 parser 的 epilog
   - 更新 6 个子命令的参数 help 文本
   - 为复杂参数添加 metaclass 以改善显示
@@ -977,14 +977,14 @@ cat AGENTS.md
 ### CLI 帮助验证
 ```bash
 # 主命令帮助包含示例
-python scripts/perf_expert.py --help
+python scripts/spear.py --help
 
 # 各子命令参数有详细说明
-python scripts/perf_expert.py check-cpu-bottleneck --help
-python scripts/perf_expert.py cluster-symbols --help
-python scripts/perf_expert.py find-callers --help
-python scripts/perf_expert.py detect-anomalies --help
-python scripts/perf_expert.py count-process-variety --help
+python scripts/spear.py check-cpu-bottleneck --help
+python scripts/spear.py cluster-symbols --help
+python scripts/spear.py find-callers --help
+python scripts/spear.py detect-anomalies --help
+python scripts/spear.py count-process-variety --help
 ```
 
 ---
@@ -1269,7 +1269,7 @@ Agent 在使用 `find-callers` 分析特定进程时遗漏 `--pid` 参数，导�
 #### 1.1 SKILL.md 改进
 
 **新增快速开始章节**:
-- 提供完整工具路径：`/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py`
+- 提供完整工具路径：`/home/tiny/.config/agents/skills/perf-hunter/scripts/spear.py`
 - 明确使用示例
 
 **更新关键检查点表格**:
@@ -2000,7 +2000,7 @@ def format_time_range(start_ts, end_ts):
 本次更新实现 Live Document（perf-doc）CLI 工具，用于跟踪诊断过程中的问题记录：
 
 1. **新增 perf-doc 工具**: 6 个核心命令（init/add/complete/list/finalize/export）
-2. **集成到 perf_expert.py**: 通过 `perf_expert.py doc <command>` 调用
+2. **集成到 spear.py**: 通过 `spear.py doc <command>` 调用
 3. **问题追踪流程**: 完整的问题生命周期管理
 
 ---
@@ -2062,7 +2062,7 @@ def format_time_range(start_ts, end_ts):
    - `export_markdown()`: 导出 Markdown 报告
 
 ### 修改文件
-1. `scripts/perf_expert.py`
+1. `scripts/spear.py`
    - 导入 live_doc 命令
    - 添加 `doc` 子命令及 6 个子命令解析
    - 添加命令路由
@@ -2076,31 +2076,31 @@ def format_time_range(start_ts, end_ts):
 
 ```bash
 # 1. 初始化文档
-perf-expert.py doc init --data netstat_perf.data
+spear doc init --data netstat_perf.data
 
 # 2. 发现问题并记录
-perf-expert.py get-comm-top --data netstat_perf.data
+spear get-comm-top --data netstat_perf.data
 # 发现: 4 个高内核态进程组
 
-perf-expert.py doc add --id ISS-001 \
+spear doc add --id ISS-001 \
   --desc "netstat 高内核态 94.7%" \
   --risk "进程风暴" \
   --hint "cluster-symbols --comm netstat"
 
 # 3. 分析问题并记录结果
-perf-expert.py cluster-symbols --comm netstat --data netstat_perf.data
-perf-expert.py doc complete --id ISS-001 \
+spear cluster-symbols --comm netstat --data netstat_perf.data
+spear doc complete --id ISS-001 \
   --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
 
 # 4. 检查待办
-perf-expert.py doc list
+spear doc list
 
 # 5. 最终审计
-perf-expert.py doc finalize
+spear doc finalize
 # 输出: ✅ 所有问题已处理
 
 # 6. 导出报告
-perf-expert.py doc export --format markdown --output report.md
+spear doc export --format markdown --output report.md
 ```
 
 ---
@@ -2113,23 +2113,23 @@ cd /tmp
 rm -f .perf-doc.json
 
 # 初始化
-python /path/to/perf_expert.py doc init --data test.data
+python /path/to/spear.py doc init --data test.data
 
 # 添加问题
-python /path/to/perf_expert.py doc add --id ISS-001 \
+python /path/to/spear.py doc add --id ISS-001 \
   --desc "测试问题" --risk "高风险" --hint "执行分析"
 
 # 列出问题
-python /path/to/perf_expert.py doc list
+python /path/to/spear.py doc list
 
 # 完成问题
-python /path/to/perf_expert.py doc complete --id ISS-001 --result "已解决"
+python /path/to/spear.py doc complete --id ISS-001 --result "已解决"
 
 # 最终审计
-python /path/to/perf_expert.py doc finalize
+python /path/to/spear.py doc finalize
 
 # 导出报告
-python /path/to/perf_expert.py doc export --format markdown
+python /path/to/spear.py doc export --format markdown
 ```
 
 ---
@@ -2208,7 +2208,7 @@ get-comm-top 发现 4 个高内核态进程组:
 > ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Live Document
 >
 > 1. 使用 `templates.md` 模板创建 `debug/[问题描述].md`
-> 2. **执行 `perf-expert.py doc init --data <perf-data>` 初始化 Live Document**
+> 2. **执行 `spear doc init --data <perf-data>` 初始化 Live Document**
 ```
 
 **新增**: 1.5 节 "记录待验证问题"
@@ -2928,7 +2928,7 @@ SKILL.md
 
 ```bash
 # 任何返回 action_required=true 的 tool 输出，必须执行：
-perf-expert.py doc add --id <ISS-XXX> --desc "<_risk.message>" \
+spear doc add --id <ISS-XXX> --desc "<_risk.message>" \
   --risk "<_risk.level>" --hint "<_risk.hint>"
 ```
 
@@ -3812,7 +3812,7 @@ CoreDistributionOutput
 - `scripts/perf_toolkit/analysis/callgraph.py`
 
 **修改的文件**:
-- `scripts/perf_expert.py`: 移除导入、子命令解析、命令路由
+- `scripts/spear.py`: 移除导入、子命令解析、命令路由
 - `AGENTS.md`: 更新子命令清单，添加"已移除的子命令"表格
 
 ### 2.3 替代方案
@@ -3884,7 +3884,7 @@ V2 系统的 JSON 输出与 V1 **完全兼容**，工具使用方无需修改：
 11. `scripts/perf_toolkit/analysis/core_distribution.py`
     - 迁移到 V2: `CoreItem`, `CoreDistributionSummary`, `CoreDistributionOutput`
 
-12. `scripts/perf_expert.py`
+12. `scripts/spear.py`
     - 移除 flamegraph/callgraph 导入
     - 移除 generate-flamegraph/generate-callgraph 子命令
     - 移除命令路由
@@ -3906,7 +3906,7 @@ V2 系统的 JSON 输出与 V1 **完全兼容**，工具使用方无需修改：
 - [x] JSON 输出格式与 V1 完全兼容
 - [x] flamegraph.py 已删除
 - [x] callgraph.py 已删除
-- [x] perf_expert.py 中相关导入和命令已移除
+- [x] spear.py 中相关导入和命令已移除
 - [x] AGENTS.md 子命令清单已更新
 - [x] 输出模型类型注册表完整
 
@@ -4158,19 +4158,19 @@ parser.add_argument("--freq", type=int, default=19, metavar="HZ",
 ### 3.1 SPEAR 格式（有 core/s）
 ```bash
 # 自动检测格式，core/s 字段优先
-python scripts/perf_expert.py show-cpu-usage --data perf.data
+python scripts/spear.py show-cpu-usage --data perf.data
 
 # --freq 参数会被忽略（因为数据已有 core/s）
-python scripts/perf_expert.py show-cpu-usage --data perf.data --freq 99
+python scripts/spear.py show-cpu-usage --data perf.data --freq 99
 ```
 
 ### 3.2 原始 perf 格式（无 core/s）
 ```bash
 # 使用默认 19Hz 频率
-python scripts/perf_expert.py show-cpu-usage --data perf.data
+python scripts/spear.py show-cpu-usage --data perf.data
 
 # 如果 perf record 使用 -F 99 采样，必须指定频率
-python scripts/perf_expert.py show-cpu-usage --data perf.data --freq 99
+python scripts/spear.py show-cpu-usage --data perf.data --freq 99
 ```
 
 ---
@@ -4185,7 +4185,7 @@ python scripts/perf_expert.py show-cpu-usage --data perf.data --freq 99
    - `has_core_per_sec_data()`: 新增格式检测方法
    - `_load_and_parse_perf_script()`: 自动检测 core/s 字段
 
-2. `scripts/perf_expert.py`:
+2. `scripts/spear.py`:
    - 主命令 epilog 更新：说明两种格式支持
    - 为 12 个子命令添加 `--freq` 参数
    - 引擎初始化时传入 `freq` 参数
@@ -4205,14 +4205,14 @@ python scripts/perf_expert.py show-cpu-usage --data perf.data --freq 99
 
 ### 5.1 SPEAR 格式测试
 ```bash
-python scripts/perf_expert.py show-cpu-usage \
+python scripts/spear.py show-cpu-usage \
   --data tests/perfdata/new_format/case_test.data
 # 输出正确的 CPU 利用率（使用 core/s 字段）
 ```
 
 ### 5.2 原始 perf 格式测试
 ```bash
-python scripts/perf_expert.py show-cpu-usage \
+python scripts/spear.py show-cpu-usage \
   --data tests/perfdata/perf_format/case_test.data \
   --freq 19
 # 输出正确的 CPU 利用率（使用 samples/freq/duration 计算）
@@ -4221,12 +4221,12 @@ python scripts/perf_expert.py show-cpu-usage \
 ### 5.3 格式自动检测验证
 ```bash
 # SPEAR 格式（自动检测，忽略 --freq）
-python scripts/perf_expert.py show-cpu-usage \
+python scripts/spear.py show-cpu-usage \
   --data tests/perfdata/new_format/case_test.data \
   --freq 999  # 被忽略
 
 # 原始格式（使用指定 --freq）
-python scripts/perf_expert.py show-cpu-usage \
+python scripts/spear.py show-cpu-usage \
   --data tests/perfdata/perf_format/case_test.data \
   --freq 99   # 生效
 ```
@@ -4262,11 +4262,11 @@ python scripts/perf_expert.py show-cpu-usage \
 
 ```bash
 # 每次都要写这么长的命令
-python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py \
+python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/spear.py \
   get-hotspots --data /path/to/perf.data.txt --comm myapp
 
 # 换一个子命令，又要重复一遍
-python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py \
+python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/spear.py \
   check-cpu-bottleneck --data /path/to/perf.data.txt --cpu-limit 0.5c
 ```
 
@@ -4286,7 +4286,7 @@ python3 /home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py \
 
 ```
 scripts/
-├── perf_expert.py    # 主脚本（不变）
+├── spear.py    # 主脚本（不变）
 ├── perf              # 新增：wrap 脚本
 └── perf_toolkit/
 ```
@@ -4334,7 +4334,7 @@ PERF_DATA=/other/data.txt ./scripts/perf get-hotspots
 
 ```bash
 # .perf_env（自动创建）
-PERF_SCRIPT_PATH=/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py
+PERF_SCRIPT_PATH=/home/tiny/.config/agents/skills/perf-hunter/scripts/spear.py
 PERF_DATA_PATH=/path/to/perf.data.txt
 ```
 
@@ -4425,7 +4425,7 @@ cat .perf_env
 
 **选择 env 文件的原因**: perf-hunter 通常是按项目/按 case 使用，每个 case 的数据文件不同，本地配置更合适。
 
-### 6.2 为什么不直接修改 perf_expert.py
+### 6.2 为什么不直接修改 spear.py
 
 - 保持主脚本简洁，专注于分析逻辑
 - wrap 脚本可作为独立工具，便于个性化定制

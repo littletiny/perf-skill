@@ -150,10 +150,10 @@ def get_filtered_samples(..., comm=None, comm_regex=None):
 **使用示例**：
 ```bash
 # 分析所有 nginx 进程的总消耗
-python3 scripts/perf_expert.py cluster-comm --data perf.txt
+python3 scripts/spear.py cluster-comm --data perf.txt
 
 # 分析多个相关进程
-python3 scripts/perf_expert.py show-cpu-usage --comm nginx,php-fpm
+python3 scripts/spear.py show-cpu-usage --comm nginx,php-fpm
 ```
 
 ---

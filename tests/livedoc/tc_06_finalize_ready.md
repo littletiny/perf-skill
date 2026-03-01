@@ -10,15 +10,15 @@
 
 ```bash
 # Step 1: 先完成最后一个问题
-python ../../scripts/perf_expert.py doc complete \
+python ../../scripts/spear.py doc complete \
   --id ISS-003 \
   --result "NORMAL: 非关键路径，优先级低"
 
 # Step 2: 确认状态
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 
 # Step 3: 最终审计
-python ../../scripts/perf_expert.py doc finalize
+python ../../scripts/spear.py doc finalize
 ```
 
 ## 预期结果

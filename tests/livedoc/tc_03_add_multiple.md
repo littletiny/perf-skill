@@ -11,31 +11,31 @@
 ```bash
 # Step 1: 初始化
 rm -f .perf-doc.json
-python ../../scripts/perf_expert.py doc init --data netstat_perf.data
+python ../../scripts/spear.py doc init --data netstat_perf.data
 
 # Step 2: 添加 netstat 问题
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-001 \
   --desc "netstat 高内核态 94.7%" \
   --risk "进程风暴，2623 PIDs" \
   --hint "cluster-symbols --comm netstat"
 
 # Step 3: 添加 containerd-shim 问题（容易被遗漏的关键问题）
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-002 \
   --desc "containerd-shim 高内核态 89.9%" \
   --risk "锁竞争可能比 netstat 更严重，单进程影响大" \
   --hint "cluster-symbols --comm containerd-shim"
 
 # Step 4: 添加 sh 问题
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-003 \
   --desc "sh 高内核态 86.8%" \
   --risk "未知" \
   --hint "cluster-symbols --comm sh"
 
 # Step 5: 查看列表
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 ```
 
 ## 预期结果

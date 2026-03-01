@@ -10,17 +10,17 @@
 
 ```bash
 # Step 1: 确保文档已初始化
-python ../../scripts/perf_expert.py doc init --data perf.data.txt
+python ../../scripts/spear.py doc init --data perf.data.txt
 
 # Step 2: 添加单个问题
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-001 \
   --desc "netstat 高内核态 94.7%" \
   --risk "可能比表面看起来更严重" \
   --hint "cluster-symbols --comm netstat"
 
 # Step 3: 验证内容
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 ```
 
 ## 预期结果

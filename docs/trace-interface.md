@@ -374,7 +374,7 @@ spear trace export --format markdown --output report.md
 
 ---
 
-## 4. 集成到 perf-expert.py
+## 4. 集成到 spear
 
 ### 4.1 自动记录机制
 
@@ -401,12 +401,12 @@ def cmd_get_hotspots(engine, args):
 ### 4.2 集成命令
 
 ```bash
-# 通过 perf-expert.py 调用
-perf-expert.py doc init --data <file>
-perf-expert.py doc add --id <id> --desc <desc>
-perf-expert.py doc complete --id <id> --result <result>
-perf-expert.py doc list
-perf-expert.py doc finalize
+# 通过 spear 调用
+spear doc init --data <file>
+spear doc add --id <id> --desc <desc>
+spear doc complete --id <id> --result <result>
+spear doc list
+spear doc finalize
 ```
 
 ---
@@ -420,10 +420,10 @@ perf-expert.py doc finalize
 spear trace init --data netstat_perf.data
 
 # 2. 宏观评估，发现问题
-perf-expert.py show-cpu-usage --data netstat_perf.data
+spear show-cpu-usage --data netstat_perf.data
 # 输出: kernel 51.5% 异常
 
-perf-expert.py get-comm-top --data netstat_perf.data
+spear get-comm-top --data netstat_perf.data
 # 输出: 4 个高内核态进程
 
 # 3. 记录所有问题
@@ -439,10 +439,10 @@ spear trace list
 # 输出: 3 pending
 
 # 5. 并行处理问题
-perf-expert.py cluster-symbols --comm netstat --data netstat_perf.data
+spear cluster-symbols --comm netstat --data netstat_perf.data
 spear trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
-perf-expert.py cluster-symbols --comm containerd-shim --data netstat_perf.data
+spear cluster-symbols --comm containerd-shim --data netstat_perf.data
 spear trace complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
 
 # 6. 评估 sh 的重要性

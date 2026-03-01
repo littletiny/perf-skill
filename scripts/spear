@@ -80,7 +80,7 @@ spear - perf-hunter 包装脚本
     spear init --data-path /path/to/perf.data.txt
 
   可选参数:
-    --script-path <path>   指定 perf_expert.py 路径（默认自动检测）
+    --script-path <path>   指定 spear.py 路径（默认自动检测）
     --freq <hz>            采样频率（用于原始 perf 格式，默认 19Hz）
 
 示例:

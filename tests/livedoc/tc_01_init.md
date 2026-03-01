@@ -13,7 +13,7 @@
 rm -f .perf-doc.json
 
 # Step 2: 初始化文档
-python ../../scripts/perf_expert.py doc init --data ./perf.data.txt
+python ../../scripts/spear.py doc init --data ./perf.data.txt
 
 # Step 3: 验证文件创建
 ls -la .perf-doc.json

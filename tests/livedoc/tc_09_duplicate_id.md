@@ -11,14 +11,14 @@
 ```bash
 # Step 1: 初始化并添加一个问题
 rm -f .perf-doc.json
-python ../../scripts/perf_expert.py doc init --data test.data
-python ../../scripts/perf_expert.py doc add --id ISS-001 --desc "第一个问题"
+python ../../scripts/spear.py doc init --data test.data
+python ../../scripts/spear.py doc add --id ISS-001 --desc "第一个问题"
 
 # Step 2: 尝试添加相同 ID（应该失败）
-python ../../scripts/perf_expert.py doc add --id ISS-001 --desc "重复的问题"
+python ../../scripts/spear.py doc add --id ISS-001 --desc "重复的问题"
 
 # Step 3: 验证只有一个问题
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 ```
 
 ## 预期结果

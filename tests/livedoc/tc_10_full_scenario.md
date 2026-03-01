@@ -19,33 +19,33 @@
 # ===== Phase 1: 初始化 =====
 echo "=== Phase 1: 初始化文档 ==="
 rm -f .perf-doc.json
-python ../../scripts/perf_expert.py doc init --data netstat_perf.data
+python ../../scripts/spear.py doc init --data netstat_perf.data
 
 # ===== Phase 2: 信息收集，记录所有发现的问题 =====
 echo ""
 echo "=== Phase 2: 记录发现的所有问题 ==="
 
 # 从 get-comm-top 输出发现 4 个高内核态进程
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-001 \
   --desc "netstat: 2623 PIDs, 243.87% CPU, 94.7% kernel" \
   --risk "进程风暴，高内核态可能暗示系统调用瓶颈" \
   --hint "cluster-symbols --comm netstat"
 
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-002 \
   --desc "python3: 826 PIDs, 207.17% CPU, 35.2% kernel" \
   --risk "大量Python进程，可能是worker pool过度扩容" \
   --hint "cluster-symbols --comm python3"
 
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-003 \
   --desc "dbatman: 311 PIDs, 147.94% CPU, 26.4% kernel" \
   --risk "中等风险，需要评估是否为预期行为" \
   --hint "cluster-symbols --comm dbatman"
 
 # 关键：记录容易被遗漏的 containerd-shim
-python ../../scripts/perf_expert.py doc add \
+python ../../scripts/spear.py doc add \
   --id ISS-004 \
   --desc "containerd-shim: 240 PIDs, 96.01% CPU, 89.9% kernel" \
   --risk "⚠️ 高内核态比例(89.9%)，可能比netstat更严重，单进程影响大" \
@@ -54,46 +54,46 @@ python ../../scripts/perf_expert.py doc add \
 # 查看待办清单
 echo ""
 echo "=== 当前待办状态 ==="
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 
 # ===== Phase 3: 并行分析（模拟） =====
 echo ""
 echo "=== Phase 3: 分析问题（模拟工具输出） ==="
 
 # 分析 netstat
-python ../../scripts/perf_expert.py doc complete \
+python ../../scripts/spear.py doc complete \
   --id ISS-001 \
   --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 锁竞争是主因"
 
 echo ""
 echo "=== 分析完 netstat 后的状态 ==="
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 # ^^^ 关键点：这里应该明确提示还有 3 个 pending 问题！
 
 # 分析 containerd-shim（被发现是关键问题）
-python ../../scripts/perf_expert.py doc complete \
+python ../../scripts/spear.py doc complete \
   --id ISS-004 \
   --result "LOCK_CONTENTION 79.84% !!! 单进程锁竞争是netstat的2倍"
 
 # 分析 python3
-python ../../scripts/perf_expert.py doc complete \
+python ../../scripts/spear.py doc complete \
   --id ISS-002 \
   --result "NORMAL: CPU主要在用户态，符合预期"
 
 # 分析 dbatman
-python ../../scripts/perf_expert.py doc complete \
+python ../../scripts/spear.py doc complete \
   --id ISS-003 \
   --result "LOW_PRIORITY: 可延后处理"
 
 # ===== Phase 4: 最终审计 =====
 echo ""
 echo "=== Phase 4: 最终审计 ==="
-python ../../scripts/perf_expert.py doc finalize
+python ../../scripts/spear.py doc finalize
 
 # ===== Phase 5: 生成报告 =====
 echo ""
 echo "=== Phase 5: 生成诊断报告 ==="
-python ../../scripts/perf_expert.py doc export --format markdown --output diagnosis_report.md
+python ../../scripts/spear.py doc export --format markdown --output diagnosis_report.md
 cat diagnosis_report.md
 ```
 

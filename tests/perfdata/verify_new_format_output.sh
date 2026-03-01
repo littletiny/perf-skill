@@ -39,7 +39,7 @@ OPTIONS:
     -o, --output FILE       指定输出文件路径 (默认: output.txt)
 
 DESCRIPTION:
-    本脚本测试 perf_expert.py 的各项功能，包括：
+    本脚本测试 spear.py 的各项功能，包括：
     - check-cpu-bottleneck: 检查 CPU 瓶颈
     - get-hotspots: 获取热点函数
     - cluster-symbols: 聚类符号

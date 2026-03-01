@@ -10,14 +10,14 @@
 
 ```bash
 # Step 1: 导出 Markdown 到 stdout
-python ../../scripts/perf_expert.py doc export --format markdown
+python ../../scripts/spear.py doc export --format markdown
 
 # Step 2: 导出到文件
-python ../../scripts/perf_expert.py doc export --format markdown --output report.md
+python ../../scripts/spear.py doc export --format markdown --output report.md
 cat report.md
 
 # Step 3: 导出 JSON
-python ../../scripts/perf_expert.py doc export --format json --output report.json
+python ../../scripts/spear.py doc export --format json --output report.json
 cat report.json
 ```
 

@@ -10,20 +10,20 @@
 
 ```bash
 # Step 1: 确认当前状态
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 
 # Step 2: 标记 ISS-001 完成
-python ../../scripts/perf_expert.py doc complete \
+python ../../scripts/spear.py doc complete \
   --id ISS-001 \
   --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
 
 # Step 3: 标记 ISS-002 完成（关键：发现比 netstat 更严重！）
-python ../../scripts/perf_expert.py doc complete \
+python ../../scripts/spear.py doc complete \
   --id ISS-002 \
   --result "LOCK_CONTENTION 79.84%, 单进程锁竞争远超 netstat"
 
 # Step 4: 查看列表
-python ../../scripts/perf_expert.py doc list
+python ../../scripts/spear.py doc list
 ```
 
 ## 预期结果

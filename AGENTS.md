@@ -36,7 +36,7 @@ perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-drive
 │   ├── data-format.md     # 数据格式说明（perf script解析）
 │   └── EVOLUTION.md       # 项目演进历史
 ├── scripts/
-│   ├── perf_expert.py     # 主入口脚本 - 包含所有子命令的 CLI
+│   ├── spear.py           # 主入口脚本 - 包含所有子命令的 CLI
 │   ├── parse_test2.py     # 测试脚本
 │   └── perf_toolkit/      # 核心工具包 (Python 包)
 │       ├── __init__.py
