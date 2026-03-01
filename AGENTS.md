@@ -49,6 +49,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 │   ├── design-rationale-trace-v2.md  # Trace v2.0 演进设计 - 从手动记录到全自动 Tracing
 │   ├── output-format-spec.md         # 工具输出格式规范 - 统一 JSON 标准（_risk、时间格式等）
 │   ├── output-system.md              # Output System 快速参考 - 统一数据结构与代码复用
+│   ├── risk-display-customization.md # Risk 消息展示自定义设计 - 可配置的 risk 输出格式与样式
 │   └── trace-interface.md            # Trace 接口设计 - CLI 接口与技术规格
 ├── references/            # 参考资料
 │   ├── workflow.md        # 分析流程指南（7个Phase）

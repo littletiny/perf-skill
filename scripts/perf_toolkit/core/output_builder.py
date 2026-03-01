@@ -329,6 +329,138 @@ class OutputBuilder:
     # 输出方法
     # =====================================================================
     
+    def print_issue_overflow_warning(self):
+        """
+        检查 pending issues 并输出 overflow warning
+        
+        触发条件: open_issues >= 2
+        输出格式: [!] {总数}问题未闭环: {分类统计} | {警告文案} | 现在执行: trace issues
+        """
+        try:
+            # 如果没有 trace 实例，创建一个临时的
+            trace = self._trace if self._trace else Trace()
+            open_issues = trace.get_open_issues()
+            
+            if len(open_issues) < 2:
+                return
+            
+            # 分类统计
+            categories = self._categorize_issues(open_issues)
+            category_str = ", ".join([f"{cat}x{count}" for cat, count in categories.items()]) if categories else "未知类型"
+            
+            # 固定警告文案
+            warning = "⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状"
+            
+            # 输出
+            print(f"[!] {len(open_issues)}问题未闭环: {category_str} | {warning} | 现在执行: trace issues")
+            print()  # 空行分割
+        except Exception:
+            # 提示失败不应影响主流程
+            pass
+    
+    def _categorize_issues(self, issues: List[Dict]) -> Dict[str, int]:
+        """
+        对 issues 进行分类统计
+        
+        分类规则:
+        - 内核异常: desc 包含 "内核" 或 "kernel"
+        - 锁竞争: desc 包含 "锁竞争" 或 "LOCK_CONTENTION"
+        - 进程风暴: desc 包含 "进程风暴" 或 "PROCESS_STORM"
+        """
+        categories = {
+            "内核异常": 0,
+            "锁竞争": 0,
+            "进程风暴": 0,
+        }
+        
+        for issue in issues:
+            desc = issue.get('desc', '').lower()
+            
+            if '内核' in desc or 'kernel' in desc:
+                categories["内核异常"] += 1
+            elif '锁竞争' in desc or 'lock_contention' in desc:
+                categories["锁竞争"] += 1
+            elif '进程风暴' in desc or 'process_storm' in desc:
+                categories["进程风暴"] += 1
+        
+        # 过滤掉计数为 0 的分类
+        return {k: v for k, v in categories.items() if v > 0}
+
+    def _auto_record_risk_from_output(self, output: BaseOutput):
+        """
+        自动从 output 中提取 risk 信息并记录到 Trace
+        
+        支持两种 risk 格式:
+        - output.risk: RiskInfo 对象 (V2 模型)
+        - output._risk: dict (兼容 RiskMixin)
+        """
+        if not self._auto_trace:
+            return
+        
+        # 确保 trace 已初始化（即使 begin_command 未被调用）
+        if not self._trace:
+            try:
+                self._trace = Trace()
+                data_file = getattr(self.args, 'data', None)
+                if data_file and not self._trace.data.get('data_file'):
+                    self._trace.init(data_file)
+            except Exception:
+                return
+        
+        try:
+            risk = None
+            
+            # 尝试获取 risk 字段 (V2 模型)
+            if hasattr(output, 'risk') and output.risk:
+                risk = output.risk
+            # 尝试获取 _risk 字段 (RiskMixin 兼容)
+            elif hasattr(output, '_risk') and output._risk:
+                risk = output._risk
+            
+            if not risk:
+                return
+            
+            # 提取 risk 信息
+            level = "warning"
+            message = ""
+            hint = ""
+            
+            if isinstance(risk, RiskInfo):
+                level = risk.level
+                message = risk.message
+                hint = risk.hint
+            elif isinstance(risk, dict):
+                level = risk.get('level', 'warning')
+                message = risk.get('message', '')
+                hint = risk.get('hint', '')
+            
+            # 只记录 critical 和 warning 级别的 risk
+            if level in ['critical', 'warning'] and message:
+                # 生成简洁的 hint（如果 hint 太长或为空）
+                if not hint:
+                    hint = self._generate_hint_from_message(message)
+                
+                self.record_risk(level, message, hint)
+                
+        except Exception:
+            # 自动记录失败不应影响主流程
+            pass
+    
+    def _generate_hint_from_message(self, message: str) -> str:
+        """从 message 生成默认 hint"""
+        # 简单启发式：根据消息内容推断 hint
+        message_lower = message.lower()
+        if '内核' in message_lower or 'kernel' in message_lower:
+            return "cluster-symbols --comm $COMM"
+        elif '锁' in message_lower or 'lock' in message_lower or 'mutex' in message_lower:
+            return "find-callers --target $FUNC"
+        elif '进程' in message_lower or 'process' in message_lower:
+            return "count-process-variety --comm $COMM"
+        elif 'cpu' in message_lower or '瓶颈' in message_lower:
+            return "check-cpu-bottleneck"
+        else:
+            return "trace issues"
+
     def print_output(self, output: BaseOutput, auto_end: bool = True):
         """
         打印输出对象
@@ -337,6 +469,9 @@ class OutputBuilder:
             output: 继承自 BaseOutput 的输出对象
             auto_end: 是否自动结束命令记录（默认True）
         """
+        # 自动记录 risk 到 Trace（全自动化）
+        self._auto_record_risk_from_output(output)
+        
         if self.text_mode:
             text_str = self.adapter.format_output(output)
             print(text_str)

@@ -416,6 +416,12 @@ Use '<command> --help' for detailed help on each subcommand."""
         "get-comm-top": cmd_get_comm_top
     }
 
+    # Issue Overflow Warning: 检查未处理的 issues
+    if args.command in commands:
+        from perf_toolkit.core.output_builder import OutputBuilder
+        builder = OutputBuilder(engine, args)
+        builder.print_issue_overflow_warning()
+
     commands[args.command](engine, args)
 
 
