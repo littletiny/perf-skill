@@ -14,7 +14,7 @@ import re
 import json as json_mod
 from collections import defaultdict
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, ClusterItem, ClustersOutput, TimeRange
+from ..core.output_models import RiskInfo, ClusterItem, ClusterSummary, ClustersOutput, TimeRange
 
 
 # Symbol-based event classification (for cluster-symbols)
@@ -130,10 +130,17 @@ def cmd_apply_cluster(engine, args):
             samples[-1].get('ts') if len(samples) > 0 else None
         )
     
-    # Build output (no summary for cleaner output)
+    # Build summary with truncation info
+    summary = ClusterSummary(
+        clusters_found=len(cluster_core_sec),
+        shown_clusters=len(results)
+    )
+    
+    # Build output
     output = ClustersOutput(
         _risk=risk,
         clusters=results,
+        summary=summary,
         time_range=time_range
     )
     

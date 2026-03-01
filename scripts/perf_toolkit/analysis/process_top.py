@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
-    RiskInfo, ProcessItem, ProcessTopOutput, TimeRange
+    RiskInfo, ProcessItem, ProcessSummary, ProcessTopOutput, TimeRange
 )
 
 
@@ -86,10 +86,17 @@ def cmd_get_process_top(engine, args):
             samples[-1].get('ts') if len(samples) > 0 else None
         )
     
-    # Build output (no summary for cleaner output)
+    # Build summary with truncation info
+    summary = ProcessSummary(
+        total_processes=len(items),
+        shown_processes=len(top_items)
+    )
+    
+    # Build output
     output = ProcessTopOutput(
         _risk=risk,
         processes=top_items,
+        summary=summary,
         time_range=time_range
     )
     

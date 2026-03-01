@@ -90,13 +90,14 @@ class CommGroupSummary(BaseSummary):
 class HotspotSummary(BaseSummary):
     """热点函数摘要"""
     total_hotspots: int = 0
+    shown_hotspots: int = 0
 
 
 @dataclass
 class ClusterSummary(BaseSummary):
     """聚类摘要"""
     clusters_found: int = 0
-    total_core_seconds: float = 0.0
+    shown_clusters: int = 0
 
 
 @dataclass
@@ -134,6 +135,8 @@ class AttributionSummary(BaseSummary):
     """调用归因摘要"""
     target: str = ""
     target_cpu_util: str = "0.00%"
+    total_attributions: int = 0
+    shown_attributions: int = 0
 
 
 @dataclass
@@ -341,7 +344,7 @@ class ProcessTopOutput(BaseOutput):
     processes: List[ProcessItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, processes: List[ProcessItem],
-                 summary: Optional[ProcessSummary] = None, time_range: Optional[TimeRange] = None):
+                 summary: ProcessSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.processes = processes
 
@@ -352,7 +355,7 @@ class CommTopOutput(BaseOutput):
     comm_groups: List[CommGroupItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, comm_groups: List[CommGroupItem],
-                 summary: Optional[CommGroupSummary] = None, time_range: Optional[TimeRange] = None):
+                 summary: CommGroupSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.comm_groups = comm_groups
 
@@ -374,7 +377,7 @@ class HotspotsOutput(BaseOutput):
     hotspots: List[HotspotItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, hotspots: List[HotspotItem],
-                 summary: Optional[HotspotSummary] = None, time_range: Optional[TimeRange] = None):
+                 summary: HotspotSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.hotspots = hotspots
 
@@ -385,7 +388,7 @@ class ClustersOutput(BaseOutput):
     clusters: List[ClusterItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, clusters: List[ClusterItem],
-                 summary: Optional[ClusterSummary] = None, time_range: Optional[TimeRange] = None):
+                 summary: ClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.clusters = clusters
 
@@ -465,7 +468,7 @@ class PathClustersOutput(BaseOutput):
     clusters: List[PathClusterItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, clusters: List[PathClusterItem],
-                 summary: Optional[PathClusterSummary] = None, time_range: Optional[TimeRange] = None):
+                 summary: PathClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.clusters = clusters
 
@@ -476,7 +479,7 @@ class ProcessVarietyOutput(BaseOutput):
     process_variety: List[ProcessVarietyItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, process_variety: List[ProcessVarietyItem],
-                 summary: Optional[ProcessVarietySummary] = None, time_range: Optional[TimeRange] = None):
+                 summary: ProcessVarietySummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.process_variety = process_variety
 

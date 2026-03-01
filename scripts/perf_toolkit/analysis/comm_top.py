@@ -17,7 +17,7 @@ from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
-    RiskInfo, CommGroupItem, CommTopOutput, TimeRange
+    RiskInfo, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
 )
 
 
@@ -142,10 +142,17 @@ def cmd_get_comm_top(engine, args):
         samples[-1].get('ts') if len(samples) > 0 else None
     )
     
-    # Build output (no summary for cleaner output)
+    # Build summary with truncation info
+    summary = CommGroupSummary(
+        total_comm_groups=len(results),
+        high_kernel_groups=len(high_kernel_groups)
+    )
+    
+    # Build output
     output = CommTopOutput(
         _risk=risk,
         comm_groups=top_results,
+        summary=summary,
         time_range=time_range
     )
     

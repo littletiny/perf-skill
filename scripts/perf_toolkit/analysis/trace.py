@@ -95,11 +95,13 @@ def cmd_trace_attribution(engine, args):
     else:
         risk = RiskInfo(level="none")
     
-    # Create summary
+    # Create summary with truncation info
     target_cpu_util = (target_core_sec / duration * 100) if duration > 0 else 0
     summary = AttributionSummary(
         target=target,
-        target_cpu_util=f"{target_cpu_util:.2f}%"
+        target_cpu_util=f"{target_cpu_util:.2f}%",
+        total_attributions=len(attribution),
+        shown_attributions=len(results)
     )
     
     # Build and output

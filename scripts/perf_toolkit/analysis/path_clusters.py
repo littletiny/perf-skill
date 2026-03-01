@@ -13,7 +13,7 @@ V2 版本：使用统一数据模型
 
 from collections import defaultdict
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, PathClusterItem, PathClustersOutput, TimeRange
+from ..core.output_models import RiskInfo, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
 
 
 class PathCluster:
@@ -125,9 +125,16 @@ def cmd_cluster_paths(engine, args):
     
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     
+    # Build summary with truncation info
+    summary = PathClusterSummary(
+        total_clusters=len(clusters),
+        clustered_core_sec=0.0  # Not used in display
+    )
+    
     output = PathClustersOutput(
         _risk=risk,
         clusters=results,
+        summary=summary,
         time_range=time_range
     )
     

@@ -15,7 +15,7 @@ Process Variety Analysis - Count process variety to detect short-lived process s
 
 from collections import defaultdict
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, ProcessVarietyItem, ProcessVarietyOutput, TimeRange
+from ..core.output_models import RiskInfo, ProcessVarietyItem, ProcessVarietySummary, ProcessVarietyOutput, TimeRange
 
 
 def cmd_count_process_variety(engine, args):
@@ -122,9 +122,17 @@ def cmd_count_process_variety(engine, args):
     
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     
+    # Build summary with truncation info
+    summary = ProcessVarietySummary(
+        total_processes=len(variety_results),
+        storm_detected=len(storm_comms) > 0,
+        storm_count=len(storm_comms)
+    )
+    
     output = ProcessVarietyOutput(
         _risk=risk,
         process_variety=top_results,
+        summary=summary,
         time_range=time_range
     )
     

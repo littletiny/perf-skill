@@ -13,7 +13,7 @@ from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
-    RiskInfo, HotspotItem, HotspotsOutput, TimeRange
+    RiskInfo, HotspotItem, HotspotSummary, HotspotsOutput, TimeRange
 )
 
 
@@ -101,10 +101,17 @@ def cmd_get_hotspots(engine, args):
             samples[-1].get('ts') if len(samples) > 0 else None
         )
     
-    # Build output (no summary for cleaner output)
+    # Build summary with truncation info
+    summary = HotspotSummary(
+        total_hotspots=len(results),
+        shown_hotspots=len(top_items)
+    )
+    
+    # Build output
     output = HotspotsOutput(
         _risk=risk,
         hotspots=top_items,
+        summary=summary,
         time_range=time_range
     )
     

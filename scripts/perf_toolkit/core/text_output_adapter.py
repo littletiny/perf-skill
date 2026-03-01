@@ -73,6 +73,10 @@ class TextOutputAdapter:
             if format_header:
                 lines.append(format_header)
             lines.extend(formatted_lines)
+            # Check for truncation and add hint
+            trunc_hint = self._check_truncation(summary, list_name)
+            if trunc_hint:
+                lines.append(trunc_hint)
         elif special_data:
             # 处理特殊数据类型
             lines.extend(self._format_special_data(special_data))
@@ -147,6 +151,40 @@ class TextOutputAdapter:
             parts.append(f"cpus={summary.get('cpu_count', 0)}")
         
         return parts
+    
+    def _check_truncation(self, summary: Dict, list_name: str) -> Optional[str]:
+        """检查列表是否被截断，如果被截断返回提示信息"""
+        if not summary:
+            return None
+        
+        # Map list_name to summary fields
+        field_map = {
+            'hotspots': ('total_hotspots', 'shown_hotspots'),
+            'clusters': ('clusters_found', 'shown_clusters'),
+            'processes': ('total_processes', 'shown_processes'),
+            'comm_groups': ('total_comm_groups', None),
+            'cores': (None, None),  # cores filtered by threshold, not top_n
+            'attributions': ('total_attributions', 'shown_attributions'),
+            'traces': (None, None),
+            'path_clusters': ('total_clusters', None),
+            'process_variety': ('total_processes', None),
+            'anomalies': ('total_anomalies', None),
+            'windows': ('total_windows', None),
+        }
+        
+        if list_name not in field_map:
+            return None
+        
+        total_field, shown_field = field_map[list_name]
+        
+        # For lists with shown field
+        if shown_field and total_field:
+            total = summary.get(total_field, 0)
+            shown = summary.get(shown_field, 0)
+            if total > shown:
+                return f"# ... {total - shown} more items (use --top-n to show more)"
+        
+        return None
     
     def _format_list(self, items: List[Dict], list_name: str):
         """格式化列表数据，返回 (format_header, lines)"""
