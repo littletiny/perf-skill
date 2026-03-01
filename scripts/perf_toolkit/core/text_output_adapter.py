@@ -232,15 +232,14 @@ class TextOutputAdapter:
     
     def _format_comm_groups(self, items: List[Dict]):
         """格式化进程组列表 (cluster-comm, get-comm-top)"""
-        format_header = "# comm,pids,cpu_util,kernel_ratio,event"
+        format_header = "# comm,pids,cpu_util,event"
         lines = []
         for item in items:
             comm = item.get('comm', 'N/A')
             pids = item.get('pids', 0)
             cpu = item.get('cpu', '0%')
-            kernel = item.get('kernel', '0%')
             event = item.get('event', 'normal')
-            lines.append(f"{comm} {pids} {cpu} {kernel} {event}")
+            lines.append(f"{comm} {pids} {cpu} {event}")
         return (format_header, lines)
     
     def _format_cores(self, items: List[Dict]):
