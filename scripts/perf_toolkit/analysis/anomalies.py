@@ -4,10 +4,6 @@
 Anomaly Detection - Detect CPU utilization anomalies
 
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
-
-检测 CPU 利用率异常。
-
-注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
 from collections import defaultdict
@@ -79,15 +75,15 @@ def cmd_detect_anomalies(engine, args):
             win_end = win_start + window_size
             win_samples_raw = [s for s in cpu_samples_list if win_start <= s['ts'] < win_end]
             
-            win_core_per_sec = sum(engine.get_sample_weight(s) for s in win_samples_raw)
-            utilization = win_core_per_sec / window_size if window_size > 0 else 0
+            win_weight = sum(engine.get_sample_weight(s) for s in win_samples_raw)
+            utilization = win_weight / window_size if window_size > 0 else 0
             
             window_data = {
                 "cpu_id": cpu_id_val,
                 "start_time": format_timestamp(win_start),
                 "end_time": format_timestamp(win_end),
                 "utilization": f"{utilization*100:.2f}%",
-                "core_sec": round(win_core_per_sec, 4)
+                "weight": round(win_weight, 4)
             }
             
             if export_samples:
@@ -137,7 +133,7 @@ def cmd_detect_anomalies(engine, args):
                     start_time=w["start_time"],
                     end_time=w["end_time"],
                     utilization=w["utilization"],
-                    core_sec=w["core_sec"]
+                    weight=w["weight"]
                 ))
         
         # 确定风险等级

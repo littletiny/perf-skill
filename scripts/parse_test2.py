@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 Parse test2.data format:
-  JSON with {"data": "timestamp:comm:pid:cpuid;sym0;sym1... core/s\n..."}
+  JSON with {"data": "timestamp:comm:pid:cpuid;sym0;sym1... weight\n..."}
   
 Sample format inside data field:
-  123.15:containerd-shim:2350748:0;sym0;sym1... core/s
+  123.15:containerd-shim:2350748:0;sym0;sym1... weight
   
 Fields:
   - timestamp (float)
@@ -12,7 +12,7 @@ Fields:
   - pid (process ID)
   - cpuid (CPU ID)
   - callstack (semicolon-separated symbols)
-  - core_s (core/s value at the end)
+  - weight (sample weight value at the end)
 """
 
 import json
@@ -74,8 +74,8 @@ class Test2Parser:
     
     def _parse_sample(self, raw: str) -> Optional[Sample]:
         """Parse a single sample string"""
-        # Format: timestamp:comm:pid:cpuid;sym0;sym1... core/s
-        # core/s is at the end, separated by space
+        # Format: timestamp:comm:pid:cpuid;sym0;sym1... weight
+        # weight is at the end, separated by space
         
         match = re.match(r'^([\d.]+):([^:]+):(\d+):(\d+);(.+)\s+([\d.]+)$', raw.strip())
         if not match:
@@ -142,19 +142,19 @@ class Test2Parser:
         print("PERF DATA SUMMARY")
         print("=" * 60)
         print(f"Total Records:     {stats['total_records']}")
-        print(f"Total core/s:      {stats['total_core_s']:.4f}")
-        print(f"Average core/s:    {stats['avg_core_s']:.4f}")
-        print(f"Min core/s:        {stats['min_core_s']:.4f}")
-        print(f"Max core/s:        {stats['max_core_s']:.4f}")
+        print(f"Total weight:      {stats['total_core_s']:.4f}")
+        print(f"Average weight:    {stats['avg_core_s']:.4f}")
+        print(f"Min weight:        {stats['min_core_s']:.4f}")
+        print(f"Max weight:        {stats['max_core_s']:.4f}")
         print(f"Unique Commands:   {stats['unique_commands']}")
         print(f"Unique PIDs:       {stats['unique_pids']}")
         print()
-        print("core/s by Command:")
+        print("Weight by Command:")
         print("-" * 40)
         for comm, core_s in sorted(stats['by_comm'].items(), key=lambda x: -x[1]):
             print(f"  {comm:<25} {core_s:>10.4f}")
         print()
-        print("core/s by PID:")
+        print("Weight by PID:")
         print("-" * 40)
         for pid, core_s in sorted(stats['by_pid'].items(), key=lambda x: -x[1]):
             print(f"  {pid:<10} {core_s:>10.4f}")

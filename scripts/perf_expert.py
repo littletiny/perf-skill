@@ -23,7 +23,7 @@ This is the main entry point for the perf toolkit. It has been refactored into a
 
 Key Changes in v2.0:
   - Removed --freq parameter: Reliability is now assessed directly using CPU utilization
-    from core/s values in perf script output, not from sampling frequency
+    from perf script output, not from sampling frequency
   - Fixed CPU utilization calculation: Uses total core-seconds / duration * 100
   - Modular architecture for better maintainability
 """
@@ -87,15 +87,15 @@ def main():
 
 Input Data Format:
   Supports two formats:
-  1. SPEAR format (with core/s field): perf script output processed with core/s values
+  1. SPEAR format: perf script output processed with CPU utilization values
   2. Raw perf format: standard perf script output (requires --freq parameter)
 
   Generate raw perf data with:
     perf record -F 19 -a -g -- sleep 30
     perf script > perf.data.txt
 
-Note: For raw perf format without core/s field, use --freq to specify sampling
-frequency (default: 19Hz). For SPEAR format with core/s, the freq parameter is ignored.
+Note: For raw perf format, use --freq to specify sampling
+frequency (default: 19Hz). For SPEAR format, the freq parameter is ignored.
 
 Use '<command> --help' for detailed help on each subcommand."""
     )
@@ -112,8 +112,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Threshold for single-core saturation detection (default: 80%%). "
                          "A core is considered saturated when its CPU usage exceeds this threshold.")
     p1.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p1.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p1.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
     p1.add_argument("--pid", type=int, help="Filter by process ID")
@@ -125,8 +125,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                help="Extract hotspot function rankings by self/inclusive time")
     p2.add_argument("--data", required=True, help="Path to perf script output file")
     p2.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p2.add_argument("--sort-by", choices=['inclusive', 'self'], default='inclusive',
                     help="Sort by 'inclusive' (total time in call chain) or 'self' (time in function only)")
     p2.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
@@ -142,8 +142,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                help="Cluster samples by expert rules (scheduling, locks, memory, IRQ, etc.)")
     p3.add_argument("--data", required=True, help="Path to perf script output file")
     p3.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p3.add_argument("--custom-rules", metavar="RULES",
                     help="JSON format custom rules. Example: '{\"MyPattern\": [{\"pattern\": \"my_func_.*\", "
                          "\"weight\": 1.0}]}'. Rules are list of {pattern, weight} objects.")
@@ -164,8 +164,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                help="Find and analyze callers of a specific function or auto-trace top hotspots")
     p4.add_argument("--data", required=True, help="Path to perf script output file")
     p4.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p4.add_argument("--target", metavar="FUNC",
                     help="Target function name to trace. Examples: 'pthread_mutex_lock', "
                          "'sched_yield', 'malloc'. Use with --min-ratio to filter significant callers. "
@@ -189,8 +189,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                help="Detect CPU utilization anomalies or export window data")
     p5.add_argument("--data", required=True, help="Path to perf script output file")
     p5.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p5.add_argument("--window-size", type=float, default=1.0, metavar="SECONDS",
                     help="Time window size in seconds for sliding window analysis. Smaller windows "
                          "detect rapid changes but may produce more noise. (default: 1.0)")
@@ -221,8 +221,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                help="Show CPU utilization for OS or specific PID (user/kernel/total)")
     p8.add_argument("--data", required=True, help="Path to perf script output file")
     p8.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p8.add_argument("--pid", type=int, help="Process ID to analyze (default: all processes)")
     p8.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p8.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
@@ -235,8 +235,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                help="Get top N processes by CPU utilization with user/kernel breakdown")
     p9.add_argument("--data", required=True, help="Path to perf script output file")
     p9.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p9.add_argument("--top-n", type=int, default=10, help="Number of top processes to display (default: 10)")
     p9.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p9.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
@@ -247,8 +247,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                 help="Cluster samples by process name (comm) to analyze process group CPU usage")
     p10.add_argument("--data", required=True, help="Path to perf script output file")
     p10.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p10.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p10.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p10.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
@@ -259,8 +259,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                 help="Cluster samples by common call path prefixes using Trie")
     p11.add_argument("--data", required=True, help="Path to perf script output file")
     p11.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p11.add_argument("--min-depth", type=int, default=2,
                      help="Minimum common prefix depth to form a cluster (default: 2)")
     p11.add_argument("--min-samples", type=int, default=5,
@@ -279,8 +279,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                 help="Count process variety to detect short-lived process storms")
     p12.add_argument("--data", required=True, help="Path to perf script output file")
     p12.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p12.add_argument("--top-n", type=int, default=20,
                      help="Number of top process names to display (default: 20)")
     p12.add_argument("--storm-pid-threshold", type=int, default=50, metavar="N",
@@ -303,8 +303,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                 help="Analyze per-core CPU utilization and thread states")
     p13.add_argument("--data", required=True, help="Path to perf script output file")
     p13.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p13.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p13.add_argument("--pid", type=int, help="Filter by process ID")
     p13.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
@@ -318,8 +318,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                                 help="Get top N comm groups by aggregated CPU (for many-small-processes analysis)")
     p14.add_argument("--data", required=True, help="Path to perf script output file")
     p14.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format without core/s field. "
-                         "Default: 19. Ignored for SPEAR format with core/s values.")
+                    help="Sampling frequency in Hz for raw perf format. "
+                         "Default: 19. Ignored for SPEAR format.")
     p14.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p14.add_argument("--sort-by-density", action="store_true",
                      help="Sort by density index (CPU per process) instead of aggregate CPU")

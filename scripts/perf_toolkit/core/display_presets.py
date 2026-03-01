@@ -72,7 +72,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
     "symbol_clusters": {
         "template_type": "key_value",
         "list_field": "symbol_clusters",
-        "header": "# event_type | pct_of_total (cluster_core_sec / total_core_sec)",
+        "header": "# event_type | pct_of_total (cluster_weight / total_weight)",
         "display_fields": ["cluster", "pct_of_total"],
         "empty_message": "No symbol clusters found",
         "total_field": "clusters_found",
@@ -87,8 +87,8 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "list_field": "path_clusters",
         "header": "# index,percent,cpu_util,path",
         # 特殊字段说明:
-        # - _ratio_pct: 由模板根据 core_sec/total_core_sec 计算并格式化为百分比
-        # - _cpu_util: 由模板根据 core_sec/duration 计算并格式化为百分比
+        # - _ratio_pct: 由模板根据 weight/total_weight 计算并格式化为百分比
+        # - _cpu_util: 由模板根据 weight/duration 计算并格式化为百分比
         "display_fields": ["_ratio_pct", "_cpu_util", "path_signature"],
         "index_format": "#{index}",
         "empty_message": "No path clusters found",
@@ -171,8 +171,8 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
     "windows": {
         "template_type": "table",
         "list_field": "windows",
-        "header": "# cpu_id,start_time,end_time,util,core_sec",
-        "display_fields": ["cpu_id", "start_time", "end_time", "utilization", "core_sec"],
+        "header": "# cpu_id,start_time,end_time,util,weight",
+        "display_fields": ["cpu_id", "start_time", "end_time", "utilization", "weight"],
         "empty_message": "No windows data",
         "total_field": "total_windows",
         "shown_field": None,

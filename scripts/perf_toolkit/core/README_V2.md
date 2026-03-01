@@ -100,14 +100,14 @@ class HotspotItem:
 class ClusterItem:
     cluster: str
     ratio_pct: str  # "79.84%"
-    core_sec: float  # 98.7654
+    weight: float  # 98.7654
     
     @classmethod
-    def from_stats(cls, cluster: str, ratio: float, core_sec: float) -> 'ClusterItem':
+    def from_stats(cls, cluster: str, ratio: float, weight: float) -> 'ClusterItem':
         return cls(
             cluster=cluster,
             ratio_pct=f"{ratio:.2f}%",
-            core_sec=round(core_sec, 4)
+            weight=round(weight, 4)
         )
 ```
 
@@ -131,7 +131,7 @@ class HotspotSummary:
 @dataclass
 class ClusterSummary:
     clusters_found: int = 0
-    total_core_seconds: float = 0.0
+    total_weight: float = 0.0
 ```
 
 ### 输出根类

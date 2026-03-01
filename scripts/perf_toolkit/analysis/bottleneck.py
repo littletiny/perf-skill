@@ -11,8 +11,6 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 4. 多核高负载 (high cores) - >=3 个核心 total > threshold
 
 优先级: CPU_LIMIT > HIGH_SYS_CORES > SINGLE_CORE_SATURATION > HIGH_CORES > HEALTHY
-
-注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
 from ..core.format_utils import format_percent

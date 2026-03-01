@@ -90,7 +90,7 @@ class SimpleListTemplate(Template):
                 # 特殊处理: attributions 的 ratio + callstack 格式
                 line = self._format_attribution_line(item, i)
             elif config.list_field == "path_clusters":
-                # 特殊处理: path_clusters 从原始 core_sec 计算百分比
+                # 特殊处理: path_clusters 从原始权重计算百分比
                 line = self._format_path_cluster_line(item, i, config)
             else:
                 # 标准格式: #index field1 field2 ...
@@ -103,22 +103,22 @@ class SimpleListTemplate(Template):
         return lines
     
     def _format_path_cluster_line(self, item: Any, index: int, config: Any) -> str:
-        """格式化路径聚类行 - 从原始 core_sec 计算百分比"""
+        """格式化路径聚类行 - 从原始权重计算百分比"""
         # 从原始数据计算百分比
         if isinstance(item, dict):
-            core_sec = item.get('core_sec', 0)
-            total = item.get('total_core_sec', 1)
+            weight = item.get('weight', 0)
+            total = item.get('total_weight', 1)
             duration = item.get('duration', 1)
             path = item.get('path_signature', 'N/A')
         else:
-            core_sec = getattr(item, 'core_sec', 0)
-            total = getattr(item, 'total_core_sec', 1)
+            weight = getattr(item, 'weight', 0)
+            total = getattr(item, 'total_weight', 1)
             duration = getattr(item, 'duration', 1)
             path = getattr(item, 'path_signature', 'N/A')
         
         # 计算百分比
-        ratio_pct = (core_sec / total * 100) if total > 0 else 0
-        cpu_util = (core_sec / duration * 100) if duration > 0 else 0
+        ratio_pct = (weight / total * 100) if total > 0 else 0
+        cpu_util = (weight / duration * 100) if duration > 0 else 0
         
         prefix = config.index_format.format(index=index) if config.index_format else f"#{index}"
         return f"{prefix} {ratio_pct:.2f}% {cpu_util:.2f}% {path}"
@@ -237,15 +237,15 @@ class TableTemplate(Template):
             start = item.get('start_time', 'N/A')
             end = item.get('end_time', 'N/A')
             util = item.get('utilization', 'N/A')
-            core_sec = item.get('core_sec', 0)
+            weight = item.get('weight', 0)
         else:
             cpu_id = getattr(item, 'cpu_id', 'N/A')
             start = getattr(item, 'start_time', 'N/A')
             end = getattr(item, 'end_time', 'N/A')
             util = getattr(item, 'utilization', 'N/A')
-            core_sec = getattr(item, 'core_sec', 0)
+            weight = getattr(item, 'weight', 0)
         
-        return f"cpu={cpu_id} start={start} end={end} util={util} core_sec={core_sec:.4f}"
+        return f"cpu={cpu_id} start={start} end={end} util={util} weight={weight:.4f}"
 
 
 class NestedTemplate(Template):

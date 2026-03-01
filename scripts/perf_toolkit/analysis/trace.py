@@ -6,9 +6,6 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 Trace Attribution - Bottom-up attribution for specific bottleneck functions
 
 使用 SymbolStack 和规范化后的符号名进行调用链分析。
-基于 core/s（CPU 利用率）而非记录数统计。
-
-注意：数据已按 1 秒聚合，记录数量无参考价值。
 """
 
 from collections import defaultdict
@@ -42,13 +39,13 @@ def cmd_trace_attribution(engine, args):
     builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取总量
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
+    total_weight, _ = engine.get_total_core_per_sec(samples)
     duration = engine.get_duration(samples)
     
     # Trace attribution
     target = args.target
     attribution = defaultdict(float)
-    target_core_sec = 0.0
+    target_weight = 0.0
     
     for s in samples:
         stack = s.get('stack')
@@ -59,7 +56,7 @@ def cmd_trace_attribution(engine, args):
         normalized_names = stack.get_normalized_names()
         
         if target in normalized_names:
-            target_core_sec += weight
+            target_weight += weight
             idx = normalized_names.index(target)
             caller_stack = normalized_names[idx+1:idx+6]
             if caller_stack:
@@ -68,9 +65,9 @@ def cmd_trace_attribution(engine, args):
     # Build results - show ratio relative to total samples (not just target)
     results = []
     min_ratio = getattr(args, 'min_ratio', 0.5)
-    for stack, core_sec in attribution.items():
+    for stack, weight_val in attribution.items():
         # Calculate ratio relative to total samples
-        ratio_total = (core_sec / total_core_per_sec) * 100 if total_core_per_sec > 0 else 0
+        ratio_total = (weight_val / total_weight) * 100 if total_weight > 0 else 0
         if ratio_total < min_ratio:
             continue
         results.append(AttributionItem(
@@ -85,7 +82,7 @@ def cmd_trace_attribution(engine, args):
     
     # Determine risk level
     risk = None
-    if target_core_sec < 0.01:
+    if target_weight < 0.01:
         risk = create_risk_info(
             level="warning",
             message=f"目标函数 '{target}' 几乎无 CPU 活动",
@@ -96,7 +93,7 @@ def cmd_trace_attribution(engine, args):
         risk = RiskInfo(level="none")
     
     # Create summary with truncation info
-    target_cpu_util = (target_core_sec / duration * 100) if duration > 0 else 0
+    target_cpu_util = (target_weight / duration * 100) if duration > 0 else 0
     summary = AttributionSummary(
         target=target,
         target_cpu_util=f"{target_cpu_util:.2f}%",
@@ -137,7 +134,7 @@ def cmd_find_callers_auto(engine, args):
     builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取总量和 duration
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
+    total_weight, _ = engine.get_total_core_per_sec(samples)
     duration = engine.get_duration(samples)
     
     # 使用 engine 统一接口获取符号级利用率
@@ -166,7 +163,7 @@ def cmd_find_callers_auto(engine, args):
     results = []
     for target, target_cpu_util in top_hotspots:
         attribution = defaultdict(float)
-        target_total_core_sec = 0.0
+        target_total_weight = 0.0
         
         for s in samples:
             stack = s.get('stack')
@@ -177,7 +174,7 @@ def cmd_find_callers_auto(engine, args):
             normalized_names = stack.get_normalized_names()
             # Only count when target is at stack top (self time)
             if normalized_names and normalized_names[0] == target:
-                target_total_core_sec += weight
+                target_total_weight += weight
                 if len(normalized_names) > 1:
                     caller_stack = normalized_names[1:6]
                     attribution[tuple(caller_stack)] += weight
@@ -185,9 +182,9 @@ def cmd_find_callers_auto(engine, args):
         sorted_attr = sorted(attribution.items(), key=lambda x: -x[1])[:5]
         
         attr_results = []
-        for stack, core_sec in sorted_attr:
-            ratio_in_target = (core_sec / target_total_core_sec) * 100 if target_total_core_sec > 0 else 0
-            stack_cpu_util = (core_sec / duration * 100) if duration > 0 else 0
+        for stack, weight_val in sorted_attr:
+            ratio_in_target = (weight_val / target_total_weight) * 100 if target_total_weight > 0 else 0
+            stack_cpu_util = (weight_val / duration * 100) if duration > 0 else 0
             attr_results.append(AttributionItem(
                 caller_stack=list(stack),
                 ratio_of_target_pct=f"{ratio_in_target:.2f}%",

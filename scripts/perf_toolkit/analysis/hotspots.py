@@ -3,9 +3,6 @@
 """
 Hotspot Analysis - Extract function rankings by self/inclusive time
 
-使用 Symbol.normalized_name 作为符号标识，基于 core/s（CPU 利用率）进行统计，
-而非样本数量（因为数据已按 1 秒聚合，样本数无意义）。
-
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 

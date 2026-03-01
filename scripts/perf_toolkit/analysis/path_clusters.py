@@ -6,9 +6,6 @@ Path Clustering - Cluster samples by common call path prefixes using Trie
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 使用 SymbolStack 和规范化后的符号名进行路径聚类。
-基于 core/s（CPU 利用率）而非记录数统计。
-
-注意：数据已按 1 秒聚合，记录数量无参考价值。
 """
 
 from collections import defaultdict
@@ -19,22 +16,22 @@ from ..core.output_models import RiskInfo, PathClusterItem, PathClusterSummary, 
 class PathCluster:
     """Trie-based path clustering for stack samples"""
     
-    def __init__(self, min_depth=2, min_core_sec=0.01):
+    def __init__(self, min_depth=2, min_weight=0.01):
         self.min_depth = min_depth
-        self.min_core_sec = min_core_sec
-        self.trie = {'_core_sec': 0.0, '_samples': []}
+        self.min_weight = min_weight
+        self.trie = {'_weight': 0.0, '_samples': []}
     
-    def add_sample(self, stack, core_per_sec=0):
+    def add_sample(self, stack, weight=0):
         if not stack:
             return
         
         node = self.trie
         for func in reversed(stack.get_normalized_names()):
             if func not in node:
-                node[func] = {'_core_sec': 0.0, '_samples': []}
+                node[func] = {'_weight': 0.0, '_samples': []}
             node = node[func]
-            node['_core_sec'] += core_per_sec
-            node['_samples'].append((stack.get_normalized_names(), core_per_sec))
+            node['_weight'] += weight
+            node['_samples'].append((stack.get_normalized_names(), weight))
     
     def extract_clusters(self, node=None, path=None, clusters=None):
         if node is None:
@@ -44,17 +41,17 @@ class PathCluster:
         if clusters is None:
             clusters = []
         
-        if len(path) >= self.min_depth and node['_core_sec'] >= self.min_core_sec:
-            leaf_core_sec = defaultdict(float)
-            for stack_names, core_sec in node['_samples']:
+        if len(path) >= self.min_depth and node['_weight'] >= self.min_weight:
+            leaf_weight = defaultdict(float)
+            for stack_names, weight in node['_samples']:
                 if stack_names:
-                    leaf_core_sec[stack_names[0]] += core_sec
+                    leaf_weight[stack_names[0]] += weight
             
             clusters.append({
                 'path_signature': '→'.join(path),
                 'depth': len(path),
-                'core_sec': node['_core_sec'],
-                'leaves': dict(sorted(leaf_core_sec.items(), key=lambda x: -x[1])[:5])
+                'weight': node['_weight'],
+                'leaves': dict(sorted(leaf_weight.items(), key=lambda x: -x[1])[:5])
             })
             return clusters
         
@@ -88,22 +85,22 @@ def cmd_cluster_paths(engine, args):
     builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取总量和 duration
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
+    total_weight, _ = engine.get_total_core_per_sec(samples)
     duration = engine.get_duration(samples)
     
     # Build clusters
-    min_core_sec = getattr(args, 'min_samples', 5) * 0.001
-    cluster_builder = PathCluster(min_depth=args.min_depth, min_core_sec=min_core_sec)
+    min_weight = getattr(args, 'min_samples', 5) * 0.001
+    cluster_builder = PathCluster(min_depth=args.min_depth, min_weight=min_weight)
     
     for s in samples:
         stack = s.get('stack')
         if stack and len(stack) > 0:
             weight = engine.get_sample_weight(s)
-            cluster_builder.add_sample(stack, weight)
+        cluster_builder.add_sample(stack, weight)
     
     clusters = cluster_builder.extract_clusters()
     
-    clusters.sort(key=lambda x: -x['core_sec'])
+    clusters.sort(key=lambda x: -x['weight'])
     top_clusters = clusters[:args.top_n]
     
     # Build output using V2 data models
@@ -113,15 +110,15 @@ def cmd_cluster_paths(engine, args):
         PathClusterItem.from_raw(
             cluster_id=f"c_{i+1:03d}",
             path_signature=c['path_signature'],
-            core_sec=c['core_sec'],
-            total_core_sec=total_core_per_sec,
+            weight=c['weight'],
+            total_weight=total_weight,
             duration=duration
         )
         for i, c in enumerate(top_clusters)
     ]
     
-    # 计算 clustered_core_sec
-    clustered_core_sec = sum(c['core_sec'] for c in top_clusters)
+    # 计算 clustered_weight
+    clustered_weight = sum(c['weight'] for c in top_clusters)
     
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     
@@ -129,7 +126,7 @@ def cmd_cluster_paths(engine, args):
     summary = PathClusterSummary(
         total_clusters=len(clusters),
         shown_clusters=len(results),
-        clustered_core_sec=clustered_core_sec
+        clustered_weight=clustered_weight
     )
     
     output = PathClustersOutput(

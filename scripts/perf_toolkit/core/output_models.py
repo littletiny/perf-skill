@@ -194,7 +194,7 @@ class PathClusterSummary(BaseSummary):
     """路径聚类摘要"""
     total_clusters: int = 0
     shown_clusters: int = 0
-    clustered_core_sec: float = 0.0
+    clustered_weight: float = 0.0
 
 
 @dataclass
@@ -350,7 +350,7 @@ class WindowItem:
     start_time: str
     end_time: str
     utilization: str
-    cpu_util: str
+    weight: float
 
 
 @dataclass
@@ -373,23 +373,23 @@ class TraceItem:
 class PathClusterItem:
     """路径聚类数据项 - 用于 cluster-paths
     
-    存储原始 core_sec，百分比由模板根据 preset 配置计算和格式化
+    存储原始权重，百分比由模板根据 preset 配置计算和格式化
     """
     cluster_id: str
     path_signature: str
-    core_sec: float
-    total_core_sec: float
+    weight: float
+    total_weight: float
     duration: float
     
     @classmethod
-    def from_raw(cls, cluster_id: str, path_signature: str, core_sec: float,
-                 total_core_sec: float, duration: float) -> 'PathClusterItem':
+    def from_raw(cls, cluster_id: str, path_signature: str, weight: float,
+                 total_weight: float, duration: float) -> 'PathClusterItem':
         """从原始数据创建 PathClusterItem"""
         return cls(
             cluster_id=cluster_id,
             path_signature=path_signature,
-            core_sec=core_sec,
-            total_core_sec=total_core_sec,
+            weight=weight,
+            total_weight=total_weight,
             duration=duration
         )
 

@@ -7,6 +7,8 @@ PerfExpert Engine - Core parsing and data management
 - 原始数据中 kernel 函数带有 `_[k]` 后缀
 - Symbol 类在解析时保留这一信息，提供准确的 is_kernel 属性
 - 利用率计算基于 Symbol.is_kernel，而非启发式规则
+
+V2 版本：CPU 利用率计算收拢到 engine，统一对外提供利用率数据
 """
 
 import json
@@ -19,14 +21,9 @@ class PerfExpertEngine:
     """
     Main engine for parsing and analyzing perf script output.
     
-    Parses perf script format with core/s values:
-        <comm> <pid> [<cpu>] <timestamp>: <core_per_sec> core/s:
-                           <symbol> (<module>)
-                           ...
-    
     Supports two data formats:
-    1. SPEAR format (with core/s): Directly contains CPU utilization in core/s
-    2. Raw perf format (without core/s): Requires freq parameter to calculate utilization
+    1. SPEAR format: Pre-computed CPU utilization values
+    2. Raw perf format: Requires freq parameter to calculate utilization
     
     Symbol handling:
     - Kernel symbols have `_[k]` suffix in raw data (e.g., `osq_lock_[k]`)
@@ -59,8 +56,7 @@ class PerfExpertEngine:
         Args:
             file_path: Path to perf script output file
             freq: Sampling frequency in Hz (default: 19).
-                  Only used for raw perf format without core/s field.
-                  For SPEAR format with core/s, this parameter is ignored.
+                  Only used for raw perf format, ignored for SPEAR format.
         """
         self.file_path = file_path
         self.freq = freq
@@ -153,7 +149,7 @@ class PerfExpertEngine:
             return 'perf_script'
     
     def _load_and_parse(self):
-        """Parse perf script standard output with core/s values"""
+        """Parse perf script standard output"""
         # Detect file format and dispatch to appropriate parser
         file_format = self._detect_file_format()
         
@@ -167,7 +163,7 @@ class PerfExpertEngine:
         Parse test2.data JSON format.
         
         Format:
-          {"data": "timestamp:comm:pid:cpuid;sym0;sym1... core/s\\n..."}
+          {"data": "timestamp:comm:pid:cpuid;sym0;sym1... weight\\n..."}
         
         Sample line inside data field:
           123.15:containerd-shim:2350748:0;0x64c4b3 [containerd-shim-runc-v2];osq_lock_[k] 0.0526
@@ -193,16 +189,16 @@ class PerfExpertEngine:
         Parse a single test2.data sample string.
         
         Supports two delimiter styles:
-          - colon style: timestamp:comm:pid:cpuid;sym0;sym1... core/s
-          - pipe style:  timestamp:comm|pid|cpuid;sym0;sym1... core/s
-                         or timestamp|comm|pid|cpuid;sym0;sym1... core/s
+          - colon style: timestamp:comm:pid:cpuid;sym0;sym1... weight
+          - pipe style:  timestamp:comm|pid|cpuid;sym0;sym1... weight
+                         or timestamp|comm|pid|cpuid;sym0;sym1... weight
         
         Note: comm may contain colons (e.g., "runc:[2:INIT]"), so we parse from right to left
         using the fact that pid and cpuid are pure numbers as anchors.
         """
         line = raw.strip()
         
-        # Step 1: Extract core/s value (last space-separated number)
+        # Step 1: Extract weight value (last space-separated number)
         last_space_idx = line.rfind(' ')
         if last_space_idx == -1:
             return None
@@ -322,7 +318,7 @@ class PerfExpertEngine:
             return Symbol.parse(symbol_part, None)
     
     def _load_and_parse_perf_script(self):
-        """Parse standard perf script output with or without core/s values"""
+        """Parse standard perf script output"""
         current_sample = None
         detected_core_per_sec = False
         
@@ -333,10 +329,9 @@ class PerfExpertEngine:
                 
                 # Parse header using space-based approach
                 # Format: "comm pid [cpu] timestamp: [value unit:]"
-                # Examples:
-                #   "perf-exec  215053 [002] 368330.780793:     0.0526 core/s:"
-                #   "containerd-shim  2350748 [0] 0.000000:     0.0526 core/s:"
-                # Raw perf format:
+                # SPEAR format example:
+                # SPEAR format example with weight value
+                # Raw perf format example:
                 #   "swapper     0 [001] 460661.461601:     250000 cpu-clock:ppp:"
                 
                 parts = line.strip().split()
@@ -352,7 +347,7 @@ class PerfExpertEngine:
                     cpu = int(parts[2].strip('[]'))  # Remove [ and ]
                     ts = float(parts[3].rstrip(':'))  # Remove trailing :
                     
-                    # Check if core/s value is present (parts[4] = value, parts[5] = "core/s:")
+                    # Check if SPEAR format weight value is present
                     core_per_sec = None
                     if len(parts) >= 6 and parts[5] == 'core/s:':
                         core_per_sec = float(parts[4])
@@ -432,11 +427,11 @@ class PerfExpertEngine:
     
     def get_total_core_per_sec(self, samples=None):
         """
-        Calculate total core/s from samples.
+        Calculate total CPU utilization from samples.
         
         Returns:
             tuple: (total_core_sec, sample_count)
-            total_core_sec: Sum of sample weights (core/s value or 1.0 per sample)
+            total_core_sec: Sum of sample weights
             sample_count: Number of samples processed
         """
         if samples is None:
@@ -450,7 +445,7 @@ class PerfExpertEngine:
     
     def get_user_kernel_core_per_sec(self, samples=None):
         """
-        Calculate user and kernel core/s separately from samples.
+        Calculate user and kernel CPU utilization separately from samples.
         
         基于 Symbol.is_kernel 属性准确区分 user 和 kernel 时间：
         - 如果栈顶符号（leaf）的 is_kernel=True，则该样本计入 kernel
@@ -458,9 +453,9 @@ class PerfExpertEngine:
         
         Returns:
             dict: {
-                'user_core_sec': user mode core-seconds,
-                'kernel_core_sec': kernel mode core-seconds,
-                'total_core_sec': total core-seconds,
+                'user_core_sec': user mode CPU time,
+                'kernel_core_sec': kernel mode CPU time,
+                'total_core_sec': total CPU time,
                 'user_records': number of user mode records,
                 'kernel_records': number of kernel mode records
             }
@@ -495,32 +490,26 @@ class PerfExpertEngine:
     
     def get_sample_weight(self, sample):
         """
-        获取样本权重：
-        - SPEAR格式（有core/s）：返回实际的 core/s 值
-        - 原始perf格式（无core/s）：返回 1/freq，表示单个样本占用的 core/s
-        
-        对于原始perf格式，CPU利用率的计算方式是：
-        utilization = sum(sample_weights) / duration = samples * (1/freq) / duration
-                    = samples / (duration * freq)
+        获取样本权重。
         
         Args:
             sample: Sample dict with 'core_per_sec' field
             
         Returns:
-            float: Sample weight (core/s value or 1.0/freq)
+            float: Sample weight
         """
         core_per_sec = sample.get('core_per_sec')
         if core_per_sec is not None:
             return core_per_sec
-        # Raw perf format: each sample represents 1/freq core/s
+        # Raw perf format: each sample represents 1/freq weight
         return 1.0 / self.freq
     
     def has_core_per_sec_data(self):
         """
-        检查数据是否包含 core/s 字段（SPEAR格式）
+        检查数据是否为 SPEAR 格式
         
         Returns:
-            bool: True if data has core/s field, False for raw perf format
+            bool: True if data is SPEAR format, False for raw perf format
         """
         if self._has_core_per_sec is None:
             # Auto-detect based on samples
@@ -557,8 +546,8 @@ class PerfExpertEngine:
         Calculate overall CPU utilization percentage from samples.
         
         使用 Symbol.is_kernel 属性准确区分 user 和 kernel 时间：
-        - User 时间：栈顶符号 is_kernel=False 的样本 core/s 之和
-        - Kernel 时间：栈顶符号 is_kernel=True 的样本 core/s 之和
+        - User 时间：栈顶符号 is_kernel=False 的样本权重之和
+        - Kernel 时间：栈顶符号 is_kernel=True 的样本权重之和
         
         Formula: (total_core_seconds / duration) * 100
         
@@ -725,8 +714,8 @@ class PerfExpertEngine:
             dict: {
                 'self': {symbol: pct},      # self 时间占比（相对于 total self）
                 'inclusive': {symbol: pct},  # inclusive 时间占比（相对于 total self）
-                'core_sec': {symbol: core_sec},  # 原始 core/s 值
-                'total_core_sec': float,     # 总 core/s（用于计算百分比）
+                'core_sec': {symbol: core_sec},  # 原始权重值
+                'total_core_sec': float,     # 总权重（用于计算百分比）
             }
         """
         if samples is None:

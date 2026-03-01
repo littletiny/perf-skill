@@ -10,8 +10,6 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 - 利用率计算基于准确的符号类型，而非启发式规则
 
 新增功能：检测单核 sys 利用率高的核心（>70%）
-
-注意：数据已按 1 秒聚合，样本数量仅作为记录数参考，分析基于 core/s 值。
 """
 
 from ..core.format_utils import format_percent

@@ -6,7 +6,7 @@ Format Utilities - Time formatting and helper functions for standardized output
 遵循 output-format-spec.md 规范：
 - 时间字符串化: ISO 8601 格式
 - 百分比使用字符串带 % 符号
-- core/s 值保留数字，4位小数
+- 权重值保留数字，4位小数
 """
 
 from datetime import datetime
@@ -49,8 +49,8 @@ def format_percent(value: float) -> str:
     return f"{value:.2f}%"
 
 
-def format_core_sec(value: float) -> float:
-    """Format core/s value to 4 decimal places"""
+def format_weight(value: float) -> float:
+    """Format weight value to 4 decimal places"""
     return round(value, 4)
 
 

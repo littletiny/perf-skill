@@ -6,8 +6,6 @@ Core Distribution Analysis - Analyze per-core CPU utilization and thread states
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 分析各 CPU 核心的负载分布，识别负载不均衡、线程休眠模式等问题。
-
-注意：数据已按 1 秒聚合，样本数量仅作为记录数参考，分析基于 core/s 值。
 """
 
 from collections import defaultdict
@@ -57,13 +55,13 @@ def cmd_analyze_core_distribution(engine, args):
     top_n = getattr(args, 'top_n', 10)
     core_list = core_list[:top_n]
     
-    # Aggregate comm core/s for hint generation
-    comm_core_sec = defaultdict(float)
+    # Aggregate comm CPU utilization for hint generation
+    comm_weight = defaultdict(float)
     for s in samples:
         comm = s.get('comm', '')
         if comm:
             weight = engine.get_sample_weight(s)
-            comm_core_sec[comm] += weight
+            comm_weight[comm] += weight
     
     # Identify imbalance
     if core_list:
@@ -87,7 +85,7 @@ def cmd_analyze_core_distribution(engine, args):
         
         # Determine target comm for hint
         user_comm = getattr(args, 'comm', None)
-        top_comm = max(comm_core_sec, key=comm_core_sec.get) if comm_core_sec else None
+        top_comm = max(comm_weight, key=comm_weight.get) if comm_weight else None
         target_comm = user_comm or top_comm or '<comm>'
         
         # Determine risk level

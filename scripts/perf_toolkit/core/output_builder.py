@@ -143,9 +143,9 @@ class OutputBuilder:
         duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
         record_count = len(samples)
         
-        total_core_per_sec, _ = self.engine.get_total_core_per_sec(samples)
+        total_weight, _ = self.engine.get_total_core_per_sec(samples)
         quality_level, warning_msg, metrics = assess_data_quality(
-            duration, total_core_per_sec=total_core_per_sec, record_count=record_count
+            duration, total_weight=total_weight, record_count=record_count
         )
         
         self._quality_level = quality_level

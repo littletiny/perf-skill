@@ -4,7 +4,7 @@
 Data Quality Assessment Module
 
 评估 perf script 数据的覆盖质量和可靠性。
-核心原则：数据已按 1 秒聚合，样本数量无意义，直接使用 CPU 利用率评估数据质量。
+核心原则：直接使用 CPU 利用率评估数据质量。
 """
 
 import math
@@ -32,18 +32,17 @@ def calculate_wilson_score_interval(successes, total, confidence=0.95):
     return (max(0, centre - half_width), min(1, centre + half_width))
 
 
-def assess_data_quality(duration, cpu_id=None, total_core_per_sec=None, record_count=None):
+def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=None):
     """
     Assess the quality and reliability of aggregated perf data.
     
-    核心变化：数据已按 1 秒聚合，不再使用样本数量评估可靠性。
     直接基于 CPU 利用率和数据覆盖时长评估数据质量。
     
     Args:
-        duration: Duration in seconds (数据覆盖时长)
+        duration: Duration in seconds
         cpu_id: Optional CPU ID for filtering
-        total_core_per_sec: Sum of core/s values from perf (total CPU core-seconds consumed)
-        record_count: Number of aggregated records (仅作为参考，不影响质量评估)
+        total_weight: Sum of sample weights
+        record_count: Number of aggregated records (for reference only)
     
     Returns: (quality_level, warning_message, metrics_dict)
         quality_level: CRITICAL / WARNING / ACCEPTABLE / GOOD / EXCELLENT
@@ -51,12 +50,10 @@ def assess_data_quality(duration, cpu_id=None, total_core_per_sec=None, record_c
     if duration <= 0:
         duration = 1.0  # Avoid division by zero
     
-    # Calculate average CPU utilization from core/s values
-    # core/s represents CPU core-seconds per second = CPU utilization (as ratio)
-    # Formula: avg CPU utilization % = (total core-seconds / duration) * 100
-    if total_core_per_sec is not None:
-        avg_cpu_utilization = (total_core_per_sec / duration) * 100
-        utilization_source = "core/s"
+    # Calculate average CPU utilization from sample weights
+    if total_weight is not None:
+        avg_cpu_utilization = (total_weight / duration) * 100
+        utilization_source = "spear"
     else:
         avg_cpu_utilization = 0.0
         utilization_source = "unknown"
@@ -68,27 +65,26 @@ def assess_data_quality(duration, cpu_id=None, total_core_per_sec=None, record_c
         "utilization_source": utilization_source,
     }
     
-    if total_core_per_sec is not None:
-        metrics["total_core_seconds"] = round(total_core_per_sec, 4)
-        metrics["avg_core_per_sec"] = round(total_core_per_sec / duration, 4)
+    if total_weight is not None:
+        metrics["total_weight"] = round(total_weight, 4)
+        metrics["avg_weight"] = round(total_weight / duration, 4)
     
     # =========================================================================
     # Data Quality Assessment based on CPU Utilization and Duration
-    # 核心逻辑：基于 CPU 利用率和数据覆盖时长评估
     # =========================================================================
     
-    # === CRITICAL: No core/s data available ===
-    if total_core_per_sec is None or utilization_source == "unknown":
+    # === CRITICAL: No CPU utilization data available ===
+    if total_weight is None or utilization_source == "unknown":
         if duration < 1.0:
             return (
                 "CRITICAL",
-                f"无 core/s 数据且数据覆盖时长过短 ({duration:.1f}s < 1s)，无法评估数据质量。"
-                f"请确认 perf script 输出包含 core/s 字段。",
+                f"无 CPU 利用率数据且数据覆盖时长过短 ({duration:.1f}s < 1s)，无法评估数据质量。"
+                f"请确认 perf script 输出格式正确。",
                 metrics
             )
         return (
             "WARNING",
-            f"无 core/s 数据，分析将基于记录数估算。CPU 利用率数据可能不准确。",
+            f"无 CPU 利用率数据，分析将基于记录数估算。CPU 利用率数据可能不准确。",
             metrics
         )
     

@@ -4,9 +4,6 @@
 Comm Clustering - Cluster samples by process name (comm) to analyze process group CPU usage
 
 使用 Symbol.is_kernel 属性准确区分 user 和 kernel 时间。
-基于 core/s（CPU 利用率）而非记录数统计。
-
-注意：数据已按 1 秒聚合，记录数量无参考价值。
 
 V2 版本：使用统一数据模型，与 comm_top 共享数据结构，CPU 利用率计算收拢到 engine
 """

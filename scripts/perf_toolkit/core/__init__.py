@@ -19,7 +19,7 @@ from .symbol import Symbol, SymbolStack
 from .reliability import assess_sample_reliability, format_percentage_with_ci
 from .format_utils import (
     format_timestamp, format_time_range, format_duration,
-    format_percent, format_core_sec, safe_time_range
+    format_percent, format_weight, safe_time_range
 )
 from .risk_mixin import RiskMixin, RiskAwareOutput
 from .live_doc import LiveDoc
@@ -55,7 +55,7 @@ __all__ = [
     'format_time_range',
     'format_duration',
     'format_percent',
-    'format_core_sec',
+    'format_weight',
     'safe_time_range',
     'RiskMixin',
     'RiskAwareOutput',

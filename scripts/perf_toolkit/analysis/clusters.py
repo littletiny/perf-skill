@@ -3,10 +3,6 @@
 """
 Symbol Clustering - Cluster samples by expert rules (scheduling, locks, memory, IRQ, etc.)
 
-使用 Symbol.normalized_name 进行规则匹配，基于 core/s（CPU 利用率）而非记录数统计。
-
-注意：数据已按 1 秒聚合，记录数量无参考价值。
-
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 
@@ -56,10 +52,10 @@ def cmd_apply_cluster(engine, args):
     if args.custom_rules:
         rules.update(json_mod.loads(args.custom_rules))
     
-    # Cluster samples using core/s weights
-    total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    cluster_core_sec = defaultdict(float)
-    lock_func_core_sec = defaultdict(float)
+    # Cluster samples using CPU utilization weights
+    total_weight, _ = engine.get_total_core_per_sec(samples)
+    cluster_weight = defaultdict(float)
+    lock_func_weight = defaultdict(float)
     
     for s in samples:
         stack = s.get('stack')
@@ -79,16 +75,16 @@ def cmd_apply_cluster(engine, args):
                 if re.search(pattern_str, sym):
                     matched_groups.add(group)
                     if group == "EVENT_LOCK_CONTENTION":
-                        lock_func_core_sec[sym] += weight
+                        lock_func_weight[sym] += weight
         for g in matched_groups:
-            cluster_core_sec[g] += weight
+            cluster_weight[g] += weight
     
     # Build results
     results = []
     lock_contention_ratio = 0
     
-    for group, core_sec in cluster_core_sec.items():
-        ratio = (core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
+    for group, weight in cluster_weight.items():
+        ratio = (weight / total_weight * 100) if total_weight > 0 else 0
         if group == "EVENT_LOCK_CONTENTION":
             lock_contention_ratio = ratio
         results.append(ClusterItem.from_stats(group, ratio))
@@ -98,7 +94,7 @@ def cmd_apply_cluster(engine, args):
     results = results[:top_n]
     
     # Find top lock function for hint
-    top_lock_func = max(lock_func_core_sec, key=lock_func_core_sec.get) if lock_func_core_sec else "pthread_mutex_lock"
+    top_lock_func = max(lock_func_weight, key=lock_func_weight.get) if lock_func_weight else "pthread_mutex_lock"
     
     # Build risk info based on lock contention ratio
     if lock_contention_ratio > 50:
@@ -128,7 +124,7 @@ def cmd_apply_cluster(engine, args):
     
     # Build summary with truncation info
     summary = ClusterSummary(
-        clusters_found=len(cluster_core_sec),
+        clusters_found=len(cluster_weight),
         shown_clusters=len(results)
     )
     

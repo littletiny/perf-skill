@@ -8,8 +8,6 @@ Specialized for identifying "many small processes consuming resources collective
 - Low individual process CPU usage
 - Useful for detecting worker pool issues, connection storms, etc.
 
-注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
-
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 

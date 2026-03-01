@@ -5,12 +5,6 @@
 Process Variety Analysis - Count process variety to detect short-lived process storms
 
 检测进程风暴/短生命周期进程。
-
-注意：数据已按 1 秒聚合，样本数量无参考价值。
-检测基于：
-1. PID 数量（进程数）
-2. CPU 利用率分布（core/s per PID）
-3. 单秒出现频率（出现该进程的不同秒数）
 """
 
 from collections import defaultdict
@@ -42,7 +36,7 @@ def cmd_count_process_variety(engine, args):
     
     # Aggregate comm-pid stats
     comm_pid_stats = defaultdict(lambda: defaultdict(lambda: {
-        'core_sec': 0.0,
+        'weight': 0.0,
         'seconds': set(),
     }))
     
@@ -52,7 +46,7 @@ def cmd_count_process_variety(engine, args):
         ts = s['ts']
         weight = engine.get_sample_weight(s)
         
-        comm_pid_stats[comm][pid]['core_sec'] += weight
+        comm_pid_stats[comm][pid]['weight'] += weight
         second_key = int(ts)
         comm_pid_stats[comm][pid]['seconds'].add(second_key)
     
@@ -69,8 +63,8 @@ def cmd_count_process_variety(engine, args):
     
     for comm, pid_dict in sorted(comm_pid_stats.items(), key=lambda x: -len(x[1])):
         pid_count = len(pid_dict)
-        total_comm_core_sec = sum(stats['core_sec'] for stats in pid_dict.values())
-        cpu_per_pid = total_comm_core_sec / pid_count if pid_count > 0 else 0
+        total_comm_weight = sum(stats['weight'] for stats in pid_dict.values())
+        cpu_per_pid = total_comm_weight / pid_count if pid_count > 0 else 0
         
         single_second_pids = sum(1 for stats in pid_dict.values() if len(stats['seconds']) == 1)
         short_lived_ratio = single_second_pids / pid_count if pid_count > 0 else 0
@@ -94,7 +88,7 @@ def cmd_count_process_variety(engine, args):
             continue
         
         # Calculate cpu_util percentage
-        cpu_util = (total_comm_core_sec / duration * 100) if duration > 0 else 0
+        cpu_util = (total_comm_weight / duration * 100) if duration > 0 else 0
         
         # Create V2 data item
         variety_results.append(ProcessVarietyItem(
