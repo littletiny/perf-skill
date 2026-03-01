@@ -12,7 +12,6 @@ Trace Attribution - Bottom-up attribution for specific bottleneck functions
 """
 
 from collections import defaultdict
-from ..core.format_utils import format_core_sec
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
     RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput,
@@ -42,6 +41,9 @@ def cmd_trace_attribution(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
+    # Calculate duration for cpu_util conversion
+    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    
     # Trace attribution
     target = args.target
     attribution = defaultdict(float)
@@ -65,14 +67,16 @@ def cmd_trace_attribution(engine, args):
     # Build results
     results = []
     min_ratio = getattr(args, 'min_ratio', 0.5)
+    target_cpu_util = (target_core_sec / duration * 100) if duration > 0 else 0
     for stack, core_sec in attribution.items():
         ratio_in_target = (core_sec / target_core_sec) * 100 if target_core_sec > 0 else 0
         if ratio_in_target < min_ratio:
             continue
+        stack_cpu_util = (core_sec / duration * 100) if duration > 0 else 0
         results.append(AttributionItem(
             caller_stack=list(stack),
             ratio_of_target_pct=f"{ratio_in_target:.2f}%",
-            core_sec=format_core_sec(core_sec)
+            cpu_util=f"{stack_cpu_util:.2f}%"
         ))
     
     results.sort(key=lambda x: float(x.ratio_of_target_pct.rstrip('%')), reverse=True)
@@ -92,7 +96,7 @@ def cmd_trace_attribution(engine, args):
     # Create summary
     summary = AttributionSummary(
         target=target,
-        target_core_sec=format_core_sec(target_core_sec)
+        target_cpu_util=f"{target_cpu_util:.2f}%"
     )
     
     # Build and output
@@ -127,8 +131,9 @@ def cmd_find_callers_auto(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Get total for ratio calculation
+    # Get total for ratio calculation and duration
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
+    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     
     # Find top hotspots
     self_core_sec = defaultdict(float)
@@ -165,10 +170,11 @@ def cmd_find_callers_auto(engine, args):
         attr_results = []
         for stack, core_sec in sorted_attr:
             ratio_in_target = (core_sec / target_total_core_sec) * 100 if target_total_core_sec > 0 else 0
+            stack_cpu_util = (core_sec / duration * 100) if duration > 0 else 0
             attr_results.append(AttributionItem(
                 caller_stack=list(stack),
                 ratio_of_target_pct=f"{ratio_in_target:.2f}%",
-                core_sec=format_core_sec(core_sec)
+                cpu_util=f"{stack_cpu_util:.2f}%"
             ))
         
         target_ratio = (target_total_core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0

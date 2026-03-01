@@ -256,14 +256,14 @@ class TextOutputAdapter:
     
     def _format_attributions(self, items: List[Dict]):
         """格式化调用归因列表 (从调用者到被调用者)"""
-        format_header = "# index,(ratio|core_sec),callstack"
+        format_header = "# index,(ratio|cpu_util),callstack"
         lines = []
         for i, item in enumerate(items, 1):
             stack = item.get('caller_stack', [])
             ratio = item.get('ratio_of_target_pct', '0%')
-            core_sec = item.get('core_sec', 0)
+            cpu_util = item.get('cpu_util', '0.00%')
             stack_str = " <- ".join(stack) if stack else "(root)"
-            lines.append(f"#{i} [{ratio} | {core_sec:.4f}s] {stack_str}")
+            lines.append(f"#{i} [{ratio} | {cpu_util}] {stack_str}")
         return (format_header, lines)
     
     def _format_traces(self, items: List[Dict]):
@@ -278,8 +278,9 @@ class TextOutputAdapter:
             for i, attr in enumerate(attributions, 1):
                 stack = attr.get('caller_stack', [])
                 attr_ratio = attr.get('ratio_of_target_pct', '0%')
+                attr_cpu_util = attr.get('cpu_util', '0.00%')
                 stack_str = " <- ".join(stack) if stack else "(root)"
-                lines.append(f"  #{i} [{attr_ratio}] {stack_str}")
+                lines.append(f"  #{i} [{attr_ratio} | {attr_cpu_util}] {stack_str}")
         return (format_header, lines)
     
     def _format_path_clusters(self, items: List[Dict]):

@@ -133,7 +133,7 @@ class WindowSummary(BaseSummary):
 class AttributionSummary(BaseSummary):
     """调用归因摘要"""
     target: str = ""
-    target_core_sec: float = 0.0
+    target_cpu_util: str = "0.00%"
 
 
 @dataclass
@@ -286,7 +286,7 @@ class AttributionItem:
     """调用归因数据项 - 用于 find-callers"""
     caller_stack: List[str]
     ratio_of_target_pct: str  # "45.50%"
-    core_sec: float
+    cpu_util: str  # "12.50%" (converted from core_sec to cpu utilization)
 
 
 @dataclass
