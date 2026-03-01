@@ -166,11 +166,26 @@ class TextOutputAdapter:
             'cores': (None, None),  # cores filtered by threshold, not top_n
             'attributions': ('total_attributions', 'shown_attributions'),
             'traces': (None, None),
-            'path_clusters': ('total_clusters', None),
             'process_variety': ('total_processes', None),
             'anomalies': ('total_anomalies', None),
             'windows': ('total_windows', None),
         }
+        
+        # Special handling for 'clusters' which is used by both cluster-symbols and cluster-paths
+        if list_name == 'clusters':
+            # Try cluster-symbols fields first
+            if 'clusters_found' in summary and 'shown_clusters' in summary:
+                total = summary.get('clusters_found', 0)
+                shown = summary.get('shown_clusters', 0)
+                if total > shown:
+                    return f"# ... {total - shown} more items (use --top-n to show more)"
+            # Then try cluster-paths fields
+            elif 'total_clusters' in summary and 'shown_clusters' in summary:
+                total = summary.get('total_clusters', 0)
+                shown = summary.get('shown_clusters', 0)
+                if total > shown:
+                    return f"# ... {total - shown} more items (use --top-n to show more)"
+            return None
         
         if list_name not in field_map:
             return None

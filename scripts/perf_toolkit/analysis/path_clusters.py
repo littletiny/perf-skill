@@ -128,6 +128,7 @@ def cmd_cluster_paths(engine, args):
     # Build summary with truncation info
     summary = PathClusterSummary(
         total_clusters=len(clusters),
+        shown_clusters=len(results),
         clustered_core_sec=0.0  # Not used in display
     )
     

@@ -149,6 +149,7 @@ class TracesSummary(BaseSummary):
 class PathClusterSummary(BaseSummary):
     """路径聚类摘要"""
     total_clusters: int = 0
+    shown_clusters: int = 0
     clustered_core_sec: float = 0.0
 
 
