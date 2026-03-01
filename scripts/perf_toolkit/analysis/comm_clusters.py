@@ -73,11 +73,11 @@ def cmd_cluster_comm(engine, args):
         
         # Determine event (skip normal events in output)
         if kernel_ratio > 50:
-            event = f"HIGH_KERNEL: 内核态占比 {kernel_ratio:.1f}%"
+            event = f"HIGH_KERNEL:{kernel_ratio:.1f}%"
         elif cpu_util > 10 and unique_pids >= 5:
             avg_cpu = cpu_util / unique_pids
             if avg_cpu < 1:
-                event = f"MANY_SMALL_PROCESSES: {unique_pids}个进程，每个仅消耗{avg_cpu:.2f}% CPU"
+                event = f"MANY_SMALL_PROCESSES:{unique_pids}p/{avg_cpu:.2f}%"
             else:
                 event = "normal"
         else:

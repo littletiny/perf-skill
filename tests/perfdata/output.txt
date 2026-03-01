@@ -158,22 +158,26 @@ Target: System-wide
 Testing: find-callers (auto)
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear find-callers --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data --auto-target
 ========================================
-Traceback (most recent call last):
-  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py", line 417, in <module>
-    main()
-  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py", line 413, in main
-    commands[args.command](engine, args)
-  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_toolkit/analysis/trace.py", line 194, in cmd_find_callers_auto
-    builder.print_output(output)
-  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_toolkit/core/output_builder.py", line 194, in print_output
-    text_str = self.adapter.format_output(output)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_toolkit/core/text_output_adapter.py", line 71, in format_output
-    format_header, formatted_lines = self._format_list(list_data, list_name)
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-ValueError: too many values to unpack (expected 2)
+# target (ratio) -> callstack
+>>> established_get_first (12.80%)
+  #1 [95.24%] tcp_get_idx -> tcp_seq_start -> seq_read -> proc_reg_read -> vfs_read
+  #2 [66.67%] tcp_seq_next -> seq_read -> proc_reg_read -> vfs_read -> ksys_read
+>>> _raw_spin_lock_bh (7.32%)
+  #1 [79.17%] established_get_first -> tcp_get_idx -> tcp_seq_start -> seq_read -> proc_reg_read
+  #2 [20.83%] established_get_first -> tcp_seq_next -> seq_read -> proc_reg_read -> vfs_read
+>>> runtime.scanobject (5.49%)
+  #1 [88.89%] runtime.gcDrain -> runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0 -> runtime.gcBgMarkWorker
+  #2 [72.22%] runtime.gcDrain -> runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0
+  #3 [22.22%] runtime.gcDrainN -> runtime.gcAssistAlloc1 -> runtime.gcAssistAlloc.func1 -> runtime.systemstack.abi0 -> runtime.gcAssistAlloc
+>>> runtime.gcDrain (3.05%)
+  #1 [280.00%] runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0
+  #2 [170.00%] runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0 -> runtime.gcBgMarkWorker
+>>> runtime.stealWork (3.05%)
+  #1 [100.00%] runtime.findRunnable -> runtime.schedule -> runtime.park_m -> runtime.mcall -> runtime.chanrecv
+  #2 [30.00%] runtime.findRunnable -> runtime.schedule -> runtime.park_m -> runtime.mcall -> runtime.selectgo
+  #3 [10.00%] runtime.findRunnable -> runtime.schedule -> runtime.park_m -> runtime.mcall -> time.Sleep
 
-[✗ FAIL] find-callers (auto)
+[✓ PASS] find-callers (auto)
 
 ========================================
 Testing: detect-anomalies
@@ -191,5 +195,5 @@ Command: python3 -c 'import sys; sys.path.insert(0, "/home/tiny/.config/agents/s
 [✓ PASS] Python imports
 
 ========================================
-测试完成: 12 通过, 1 失败
+测试完成: 13 通过, 0 失败
 ========================================
