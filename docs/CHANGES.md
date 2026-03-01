@@ -4014,3 +4014,47 @@ V1 输出系统已删除，V2 成为唯一版本。移除 "V2" 后缀简化命�
 - [x] 无遗留的 `OutputBuilderV2` 引用
 
 ---
+
+---
+
+# 验证: OutputBuilder 重构后功能测试
+
+## 验证时间
+2026-03-01
+
+## 验证目的
+确认 `OutputBuilderV2` → `OutputBuilder` 重构后，所有分析工具功能正常。
+
+## 测试方法
+使用 `tests/perfdata/new_format/case_test.data` 数据，测试所有 12 个子命令。
+
+## 测试结果
+
+| 测试项 | 状态 | 说明 |
+|--------|------|------|
+| check-cpu-bottleneck | ✓ PASS | 资源限制检查正常 |
+| get-hotspots | ✓ PASS | 热点函数识别正常 |
+| cluster-symbols | ✓ PASS | 语义聚类正常 |
+| get-process-top | ✓ PASS | 进程排行正常 |
+| cluster-comm | ✓ PASS | 进程名聚类正常 |
+| cluster-paths | ✓ PASS | 调用路径聚类正常 |
+| count-process-variety | ✓ PASS | 进程风暴检测正常 |
+| analyze-core-distribution | ✓ PASS | 核心分布分析正常 |
+| get-comm-top | ✓ PASS | 进程组排行正常 |
+| show-cpu-usage | ✓ PASS | CPU 利用率展示正常 |
+| find-callers | ✓ PASS | 热点溯源正常 |
+| detect-anomalies | ✓ PASS | 异常检测正常 |
+| Python imports | ✓ PASS | 模块导入正常 |
+
+**结果: 13/13 通过**
+
+## 新增文件
+- `tests/verify_output_builder.sh` - 功能验证脚本
+
+## 使用方式
+```bash
+cd tests
+./verify_output_builder.sh
+```
+
+---

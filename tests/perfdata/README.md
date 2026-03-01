@@ -76,8 +76,6 @@ dbatman 2978356 [13] 0.000000: 0.1052 core/s:
 | 语义聚类 | `cluster-symbols` | 语义规则聚类 |
 | 语义聚类 | `cluster-paths` | 调用路径聚类 |
 | 负载分布 | `analyze-core-distribution` | 核心级负载分析 |
-| 可视化 | `generate-flamegraph` | 生成火焰图格式 |
-| 可视化 | `generate-callgraph` | 生成调用图 |
 
 ## 添加新测试数据
 

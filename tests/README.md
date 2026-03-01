@@ -7,7 +7,7 @@
 ```
 .
 ├── doc_testcases/        # livedoc 功能测试用例
-├── perfdata/             # 工具接受的输入格式数据集
+├── perfdata/             # 工具接受的输入格式数据集和测试集
 └── scenario/             # 功能测试（验证整套方法论在 agent 中的表现）
 ```
 
