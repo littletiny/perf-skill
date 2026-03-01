@@ -22,6 +22,9 @@ def cmd_get_comm_top(engine, args):
     
     builder = OutputBuilder(engine, args)
     
+    # Live Document v2.0 - 自动记录命令开始
+    builder.begin_command("get-comm-top")
+    
     # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
@@ -92,14 +95,28 @@ def cmd_get_comm_top(engine, args):
     top_n = getattr(args, 'top_n', 10)
     top_results = results[:top_n]
     
-    # Build RiskInfo
+    # Build RiskInfo + Live Document 自动记录
     if len(high_kernel_groups) > 0:
         risk_level = "warning" if len(high_kernel_groups) <= 2 else "critical"
         cluster_commands = [f"cluster-symbols --comm {comm}" for comm in high_kernel_groups]
+        
+        # Live Document v2.0 - 自动记录每个高内核态风险
+        for comm in high_kernel_groups:
+            # 找到对应的 kernel_ratio
+            for item in top_results:
+                if item.comm == comm:
+                    kernel_val = item.kernel.rstrip('%')
+                    builder.record_risk(
+                        level=risk_level,
+                        desc=f"{comm} 高内核态 {kernel_val}%",
+                        hint=f"cluster-symbols --comm {comm}"
+                    )
+                    break
+        
         risk = create_risk_info(
             level=risk_level,
             message=f"发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%)未分析",
-            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%): {', '.join(high_kernel_groups)}' --risk '{risk_level}' --hint '必须对每个进程运行: {'; '.join(cluster_commands)}'",
+            hint=f"必须对每个进程运行: {'; '.join(cluster_commands)}",
             patterns=["MULTI_HIGH_KERNEL"],
             pending_targets=high_kernel_groups
         )

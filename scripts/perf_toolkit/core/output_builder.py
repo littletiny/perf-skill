@@ -7,27 +7,29 @@ OutputBuilder - 基于统一数据模型的输出构建器
 - 类型安全的输出构建
 - 统一的数据结构管理
 - 自动转换到 JSON
+- Live Document 自动记录 (v2.0)
 
 使用方式:
     from output_builder import OutputBuilder
     from output_models import RiskInfo, ProcessItem, ProcessSummary, ProcessTopOutput
     
     builder = OutputBuilder(engine, args)
+    builder.begin_command("get-comm-top")
     
-    # 创建数据项
-    items = [ProcessItem.from_stats(...), ...]
+    # ... 分析逻辑 ...
     
-    # 构建输出
-    output = ProcessTopOutput(
-        _risk=RiskInfo(level="none"),
-        processes=items,
-        summary=ProcessSummary(total_processes=10, shown_processes=5),
-        time_range=TimeRange(...)
-    )
+    # 检测到风险时自动记录
+    builder.record_risk("warning", "高内核态", "cluster-symbols --comm xxx")
     
+    # 分析完成时自动标记解决
+    builder.record_resolution("ISS-001", "LOCK_CONTENTION 38.36%")
+    
+    builder.end_command()
     builder.print_output(output)
 """
 
+import os
+import sys
 from typing import List, Dict, Optional, Any, Type, TypeVar, Generic
 from dataclasses import dataclass
 
@@ -53,6 +55,7 @@ from .text_output_adapter import TextOutputAdapter
 from .risk_mixin import RiskAwareOutput
 from .format_utils import format_time_range, safe_time_range
 from .reliability import assess_data_quality
+from .live_doc import LiveDoc
 
 
 T = TypeVar('T', bound=BaseOutput)
@@ -66,6 +69,7 @@ class OutputBuilder:
     - 使用 dataclass 定义的数据模型
     - 类型安全的输出构建
     - 通过 OutputAdapter 自动转换为 JSON
+    - Live Document 自动记录 (v2.0)
     """
     
     def __init__(self, engine, args, compact: bool = False, text_mode: bool = True):
@@ -92,6 +96,148 @@ class OutputBuilder:
         self._quality_level = None
         self._quality_metrics = None
         self._samples = None
+        
+        # Live Document v2.0 自动记录
+        self._live_doc = None
+        self._command_name = None
+        self._auto_trace = getattr(args, 'live_doc', True)  # 默认开启
+    
+    # =====================================================================
+    # Live Document v2.0 - 自动记录 API
+    # =====================================================================
+    
+    def begin_command(self, command_name: str):
+        """
+        命令开始时调用，自动初始化 LiveDoc 并记录命令
+        
+        Args:
+            command_name: 命令名称，如 "get-comm-top"
+        """
+        if not self._auto_trace:
+            return
+        
+        self._command_name = command_name
+        
+        # 构建完整命令字符串
+        cmd_parts = [command_name]
+        data_file = getattr(self.args, 'data', None)
+        if data_file:
+            cmd_parts.append(f"--data {data_file}")
+        
+        # 添加其他常见参数
+        for attr in ['comm', 'pid', 'cpu_id', 'start_time', 'end_time', 'top_n']:
+            val = getattr(self.args, attr, None)
+            if val is not None:
+                cmd_parts.append(f"--{attr.replace('_', '-')} {val}")
+        
+        full_command = " ".join(cmd_parts)
+        
+        # 初始化 LiveDoc
+        try:
+            self._live_doc = LiveDoc()
+            # 如果文档不存在，自动初始化
+            if not self._live_doc.data.get('data_file') and data_file:
+                self._live_doc.init(data_file)
+            
+            self._live_doc.begin_command(full_command)
+        except Exception:
+            # 自动记录失败不应影响主流程
+            self._live_doc = None
+    
+    def record_risk(self, level: str, desc: str, hint: str = "") -> str:
+        """
+        记录发现的风险，自动创建 issue
+        
+        Args:
+            level: critical/warning/info
+            desc: 风险描述
+            hint: 建议操作
+            
+        Returns:
+            issue_id: 创建的 issue ID（或空字符串）
+        """
+        if not self._auto_trace or not self._live_doc:
+            return ""
+        
+        try:
+            return self._live_doc.record_risk(level, desc, hint)
+        except Exception:
+            return ""
+    
+    def record_resolution(self, issue_id: str, result: str):
+        """
+        标记 issue 已解决
+        
+        Args:
+            issue_id: 要解决的 issue ID
+            result: 分析结果/结论
+        """
+        if not self._auto_trace or not self._live_doc:
+            return
+        
+        try:
+            self._live_doc.record_resolution(issue_id, result)
+        except Exception:
+            pass
+    
+    def auto_resolve_by_command(self, comm: str = None, result: str = ""):
+        """
+        根据命令参数自动匹配并解决 issue
+        
+        例如: cluster-symbols --comm netstat 会自动匹配 netstat 相关的 open issue
+        
+        Args:
+            comm: 进程名，用于匹配
+            result: 分析结果
+        """
+        if not self._auto_trace or not self._live_doc:
+            return
+        
+        try:
+            # 从 args 获取 comm
+            if comm is None:
+                comm = getattr(self.args, 'comm', None)
+            
+            if not comm:
+                return
+            
+            # 查找匹配的 open issue
+            for issue_id, issue in self._live_doc.data['issues'].items():
+                if issue['status'] == 'open' and comm in issue['desc']:
+                    self._live_doc.record_resolution(issue_id, result)
+                    break
+        except Exception:
+            pass
+    
+    def record_info(self, message: str):
+        """记录一般信息"""
+        if not self._auto_trace or not self._live_doc:
+            return
+        
+        try:
+            self._live_doc.record_info(message)
+        except Exception:
+            pass
+    
+    def end_command(self):
+        """命令结束时调用，保存 LiveDoc"""
+        if not self._auto_trace or not self._live_doc:
+            return
+        
+        try:
+            self._live_doc.end_command()
+        except Exception:
+            pass
+    
+    def get_live_doc_summary(self) -> Dict:
+        """获取 LiveDoc 摘要（用于输出）"""
+        if not self._live_doc:
+            return {"enabled": False}
+        
+        return {
+            "enabled": True,
+            **self._live_doc.get_summary()
+        }
     
     # =====================================================================
     # 数据质量评估（与 V1 兼容）
@@ -183,12 +329,13 @@ class OutputBuilder:
     # 输出方法
     # =====================================================================
     
-    def print_output(self, output: BaseOutput):
+    def print_output(self, output: BaseOutput, auto_end: bool = True):
         """
         打印输出对象
         
         Args:
             output: 继承自 BaseOutput 的输出对象
+            auto_end: 是否自动结束命令记录（默认True）
         """
         if self.text_mode:
             text_str = self.adapter.format_output(output)
@@ -196,6 +343,10 @@ class OutputBuilder:
         else:
             json_str = self.adapter.to_json(output)
             print(json_str)
+        
+        # 自动结束命令记录
+        if auto_end:
+            self.end_command()
     
     def print_json(self, data: Dict):
         """打印 JSON 数据（兼容 V1）"""
