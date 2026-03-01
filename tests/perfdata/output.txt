@@ -34,12 +34,12 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-hotspots
 Testing: cluster-symbols
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear cluster-symbols --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-# type,percent,cpu_util
-EVENT_LOCK_CONTENTION 7.93% 94.87%
-EVENT_MEM_RECLAIM 2.44% 29.19%
-EVENT_IRQ_OFF 2.13% 25.54%
-EVENT_SYNC_PRIMITIVE 1.52% 18.24%
-EVENT_SCHEDULER 0.30% 3.65%
+# event_type | pct_of_total (cluster_core_sec / total_core_sec)
+EVENT_LOCK_CONTENTION 7.93%
+EVENT_MEM_RECLAIM 2.44%
+EVENT_IRQ_OFF 2.13%
+EVENT_SYNC_PRIMITIVE 1.52%
+EVENT_SCHEDULER 0.30%
 
 [✓ PASS] cluster-symbols
 

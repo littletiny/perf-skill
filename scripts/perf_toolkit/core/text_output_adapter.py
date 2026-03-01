@@ -380,8 +380,17 @@ class TextOutputAdapter:
             verdict = data.get('verdict', 'N/A')
             max_load = data.get('max_core_load', {})
             limit_info = data.get('limit_info', {})
+            high_cpu_cores = data.get('high_cpu_cores', [])
+            high_sys_cores = data.get('high_sys_cores', [])
             
             lines.append(f"Verdict: {verdict}")
+            
+            # 显示检测到的瓶颈核心
+            if high_cpu_cores:
+                lines.append(f"CPU High: {','.join(map(str, high_cpu_cores))} (total>90%)")
+            if high_sys_cores:
+                lines.append(f"CPU Sys High: {','.join(map(str, high_sys_cores))} (sys>80%)")
+            
             if max_load:
                 lines.append(f"Max Core Load: CPU {max_load.get('cpu_id', 'N/A')} = {max_load.get('load', 'N/A')}")
             if limit_info:

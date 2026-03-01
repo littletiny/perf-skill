@@ -4,7 +4,10 @@
 CPU Bottleneck Detection - Check for resource throttling and single-core saturation
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
-检测资源限制和单核饱和。
+检测内容：
+1. CPU 限制饱和 (cgroup CPU limit) - cpu_limit > 0 且使用率 > 90%
+2. 单核满载 (single core saturation) - 任意核心 total > 90%
+3. 单核 sys 过高 (high sys usage) - 任意核心 sys > 80%
 
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
@@ -51,33 +54,67 @@ def cmd_check_bottleneck(engine, args):
     # 使用 engine 统一接口获取核心级 CPU 利用率
     core_util = engine.get_core_cpu_util(samples)
     
-    # Find the busiest CPU
-    if not core_util:
-        max_cpu_id = 0
-        max_core_usage = 0
-    else:
-        max_cpu_id = max(core_util.keys(), key=lambda x: core_util[x]['total_pct'])
-        max_core_usage = core_util[max_cpu_id]['total_pct'] / 100  # 转换为 0-1 范围
-    
-    # Parse CPU limit
+    # 检测各类瓶颈
     cpu_limit = getattr(args, 'cpu_limit', 0) or 0
     
-    # Determine verdict based on CPU utilization percentage
+    # 收集高负载核心
+    high_cpu_cores = []  # total > 90%
+    high_sys_cores = []  # sys > 80%
+    max_cpu_id = None
+    max_usage_pct = 0
+    
+    for cpu_id, info in core_util.items():
+        total_pct = info['total_pct']
+        sys_pct = info['kernel_pct']
+        
+        # 记录最高负载核心
+        if total_pct > max_usage_pct:
+            max_usage_pct = total_pct
+            max_cpu_id = cpu_id
+        
+        # 检测单核满载 (>90%)
+        if total_pct > 90:
+            high_cpu_cores.append(cpu_id)
+        
+        # 检测单核 sys 高 (>80%)
+        if sys_pct > 80:
+            high_sys_cores.append(cpu_id)
+    
+    # 默认排序
+    high_cpu_cores.sort()
+    high_sys_cores.sort()
+    
+    # 确定 verdict 和 risk
     verdict = "HEALTHY"
     risk = None
     
-    if cpu_limit > 0 and max_core_usage > (cpu_limit * 0.9):
+    # 优先级1: CPU 限制饱和
+    if cpu_limit > 0 and max_usage_pct / 100 > (cpu_limit * 0.9):
         verdict = "CPU_LIMIT_SATURATION"
         risk = create_risk_info(
             level="critical",
-            message=f"CPU 限制接近饱和: {format_percent(max_core_usage * 100)}",
+            message=f"CPU 限制接近饱和: {format_percent(max_usage_pct)}",
             hint=f"检查 cgroup CPU 限制或扩容",
-            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc 'CPU 限制接近饱和: {format_percent(max_core_usage * 100)}' --risk 'critical' --hint '检查 cgroup CPU 限制或扩容'",
+            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc 'CPU 限制接近饱和: {format_percent(max_usage_pct)}' --risk 'critical' --hint '检查 cgroup CPU 限制或扩容'",
             patterns=["CPU_LIMIT_SATURATION"]
         )
-    elif max_core_usage > 0.9:
+    
+    # 优先级2: 单核 sys 过高
+    elif high_sys_cores:
+        verdict = "HIGH_SYS_CORES"
+        core_list_str = ",".join(map(str, high_sys_cores))
+        risk = create_risk_info(
+            level="critical",
+            message=f"检测到 {len(high_sys_cores)} 个核心 sys 利用率 >80%: {core_list_str}",
+            hint="[必须] 分析内核热点: cluster-symbols",
+            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {len(high_sys_cores)} 个核心 sys 利用率 >80%: {core_list_str}' --risk 'critical' --hint '分析内核热点: cluster-symbols'",
+            patterns=["HIGH_SYS_CORES"]
+        )
+    
+    # 优先级3: 单核满载
+    elif high_cpu_cores:
         verdict = "SINGLE_CORE_SATURATION"
-        # Build hint: use pid if available, otherwise suggest getting process top
+        core_list_str = ",".join(map(str, high_cpu_cores))
         pid = getattr(args, 'pid', None)
         if pid:
             hint = f"analyze-core-distribution --pid {pid}"
@@ -85,17 +122,20 @@ def cmd_check_bottleneck(engine, args):
             hint = "先定位高 CPU 进程: get-process-top --top-n 5，然后分析具体进程"
         risk = create_risk_info(
             level="warning",
-            message="单核满载，可能存在串行化瓶颈",
+            message=f"单核满载 (CPU {core_list_str})，可能存在串行化瓶颈",
             hint=hint,
+            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载 (CPU {core_list_str})，可能存在串行化瓶颈' --risk 'warning' --hint '{hint}'",
             patterns=["SINGLE_CORE_SATURATION"]
         )
     
     # Create data model
     data = BottleneckData(
         verdict=verdict,
+        high_cpu_cores=high_cpu_cores,
+        high_sys_cores=high_sys_cores,
         max_core_load={
-            "cpu_id": max_cpu_id,
-            "load": format_percent(max_core_usage * 100)
+            "cpu_id": max_cpu_id if max_cpu_id is not None else 0,
+            "load": format_percent(max_usage_pct)
         },
         limit_info={
             "cpu_limit_cores": cpu_limit,
