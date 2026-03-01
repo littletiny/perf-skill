@@ -9,12 +9,18 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 - Symbol 类在解析时保留这一信息
 - 利用率计算基于准确的符号类型，而非启发式规则
 
+新增功能：检测单核 sys 利用率高的核心（>70%）
+
 注意：数据已按 1 秒聚合，样本数量仅作为记录数参考，分析基于 core/s 值。
 """
 
+from collections import defaultdict
 from ..core.format_utils import format_percent
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, CPUUsageData, CPUUsageSummary, CPUUsageOutput
+from ..core.output_models import (
+    RiskInfo, CPUUsageData, CPUUsageSummary, CPUUsageOutput,
+    CoreItem, TimeRange
+)
 
 
 def cmd_show_cpu_usage(engine, args):
@@ -55,8 +61,48 @@ def cmd_show_cpu_usage(engine, args):
     # Get CPU utilization
     util_stats = engine.get_cpu_utilization(samples)
     
+    # Analyze per-core sys utilization (embedded from analyze-core-distribution)
+    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    
+    # Aggregate per-core stats
+    core_stats = defaultdict(lambda: {
+        'total_core_sec': 0.0,
+        'kernel_core_sec': 0.0,
+    })
+    
+    for s in samples:
+        cpu_id = s.get('cpu')
+        if cpu_id is None:
+            continue
+        core_per_sec = engine.get_sample_weight(s)
+        core_stats[cpu_id]['total_core_sec'] += core_per_sec
+        stack = s.get('stack')
+        if stack and stack.is_leaf_kernel:
+            core_stats[cpu_id]['kernel_core_sec'] += core_per_sec
+    
+    # Find cores with high sys utilization (>70%)
+    high_sys_cores = []
+    for cpu_id, stats in sorted(core_stats.items(), key=lambda x: x[1]['kernel_core_sec'], reverse=True):
+        kernel_util = (stats['kernel_core_sec'] / duration * 100) if duration > 0 else 0
+        if kernel_util > 70:
+            total_util = (stats['total_core_sec'] / duration * 100) if duration > 0 else 0
+            high_sys_cores.append(CoreItem(
+                cpu_id=cpu_id,
+                total_cpu_util=f"{total_util:.2f}%",
+                kernel_cpu_util=f"{kernel_util:.2f}%"
+            ))
+    
     # Build risk info
-    if util_stats['kernel_pct'] > 50:
+    if high_sys_cores:
+        # High sys cores detected - critical risk
+        core_list = ", ".join([f"CPU{c.cpu_id}({c.kernel_cpu_util})" for c in high_sys_cores[:3]])
+        risk = create_risk_info(
+            level="critical",
+            message=f"检测到 {len(high_sys_cores)} 个核心 sys 利用率 >70%: {core_list}",
+            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {len(high_sys_cores)} 个核心 sys 利用率 >70%' --risk 'critical' --hint '分析内核热点: cluster-symbols'",
+            patterns=["HIGH_SYS_CORES"]
+        )
+    elif util_stats['kernel_pct'] > 50:
         risk = create_risk_info(
             level="warning",
             message=f"内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高",
@@ -76,7 +122,7 @@ def cmd_show_cpu_usage(engine, args):
         }
     )
     
-    # Build summary
+    # Build summary with high sys cores info
     summary = CPUUsageSummary()
     
     # Build output
@@ -84,3 +130,9 @@ def cmd_show_cpu_usage(engine, args):
     
     # Print output
     builder.print_output(output)
+    
+    # Print high sys cores if any
+    if high_sys_cores:
+        print("\n# HIGH_SYS_CORES: cpu_id,(usr+sys)/sys")
+        for i, core in enumerate(high_sys_cores, 1):
+            print(f"#{i} CPU{core.cpu_id} {core.total_cpu_util}/{core.kernel_cpu_util}")
