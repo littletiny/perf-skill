@@ -148,13 +148,16 @@ python3 tests/perfdata/test_perfdata.py
 python3 tests/spear_wrap/test_spear_wrap.py
 ```
 
-**快捷方式**（推荐在 commit 前运行）：
+**统一测试入口**：使用 `tests/run_tests.py` 运行所有自动化测试
 ```bash
-# 批量运行所有自动化测试
-for f in tests/test_*.py tests/*/test_*.py; do
-  echo "Testing: $f"
-  python3 "$f" || exit 1
-done
+# 运行所有测试
+python3 tests/run_tests.py
+
+# 详细输出
+python3 tests/run_tests.py -v
+
+# 失败时停止
+python3 tests/run_tests.py -f
 ```
 
 ### 文档引用准则
