@@ -29,15 +29,15 @@
 
 ### 2.1 `_risk` 字段（必须）
 
-**⚠️ 强制性规则**: 当 `_risk.action_required=true` 时，**必须**将问题添加到 Live Document
+**⚠️ 强制性规则**: 当 `_risk.action_required=true` 时，**必须**将问题添加到 Trace
 
 ```bash
 # 任何返回 action_required=true 的 tool 输出，必须执行：
-spearert.py doc add --id <ISS-XXX> --desc "<_risk.message>" \
+spear trace add --desc "<_risk.message>" \
   --risk "<_risk.level>" --hint "<_risk.hint>"
 ```
 
-**强制执行**: 分析流程中禁止忽略 `action_required=true` 的风险提示。未添加到 Live Document 的风险视为分析不完整。
+**强制执行**: 分析流程中禁止忽略 `action_required=true` 的风险提示。未添加到 Trace 的风险视为分析不完整。
 
 ```json
 {
@@ -468,8 +468,8 @@ class RiskMixin:
 
 ## 7. 参考
 
-- [Live Document 设计](./design-rationale-trace-v1.md)
-- [Live Document 接口](./trace-interface.md)
+- [Trace 设计](./design-rationale-trace-v1.md)
+- [Trace 接口](./trace-interface.md)
 - [CHANGES.md](../CHANGES.md)
 
 ---

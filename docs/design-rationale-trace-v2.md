@@ -1,4 +1,4 @@
-# Live Document Tracing v2.0 设计文档
+# Trace v2.0 设计文档
 
 > 演进目标：从手动记录到全自动 Tracing 工具
 > 版本: 2.0
@@ -15,7 +15,7 @@ v1.0 设计需要**人工执行** `spear trace add` 和 `spear trace complete`�
 ```bash
 # 发现问题
 perf-exp get-comm-top --data xxx.data
-# 输出提示: [必须] 添加到 Live Document...
+# 输出提示: [必须] 添加到 Trace...
 
 # 必须人工执行！
 spear trace add --id ISS-001 --desc "xxx" --risk "xxx"
@@ -43,7 +43,7 @@ spear trace complete --id ISS-001 --result "xxx"
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Live Document v2.0                      │
+│                      Trace v2.0                      │
 ├─────────────────────────────────────────────────────────────┤
 │  timeline: [CommandRecord]  ← 按时间顺序记录所有命令执行      │
 │  issues: {issue_id: Issue}  ← 问题聚合状态                   │

@@ -58,8 +58,8 @@
 mkdir -p debug
 # 基于 references/templates.md 创建 debug/[问题描述].md
 
-# 2. 初始化 Live Document
-spearert.py doc init --data <perf.data>
+# 2. 初始化 Trace
+spear trace init --data <perf.data>
 
 # 3. 提出三候选假说（强制执行）
 # 在诊断文档中记录至少 3 个竞争性假设：
@@ -187,8 +187,8 @@ count-process-variety
 get-comm-top  # 关注 cpu消耗总量，尤其是内核态cpu占用
 
 # Step 2: 如果检测到lsof高内核开销
-# 在 Live Document 中记录高内核开销
-spearert.py doc add \
+# 在 Trace 中记录高内核开销
+spear trace add \
   --desc "lsof 内核开销高" \
   --risk "系统开销激增" \
   --hint "cluster-symbols --comm lsof"
@@ -199,7 +199,7 @@ get-hotspots --comm <storm-comm>
 find-callers --auto-target --comm <storm-comm>
 
 # Step 4: 定期审计
-spearert.py doc list  # 确保所有风暴进程组都被分析
+spear trace issues  # 确保所有风暴进程组都被分析
 ```
 
 ### 三候选假说示例
@@ -211,7 +211,7 @@ spearert.py doc list  # 确保所有风暴进程组都被分析
 | C3: 进程泄漏 | 代码缺陷导致进程未回收 | PID 数持续增长 | 多次执行 `get-comm-top` 对比 | PID 数稳定 |
 
 ### ⚠️ 强制要求
-- `count-process-variety` 检测到风暴后，**必须**在 Live Document 中记录所有风暴进程组
+- `count-process-variety` 检测到风暴后，**必须**在 Trace 中记录所有风暴进程组
 - **必须**对每个风暴进程组执行 `cluster-symbols`，不得遗漏
 
 ---
@@ -367,14 +367,14 @@ cluster-symbols --comm <xxx>  # 看具体回收函数
 ### 每 2-3 诊断工具后执行
 
 ```bash
-spearert.py doc list
+spear trace issues
 # 如有 PENDING 问题 → 继续分析，不要提前收敛
 ```
 
 ### 生成报告前执行
 
 ```bash
-spearert.py doc finalize
+spear trace finalize
 ```
 
 ### 全局一致性检查清单
@@ -394,9 +394,9 @@ spearert.py doc finalize
   - 主动寻找证伪当前结论的证据
   - 确认没有无法解释的孤证
 
-- [ ] **Live Document 中是否还有未处理的 PENDING 问题？**
-  - 执行 `doc list` 确认
-  - 执行 `doc finalize` 完成最终审计
+- [ ] **Trace 中是否还有未处理的 PENDING 问题？**
+  - 执行 `trace issues` 确认
+  - 执行 `trace finalize` 完成最终审计
 
 ---
 

@@ -438,74 +438,87 @@ python3 scripts/spear.py count-process-variety \
 
 ---
 
-## Live Document 命令
+## Trace 命令
 
-### doc init
+### trace init
 
-初始化诊断文档。
+初始化诊断追踪文档。
 
 ```bash
-python3 scripts/spear.py doc init --data <perf.data>
+spear trace init --data <perf.data>
+# 或
+python3 scripts/spear.py trace init --data <perf.data>
 ```
 
-**作用**: 创建 `.spear trace.json` 用于问题状态追踪
+**作用**: 创建 `.spear.json` 用于诊断过程追踪
 
 ---
 
-### doc add
+### trace add
 
-添加问题记录。
+添加问题记录（自动生成 ID）。
 
 ```bash
-python3 scripts/spear.py doc add \
-  --id <ISS-XXX> \
+spear trace add \
   --desc "问题描述" \
-  [--risk "风险等级"] \
+  [--level critical|warning|info] \
   [--hint "建议操作"]
 ```
 
+**输出**: `✓ 已添加问题: ISS-001`
+
 ---
 
-### doc complete
+### trace complete
 
 标记问题完成。
 
 ```bash
-python3 scripts/spear.py doc complete \
-  --id <ISS-XXX> \
+spear trace complete \
+  --id ISS-001 \
   --result "分析结果"
 ```
 
 ---
 
-### doc list
+### trace issues
 
 列出所有问题。
 
 ```bash
-python3 scripts/spear.py doc list [--format text|json]
+spear trace issues [--status open|resolved|all]
 ```
 
 ---
 
-### doc finalize
+### trace finalize
 
 最终审计（生成报告前必须执行）。
 
 ```bash
-python3 scripts/spear.py doc finalize
+spear trace finalize [--accept-risk "理由"]
 ```
 
 ---
 
-### doc export
+### trace export
 
 导出报告。
 
 ```bash
-python3 scripts/spear.py doc export \
+spear trace export \
   [--format markdown|json] \
   [--output <path>]
+```
+
+---
+
+### trace timeline
+
+查看诊断时间线。
+
+```bash
+spear trace timeline [--format text|json]
 ```
 
 ---

@@ -1,4 +1,4 @@
-# Live Document 接口设计文档
+# Trace 接口设计文档
 
 > 技术实现规格说明
 > 版本: 1.0
@@ -402,11 +402,11 @@ def cmd_get_hotspots(engine, args):
 
 ```bash
 # 通过 spear 调用
-spear doc init --data <file>
-spear doc add --id <id> --desc <desc>
-spear doc complete --id <id> --result <result>
-spear doc list
-spear doc finalize
+spear trace init --data <file>
+spear trace add --desc <desc> [--hint <hint>]
+spear trace complete --id <id> --result <result>
+spear trace issues [--status open|resolved|all]
+spear trace finalize
 ```
 
 ---
@@ -504,7 +504,7 @@ from typing import List, Dict, Optional
 
 
 class LiveDoc:
-    """Live Document for tracking diagnostic issues"""
+    """Trace for tracking diagnostic issues"""
 
     DEFAULT_PATH = ".spear.json"
 

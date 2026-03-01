@@ -1,4 +1,4 @@
-# Live Document 机制设计意图文档
+# Trace v1.0 机制设计意图文档
 
 > 记录从问题发现到方案设计的完整思考过程
 > 创建时间: 2026-02-28
@@ -118,7 +118,7 @@ $ perf-exp hints --show
 
 **决策**: 简化，直接展示剩余风险。
 
-### 3.3 第三轮思考：结构化 Live Document
+### 3.3 第三轮思考：结构化 Trace
 
 **核心洞察**: 需要一个"状态容器"记录诊断全过程。
 
@@ -259,7 +259,7 @@ ISS-002  containerd-shim 高内核态 89.9%
 - Table 2 (假设验证): 手工维护 markdown
 
 新方式：
-- Table 1 → Live Doc 的 `issues` 列表 (自动维护)
+- Table 1 → Trace 的 `issues` 列表 (自动维护)
 - Table 2 → 每个 issue 的 `desc`, `result`, `risk` 字段
 
 **优势**: 从"手工维护"变为"工具自动维护"
@@ -269,7 +269,7 @@ ISS-002  containerd-shim 高内核态 89.9%
 ```markdown
 ## 诊断文档规范（⚠️ 强制执行）
 
-### Live Document 机制
+### Trace 机制
 
 所有分析必须写入结构化诊断文档，作为唯一事实来源。
 

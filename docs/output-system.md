@@ -17,7 +17,7 @@ scripts/perf_toolkit/core/
 ├── output_adapter.py      # JSON 转换器
 ├── output_builder.py      # 输出构建器
 ├── risk_mixin.py         # 风险信息管理
-├── live_doc.py           # Live Document 支持
+├── trace.py              # Trace 支持
 └── __init__.py           # 导出模块
 
 docs/

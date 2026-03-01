@@ -81,7 +81,7 @@
 
 ## Phase 1: 问题定义
 
-> ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Live Document（强制执行）
+> ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Trace（强制执行）
 >
 > **必须按顺序执行以下步骤，缺一不可：**
 >
@@ -95,15 +95,15 @@
 > #    - 问题演进记录表（记录问题定义的变化）
 > #    - 竞争性假设追踪表（至少3条竞争性假设）
 >
-> # 4. 初始化 Live Document —— 这只是辅助状态追踪
-> spearert.py doc init --data xxx.data
+> # 4. 初始化 Trace —— 这只是辅助状态追踪
+> spear trace init --data xxx.data
 > ```
 >
 > **重要区分**：
 > - `debug/*.md` = **主文档**（手动维护，记录完整分析过程）
-> - `Live Document` = **状态追踪**（自动生成，只记录问题列表和状态）
+> - `Trace` = **状态追踪**（自动生成，只记录问题列表和状态）
 >
-> **禁止行为**：❌ 只执行 `doc init` 而不创建 `debug/*.md` 文档
+> **禁止行为**：❌ 只执行 `trace init` 而不创建 `debug/*.md` 文档
 
 ### 1.1 目标范围界定
 
@@ -151,7 +151,7 @@
 
 ### 1.5 记录待验证问题
 
-**目标**: 将发现的潜在问题记录到 Live Document，防止遗漏
+**目标**: 将发现的潜在问题记录到 Trace，防止遗漏
 
 **何时记录**:
 - 发现多个高消耗进程/进程组时
@@ -161,7 +161,7 @@
 **如何记录**:
 ```bash
 # 示例：get-comm-top 发现 1 个异常进程组，全部记录
-spearert.py doc add --id ISS-001 --desc "异常xxxx" \
+spear trace add --id ISS-001 --desc "异常xxxx" \
   --risk "异常可能影响" --hint "根据领域知识和方法论选择合适决策"
 
 # ... 继续记录其他问题
@@ -361,10 +361,10 @@ spearert.py doc add --id ISS-001 --desc "异常xxxx" \
 
 #### 定期审计（每 2-3 个工具后）
 
-**必须执行 `doc list` 检查待办问题**：
+**必须执行 `trace issues` 检查待办问题**：
 
 ```bash
-spearert.py doc list
+spear trace issues
 ```
 
 **输出解读**:
@@ -373,10 +373,10 @@ spearert.py doc list
 
 #### 最终审计（生成报告前）
 
-**必须执行 `doc finalize` 确认完整性**：
+**必须执行 `trace finalize` 确认完整性**：
 
 ```bash
-spearert.py doc finalize
+spear trace finalize
 ```
 
 **可能输出**:
@@ -393,9 +393,9 @@ spearert.py doc finalize
   - 时序异常
   - 进程行为异常
 
-- [ ] **Live Document 中是否还有未处理的 `PENDING` 问题？**
-  - 执行 `doc list` 确认
-  - 执行 `doc finalize` 完成最终审计
+- [ ] **Trace 中是否还有未处理的 `PENDING` 问题？**
+  - 执行 `trace issues` 确认
+  - 执行 `trace finalize` 完成最终审计
 
 - [ ] **是否符合领域应有表现？**
   - 该类型应用的典型 CPU 模式
