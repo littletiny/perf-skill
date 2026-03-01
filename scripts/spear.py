@@ -330,8 +330,8 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p14.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
 
-    # perf-doc subcommands
-    doc_parser = subparsers.add_parser('doc', help="Live document for tracking diagnostic issues")
+    # trace subcommands (v2.0: tracing diagnostic process)
+    doc_parser = subparsers.add_parser('trace', help="Tracing diagnostic issues and timeline")
     doc_subparsers = doc_parser.add_subparsers(dest="doc_command")
     
     # doc init
@@ -375,7 +375,7 @@ Use '<command> --help' for detailed help on each subcommand."""
         return
 
     # Handle perf-doc subcommands (doesn't require --data or engine)
-    if args.command == "doc":
+    if args.command == "trace":
         if not args.doc_command:
             doc_parser.print_help()
             return

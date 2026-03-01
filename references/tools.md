@@ -448,7 +448,7 @@ python3 scripts/perf_expert.py count-process-variety \
 python3 scripts/perf_expert.py doc init --data <perf.data>
 ```
 
-**作用**: 创建 `.spear doc.json` 用于问题状态追踪
+**作用**: 创建 `.spear trace.json` 用于问题状态追踪
 
 ---
 
