@@ -60,7 +60,7 @@ echo "========================================"
 echo "Perf Format 格式专项测试"
 echo "========================================"
 echo "数据文件: $DATA_FILE"
-echo "工具路径: $PERF_EXPERT"
+echo "工具路径: $SPEAR"
 echo ""
 
 # 前置检查
