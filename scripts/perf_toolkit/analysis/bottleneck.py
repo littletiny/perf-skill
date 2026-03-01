@@ -6,8 +6,8 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 检测内容：
 1. CPU 限制饱和 (cgroup CPU limit) - cpu_limit > 0 且使用率 > 90%
-2. 单核满载 (single core saturation) - 任意核心 total > 90%
-3. 单核 sys 过高 (high sys usage) - 任意核心 sys > 80%
+2. 单核满载 (single core saturation) - 任意核心 total > threshold (默认 80%)
+3. 单核 sys 过高 (high sys usage) - 任意核心 sys > threshold + 10% (默认 90%)
 
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
@@ -57,9 +57,13 @@ def cmd_check_bottleneck(engine, args):
     # 检测各类瓶颈
     cpu_limit = getattr(args, 'cpu_limit', 0) or 0
     
+    # 获取阈值参数 (默认 80%)
+    threshold = getattr(args, 'threshold', 80)
+    sys_threshold = threshold + 10  # sys 阈值比 total 高 10%
+    
     # 收集高负载核心
-    high_cpu_cores = []  # total > 90%
-    high_sys_cores = []  # sys > 80%
+    high_cpu_cores = []  # total > threshold
+    high_sys_cores = []  # sys > sys_threshold
     max_cpu_id = None
     max_usage_pct = 0
     
@@ -72,12 +76,12 @@ def cmd_check_bottleneck(engine, args):
             max_usage_pct = total_pct
             max_cpu_id = cpu_id
         
-        # 检测单核满载 (>90%)
-        if total_pct > 90:
+        # 检测单核满载 (>threshold)
+        if total_pct > threshold:
             high_cpu_cores.append(cpu_id)
         
-        # 检测单核 sys 高 (>80%)
-        if sys_pct > 80:
+        # 检测单核 sys 高 (>sys_threshold)
+        if sys_pct > sys_threshold:
             high_sys_cores.append(cpu_id)
     
     # 默认排序
@@ -95,7 +99,6 @@ def cmd_check_bottleneck(engine, args):
             level="critical",
             message=f"CPU 限制接近饱和: {format_percent(max_usage_pct)}",
             hint=f"检查 cgroup CPU 限制或扩容",
-            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc 'CPU 限制接近饱和: {format_percent(max_usage_pct)}' --risk 'critical' --hint '检查 cgroup CPU 限制或扩容'",
             patterns=["CPU_LIMIT_SATURATION"]
         )
     
@@ -105,9 +108,8 @@ def cmd_check_bottleneck(engine, args):
         core_list_str = ",".join(map(str, high_sys_cores))
         risk = create_risk_info(
             level="critical",
-            message=f"检测到 {len(high_sys_cores)} 个核心 sys 利用率 >80%: {core_list_str}",
+            message=f"检测到 {len(high_sys_cores)} 个核心 sys 利用率 >{sys_threshold}%: {core_list_str}",
             hint="[必须] 分析内核热点: cluster-symbols",
-            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {len(high_sys_cores)} 个核心 sys 利用率 >80%: {core_list_str}' --risk 'critical' --hint '分析内核热点: cluster-symbols'",
             patterns=["HIGH_SYS_CORES"]
         )
     
@@ -122,9 +124,8 @@ def cmd_check_bottleneck(engine, args):
             hint = "先定位高 CPU 进程: get-process-top --top-n 5，然后分析具体进程"
         risk = create_risk_info(
             level="warning",
-            message=f"单核满载 (CPU {core_list_str})，可能存在串行化瓶颈",
+            message=f"单核利用率>{threshold}% (CPU {core_list_str})，可能存在串行化瓶颈",
             hint=hint,
-            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载 (CPU {core_list_str})，可能存在串行化瓶颈' --risk 'warning' --hint '{hint}'",
             patterns=["SINGLE_CORE_SATURATION"]
         )
     
@@ -133,6 +134,7 @@ def cmd_check_bottleneck(engine, args):
         verdict=verdict,
         high_cpu_cores=high_cpu_cores,
         high_sys_cores=high_sys_cores,
+        threshold=threshold,
         max_core_load={
             "cpu_id": max_cpu_id if max_cpu_id is not None else 0,
             "load": format_percent(max_usage_pct)

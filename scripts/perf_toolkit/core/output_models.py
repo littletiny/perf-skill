@@ -259,15 +259,17 @@ class BottleneckData:
     verdict 取值:
     - HEALTHY: 无瓶颈
     - CPU_LIMIT_SATURATION: CPU 限制接近饱和 (cgroup 限制)
-    - SINGLE_CORE_SATURATION: 单核满载 (total > 90%)
-    - HIGH_SYS_CORES: 单核 sys 利用率过高 (>80%)
+    - SINGLE_CORE_SATURATION: 单核满载 (total > threshold)
+    - HIGH_SYS_CORES: 单核 sys 利用率过高 (>threshold+10%)
     
-    high_cpu_cores: 总利用率 >90% 的核心列表 [cpu_id, ...]
-    high_sys_cores: sys 利用率 >80% 的核心列表 [cpu_id, ...]
+    high_cpu_cores: 总利用率 >threshold% 的核心列表 [cpu_id, ...]
+    high_sys_cores: sys 利用率 >(threshold+10)% 的核心列表 [cpu_id, ...]
+    threshold: 检测阈值 (默认 80)
     """
     verdict: str  # "HEALTHY", "CPU_LIMIT_SATURATION", "SINGLE_CORE_SATURATION", "HIGH_SYS_CORES"
-    high_cpu_cores: List[int]  # 总利用率 >90% 的核心
-    high_sys_cores: List[int]  # sys 利用率 >80% 的核心
+    high_cpu_cores: List[int]  # 总利用率 >threshold% 的核心
+    high_sys_cores: List[int]  # sys 利用率 >(threshold+10)% 的核心
+    threshold: int  # 检测阈值 (默认 80)
     max_core_load: Dict[str, Any]  # {"cpu_id": int, "load": str}
     limit_info: Dict[str, Any]  # {"cpu_limit_cores": float, "cpu_limit_detected": bool}
 

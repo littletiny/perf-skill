@@ -108,6 +108,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p1.add_argument("--cpu-limit", type=parse_cpu_quota, default=0, dest="cpu_limit", metavar="LIMIT",
                     help="CPU limit in cores for cgroup environments. Examples: '0.1c' (0.1 core), "
                          "'2c' (2 cores), '0.5' (0.5 cores). Default: 0 (no limit check)")
+    p1.add_argument("--threshold", type=float, default=80, metavar="PCT",
+                    help="Threshold for single-core saturation detection (default: 80%%). "
+                         "A core is considered saturated when its CPU usage exceeds this threshold.")
     p1.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format without core/s field. "
                          "Default: 19. Ignored for SPEAR format with core/s values.")
