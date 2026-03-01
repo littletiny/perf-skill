@@ -22,7 +22,7 @@ from .format_utils import (
     format_percent, format_weight, safe_time_range
 )
 from .risk_mixin import RiskMixin, RiskAwareOutput
-from .live_doc import LiveDoc
+from .trace import Trace
 
 # Output System - Unified Data Models
 from .output_models import (
@@ -59,7 +59,7 @@ __all__ = [
     'safe_time_range',
     'RiskMixin',
     'RiskAwareOutput',
-    'LiveDoc',
+    'Trace',
     # Output System - Models
     'RiskInfo', 'TimeRange', 'BaseSummary', 'BaseOutput',
     'ProcessItem', 'CommGroupItem', 'HotspotItem', 'ClusterItem',

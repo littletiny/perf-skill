@@ -30,8 +30,7 @@
 |------|----------|-------------|
 | V1 | 用户反馈系统性能抖动 | `show-cpu-usage`: 系统CPU 6276.51%, 内核态50.4% (EXCELLENT 数据质量) |
 | V2 | 发现单核饱和，用户态/内核态异常均衡 | `check-cpu-bottleneck`: SINGLE_CORE_SATURATION, max_load=6276%@cpu0 |
-| V3 | 存在严重进程风暴，netstat高频创建 | `count-process-variety`: 1308个netstat进程, CPU/PID=0.05 core/s, 判定=PROCESS_STORM |
-| V4 | netstat读取/proc/net/tcp引发内核锁竞争 | `cluster-symbols`: EVENT_LOCK_CONTENTION 16.01%, `find-callers`: established_get_first ← seq_read |
+| V3 | 存在严重进程风暴，lsof高频创建 | `count-process-variety`: 1308个netstat进程, CPU/PID=0.05 core/s, 判定=PROCESS_STORM |
 
 ---
 

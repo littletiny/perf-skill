@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any
 
 
-class LiveDoc:
+class Trace:
     """
     Live Document v2.0 - 自动 Tracing 实现
     
@@ -443,7 +443,7 @@ class LiveDoc:
 
 def cmd_doc_init(args):
     """初始化诊断文档"""
-    doc = LiveDoc()
+    doc = Trace()
     doc.init(args.data)
     print(f"✓ 创建诊断文档: {doc.path}")
     print(f"  数据文件: {args.data}")
@@ -451,7 +451,7 @@ def cmd_doc_init(args):
 
 def cmd_doc_add(args):
     """手动添加 issue（自动生成 ID）"""
-    doc = LiveDoc()
+    doc = Trace()
     level = getattr(args, 'level', 'warning')
     issue_id = doc.add(
         desc=args.desc,
@@ -467,7 +467,7 @@ def cmd_doc_add(args):
 
 def cmd_doc_timeline(args):
     """查看时间线"""
-    doc = LiveDoc()
+    doc = Trace()
     timeline = doc.get_timeline()
     
     if not timeline:
@@ -503,7 +503,7 @@ def cmd_doc_timeline(args):
 
 def cmd_doc_issues(args):
     """查看 issues 状态（显示 ID，可用序号简写）"""
-    doc = LiveDoc()
+    doc = Trace()
     
     status_filter = getattr(args, 'status', 'all')
     
@@ -534,7 +534,7 @@ def cmd_doc_issues(args):
 
 def cmd_doc_complete(args):
     """标记 issue 为已完成（人工执行）"""
-    doc = LiveDoc()
+    doc = Trace()
     
     try:
         doc.complete(args.id, args.result)
@@ -553,7 +553,7 @@ def cmd_doc_complete(args):
 
 def cmd_doc_finalize(args):
     """最终审计"""
-    doc = LiveDoc()
+    doc = Trace()
     result = doc.finalize(getattr(args, 'accept_risk', None))
     
     print("=" * 65)
@@ -596,7 +596,7 @@ def cmd_doc_finalize(args):
 
 def cmd_doc_export(args):
     """导出报告"""
-    doc = LiveDoc()
+    doc = Trace()
     fmt = getattr(args, 'format', 'markdown')
     output = getattr(args, 'output', None)
     

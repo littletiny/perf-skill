@@ -55,7 +55,7 @@ from .text_output_adapter import TextOutputAdapter
 from .risk_mixin import RiskAwareOutput
 from .format_utils import format_time_range, safe_time_range
 from .reliability import assess_data_quality
-from .live_doc import LiveDoc
+from .trace import Trace
 
 
 T = TypeVar('T', bound=BaseOutput)
@@ -98,9 +98,9 @@ class OutputBuilder:
         self._samples = None
         
         # Live Document v2.0 自动记录
-        self._live_doc = None
+        self._trace = None
         self._command_name = None
-        self._auto_trace = getattr(args, 'live_doc', True)  # 默认开启
+        self._auto_trace = getattr(args, 'trace', True)  # 默认开启
     
     # =====================================================================
     # Live Document v2.0 - 自动记录 API
@@ -134,15 +134,15 @@ class OutputBuilder:
         
         # 初始化 LiveDoc
         try:
-            self._live_doc = LiveDoc()
+            self._trace = LiveDoc()
             # 如果文档不存在，自动初始化
-            if not self._live_doc.data.get('data_file') and data_file:
-                self._live_doc.init(data_file)
+            if not self._trace.data.get('data_file') and data_file:
+                self._trace.init(data_file)
             
-            self._live_doc.begin_command(full_command)
+            self._trace.begin_command(full_command)
         except Exception:
             # 自动记录失败不应影响主流程
-            self._live_doc = None
+            self._trace = None
     
     def record_risk(self, level: str, desc: str, hint: str = "") -> str:
         """
@@ -156,11 +156,11 @@ class OutputBuilder:
         Returns:
             issue_id: 创建的 issue ID（或空字符串）
         """
-        if not self._auto_trace or not self._live_doc:
+        if not self._auto_trace or not self._trace:
             return ""
         
         try:
-            return self._live_doc.record_risk(level, desc, hint)
+            return self._trace.record_risk(level, desc, hint)
         except Exception:
             return ""
     
@@ -172,11 +172,11 @@ class OutputBuilder:
             issue_id: 要解决的 issue ID
             result: 分析结果/结论
         """
-        if not self._auto_trace or not self._live_doc:
+        if not self._auto_trace or not self._trace:
             return
         
         try:
-            self._live_doc.record_resolution(issue_id, result)
+            self._trace.record_resolution(issue_id, result)
         except Exception:
             pass
     
@@ -190,7 +190,7 @@ class OutputBuilder:
             comm: 进程名，用于匹配
             result: 分析结果
         """
-        if not self._auto_trace or not self._live_doc:
+        if not self._auto_trace or not self._trace:
             return
         
         try:
@@ -202,41 +202,41 @@ class OutputBuilder:
                 return
             
             # 查找匹配的 open issue
-            for issue_id, issue in self._live_doc.data['issues'].items():
+            for issue_id, issue in self._trace.data['issues'].items():
                 if issue['status'] == 'open' and comm in issue['desc']:
-                    self._live_doc.record_resolution(issue_id, result)
+                    self._trace.record_resolution(issue_id, result)
                     break
         except Exception:
             pass
     
     def record_info(self, message: str):
         """记录一般信息"""
-        if not self._auto_trace or not self._live_doc:
+        if not self._auto_trace or not self._trace:
             return
         
         try:
-            self._live_doc.record_info(message)
+            self._trace.record_info(message)
         except Exception:
             pass
     
     def end_command(self):
         """命令结束时调用，保存 LiveDoc"""
-        if not self._auto_trace or not self._live_doc:
+        if not self._auto_trace or not self._trace:
             return
         
         try:
-            self._live_doc.end_command()
+            self._trace.end_command()
         except Exception:
             pass
     
     def get_live_doc_summary(self) -> Dict:
         """获取 LiveDoc 摘要（用于输出）"""
-        if not self._live_doc:
+        if not self._trace:
             return {"enabled": False}
         
         return {
             "enabled": True,
-            **self._live_doc.get_summary()
+            **self._trace.get_summary()
         }
     
     # =====================================================================

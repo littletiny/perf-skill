@@ -48,14 +48,11 @@ from perf_toolkit.analysis.process_variety import cmd_count_process_variety
 from perf_toolkit.analysis.core_distribution import cmd_analyze_core_distribution
 from perf_toolkit.analysis.comm_top import cmd_get_comm_top
 
-# Import live doc commands (v2.0: auto add, manual complete)
-from perf_toolkit.core.live_doc import (
+# Import trace commands (v2.0: auto add, manual complete)
+from perf_toolkit.core.trace import (
     cmd_doc_init, cmd_doc_add, cmd_doc_complete, cmd_doc_timeline,
     cmd_doc_issues, cmd_doc_finalize, cmd_doc_export
 )
-
-# Import live document
-from perf_toolkit.core.live_doc import LiveDoc
 
 
 class HelpOnErrorParser(argparse.ArgumentParser):
@@ -68,7 +65,7 @@ class HelpOnErrorParser(argparse.ArgumentParser):
 
 def main():
     parser = HelpOnErrorParser(
-        description="SPEAR Diagnostic Toolkit - Analyze Linux performance data using SPEAR methodology",
+        description="SPEAR Diagnostic Toolkit",
         epilog="""Usage Examples:
   # Analyze hotspots in a specific process
   spear get-hotspots --data perf.data.txt --comm myapp --top-n 20
