@@ -24,7 +24,8 @@ import unittest
 from pathlib import Path
 
 # Add repo root to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+REPO_ROOT = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from perf_toolkit.core.risk_config import RiskDisplayConfig, get_risk_config, clear_risk_config_cache, DEFAULT_CONFIG
 
@@ -316,7 +317,7 @@ class TestTraceFormatting(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Setup"""
-        cls.repo_root = Path(__file__).parent.parent
+        cls.repo_root = Path(__file__).parent.parent.parent
         sys.path.insert(0, str(cls.repo_root / "scripts"))
     
     def setUp(self):

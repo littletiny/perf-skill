@@ -11,9 +11,9 @@
 - 与真实数据文件的兼容性
 
 用法:
-    python3 tests/test_external_rules_integration.py        # 运行所有测试
-    python3 tests/test_external_rules_integration.py -v     # 详细输出
-    python3 tests/test_external_rules_integration.py -f     # 失败时停止
+    python3 tests/clusters/test_external_rules_integration.py        # 运行所有测试
+    python3 tests/clusters/test_external_rules_integration.py -v     # 详细输出
+    python3 tests/clusters/test_external_rules_integration.py -f     # 失败时停止
 """
 
 import os
@@ -25,7 +25,7 @@ import subprocess
 from pathlib import Path
 
 # 添加项目根目录到路径
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.perf_toolkit.analysis import clusters
