@@ -52,7 +52,7 @@ def cmd_trace_attribution(engine, args):
         if not stack:
             continue
         
-        core_per_sec = s.get('core_per_sec', 0)
+        core_per_sec = engine.get_sample_weight(s)
         normalized_names = stack.get_normalized_names()
         
         if target in normalized_names:
@@ -135,7 +135,7 @@ def cmd_find_callers_auto(engine, args):
     for s in samples:
         stack = s.get('stack')
         if stack and len(stack) > 0:
-            core_per_sec = s.get('core_per_sec', 0)
+            core_per_sec = engine.get_sample_weight(s)
             leaf_name = stack.get_normalized_names()[0]
             self_core_sec[leaf_name] += core_per_sec
     
@@ -152,7 +152,7 @@ def cmd_find_callers_auto(engine, args):
             if not stack:
                 continue
             
-            core_per_sec = s.get('core_per_sec', 0)
+            core_per_sec = engine.get_sample_weight(s)
             normalized_names = stack.get_normalized_names()
             if target in normalized_names:
                 idx = normalized_names.index(target)

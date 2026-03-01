@@ -54,7 +54,7 @@ def cmd_get_process_top(engine, args):
         process_stats[key]['comm'] = s['comm']
         process_stats[key]['pid'] = s['pid']
         
-        core_val = s.get('core_per_sec') or 0
+        core_val = engine.get_sample_weight(s)
         process_stats[key]['total_core_sec'] += core_val
         
         stack = s.get('stack')

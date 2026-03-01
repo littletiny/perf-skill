@@ -53,7 +53,7 @@ def cmd_cluster_comm(engine, args):
         comm = s['comm']
         comm_stats[comm]['pids'].add(s['pid'])
         
-        core_val = s.get('core_per_sec') or 0
+        core_val = engine.get_sample_weight(s)
         comm_stats[comm]['total_core_sec'] += core_val
         
         stack = s.get('stack')

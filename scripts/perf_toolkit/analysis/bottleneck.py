@@ -54,8 +54,9 @@ def cmd_check_bottleneck(engine, args):
     cpu_core_per_sec = defaultdict(float)
     
     for s in samples:
-        if s.get('core_per_sec'):
-            cpu_core_per_sec[s['cpu']] += s['core_per_sec']
+        weight = engine.get_sample_weight(s)
+        if weight:
+            cpu_core_per_sec[s['cpu']] += weight
     
     # Find the busiest CPU
     max_cpu_id = max(cpu_core_per_sec, key=cpu_core_per_sec.get) if cpu_core_per_sec else 0
@@ -92,7 +93,6 @@ def cmd_check_bottleneck(engine, args):
             level="warning",
             message="单核满载，可能存在串行化瓶颈",
             hint=hint,
-            doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载，可能存在串行化瓶颈' --risk 'warning' --hint '{hint}'",
             patterns=["SINGLE_CORE_SATURATION"]
         )
     

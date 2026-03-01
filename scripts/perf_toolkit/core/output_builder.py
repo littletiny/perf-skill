@@ -156,22 +156,26 @@ class OutputBuilder:
         }
         
         # 早期返回处理
-        if early_return and quality_level == "CRITICAL":
-            # 添加数据质量风险
-            risk_output = RiskAwareOutput()
-            risk_output.add_risk(
-                "critical",
-                "数据质量不足！分析结果完全不可信",
-                "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！分析结果完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
-                patterns=["CRITICAL_DATA_QUALITY"]
-            )
-            
-            result = risk_output.build({
-                "data_quality": self._quality_metrics,
-                "error": "Insufficient data quality for analysis"
-            })
-            self.print_json(result)
-            return True
+        if early_return:
+            if quality_level == "CRITICAL":
+                # 添加数据质量风险
+                risk_output = RiskAwareOutput()
+                risk_output.add_risk(
+                    "critical",
+                    "数据质量不足！分析结果完全不可信",
+                    "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '数据质量不足！分析结果完全不可信' --risk 'critical' --hint '使用更长的采样时间重新采集数据'",
+                    patterns=["CRITICAL_DATA_QUALITY"]
+                )
+                
+                result = risk_output.build({
+                    "data_quality": self._quality_metrics,
+                    "error": "Insufficient data quality for analysis"
+                })
+                self.print_json(result)
+                return True
+            else:
+                # 数据质量良好，不提前返回
+                return False
         
         return quality_level
     

@@ -53,7 +53,7 @@ class TextOutputAdapter:
         for key in ['hotspots', 'clusters', 'processes', 'comm_groups', 
                     'cores', 'attributions', 'traces', 'path_clusters', 
                     'process_variety', 'windows', 'anomalies']:
-            if key in data and data[key]:
+            if key in data:
                 list_data = data[key]
                 list_name = key
                 break
@@ -144,13 +144,36 @@ class TextOutputAdapter:
             parts.append(f"total_processes={summary.get('total_processes', 0)}")
             if summary.get('storm_detected', False):
                 parts.append(f"storm_count={summary.get('storm_count', 0)}")
+        elif list_name == 'anomalies':
+            parts.append(f"total_anomalies={summary.get('total_anomalies', 0)}")
+            parts.append(f"spikes={summary.get('spike_count', 0)}")
+            parts.append(f"drops={summary.get('drop_count', 0)}")
+        elif list_name == 'windows':
+            parts.append(f"mode={summary.get('mode', 'unknown')}")
+            parts.append(f"windows={summary.get('total_windows', 0)}")
+            parts.append(f"cpus={summary.get('cpu_count', 0)}")
         
         return parts
     
     def _format_list(self, items: List[Dict], list_name: str) -> List[str]:
         """格式化列表数据"""
         if not items:
-            return []
+            # 返回友好的空状态消息
+            empty_messages = {
+                'anomalies': 'No anomalies detected',
+                'hotspots': 'No hotspots found',
+                'clusters': 'No clusters found',
+                'processes': 'No processes found',
+                'comm_groups': 'No process groups found',
+                'cores': 'No core data available',
+                'attributions': 'No attributions found',
+                'traces': 'No traces found',
+                'path_clusters': 'No path clusters found',
+                'process_variety': 'No process variety data',
+                'windows': 'No windows data'
+            }
+            msg = empty_messages.get(list_name, f'No {list_name} found')
+            return [f"({msg})"]
         
         # 通过检查第一项的字段来区分不同类型的 clusters
         if list_name == 'clusters':

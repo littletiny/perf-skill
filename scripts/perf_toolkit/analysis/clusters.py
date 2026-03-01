@@ -67,7 +67,7 @@ def cmd_apply_cluster(engine, args):
         if not stack:
             continue
         
-        core_per_sec = s.get('core_per_sec', 0)
+        core_per_sec = engine.get_sample_weight(s)
         normalized_names = stack.get_normalized_names()
         
         matched_groups = set()

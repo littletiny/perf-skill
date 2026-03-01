@@ -98,7 +98,7 @@ def cmd_cluster_paths(engine, args):
     for s in samples:
         stack = s.get('stack')
         if stack and len(stack) > 0:
-            core_per_sec = s.get('core_per_sec', 0)
+            core_per_sec = engine.get_sample_weight(s)
             cluster_builder.add_sample(stack, core_per_sec)
     
     clusters = cluster_builder.extract_clusters()

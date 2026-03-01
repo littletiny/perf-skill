@@ -65,7 +65,7 @@ def cmd_get_comm_top(engine, args):
     for s in samples:
         comm = s['comm']
         pid = s['pid']
-        core_val = s.get('core_per_sec') or 0
+        core_val = engine.get_sample_weight(s)
         
         comm_stats[comm]['pids'][pid]['core_sec'] += core_val
         comm_stats[comm]['total_core_sec'] += core_val

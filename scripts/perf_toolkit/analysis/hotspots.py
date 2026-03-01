@@ -48,7 +48,7 @@ def cmd_get_hotspots(engine, args):
         if not stack or len(stack) == 0:
             continue
         
-        core_per_sec = s.get('core_per_sec', 0)
+        core_per_sec = engine.get_sample_weight(s)
         normalized_names = stack.get_normalized_names()
         
         self_core_sec[normalized_names[0]] += core_per_sec

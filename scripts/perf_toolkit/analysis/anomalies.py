@@ -79,7 +79,7 @@ def cmd_detect_anomalies(engine, args):
             win_end = win_start + window_size
             win_samples_raw = [s for s in cpu_samples_list if win_start <= s['ts'] < win_end]
             
-            win_core_per_sec = sum(s.get('core_per_sec') or 0 for s in win_samples_raw)
+            win_core_per_sec = sum(engine.get_sample_weight(s) for s in win_samples_raw)
             utilization = win_core_per_sec / window_size if window_size > 0 else 0
             
             window_data = {

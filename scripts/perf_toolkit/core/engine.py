@@ -418,18 +418,17 @@ class PerfExpertEngine:
         Calculate total core/s from samples.
         
         Returns:
-            tuple: (total_core_per_sec, count_with_core_data)
-            total_core_per_sec: Sum of core/s values (represents CPU core-seconds consumed)
-            count: Number of samples that have core/s data
+            tuple: (total_core_sec, sample_count)
+            total_core_sec: Sum of sample weights (core/s value or 1.0 per sample)
+            sample_count: Number of samples processed
         """
         if samples is None:
             samples = self.samples
         total = 0.0
         count = 0
         for s in samples:
-            if s.get('core_per_sec') is not None:
-                total += s['core_per_sec']
-                count += 1
+            total += self.get_sample_weight(s)
+            count += 1
         return total, count
     
     def get_user_kernel_core_per_sec(self, samples=None):
@@ -458,7 +457,7 @@ class PerfExpertEngine:
         kernel_records = 0
         
         for s in samples:
-            core_val = s.get('core_per_sec') or 0
+            core_val = self.get_sample_weight(s)
             stack = s.get('stack')
             
             # 使用 SymbolStack.is_leaf_kernel 准确判断
@@ -476,6 +475,21 @@ class PerfExpertEngine:
             'user_records': user_records,
             'kernel_records': kernel_records
         }
+    
+    def get_sample_weight(self, sample):
+        """
+        获取样本权重：
+        - core/s 格式：返回实际的 core/s 值
+        - 标准 perf 格式：返回 1（每个样本权重相等）
+        
+        Args:
+            sample: Sample dict with 'core_per_sec' field
+            
+        Returns:
+            float: Sample weight (core/s value or 1.0)
+        """
+        core_per_sec = sample.get('core_per_sec')
+        return core_per_sec if core_per_sec is not None else 1.0
     
     def is_kernel_symbol(self, symbol):
         """

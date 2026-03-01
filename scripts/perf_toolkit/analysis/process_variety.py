@@ -50,7 +50,7 @@ def cmd_count_process_variety(engine, args):
         comm = s['comm']
         pid = s['pid']
         ts = s['ts']
-        core_per_sec = s.get('core_per_sec', 0)
+        core_per_sec = engine.get_sample_weight(s)
         
         comm_pid_stats[comm][pid]['core_sec'] += core_per_sec
         second_key = int(ts)
