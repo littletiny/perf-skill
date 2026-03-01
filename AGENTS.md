@@ -134,6 +134,11 @@ python3 tests/perfdata/test_perfdata.py -d new_format   # 特定格式
 python3 tests/spear_wrap/test_spear_wrap.py
 ```
 
+**Issue Overflow Warning 测试**：
+```bash
+python3 tests/test_issue_overflow_warning.py     # 测试 Issue Overflow Warning 和 Risk Auto-Recording
+```
+
 ### 文档引用准则
 
 SKILL.md 保持精简，详细内容放 references/ 目录：
