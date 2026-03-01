@@ -74,9 +74,9 @@ def cmd_get_comm_top(engine, args):
         
         # Build event description (skip normal events)
         if aggregate_cpu_util > 10 and avg_cpu_per_process < 1 and pid_count >= 5:
-            event = f"<MANY_SMALL_PROCESSES:{pid_count}p/{avg_cpu_per_process:.2f}%>"
+            event = f"MANY_SMALL_PROCESSES({pid_count}p/{avg_cpu_per_process:.2f}%)"
         elif kernel_ratio > 50:
-            event = f"<HIGH_KERNEL_RATIO:{kernel_ratio:.1f}%>"
+            event = f"HIGH_KERNEL_RATIO({kernel_ratio:.1f}%)"
         else:
             event = "normal"
             continue  # Skip normal events

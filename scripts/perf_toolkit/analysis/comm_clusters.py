@@ -53,11 +53,11 @@ def cmd_cluster_comm(engine, args):
         
         # Determine event (skip normal events in output)
         if kernel_ratio > 50:
-            event = f"<HIGH_KERNEL_RATIO:{kernel_ratio:.1f}%>"
+            event = f"HIGH_KERNEL_RATIO({kernel_ratio:.1f}%)"
         elif cpu_util > 10 and unique_pids >= 5:
             avg_cpu = cpu_util / unique_pids
             if avg_cpu < 1:
-                event = f"<MANY_SMALL_PROCESSES:{unique_pids}p/{avg_cpu:.2f}%>"
+                event = f"MANY_SMALL_PROCESSES({unique_pids}p/{avg_cpu:.2f}%)"
             else:
                 event = "normal"
         else:
