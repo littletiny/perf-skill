@@ -21,7 +21,8 @@ perf-hunter 是基于 SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A*
 ├── AGENTS.md              # 本文件 - 开发指南
 ├── SKILL.md               # 用户入口文档
 ├── docs/                  # 设计文档（⚠️ 新增文档必须更新此处）
-│   ├── CHANGES.md         # 修改记录
+│   ├── CHANGELOG.md       # 格式化的版本变更记录
+│   ├── LESSONS.md         # 设计决策与经验教训（按主题组织）
 │   ├── design-rationale-trace-v1.md  # Trace v1.0 设计意图 - 基于 netstat 案例的问题追踪机制
 │   ├── design-rationale-trace-v2.md  # Trace v2.0 演进设计 - 从手动记录到全自动 Tracing
 │   ├── output-format-spec.md         # 工具输出格式规范 - 统一 JSON 标准（_risk、时间格式等）
@@ -61,10 +62,30 @@ perf-hunter 是基于 SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A*
 - **禁止使用数字编号**（如 `### 1. xxx`），避免章节变动时连锁修改
 - 统一使用标题文字本身作为标识
 
-### 修改记录规范
-- 每次修改后提交 git commit
-- **版本更新**：修改 `$repo/version` 文件，并在 `docs/changelog/$version.md` 记录变更
+### 文档维护规范
+
+**版本更新流程：**
+
+1. 修改 `$repo/version` 文件
+2. 更新 `docs/CHANGELOG.md`（Keep a Changelog 格式）
+3. **如需要**，更新 `docs/LESSONS.md`（重大设计决策）
+4. **如新增 `docs/` 文档**，更新「目录结构」章节中的文件清单
+5. git commit
+
+**CHANGELOG 格式：**
+```markdown
+## [X.Y.Z] - YYYY-MM-DD
+
+### Added/Changed/Fixed/Removed
+- 一句话描述变更
+
+**Changed files**: `file1`, `file2`
+```
+
+**重要原则：**
 - 版本信息**不要**记录在 SKILL.md 或脚本中
+- LESSONS.md 按**主题**组织（方法论、架构、踩坑记录），不按版本
+- docs/ 下文件必须遵循「目录结构」中的文件清单格式
 
 ### 代码规范
 - 尽量少用 regex，尤其避免在对外参数中使用
@@ -74,10 +95,7 @@ perf-hunter 是基于 SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A*
 - **修改或新增 CLI 命令时，必须同步更新 SKILL.md 和 references/tools.md**
 - 保持命令参数、输出格式与实际代码一致，避免用户阅读错误信息
 
-### 设计文档维护规范
-- **每次新增 `docs/` 下的设计文档，必须同步更新本文件「目录结构」章节**
-- 概述格式：`<文件名> - <一句话描述核心内容>`
-- 保留注释标记 `（⚠️ 新增文档必须更新此处）`
+
 
 ### 测试相关
 - 测试数据：`tests/perfdata/new_format/case_test.data`
