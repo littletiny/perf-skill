@@ -6,33 +6,18 @@ Hotspot Analysis - Extract function rankings by self/inclusive time
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, HotspotItem, HotspotSummary, HotspotsOutput, TimeRange
 )
 
 
-def cmd_get_hotspots(engine, args):
+@command("get-hotspots")
+def cmd_get_hotspots(builder, engine, args, samples):
     """[Skill] Extract macro hotspot paths or function rankings"""
     
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
+    # 样本已由装饰器准备好：获取、空检查、质量评估
     
     # 使用 engine 统一接口获取符号级 CPU 利用率
     symbol_util = engine.get_symbol_cpu_util(samples)
@@ -90,4 +75,4 @@ def cmd_get_hotspots(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output  # 装饰器会自动调用 print_output

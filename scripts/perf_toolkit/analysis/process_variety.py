@@ -8,31 +8,14 @@ Process Variety Analysis - Count process variety to detect short-lived process s
 """
 
 from collections import defaultdict
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import RiskInfo, ProcessVarietyItem, ProcessVarietySummary, ProcessVarietyOutput, TimeRange
 
 
-def cmd_count_process_variety(engine, args):
+@command("count-process-variety")
+def cmd_count_process_variety(builder, engine, args, samples):
     """[Skill] Count process variety - detect short-lived process storms"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # Aggregate comm-pid stats
     comm_pid_stats = defaultdict(lambda: defaultdict(lambda: {
@@ -130,4 +113,4 @@ def cmd_count_process_variety(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output

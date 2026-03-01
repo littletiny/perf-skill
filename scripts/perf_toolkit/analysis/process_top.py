@@ -8,30 +8,16 @@ Process Top - Get top N processes by CPU utilization
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, ProcessItem, ProcessSummary, ProcessTopOutput, TimeRange
 )
 
 
-def cmd_get_process_top(engine, args):
+@command("get-process-top", filters=["start_time", "end_time", "cpu_id"])
+def cmd_get_process_top(builder, engine, args, samples):
     """[Skill] Get top N processes by CPU utilization"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取进程级 CPU 利用率
     proc_util = engine.get_process_cpu_util(samples)
@@ -75,4 +61,4 @@ def cmd_get_process_top(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output

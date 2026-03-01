@@ -11,41 +11,16 @@ Specialized for identifying "many small processes consuming resources collective
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
 )
 
 
-def cmd_get_comm_top(engine, args):
+@command("get-comm-top")
+def cmd_get_comm_top(builder, engine, args, samples):
     """[Skill] Get top N comm groups by aggregated CPU utilization"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    filters = {
-        "cpu_id": getattr(args, 'cpu_id', None),
-        "pid": getattr(args, 'pid', None),
-        "comm": getattr(args, 'comm', None),
-        "comm_regex": getattr(args, 'comm_regex', None),
-        "start_time": getattr(args, 'start_time', None),
-        "end_time": getattr(args, 'end_time', None)
-    }
-    if builder.check_empty_samples(samples, filters=filters):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取 comm 级 CPU 利用率
     comm_util = engine.get_comm_cpu_util(samples)
@@ -140,4 +115,4 @@ def cmd_get_comm_top(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output

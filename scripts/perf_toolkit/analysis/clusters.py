@@ -10,7 +10,8 @@ import os
 import re
 import json as json_mod
 from collections import defaultdict
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import RiskInfo, ClusterItem, ClusterSummary, ClustersOutput, TimeRange
 
 
@@ -91,27 +92,9 @@ def prepare_rules(args):
     return rules
 
 
-def cmd_apply_cluster(engine, args):
+@command("cluster-symbols")
+def cmd_apply_cluster(builder, engine, args, samples):
     """[Skill] Execute expert rule clustering or custom rule clustering"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # Prepare rules
     rules = prepare_rules(args)
@@ -200,4 +183,4 @@ def cmd_apply_cluster(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output

@@ -13,8 +13,9 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 优先级: CPU_LIMIT > HIGH_SYS_CORES > SINGLE_CORE_SATURATION > HIGH_CORES > HEALTHY
 """
 
+from ..core.command_decorator import command
 from ..core.format_utils import format_percent
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, BottleneckData, BottleneckSummary, BottleneckOutput, TimeRange,
     CoreLoadInfo, LimitInfo
@@ -34,26 +35,9 @@ def parse_cpu_quota(value):
         raise ValueError(f"Invalid CPU quota format: '{value}'. Expected format like '0.1c', '2c', or '0.5'")
 
 
-def cmd_check_bottleneck(engine, args):
+@command("check-cpu-bottleneck")
+def cmd_check_bottleneck(builder, engine, args, samples):
     """[Skill] Determine resource throttling and single-core saturation"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取核心级 CPU 利用率
     core_util = engine.get_core_cpu_util(samples)
@@ -192,4 +176,4 @@ def cmd_check_bottleneck(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output

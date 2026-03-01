@@ -12,34 +12,18 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 新增功能：检测单核 sys 利用率高的核心（>70%）
 """
 
+from ..core.command_decorator import command
 from ..core.format_utils import format_percent
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, CPUUsageData, CPUUsageSummary, CPUUsageOutput,
     CoreItem, TimeRange, CPUUtilizationBreakdown
 )
 
 
-def cmd_show_cpu_usage(engine, args):
+@command("show-cpu-usage")
+def cmd_show_cpu_usage(builder, engine, args, samples):
     """[Skill] Show CPU utilization for OS or specific PID (user/kernel/total)"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality (no early return, just record)
-    builder.assess_quality(samples)
     
     # Determine target description
     pid = getattr(args, 'pid', None)
@@ -106,11 +90,10 @@ def cmd_show_cpu_usage(engine, args):
     # Build output
     output = CPUUsageOutput(_risk=risk, data=data, summary=summary)
     
-    # Print output
-    builder.print_output(output)
-    
-    # Print high sys cores if any
+    # Print high sys cores if any (side effect, keep for compatibility)
     if high_sys_cores:
         print("\n# HIGH_SYS_CORES: cpu_id,(usr+sys)/sys")
         for i, core in enumerate(high_sys_cores, 1):
             print(f"#{i} CPU{core.cpu_id} {core.total_cpu_util}/{core.kernel_cpu_util}")
+    
+    return output

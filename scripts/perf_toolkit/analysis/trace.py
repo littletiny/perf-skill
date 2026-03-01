@@ -9,34 +9,17 @@ Trace Attribution - Bottom-up attribution for specific bottleneck functions
 """
 
 from collections import defaultdict
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput,
     TraceItem, TracesSummary, TracesOutput, TimeRange
 )
 
 
-def cmd_trace_attribution(engine, args):
+@command("find-callers")
+def cmd_trace_attribution(builder, engine, args, samples):
     """[Skill] Bottom-up attribution for specific bottleneck functions"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取总量
     total_weight, _ = engine.get_total_core_per_sec(samples)
@@ -108,30 +91,12 @@ def cmd_trace_attribution(engine, args):
         summary=summary
     )
     
-    builder.print_output(output)
+    return output
 
 
-def cmd_find_callers_auto(engine, args):
+@command("auto-find-callers")
+def cmd_find_callers_auto(builder, engine, args, samples):
     """[Skill] Auto-trace top N hotspot functions"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取总量和 duration
     total_weight, _ = engine.get_total_core_per_sec(samples)
@@ -210,4 +175,4 @@ def cmd_find_callers_auto(engine, args):
         summary=summary
     )
     
-    builder.print_output(output)
+    return output

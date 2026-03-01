@@ -10,7 +10,8 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 from dataclasses import dataclass
 from typing import List, Any
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import RiskInfo, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
 
 
@@ -69,27 +70,9 @@ class PathCluster:
         return clusters
 
 
-def cmd_cluster_paths(engine, args):
+@command("cluster-paths")
+def cmd_cluster_paths(builder, engine, args, samples):
     """[Skill] Cluster samples by common call path prefixes using Trie"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取总量和 duration
     total_weight, _ = engine.get_total_core_per_sec(samples)
@@ -143,4 +126,4 @@ def cmd_cluster_paths(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output

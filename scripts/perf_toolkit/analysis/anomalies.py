@@ -9,8 +9,9 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
+from ..core.command_decorator import command
 from ..core.format_utils import format_timestamp
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, AnomalyItem, AnomalySummary, AnomaliesOutput,
     WindowItem, WindowSummary, WindowsOutput, TimeRange
@@ -66,27 +67,9 @@ class AnomalyRawData:
         )
 
 
-def cmd_detect_anomalies(engine, args):
+@command("detect-anomalies")
+def cmd_detect_anomalies(builder, engine, args, samples):
     """[Skill] Detect CPU utilization anomalies or export window data"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality with early return for critical
-    if builder.assess_quality(samples, early_return=True):
-        return
     
     # Get parameters
     window_size = args.window_size
@@ -210,8 +193,7 @@ def cmd_detect_anomalies(engine, args):
             statistics=statistics
         )
         
-        builder.print_output(output)
-        return
+        return output
     
     # Normal anomaly detection mode
     all_anomalies.sort(key=lambda x: x.change_magnitude, reverse=True)
@@ -254,7 +236,7 @@ def cmd_detect_anomalies(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output
 
 
 def _detect_cpu_anomalies(cpu_id: int, windows: List[WindowRawData], spike_threshold: float, 
@@ -314,6 +296,3 @@ def _detect_cpu_anomalies(cpu_id: int, windows: List[WindowRawData], spike_thres
             ))
     
     return anomalies
-
-
-

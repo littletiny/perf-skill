@@ -44,6 +44,7 @@ from .output_adapter import (
     to_json_output, print_json_output,
 )
 from .output_builder import OutputBuilder, create_risk_info
+from .command_decorator import command
 
 __all__ = [
     # Core Engine
@@ -74,4 +75,5 @@ __all__ = [
     'OUTPUT_TYPE_MAP', 'get_output_classes',
     'OutputAdapter', 'CompactOutputAdapter', 'to_json_output', 'print_json_output',
     'OutputBuilder', 'create_risk_info',
+    'command',
 ]

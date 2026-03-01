@@ -8,30 +8,16 @@ Comm Clustering - Cluster samples by process name (comm) to analyze process grou
 V2 版本：使用统一数据模型，与 comm_top 共享数据结构，CPU 利用率计算收拢到 engine
 """
 
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import (
     RiskInfo, CommGroupItem, ClusterCommOutput, TimeRange
 )
 
 
-def cmd_cluster_comm(engine, args):
+@command("cluster-comm", filters=["start_time", "end_time", "cpu_id"])
+def cmd_cluster_comm(builder, engine, args, samples):
     """[Skill] Cluster samples by comm (process name) to analyze process group CPU usage"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取 comm 级 CPU 利用率
     comm_util = engine.get_comm_cpu_util(samples)
@@ -93,4 +79,4 @@ def cmd_cluster_comm(engine, args):
         time_range=time_range
     )
     
-    builder.print_output(output)
+    return output

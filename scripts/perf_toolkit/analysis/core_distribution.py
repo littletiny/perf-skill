@@ -9,34 +9,14 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 
 from collections import defaultdict
-from ..core.output_builder import OutputBuilder, create_risk_info
+from ..core.command_decorator import command
+from ..core.output_builder import create_risk_info
 from ..core.output_models import RiskInfo, CoreItem, CoreDistributionOutput, TimeRange
 
 
-def cmd_analyze_core_distribution(engine, args):
+@command("analyze-core-distribution")
+def cmd_analyze_core_distribution(builder, engine, args, samples):
     """[Skill] Analyze CPU core utilization distribution for a process"""
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Fetch samples
-    samples = engine.get_filtered_samples(
-        start_time=getattr(args, 'start_time', None),
-        end_time=getattr(args, 'end_time', None),
-        cpu_id=getattr(args, 'cpu_id', None),
-        pid=getattr(args, 'pid', None),
-        comm=getattr(args, 'comm', None),
-        comm_regex=getattr(args, 'comm_regex', None)
-    )
-    
-    # Check empty samples
-    if builder.check_empty_samples(samples, filters={
-        "pid": getattr(args, 'pid', None),
-        "cpu_id": getattr(args, 'cpu_id', None)
-    }):
-        return
-    
-    # Assess quality
-    builder.assess_quality(samples)
     
     # 使用 engine 统一接口获取核心级 CPU 利用率
     core_util = engine.get_core_cpu_util(samples)
@@ -120,5 +100,4 @@ def cmd_analyze_core_distribution(engine, args):
         time_range=time_range
     )
     
-    # Print output
-    builder.print_output(output)
+    return output
