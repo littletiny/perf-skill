@@ -49,6 +49,7 @@ from .output_models import (
     CoreItem, CoreDistributionSummary, CoreDistributionOutput,
 )
 from .output_adapter import OutputAdapter, CompactOutputAdapter
+from .text_output_adapter import TextOutputAdapter
 from .risk_mixin import RiskAwareOutput
 from .format_utils import format_time_range, safe_time_range
 from .reliability import assess_data_quality
@@ -67,7 +68,7 @@ class OutputBuilderV2:
     - 通过 OutputAdapter 自动转换为 JSON
     """
     
-    def __init__(self, engine, args, compact: bool = False):
+    def __init__(self, engine, args, compact: bool = False, text_mode: bool = True):
         """
         初始化输出构建器
         
@@ -75,11 +76,18 @@ class OutputBuilderV2:
             engine: PerfExpertEngine 实例
             args: argparse namespace
             compact: 是否使用紧凑模式输出
+            text_mode: 是否使用人类可读的文本格式输出（默认True）
         """
         self.engine = engine
         self.args = args
         self.compact = compact
-        self.adapter = CompactOutputAdapter() if compact else OutputAdapter()
+        self.text_mode = text_mode
+        if text_mode:
+            self.adapter = TextOutputAdapter()
+        elif compact:
+            self.adapter = CompactOutputAdapter()
+        else:
+            self.adapter = OutputAdapter()
         self._risk_output = RiskAwareOutput()
         self._quality_level = None
         self._quality_metrics = None
@@ -178,8 +186,12 @@ class OutputBuilderV2:
         Args:
             output: 继承自 BaseOutput 的输出对象
         """
-        json_str = self.adapter.to_json(output)
-        print(json_str)
+        if self.text_mode:
+            text_str = self.adapter.format_output(output)
+            print(text_str)
+        else:
+            json_str = self.adapter.to_json(output)
+            print(json_str)
     
     def print_json(self, data: Dict):
         """打印 JSON 数据（兼容 V1）"""
