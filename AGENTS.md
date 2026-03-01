@@ -124,24 +124,37 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 
 ⚠️ **重要**: 添加新测试必须符合 `tests/` 目录结构，详见 `tests/README.md`
 
-- 功能测试 → `tests/test_<feature>.py`
-- 数据格式测试 → `tests/perfdata/`
-- CLI 测试 → `tests/spear_wrap/`
-- 场景测试 → `tests/scenario/<name>/`
+**测试路径规范**（必须放在正确位置）：
+
+| 测试类型 | 正确路径 | 示例 |
+|---------|---------|------|
+| 系统级功能测试 | `tests/test_<feature>.py` | `tests/test_issue_overflow_warning.py` |
+| Risk 配置测试 | `tests/risk/` | `tests/risk/test_risk_display_config.py` |
+| Rules 加载测试 | `tests/clusters/` | `tests/clusters/test_rules_loading.py` |
+| 数据格式测试 | `tests/perfdata/` | `tests/perfdata/test_perfdata.py` |
+| CLI 测试 | `tests/spear_wrap/` | `tests/spear_wrap/test_spear_wrap.py` |
+| 场景测试 | `tests/scenario/<name>/` | `tests/scenario/netstat/` |
 
 **测试数据**: `tests/perfdata/new_format/case_test.data`
 
-**回归测试**：
+**开发后必做**（添加新功能或修改功能后）：
 ```bash
-# 数据格式测试
-python3 tests/perfdata/test_perfdata.py
-python3 tests/perfdata/test_perfdata.py -d new_format
-
-# CLI 测试
-python3 tests/spear_wrap/test_spear_wrap.py
-
-# Issue Overflow Warning 测试
+# 运行所有自动化测试（不包括 scenario/ 人工验证）
 python3 tests/test_issue_overflow_warning.py
+python3 tests/risk/test_risk_display_config.py
+python3 tests/clusters/test_rules_loading.py
+python3 tests/clusters/test_external_rules_integration.py
+python3 tests/perfdata/test_perfdata.py
+python3 tests/spear_wrap/test_spear_wrap.py
+```
+
+**快捷方式**（推荐在 commit 前运行）：
+```bash
+# 批量运行所有自动化测试
+for f in tests/test_*.py tests/*/test_*.py; do
+  echo "Testing: $f"
+  python3 "$f" || exit 1
+done
 ```
 
 ### 文档引用准则
