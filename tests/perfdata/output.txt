@@ -97,12 +97,12 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear count-proces
 ========================================
 [RISK-CRITICAL] 检测到 5 个进程风暴（短生命周期进程）
   → hint: [必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 5 个进程风暴（短生命周期进程）' --risk 'critical' --hint '对每个进程名运行 cluster-comm --comm <comm> 进行详细分析'
-# comm,pids,cpu_util,behavior
-netstat 78 288.26% process_storm
-dbatman 50 200.69% process_storm
-python3 34 189.74% process_storm
-hacontrol 29 218.93% process_storm
-sh 17 62.03% process_storm
+# PROCESS_STORM: comm,pids,cpu_util
+netstat 78 288.26%
+dbatman 50 200.69%
+python3 34 189.74%
+hacontrol 29 218.93%
+sh 17 62.03%
 
 [✓ PASS] count-process-variety
 
@@ -110,9 +110,7 @@ sh 17 62.03% process_storm
 Testing: analyze-core-distribution
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear analyze-core-distribution --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-# index,cpu_id,(usr+sys)/sys,state
-#1 CPU67 43.79%/7.30% normal
-#2 CPU85 32.84%/7.30% normal
+(No saturated cores found)
 
 [✓ PASS] analyze-core-distribution
 
@@ -173,7 +171,7 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear find-callers
 Testing: detect-anomalies
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear detect-anomalies --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-
+(No anomalies detected)
 
 [✓ PASS] detect-anomalies
 

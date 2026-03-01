@@ -267,8 +267,8 @@ class TextOutputAdapter:
         return (format_header, lines)
     
     def _format_traces(self, items: List[Dict]):
-        """格式化追踪热点列表"""
-        format_header = "# target (ratio) -> callstack"
+        """格式化追踪热点列表 (从调用者到被调用者)"""
+        format_header = "# target (ratio) <- callstack"
         lines = []
         for item in items:
             target = item.get('target', 'N/A')
@@ -278,7 +278,7 @@ class TextOutputAdapter:
             for i, attr in enumerate(attributions, 1):
                 stack = attr.get('caller_stack', [])
                 attr_ratio = attr.get('ratio_of_target_pct', '0%')
-                stack_str = " -> ".join(stack) if stack else "(root)"
+                stack_str = " <- ".join(stack) if stack else "(root)"
                 lines.append(f"  #{i} [{attr_ratio}] {stack_str}")
         return (format_header, lines)
     

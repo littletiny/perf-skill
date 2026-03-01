@@ -154,10 +154,10 @@ def cmd_find_callers_auto(engine, args):
             
             core_per_sec = engine.get_sample_weight(s)
             normalized_names = stack.get_normalized_names()
-            if target in normalized_names:
-                idx = normalized_names.index(target)
-                caller_stack = normalized_names[idx+1:idx+6]
-                if caller_stack:
+            # Only count when target is at stack top (self time)
+            if normalized_names and normalized_names[0] == target:
+                if len(normalized_names) > 1:
+                    caller_stack = normalized_names[1:6]
                     attribution[tuple(caller_stack)] += core_per_sec
         
         sorted_attr = sorted(attribution.items(), key=lambda x: -x[1])[:5]
