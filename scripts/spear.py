@@ -144,6 +144,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p3.add_argument("--custom-rules", metavar="RULES",
                     help="JSON format custom rules. Example: '{\"MyPattern\": [{\"pattern\": \"my_func_.*\", "
                          "\"weight\": 1.0}]}'. Rules are list of {pattern, weight} objects.")
+    p3.add_argument("--rules-file", metavar="PATH",
+                    help="Path to external rules file (JSON format). "
+                         "Rules from file override built-in expert rules but can be overridden by --custom-rules.")
     p3.add_argument("--include-experts", action="store_true", default=True,
                     help="Include built-in expert rules (default: True)")
     p3.add_argument("--no-include-experts", action="store_true",

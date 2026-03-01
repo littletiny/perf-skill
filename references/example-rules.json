@@ -1,0 +1,14 @@
+{
+  "_comment": "perf-hunter 自定义规则文件示例 - 用于 cluster-symbols 命令",
+  "_description": "规则格式: { 'RULE_NAME': 'pattern' } 或 { 'RULE_NAME': ['pattern1', 'pattern2'] }",
+  
+  "EVENT_NETWORK": "sock_|tcp_|udp_|sk_|netif_|napi_|ixgbe_|e1000_|mlx4_|mlx5_",
+  "EVENT_IO_WAIT": "blk_|scsi_|nvme_|io_schedule|wait_for_completion",
+  "EVENT_GC": "gc_collect|mark_sweep|heap_alloc|malloc_zone",
+  
+  "EVENT_CUSTOM_SCHED": [
+    "scheduler",
+    "task_yield",
+    "context_switch"
+  ]
+}

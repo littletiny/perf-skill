@@ -357,9 +357,15 @@ spear cluster-symbols \
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `--no-include-experts` | flag | - | 禁用内置专家规则 |
-| `--custom-rules` | json | - | 自定义规则 |
+| `--custom-rules` | json | - | 自定义规则（最高优先级） |
+| `--rules-file` | path | - | 外部规则文件路径 |
 | `--pid` | int | - | 过滤指定进程 |
 | `--comm` | string | - | 过滤指定进程名 |
+
+**规则优先级**（从高到低）：
+1. `--custom-rules` 命令行参数
+2. `--rules-file` 外部文件规则
+3. 内置专家规则（默认启用）
 
 **内置规则分类**:
 | 类别 | 匹配模式 | 含义 |
@@ -370,7 +376,25 @@ spear cluster-symbols \
 | `EVENT_LOCK_CONTENTION` | mutex, spinlock, futex | 锁竞争 |
 | `EVENT_SYNC_PRIMITIVE` | pthread_cond, barrier | 同步原语 |
 
-**自定义规则**:
+**外部规则文件** (`--rules-file`):
+```bash
+# 使用外部规则文件（完全替代内置规则）
+spear cluster-symbols --data perf.data --rules-file my_rules.json --no-include-experts
+
+# 扩展内置规则（外部规则补充或覆盖）
+spear cluster-symbols --data perf.data --rules-file extra_rules.json
+```
+
+规则文件格式（JSON）：
+```json
+{
+  "EVENT_NETWORK": "sock_|tcp_|udp_|sk_",
+  "EVENT_IO_WAIT": ["blk_", "scsi_", "nvme_"],
+  "EVENT_CUSTOM": "my_pattern.*"
+}
+```
+
+**自定义规则**（`--custom-rules`）：
 ```bash
 # 字符串格式
 --custom-rules '{"MY_SCHEDULING": "schedule|nanosleep|epoll_wait"}'
@@ -384,6 +408,14 @@ spear cluster-symbols \
   "DB": "rocksdb|leveldb|sqlite",
   "ML": "tensorflow|torch|cudnn"
 }'
+```
+
+**组合使用示例**：
+```bash
+# 内置规则 + 外部文件 + 命令行覆盖
+spear cluster-symbols --data perf.data \
+  --rules-file base_rules.json \
+  --custom-rules '{"URGENT": "critical_.*"}'
 ```
 
 ---

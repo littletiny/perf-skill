@@ -6,6 +6,7 @@ Symbol Clustering - Cluster samples by expert rules (scheduling, locks, memory, 
 V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 
+import os
 import re
 import json as json_mod
 from collections import defaultdict
@@ -13,14 +14,81 @@ from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, ClusterItem, ClusterSummary, ClustersOutput, TimeRange
 
 
+# Module-level cache for loaded rules files
+_rules_cache = {}
+
+
+def get_default_rules_path():
+    """Get the default rules file path relative to this module"""
+    # This module is at: scripts/perf_toolkit/analysis/clusters.py
+    # Default rules is at: config/default-rules.json
+    module_dir = os.path.dirname(os.path.abspath(__file__))
+    # Go up 3 levels: analysis/ -> perf_toolkit/ -> scripts/ -> project_root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(module_dir)))
+    return os.path.join(project_root, 'config', 'default-rules.json')
+
+
+def load_rules_from_file(file_path):
+    """Load rules from external JSON file (with module-level cache)"""
+    # Normalize path for consistent caching
+    abs_path = os.path.abspath(file_path)
+    
+    # Return cached result if available
+    if abs_path in _rules_cache:
+        return _rules_cache[abs_path]
+    
+    if not os.path.exists(abs_path):
+        raise FileNotFoundError(f"Rules file not found: {file_path}")
+    
+    with open(abs_path, 'r') as f:
+        data = json_mod.load(f)
+        # Filter out underscore-prefixed metadata keys
+        rules = {k: v for k, v in data.items() if not k.startswith('_')}
+    
+    # Cache the result with absolute path
+    _rules_cache[abs_path] = rules
+    return rules
+
+
+def load_default_rules():
+    """Load default expert rules from config file, fallback to hardcoded"""
+    default_path = get_default_rules_path()
+    if os.path.exists(default_path):
+        return load_rules_from_file(default_path)
+    
+    # Fallback to hardcoded rules if file doesn't exist
+    return {
+        "EVENT_IRQ_OFF": r"irqoff|spin_unlock_irqrestore|ksoftirqd",
+        "EVENT_SCHEDULER": r"sched_|pick_next_task|load_balance|idle_balance|dequeue_task|enqueue_task",
+        "EVENT_MEM_RECLAIM": r"direct_reclaim|try_to_free_pages|tlb_flush|tlb_shootdown",
+        "EVENT_LOCK_CONTENTION": r"spin_lock|mutex_lock|rwsem_down|queued_spin_lock",
+        "EVENT_SYNC_PRIMITIVE": r"pthread_mutex|pthread_cond|pthread_sig|futex_wait|futex_wake"
+    }
+
+
 # Symbol-based event classification (for cluster-symbols)
-EXPERT_RULES = {
-    "EVENT_IRQ_OFF": r"irqoff|spin_unlock_irqrestore|ksoftirqd",
-    "EVENT_SCHEDULER": r"sched_|pick_next_task|load_balance|idle_balance|dequeue_task|enqueue_task",
-    "EVENT_MEM_RECLAIM": r"direct_reclaim|try_to_free_pages|tlb_flush|tlb_shootdown",
-    "EVENT_LOCK_CONTENTION": r"spin_lock|mutex_lock|rwsem_down|queued_spin_lock",
-    "EVENT_SYNC_PRIMITIVE": r"pthread_mutex|pthread_cond|pthread_sig|futex_wait|futex_wake"
-}
+# Loaded once at module import time
+EXPERT_RULES = load_default_rules()
+
+
+def prepare_rules(args):
+    """Prepare rules: merge built-in, file, and CLI rules by priority"""
+    rules = {}
+    
+    # 1. Built-in expert rules (default included)
+    if args.include_experts and not args.no_include_experts:
+        rules = EXPERT_RULES.copy()
+    
+    # 2. External file rules (if specified)
+    if getattr(args, 'rules_file', None):
+        file_rules = load_rules_from_file(args.rules_file)
+        rules.update(file_rules)
+    
+    # 3. CLI custom rules (highest priority)
+    if args.custom_rules:
+        rules.update(json_mod.loads(args.custom_rules))
+    
+    return rules
 
 
 def cmd_apply_cluster(engine, args):
@@ -49,11 +117,7 @@ def cmd_apply_cluster(engine, args):
     builder.assess_quality(samples)
     
     # Prepare rules
-    rules = {}
-    if args.include_experts and not args.no_include_experts:
-        rules = EXPERT_RULES.copy()
-    if args.custom_rules:
-        rules.update(json_mod.loads(args.custom_rules))
+    rules = prepare_rules(args)
     
     # Cluster samples using CPU utilization weights
     total_weight, _ = engine.get_total_core_per_sec(samples)
