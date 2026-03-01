@@ -185,7 +185,7 @@ spear trace add --id ISS-001 --desc "redis 内核开销 94.7%" \
   --risk "内核负载过高" --hint "cluster-symbols --comm redis"
 ```
 
-**⚠️ 重要**: spearert 非doc子命令的任何风险都需要记录
+**⚠️ 重要**: spear 非doc子命令的任何风险都需要记录
 
 ---
 
