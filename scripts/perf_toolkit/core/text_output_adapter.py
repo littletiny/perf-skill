@@ -294,15 +294,14 @@ class TextOutputAdapter:
         return (format_header, lines)
     
     def _format_process_variety(self, items: List[Dict]):
-        """格式化进程多样性列表"""
-        format_header = "# comm,pids,cpu_util,behavior"
+        """格式化进程多样性列表 (仅展示 process_storm)"""
+        format_header = "# PROCESS_STORM: comm,pids,cpu_util"
         lines = []
         for item in items:
             comm = item.get('comm', 'N/A')
             pids = item.get('unique_pids', 0)
             cpu_util = item.get('cpu_util', '0.00%')
-            behavior = item.get('behavior', 'normal')
-            lines.append(f"{comm} {pids} {cpu_util} {behavior}")
+            lines.append(f"{comm} {pids} {cpu_util}")
         return (format_header, lines)
     
     def _format_anomalies(self, items: List[Dict]):

@@ -59,17 +59,17 @@ logcollector(3218341) 25.54%/10.95%
 Testing: cluster-comm
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear cluster-comm --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-# comm,pids,cpu_util,kernel_ratio,event
-netstat 78 288.26% 94.94% HIGH_KERNEL: 内核态占比 94.9%
-sh 17 62.03% 82.35% HIGH_KERNEL: 内核态占比 82.4%
-awk 9 32.84% 77.78% HIGH_KERNEL: 内核态占比 77.8%
-ls 9 32.84% 66.67% HIGH_KERNEL: 内核态占比 66.7%
-ps 8 29.19% 87.50% HIGH_KERNEL: 内核态占比 87.5%
-xargs 6 21.89% 83.33% HIGH_KERNEL: 内核态占比 83.3%
-grep 5 18.24% 80.00% HIGH_KERNEL: 内核态占比 80.0%
-bash 3 10.95% 100.00% HIGH_KERNEL: 内核态占比 100.0%
-[kernel] 1 3.65% 100.00% HIGH_KERNEL: 内核态占比 100.0%
-rm 1 3.65% 100.00% HIGH_KERNEL: 内核态占比 100.0%
+# comm,pids,cpu_util,event
+netstat 78 288.26% <HIGH_KERNEL_RATIO:94.9%>
+sh 17 62.03% <HIGH_KERNEL_RATIO:82.4%>
+awk 9 32.84% <HIGH_KERNEL_RATIO:77.8%>
+ls 9 32.84% <HIGH_KERNEL_RATIO:66.7%>
+ps 8 29.19% <HIGH_KERNEL_RATIO:87.5%>
+xargs 6 21.89% <HIGH_KERNEL_RATIO:83.3%>
+grep 5 18.24% <HIGH_KERNEL_RATIO:80.0%>
+bash 3 10.95% <HIGH_KERNEL_RATIO:100.0%>
+[kernel] 1 3.65% <HIGH_KERNEL_RATIO:100.0%>
+rm 1 3.65% <HIGH_KERNEL_RATIO:100.0%>
 
 [✓ PASS] cluster-comm
 
@@ -95,24 +95,14 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear cluster-path
 Testing: count-process-variety
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear count-process-variety --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-[RISK-CRITICAL] 检测到 15 个进程风暴（短生命周期进程）
-  → hint: [必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 15 个进程风暴（短生命周期进程）' --risk 'critical' --hint '对每个进程名运行 cluster-comm --comm <comm> 进行详细分析'
+[RISK-CRITICAL] 检测到 5 个进程风暴（短生命周期进程）
+  → hint: [必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 5 个进程风暴（短生命周期进程）' --risk 'critical' --hint '对每个进程名运行 cluster-comm --comm <comm> 进行详细分析'
 # comm,pids,cpu_util,behavior
 netstat 78 288.26% process_storm
 dbatman 50 200.69% process_storm
 python3 34 189.74% process_storm
 hacontrol 29 218.93% process_storm
 sh 17 62.03% process_storm
-awk 9 32.84% process_storm
-ls 9 32.84% process_storm
-ps 8 29.19% process_storm
-xargs 6 21.89% process_storm
-grep 5 18.24% process_storm
-bash 3 10.95% process_storm
-logcollector 1 25.54% process_storm
-[kernel] 1 3.65% process_storm
-rm 1 3.65% process_storm
-cli 1 3.65% process_storm
 
 [✓ PASS] count-process-variety
 
@@ -132,12 +122,12 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-comm-top
 ========================================
 [RISK-CRITICAL] 发现 8 个高内核态进程组(kernel%>50%)未分析
   → hint: [必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 8 个高内核态进程组(kernel%>50%): grep, sh, awk, bash, netstat, ps, xargs, ls' --risk 'critical' --hint '必须对每个进程运行: cluster-symbols --comm grep; cluster-symbols --comm sh; cluster-symbols --comm awk; cluster-symbols --comm bash; cluster-symbols --comm netstat; cluster-symbols --comm ps; cluster-symbols --comm xargs; cluster-symbols --comm ls'
-# comm,pids,cpu_util,kernel_ratio,event
-netstat 78 288.26% 94.94% HIGH_KERNEL: 内核态占比 94.9%
-sh 17 62.03% 82.35% HIGH_KERNEL: 内核态占比 82.4%
-awk 9 32.84% 77.78% HIGH_KERNEL: 内核态占比 77.8%
-ls 9 32.84% 66.67% HIGH_KERNEL: 内核态占比 66.7%
-ps 8 29.19% 87.50% HIGH_KERNEL: 内核态占比 87.5%
+# comm,pids,cpu_util,event
+netstat 78 288.26% <HIGH_KERNEL_RATIO:94.9%>
+sh 17 62.03% <HIGH_KERNEL_RATIO:82.4%>
+awk 9 32.84% <HIGH_KERNEL_RATIO:77.8%>
+ls 9 32.84% <HIGH_KERNEL_RATIO:66.7%>
+ps 8 29.19% <HIGH_KERNEL_RATIO:87.5%>
 
 [✓ PASS] get-comm-top
 
