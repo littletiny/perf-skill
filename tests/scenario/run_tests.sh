@@ -37,7 +37,7 @@ for case_dir in "$SCRIPT_DIR"/*/; do
 
     input_file="$case_dir/input.txt"
     data_file="$case_dir/case.data"
-    expect_file="$case_dir/expect.md"
+    expect_file="$case_dir/DONOT_READ_IT/expect.md"
     output_file="$case_dir/output.md"
 
     if [ ! -f "$input_file" ]; then
