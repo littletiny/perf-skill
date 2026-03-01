@@ -1665,8 +1665,8 @@ ISS-002  containerd-shim 高内核态 89.9%
 
 ## 5. 参考文档
 
-- [Live Doc 设计意图文档](./design-rationale-live-doc.md)
-- [Live Doc 接口设计文档](./live-doc-interface.md)
+- [Live Doc 设计意图文档](./design-rationale-trace-v1.md)
+- [Live Doc 接口设计文档](./trace-interface.md)
 
 ---
 
@@ -1982,7 +1982,7 @@ def format_time_range(start_ts, end_ts):
 ## 7. 参考文档
 
 - [输出格式规范](./output-format-spec.md)
-- [Live Document 设计](./design-rationale-live-doc.md)
+- [Live Document 设计](./design-rationale-trace-v1.md)
 
 ---
 
@@ -2275,8 +2275,8 @@ get-comm-top → doc add 记录所有 4 个问题 → doc list 显示待办 →
 
 ## 6. 参考文档
 
-- [Live Document 设计意图文档](./design-rationale-live-doc.md)
-- [Live Document 接口设计文档](./live-doc-interface.md)
+- [Live Document 设计意图文档](./design-rationale-trace-v1.md)
+- [Live Document 接口设计文档](./trace-interface.md)
 - v2.11 更新日志（perf-doc 工具实现）
 
 ---

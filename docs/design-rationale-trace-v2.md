@@ -330,5 +330,5 @@ OPEN ISSUES (2 remaining, 需人工处理)
 
 ## 7. 参考
 
-- v1.0 设计: `design-rationale-live-doc.md`
-- 接口文档: `live-doc-interface.md`
+- v1.0 设计: `design-rationale-trace-v1.md`
+- 接口文档: `trace-interface.md`

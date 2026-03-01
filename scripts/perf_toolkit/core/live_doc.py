@@ -8,7 +8,7 @@ Live Document v2.0 - Tracing 工具
 - issues: 问题聚合状态
 - 双向链接: timeline 和 issues 互相引用
 
-设计文档: docs/design-rationale-livedoc-tracing-v2.md
+设计文档: docs/design-rationale-trace-v2.md
 """
 
 import json

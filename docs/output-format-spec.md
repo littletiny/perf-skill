@@ -468,8 +468,8 @@ class RiskMixin:
 
 ## 7. 参考
 
-- [Live Document 设计](./design-rationale-live-doc.md)
-- [Live Document 接口](./live-doc-interface.md)
+- [Live Document 设计](./design-rationale-trace-v1.md)
+- [Live Document 接口](./trace-interface.md)
 - [CHANGES.md](../CHANGES.md)
 
 ---

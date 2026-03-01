@@ -104,4 +104,4 @@ export SKILL_DIR=$HOME/.config/agents/skills/perf-hunter
 
 - `$repo/references/data-format.md` - 数据格式规范
 - `$repo/references/tools.md` - 工具命令详细说明
-- `$repo/references/live-doc-interface.md` - livedoc 接口规范
+- `$repo/docs/trace-interface.md` - livedoc 接口规范

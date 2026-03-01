@@ -615,6 +615,6 @@ class LiveDoc:
 
 ## 9. 参考文档
 
-- [设计意图文档](./design-rationale-live-doc.md)
+- [设计意图文档](./design-rationale-trace-v1.md)
 - [SKILL.md](../SKILL.md)
 - [workflow.md](../references/workflow.md)

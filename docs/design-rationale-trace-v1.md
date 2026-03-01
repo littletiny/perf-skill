@@ -420,6 +420,6 @@ $ spear trace finalize
 
 ## 8. 参考文档
 
-- [Live Doc 接口设计文档](./live-doc-interface.md)
+- [Trace 接口设计文档](./trace-interface.md)
 - [原始案例讨论](../CHANGES.md#v2.8)
 - [netstat 诊断案例参考](../../just_empty_dir/netstat/debug/)
