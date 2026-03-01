@@ -5,20 +5,25 @@ Hotspot Analysis - Extract function rankings by self/inclusive time
 
 使用 Symbol.normalized_name 作为符号标识，基于 core/s（CPU 利用率）进行统计，
 而非样本数量（因为数据已按 1 秒聚合，样本数无意义）。
+
+V2 版本：使用统一数据模型
 """
 
 from collections import defaultdict
-from ..core.format_utils import format_core_sec
-from ..core.output_builder import OutputBuilder
+
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import (
+    RiskInfo, HotspotItem, HotspotSummary, HotspotsOutput, TimeRange
+)
 
 
 def cmd_get_hotspots(engine, args):
     """[Skill] Extract macro hotspot paths or function rankings"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
-    filtered = engine.get_filtered_samples(
+    samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),
         end_time=getattr(args, 'end_time', None),
         cpu_id=getattr(args, 'cpu_id', None),
@@ -28,17 +33,17 @@ def cmd_get_hotspots(engine, args):
     )
     
     # Check empty samples
-    if builder.check_empty_samples(filtered):
+    if builder.check_empty_samples(samples):
         return
     
     # Assess quality
-    builder.assess_quality(filtered)
+    builder.assess_quality(samples)
     
     # Calculate self and inclusive core/s
     self_core_sec = defaultdict(float)
     incl_core_sec = defaultdict(float)
     
-    for s in filtered:
+    for s in samples:
         stack = s.get('stack')
         if not stack or len(stack) == 0:
             continue
@@ -71,33 +76,40 @@ def cmd_get_hotspots(engine, args):
             top_kernel_ratio = incl_pct
             top_kernel_hotspot = sym
         
-        results.append({
-            "symbol": sym,
-            "self_ratio_pct": f"{self_pct:.2f}%",
-            "inclusive_ratio_pct": f"{incl_pct:.2f}%",
-            "core_sec": format_core_sec(core_sec)
-        })
+        results.append(HotspotItem.from_stats(sym, self_pct, incl_pct))
     
     # Sort by inclusive ratio
-    key = "inclusive_ratio_pct"
-    results.sort(key=lambda x: float(x[key].rstrip('%')), reverse=True)
+    results.sort(key=lambda x: float(x.inclusive.rstrip('%')), reverse=True)
+    top_items = results[:args.top_n]
     
-    # Add risk for high kernel hotspot
+    # Build RiskInfo
     if top_kernel_ratio > 30:
-        builder.add_risk(
-            "warning",
-            f"热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%' --risk 'warning' --hint 'find-callers --target {top_kernel_hotspot}'",
+        risk = create_risk_info(
+            level="warning",
+            message=f"热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%",
+            live_doc_hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%' --risk 'warning' --hint 'find-callers --target {top_kernel_hotspot}'",
             patterns=["HIGH_KERNEL_HOTSPOT"]
         )
+    else:
+        risk = create_risk_info(level="none")
     
-    # Build and output
-    result = builder.build(
-        data_type="hotspots",
-        data=results[:args.top_n],
-        summary={
-            "total_hotspots": len(results)
-        }
+    # Build summary
+    summary = HotspotSummary(total_hotspots=len(results))
+    
+    # Build time range
+    time_range = None
+    if samples:
+        time_range = TimeRange.from_timestamps(
+            samples[0].get('ts'),
+            samples[-1].get('ts') if len(samples) > 0 else None
+        )
+    
+    # Build output
+    output = HotspotsOutput(
+        _risk=risk,
+        hotspots=top_items,
+        summary=summary,
+        time_range=time_range
     )
     
-    builder.print_json(result)
+    builder.print_output(output)

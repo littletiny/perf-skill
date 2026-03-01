@@ -15,8 +15,6 @@ This is the main entry point for the perf toolkit. It has been refactored into a
       ├── clusters.py        - Symbol clustering by expert rules
       ├── trace.py           - Call attribution tracing
       ├── anomalies.py       - CPU utilization anomaly detection
-      ├── flamegraph.py      - FlameGraph format generation
-      ├── callgraph.py       - Call graph DOT/JSON generation
       ├── cpu_usage.py       - CPU utilization breakdown
       ├── process_top.py     - Top processes by CPU
       ├── comm_clusters.py   - Cluster by process name
@@ -42,8 +40,6 @@ from perf_toolkit.analysis.hotspots import cmd_get_hotspots
 from perf_toolkit.analysis.clusters import cmd_apply_cluster
 from perf_toolkit.analysis.trace import cmd_trace_attribution, cmd_find_callers_auto
 from perf_toolkit.analysis.anomalies import cmd_detect_anomalies
-from perf_toolkit.analysis.flamegraph import cmd_generate_flamegraph
-from perf_toolkit.analysis.callgraph import cmd_generate_callgraph
 from perf_toolkit.analysis.cpu_usage import cmd_show_cpu_usage
 from perf_toolkit.analysis.process_top import cmd_get_process_top
 from perf_toolkit.analysis.comm_clusters import cmd_cluster_comm
@@ -202,40 +198,6 @@ Use '<command> --help' for detailed help on each subcommand."""
     p5.add_argument("--pid", type=int, help="Filter by process ID")
     p5.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p5.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-
-    # generate-flamegraph
-    p6 = subparsers.add_parser('generate-flamegraph',
-                               help="Generate FlameGraph format for visualization")
-    p6.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
-    p6.add_argument("--format", choices=['folded', 'json'], default='folded',
-                    help="Output format: 'folded' for FlameGraph/speedscope, 'json' for structured data")
-    p6.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p6.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p6.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
-    p6.add_argument("--pid", type=int, help="Filter by process ID")
-    p6.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
-    p6.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-    p6.add_argument("--top-n", type=int, default=1000,
-                    help="Top N stacks to include in JSON format (default: 1000)")
-
-    # generate-callgraph
-    p7 = subparsers.add_parser('generate-callgraph',
-                               help="Generate Call Graph in DOT/JSON format")
-    p7.add_argument("--data", required=True, help="Path to perf script output file")
-    # REMOVED: --freq parameter
-    p7.add_argument("--format", choices=['dot', 'json'], default='dot',
-                    help="Output format: 'dot' for Graphviz visualization, 'json' for structured data")
-    p7.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p7.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p7.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
-    p7.add_argument("--pid", type=int, help="Filter by process ID")
-    p7.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
-    p7.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-    p7.add_argument("--max-nodes", type=int, default=50,
-                    help="Maximum nodes in graph, 0 for unlimited (default: 50)")
-    p7.add_argument("--min-edge-count", type=int, default=1,
-                    help="Minimum call edge count to include in output (default: 1)")
 
     # show-cpu-usage
     p8 = subparsers.add_parser('show-cpu-usage',
@@ -408,8 +370,6 @@ Use '<command> --help' for detailed help on each subcommand."""
         "find-callers": cmd_trace_attribution,
         "find-callers-auto": cmd_find_callers_auto,
         "detect-anomalies": cmd_detect_anomalies,
-        "generate-flamegraph": cmd_generate_flamegraph,
-        "generate-callgraph": cmd_generate_callgraph,
         "show-cpu-usage": cmd_show_cpu_usage,
         "get-process-top": cmd_get_process_top,
         "cluster-comm": cmd_cluster_comm,

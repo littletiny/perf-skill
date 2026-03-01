@@ -3,6 +3,8 @@
 """
 Path Clustering - Cluster samples by common call path prefixes using Trie
 
+V2 版本：使用统一数据模型
+
 使用 SymbolStack 和规范化后的符号名进行路径聚类。
 基于 core/s（CPU 利用率）而非记录数统计。
 
@@ -11,7 +13,8 @@ Path Clustering - Cluster samples by common call path prefixes using Trie
 
 from collections import defaultdict
 from ..core.format_utils import format_core_sec
-from ..core.output_builder import OutputBuilder
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import RiskInfo, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
 
 
 class PathCluster:
@@ -66,7 +69,7 @@ class PathCluster:
 def cmd_cluster_paths(engine, args):
     """[Skill] Cluster samples by common call path prefixes using Trie"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -108,22 +111,31 @@ def cmd_cluster_paths(engine, args):
     
     clustered_core_sec = sum(c['core_sec'] for c in clusters)
     
-    # Build and output
-    result = builder.build(
-        data_type="clusters",
-        data=[
-            {
-                "cluster_id": f"c_{i+1:03d}",
-                "path_signature": c['path_signature'],
-                "ratio_pct": c['ratio_pct'],
-                "core_sec": format_core_sec(c['core_sec'])
-            }
-            for i, c in enumerate(top_clusters)
-        ],
-        summary={
-            "total_clusters": len(clusters),
-            "clustered_core_sec": format_core_sec(clustered_core_sec)
-        }
+    # Build output using V2 data models
+    risk = create_risk_info("none", None, None)
+    
+    results = [
+        PathClusterItem(
+            cluster_id=f"c_{i+1:03d}",
+            path_signature=c['path_signature'],
+            ratio_pct=c['ratio_pct'],
+            core_sec=format_core_sec(c['core_sec'])
+        )
+        for i, c in enumerate(top_clusters)
+    ]
+    
+    summary = PathClusterSummary(
+        total_clusters=len(clusters),
+        clustered_core_sec=format_core_sec(clustered_core_sec)
     )
     
-    builder.print_json(result)
+    time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
+    
+    output = PathClustersOutput(
+        _risk=risk,
+        clusters=results,
+        summary=summary,
+        time_range=time_range
+    )
+    
+    builder.print_output(output)

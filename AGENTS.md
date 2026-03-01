@@ -9,6 +9,7 @@ perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-drive
 ---
 
 ## 重要
+- 本工具的输出用来给人类/AI阅读，考虑**可读性**，而不是程序方便处理
 - **数据文件一般是xxx.data，只用本skill工具读取他**
 - **不要用本skill工具之外的工具读取数据文件，除非工具集解析数据出错了**
 - **如果一定要用其他工具读数据文件，一次最多只能读取20行**
@@ -103,6 +104,13 @@ SKILL.md 应保持精简，详细内容应放在 references/ 目录，通过引�
 | `count-process-variety` | 检测进程风暴 | `process_variety.py` |
 | `analyze-core-distribution` | 核心级负载分布分析 | `core_distribution.py` |
 | `get-comm-top` | 按进程组统计 CPU | `comm_top.py` |
+
+## 已移除的子命令
+
+| 子命令 | 移除原因 |
+|--------|----------|
+| `generate-flamegraph` | 功能维护成本高，使用频率低 |
+| `generate-callgraph` | 功能维护成本高，使用频率低 |
 
 ---
 

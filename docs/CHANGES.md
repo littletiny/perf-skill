@@ -1461,7 +1461,7 @@ Agent 在分析时没有创建诊断文档，或创建的文档结构不完整�
 
 **核心问题**: Agent 分析过程中，人脑记忆无法跟踪多个并行的待验证目标，导致搜索覆盖率不足（25%），遗漏了同样严重的 containerd-shim 问题。
 
-**解决方案**: 
+**解决方案**:
 1. 结构化记录所有发现的问题（`perf-doc add`）
 2. 标记已完成分析的问题（`perf-doc complete`）
 3. 强制审计剩余风险（`perf-doc list` / `perf-doc finalize`）
@@ -1530,7 +1530,7 @@ get-comm-top 发现 4 个高内核态进程:
 }
 ```
 
-**设计原则**: 
+**设计原则**:
 - 最多 2 层嵌套
 - 仅两种状态: `pending` / `completed`
 - 字符串字段为主，对 agent 友好
@@ -1632,7 +1632,7 @@ ISS-002  containerd-shim 高内核态 89.9%
 
 **反馈**: "不要玩那么多奖励机制，太复杂了，直接点"
 
-**决策**: 
+**决策**:
 - 去掉所有激励元素
 - 直接展示剩余风险
 - 用 SKILL 规范强制要求
@@ -1934,11 +1934,11 @@ Agent 难以统一识别关键信息。
 # core/risk_mixin.py
 class RiskMixin:
     """标准化风险提示"""
-    
+
     def add_risk(self, level, message, hint="", patterns=None, targets=None):
         # 添加风险记录
         pass
-    
+
     def format_output(self, data):
         # 添加 _risk 字段到输出
         return {"_risk": self.get_top_risk(), **data}
@@ -2206,7 +2206,7 @@ get-comm-top 发现 4 个高内核态进程组:
 
 ```markdown
 > ⚠️ **Phase 1 第一步**: 创建诊断文档 + 初始化 Live Document
-> 
+>
 > 1. 使用 `templates.md` 模板创建 `debug/[问题描述].md`
 > 2. **执行 `perf-expert.py doc init --data <perf-data>` 初始化 Live Document**
 ```
@@ -2240,7 +2240,7 @@ get-comm-top → 被 2623 PIDs 吸引 → 只分析 netstat → 遗漏其他问�
 
 **修改后**:
 ```
-get-comm-top → doc add 记录所有 4 个问题 → doc list 显示待办 → 
+get-comm-top → doc add 记录所有 4 个问题 → doc list 显示待办 →
 被迫分析所有问题 → doc finalize 确认完整性 → 生成报告
 ```
 
@@ -2363,7 +2363,7 @@ top_lock_func = max(lock_func_core_sec, key=lock_func_core_sec.get) if lock_func
 hint = f"溯源锁调用: find-callers --target '{top_lock_func}'"
 ```
 
-**改进点**: 
+**改进点**:
 - 在聚类过程中统计各锁函数的 CPU 消耗
 - 使用实际最频繁的锁函数名作为 `--target` 参数
 - 无锁函数数据时提供合理的默认值 `pthread_mutex_lock`
@@ -3192,21 +3192,21 @@ from ..core.output_builder import OutputBuilder
 
 def cmd_xxx(engine, args):
     builder = OutputBuilder(engine, args)
-    
+
     # Fetch samples
     samples = engine.get_filtered_samples(...)
-    
+
     # Check empty samples
     if builder.check_empty_samples(samples):
         return
-    
+
     # Assess quality
     builder.assess_quality(samples)
-    
+
     # Add custom risk if needed
     if some_condition:
         builder.add_risk("warning", "...", "[必须] 添加到 Live Document: ...")
-    
+
     # Build and output
     result = builder.build(
         data_type="hotspots",  # 自动映射到标准字段名
@@ -3309,9 +3309,9 @@ DATA_TYPE_FIELDS = {
 ```python
 def cmd_show_cpu_usage(engine, args):
     samples = engine.get_filtered_samples(...)
-    
+
     output = RiskAwareOutput()
-    
+
     if not samples:
         result = output.add_risk(...).build({
             "error": "No samples found",
@@ -3320,17 +3320,17 @@ def cmd_show_cpu_usage(engine, args):
         })
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return
-    
+
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     record_count = len(samples)
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
     quality_level, warning_msg, metrics = assess_data_quality(...)
-    
+
     # ... 实际分析逻辑 ...
-    
+
     if quality_level == "CRITICAL":
         output.add_risk(...)
-    
+
     result = output.build({
         "target": target_desc,
         "time_range": format_time_range(samples[0]['ts'], samples[-1]['ts']),
@@ -3343,15 +3343,15 @@ def cmd_show_cpu_usage(engine, args):
 ```python
 def cmd_show_cpu_usage(engine, args):
     builder = OutputBuilder(engine, args)
-    
+
     samples = engine.get_filtered_samples(...)
     if builder.check_empty_samples(samples):
         return
-    
+
     builder.assess_quality(samples)
-    
+
     # ... 实际分析逻辑 ...
-    
+
     result = builder.build(
         data_type="generic",
         data={"target": target_desc, "cpu_utilization": {...}}
@@ -3391,3 +3391,531 @@ def cmd_show_cpu_usage(engine, args):
 
 ---
 
+
+## 更新概览
+
+本次更新简化工具输出格式，移除冗余字段，提升人类和AI阅读体验：
+
+1. **get-comm-top 精简**: 移除 `total_core_sec`, `avg_cpu_per_process_pct`, `density_index` 等派生字段，改为字符串 `event` 描述具体问题模式
+2. **get-hotspots 精简**: 字段名简化 `self_ratio_pct`→`self`, `inclusive_ratio_pct`→`inclusive`，移除 `core_sec`
+3. **time_range 默认关闭**: 只有 `check-cpu-bottleneck`, `detect-anomalies`, `analyze-core-distribution` 输出时间范围
+
+---
+
+## 1. get-comm-top 输出简化
+
+### 修改理由
+原输出包含过多派生数字字段，不利于快速阅读：
+- `total_core_sec`, `avg_cpu_per_process_pct`, `avg_core_sec_per_process`, `density_index` 均可由 `cpu_pct` 和 `pid_count` 推算
+- 数字指标需要人工计算才能理解问题模式
+
+### 修改内容
+
+**字段变更**:
+| 旧字段 | 新字段 | 说明 |
+|-------|-------|------|
+| `total_core_sec` | - | 移除 |
+| `avg_cpu_per_process_pct` | - | 移除 |
+| `avg_core_sec_per_process` | - | 移除 |
+| `density_index` | - | 移除 |
+| - | `event` | 新增，字符串描述问题模式 |
+
+**输出示例对比**:
+
+改造前:
+```json
+{
+  "comm": "netstat",
+  "pid_count": 2623,
+  "cpu_pct": "243.87%",
+  "kernel_pct": "94.7%",
+  "total_core_sec": "1234.56 core·s",
+  "avg_cpu_per_process_pct": "0.09%",
+  "density_index": 0.093,
+  "avg_core_sec_per_process": 0.0012
+}
+```
+
+改造后:
+```json
+{
+  "comm": "netstat",
+  "pids": 2623,
+  "cpu": "243.87%",
+  "kernel": "94.7%",
+  "event": "MANY_SMALL_PROCESSES: 2623个进程，每个仅消耗0.09% CPU"
+}
+```
+
+**event 生成规则**:
+```python
+if aggregate_cpu_util > 10 and avg_cpu_per_process < 1 and pid_count >= 5:
+    event = f"MANY_SMALL_PROCESSES: {pid_count}个进程，每个仅消耗{avg_cpu_per_process:.2f}% CPU"
+elif kernel_ratio > 50:
+    event = f"HIGH_KERNEL: 内核态占比 {kernel_ratio:.1f}%"
+else:
+    event = "normal"
+```
+
+### 文件变更
+- `scripts/perf_toolkit/analysis/comm_top.py`: 
+  - 移除 `format_core_sec` 导入
+  - 简化字段列表
+  - 新增 `event` 字符串生成逻辑
+
+---
+
+## 2. get-hotspots 输出简化
+
+### 修改理由
+- 字段名过长，阅读不便
+- `core_sec` 可由 `inclusive` 和总时间推算
+
+### 修改内容
+
+**字段变更**:
+| 旧字段 | 新字段 | 说明 |
+|-------|-------|------|
+| `self_ratio_pct` | `self` | 简化名称 |
+| `inclusive_ratio_pct` | `inclusive` | 简化名称 |
+| `core_sec` | - | 移除 |
+
+**输出示例对比**:
+
+改造前:
+```json
+{
+  "symbol": "func_[k]",
+  "self_ratio_pct": "15.23%",
+  "inclusive_ratio_pct": "45.67%",
+  "core_sec": "1.2345 core·s"
+}
+```
+
+改造后:
+```json
+{
+  "symbol": "func_[k]",
+  "self": "15.23%",
+  "inclusive": "45.67%"
+}
+```
+
+### 文件变更
+- `scripts/perf_toolkit/analysis/hotspots.py`:
+  - 移除 `format_core_sec` 导入
+  - 简化字段名和字段列表
+
+---
+
+## 3. time_range 默认关闭
+
+### 修改理由
+- 大多数工具（get-hotspots, get-comm-top, get-process-top 等）的时间范围对诊断帮助不大
+- 减少输出体积，聚焦关键信息
+
+### 修改内容
+
+**默认行为变更**:
+- 默认 `include_time_range=False`
+- 只有以下工具显式启用 `include_time_range=True`:
+  - `check-cpu-bottleneck`: 需要知道时间范围判断瓶颈
+  - `detect-anomalies`: 时间范围是分析核心
+  - `analyze-core-distribution`: 需要知道采样时段
+
+**output_builder.py 变更**:
+```python
+def build(self, data_type: str, data: Any, 
+          summary: Dict = None,
+          time_range: Dict = None,
+          include_quality: bool = False,
+          include_time_range: bool = False,  # 默认 False
+          **extra_fields) -> Dict:
+```
+
+### 文件变更
+- `scripts/perf_toolkit/core/output_builder.py`:
+  - 添加 `include_time_range` 参数，默认 `False`
+  - 条件判断添加时间范围
+
+- `scripts/perf_toolkit/analysis/bottleneck.py`:
+  - `build()` 调用添加 `include_time_range=True`
+
+- `scripts/perf_toolkit/analysis/anomalies.py`:
+  - 两处 `build()` 调用添加 `include_time_range=True`
+
+- `scripts/perf_toolkit/analysis/core_distribution.py`:
+  - `build()` 调用添加 `include_time_range=True`
+
+---
+
+## 验证检查清单
+
+- [ ] get-comm-top 输出只包含 comm, pids, cpu, kernel, event
+- [ ] get-hotspots 输出只包含 symbol, self, inclusive
+- [ ] 默认工具（get-comm-top, get-hotspots, get-process-top 等）不输出 time_range
+- [ ] check-cpu-bottleneck, detect-anomalies, analyze-core-distribution 输出 time_range
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.12
+
+
+
+---
+
+## 2026-03-01: 统一数据结构 (V2 Output System)
+
+### 变更理由
+1. **代码重复**: `processes` 和 `comm_groups` 等多个数据类型在不同模块中重复定义，难以维护
+2. **类型不安全**: 使用原始字典容易出错，缺少 IDE 支持和类型检查
+3. **JSON 直接输出**: 之前直接构造 JSON，不利于后续扩展和验证
+4. **难以统一管理**: 输出格式规范难以在所有工具中保持一致
+
+### 变更内容
+
+#### 1. 新增文件
+
+**`scripts/perf_toolkit/core/output_models.py`**
+- 使用 `@dataclass` 定义所有数据结构
+- 统一的数据类型：`RiskInfo`, `TimeRange`, `ProcessItem`, `CommGroupItem`, `HotspotItem`, `ClusterItem` 等
+- 统一的输出结构：`ProcessTopOutput`, `CommTopOutput`, `HotspotsOutput`, `ClustersOutput` 等
+- 类型注册表 `OUTPUT_TYPE_MAP` 用于根据数据类型获取对应的类
+
+**`scripts/perf_toolkit/core/output_adapter.py`**
+- `OutputAdapter`: 将 dataclass 对象递归转换为字典，再转为 JSON
+- `CompactOutputAdapter`: 紧凑模式，跳过 None 值和空值
+- 辅助函数 `to_json_output()` 和 `print_json_output()`
+
+**`scripts/perf_toolkit/core/output_builder_v2.py`**
+- `OutputBuilderV2`: 基于新数据模型的输出构建器
+- 兼容 V1 的接口：`check_empty_samples()`, `assess_quality()`
+- 新增方法：`print_output()` 用于打印 dataclass 输出对象
+- `create_risk_info()`: 快速创建 RiskInfo 的辅助函数
+
+**`scripts/perf_toolkit/core/data_contexts.py`** (可选，高级用法)
+- `DataContext`: 数据收集上下文基类
+- `ProcessDataContext`: 进程数据收集上下文
+- `CommGroupDataContext`: 进程组数据收集上下文（与 comm_top 共享逻辑）
+
+#### 2. 修改文件
+
+**`scripts/perf_toolkit/core/__init__.py`**
+- 导出所有 V2 Output System 的类和函数
+
+**`scripts/perf_toolkit/analysis/process_top.py`**
+- 使用新的 `OutputBuilderV2` 和 `ProcessTopOutput`
+- 使用 `ProcessItem.from_stats()` 构建数据项
+- 使用 `create_risk_info()` 创建风险信息
+- 输出使用 `builder.print_output(output)`
+
+**`scripts/perf_toolkit/analysis/comm_top.py`**
+- 类似 process_top 的改造
+- 使用 `CommGroupItem` 和 `CommTopOutput`
+- 与 cluster-comm 共享 `CommGroupItem` 数据结构
+
+**`scripts/perf_toolkit/analysis/comm_clusters.py`**
+- 使用与 comm_top 相同的 `CommGroupItem` 数据结构
+- 使用 `ClusterCommOutput` 输出类型
+- 实现了与 comm_top 的数据结构统一
+
+### 数据结构对照表
+
+| 数据类型 | 旧实现 | 新实现 (output_models.py) | 输出结构 |
+|---------|-------|--------------------------|---------|
+| processes | 原始字典 | `ProcessItem` dataclass | `ProcessTopOutput` |
+| comm_groups | 原始字典 | `CommGroupItem` dataclass | `CommTopOutput` / `ClusterCommOutput` |
+| hotspots | 原始字典 | `HotspotItem` dataclass | `HotspotsOutput` |
+| clusters | 原始字典 | `ClusterItem` dataclass | `ClustersOutput` |
+
+### 迁移指南
+
+#### 从 V1 (原始字典) 迁移到 V2 (dataclass)
+
+**旧代码：**
+```python
+from ..core.output_builder import OutputBuilder
+
+builder = OutputBuilder(engine, args)
+
+results = []
+for (comm, pid), stats in process_stats.items():
+    cpu_util = ...
+    kernel_ratio = ...
+    results.append({
+        'comm': comm,
+        'pid': pid,
+        'cpu_pct': f"{cpu_util:.2f}%",
+        'kernel_pct': f"{kernel_ratio:.2f}%"
+    })
+
+result = builder.build(
+    data_type="processes",
+    data=results,
+    summary={"total_processes": len(results), "shown_processes": len(top_results)}
+)
+builder.print_json(result)
+```
+
+**新代码：**
+```python
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import ProcessItem, ProcessSummary, ProcessTopOutput, TimeRange
+
+builder = OutputBuilderV2(engine, args)
+
+items = []
+for (comm, pid), stats in process_stats.items():
+    cpu_util = ...
+    kernel_ratio = ...
+    items.append(ProcessItem.from_stats(comm, pid, cpu_util, kernel_ratio))
+
+risk = create_risk_info(level="none")
+summary = ProcessSummary(total_processes=len(items), shown_processes=len(top_items))
+time_range = TimeRange.from_timestamps(start_ts, end_ts)
+
+output = ProcessTopOutput(
+    _risk=risk,
+    processes=top_items,
+    summary=summary,
+    time_range=time_range
+)
+
+builder.print_output(output)
+```
+
+### 后续计划
+
+1. **逐步迁移**: 其他分析模块（hotspots, clusters 等）逐步迁移到 V2 系统
+2. **废弃 V1**: 待所有模块迁移完成后，废弃 OutputBuilder (V1)
+3. **增强验证**: 添加 JSON Schema 验证，确保输出符合规范
+4. **文档完善**: 更新 SKILL.md 中的输出格式说明
+
+### 兼容性说明
+
+- V2 系统完全兼容现有的 JSON 输出格式
+- 所有字段名称和类型保持一致
+- 风险级别、时间格式等规范不变
+- 工具使用方无需修改任何代码
+
+# SPEAR-perf-hunter v2.17 更新日志
+
+## 更新概览
+
+本次更新完成**V2 输出系统切换**，将所有分析工具迁移到统一的 dataclass-based 输出架构，并移除低使用频率的子命令。
+
+**核心改进**:
+1. **完成 V2 输出系统切换**: 所有分析工具使用统一数据模型
+2. **移除低频率子命令**: 删除 `generate-flamegraph` 和 `generate-callgraph`
+3. **增强类型安全**: 使用 `@dataclass` 替代字典，提供类型检查和 IDE 支持
+
+---
+
+## 1. V2 输出系统切换
+
+### 1.1 背景
+
+原有 V1 输出系统使用字典构建输出，存在以下问题：
+- 字段名拼写错误无法检测
+- 缺乏类型检查，容易传入错误类型
+- 不同工具输出格式不一致
+- 重复代码（每个工具都构建 `_risk`, `summary`, `time_range`）
+
+### 1.2 V2 架构
+
+```
+scripts/perf_toolkit/core/
+├── output_models.py       # 数据模型定义（dataclass）
+├── output_adapter.py      # JSON 转换器
+├── output_builder_v2.py   # V2 输出构建器
+└── README_V2.md          # V2 系统文档
+```
+
+**核心数据模型**:
+
+```python
+@dataclass
+class HotspotItem:
+    """热点函数数据项"""
+    symbol: str
+    self: str        # "15.23%"
+    inclusive: str   # "45.67%"
+    
+    @classmethod
+    def from_stats(cls, symbol: str, self_pct: float, inclusive_pct: float):
+        return cls(symbol=symbol, self=f"{self_pct:.2f}%", ...)
+```
+
+### 1.3 迁移清单
+
+**已切换到 V2 的工具**（共 13 个）：
+
+| 工具 | 数据模型 | 状态 |
+|------|----------|------|
+| `process_top.py` | `ProcessItem`, `ProcessSummary` | ✅ 已迁移 |
+| `comm_top.py` | `CommGroupItem`, `CommGroupSummary` | ✅ 已迁移 |
+| `comm_clusters.py` | `CommGroupItem`, `CommGroupSummary` | ✅ 已迁移 |
+| `hotspots.py` | `HotspotItem`, `HotspotSummary` | ✅ 本次迁移 |
+| `clusters.py` | `ClusterItem`, `ClusterSummary` | ✅ 本次迁移 |
+| `bottleneck.py` | `BottleneckData`, `BottleneckSummary` | ✅ 本次迁移 |
+| `anomalies.py` | `AnomalyItem`, `AnomalySummary` | ✅ 本次迁移 |
+| `cpu_usage.py` | `CPUUsageData`, `CPUUsageSummary` | ✅ 本次迁移 |
+| `trace.py` | `AttributionItem`, `TraceItem`, `TracesSummary` | ✅ 本次迁移 |
+| `path_clusters.py` | `PathClusterItem`, `PathClusterSummary` | ✅ 本次迁移 |
+| `process_variety.py` | `ProcessVarietyItem`, `ProcessVarietySummary` | ✅ 本次迁移 |
+| `core_distribution.py` | `CoreItem`, `CoreDistributionSummary` | ✅ 本次迁移 |
+
+### 1.4 新增数据模型
+
+**output_models.py 新增**（本次新增 11 个模型类）：
+
+```python
+# 数据项类
+BottleneckData, CPUUsageData
+AnomalyItem, WindowItem
+AttributionItem, TraceItem
+PathClusterItem, ProcessVarietyItem
+CoreItem
+
+# 摘要类
+BottleneckSummary, CPUUsageSummary
+AnomalySummary, WindowSummary
+AttributionSummary, TracesSummary
+PathClusterSummary, ProcessVarietySummary
+CoreDistributionSummary
+
+# 输出根类
+BottleneckOutput, CPUUsageOutput
+AnomaliesOutput, WindowsOutput
+AttributionsOutput, TracesOutput
+PathClustersOutput, ProcessVarietyOutput
+CoreDistributionOutput
+```
+
+---
+
+## 2. 移除低频率子命令
+
+### 2.1 移除原因
+
+| 子命令 | 移除原因 |
+|--------|----------|
+| `generate-flamegraph` | 使用频率低，维护成本高，可用外部工具替代 |
+| `generate-callgraph` | 使用频率低，DOT 格式输出复杂，实用性有限 |
+
+### 2.2 移除内容
+
+**删除的文件**:
+- `scripts/perf_toolkit/analysis/flamegraph.py`
+- `scripts/perf_toolkit/analysis/callgraph.py`
+
+**修改的文件**:
+- `scripts/perf_expert.py`: 移除导入、子命令解析、命令路由
+- `AGENTS.md`: 更新子命令清单，添加"已移除的子命令"表格
+
+### 2.3 替代方案
+
+如需火焰图功能，建议使用：
+- `get-hotspots` + 外部可视化工具
+- 直接使用 Brendan Gregg 的 FlameGraph 工具集
+
+---
+
+## 3. 兼容性说明
+
+### 3.1 JSON 输出兼容
+
+V2 系统的 JSON 输出与 V1 **完全兼容**，工具使用方无需修改：
+
+```json
+// V1 和 V2 输出格式完全一致
+{
+  "_risk": {...},
+  "summary": {...},
+  "hotspots": [...]
+}
+```
+
+### 3.2 渐进迁移
+
+可以逐个模块迁移，V1 和 V2 可以共存：
+- 已完成迁移的模块使用 `OutputBuilderV2`
+- 未迁移的模块继续使用 `OutputBuilder`
+
+---
+
+## 4. 文件变更清单
+
+### 修改的文件
+
+1. `scripts/perf_toolkit/core/output_models.py`
+   - 新增 11 个数据模型类（Item, Summary, Output）
+   - 更新 OUTPUT_TYPE_MAP 注册表
+
+2. `scripts/perf_toolkit/core/output_builder_v2.py`
+   - 导出所有新增模型类
+
+3. `scripts/perf_toolkit/analysis/hotspots.py`
+   - 迁移到 V2: `HotspotItem`, `HotspotSummary`, `HotspotsOutput`
+
+4. `scripts/perf_toolkit/analysis/clusters.py`
+   - 迁移到 V2: `ClusterItem`, `ClusterSummary`, `ClustersOutput`
+
+5. `scripts/perf_toolkit/analysis/bottleneck.py`
+   - 迁移到 V2: `BottleneckData`, `BottleneckSummary`, `BottleneckOutput`
+
+6. `scripts/perf_toolkit/analysis/anomalies.py`
+   - 迁移到 V2: `AnomalyItem`/`WindowItem`, `AnomaliesOutput`/`WindowsOutput`
+
+7. `scripts/perf_toolkit/analysis/cpu_usage.py`
+   - 迁移到 V2: `CPUUsageData`, `CPUUsageSummary`, `CPUUsageOutput`
+
+8. `scripts/perf_toolkit/analysis/trace.py`
+   - 迁移到 V2: `AttributionItem`, `TraceItem`, `AttributionsOutput`, `TracesOutput`
+
+9. `scripts/perf_toolkit/analysis/path_clusters.py`
+   - 迁移到 V2: `PathClusterItem`, `PathClusterSummary`, `PathClustersOutput`
+
+10. `scripts/perf_toolkit/analysis/process_variety.py`
+    - 迁移到 V2: `ProcessVarietyItem`, `ProcessVarietySummary`, `ProcessVarietyOutput`
+
+11. `scripts/perf_toolkit/analysis/core_distribution.py`
+    - 迁移到 V2: `CoreItem`, `CoreDistributionSummary`, `CoreDistributionOutput`
+
+12. `scripts/perf_expert.py`
+    - 移除 flamegraph/callgraph 导入
+    - 移除 generate-flamegraph/generate-callgraph 子命令
+    - 移除命令路由
+
+13. `AGENTS.md`
+    - 更新子命令清单（12 个 → 10 个）
+    - 添加"已移除的子命令"表格
+
+### 删除的文件
+
+1. `scripts/perf_toolkit/analysis/flamegraph.py`
+2. `scripts/perf_toolkit/analysis/callgraph.py`
+
+---
+
+## 5. 验证检查清单
+
+- [x] 所有分析工具使用 V2 输出系统
+- [x] JSON 输出格式与 V1 完全兼容
+- [x] flamegraph.py 已删除
+- [x] callgraph.py 已删除
+- [x] perf_expert.py 中相关导入和命令已移除
+- [x] AGENTS.md 子命令清单已更新
+- [x] 输出模型类型注册表完整
+
+---
+
+更新日期: 2026-03-01
+
+版本: v2.17
+
+核心改进: 完成 V2 输出系统切换，移除低频率子命令
+
+---

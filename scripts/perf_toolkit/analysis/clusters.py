@@ -6,13 +6,16 @@ Symbol Clustering - Cluster samples by expert rules (scheduling, locks, memory, 
 使用 Symbol.normalized_name 进行规则匹配，基于 core/s（CPU 利用率）而非记录数统计。
 
 注意：数据已按 1 秒聚合，记录数量无参考价值。
+
+V2 版本：使用统一数据模型
 """
 
 import re
 import json as json_mod
 from collections import defaultdict
 from ..core.format_utils import format_core_sec
-from ..core.output_builder import OutputBuilder
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import RiskInfo, ClusterItem, ClusterSummary, ClustersOutput, TimeRange
 
 
 # Symbol-based event classification (for cluster-symbols)
@@ -28,7 +31,7 @@ EXPERT_RULES = {
 def cmd_apply_cluster(engine, args):
     """[Skill] Execute expert rule clustering or custom rule clustering"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -89,41 +92,51 @@ def cmd_apply_cluster(engine, args):
         ratio = (core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
         if group == "EVENT_LOCK_CONTENTION":
             lock_contention_ratio = ratio
-        results.append({
-            "cluster": group,
-            "ratio_pct": f"{ratio:.2f}%",
-            "core_sec": format_core_sec(core_sec)
-        })
+        results.append(ClusterItem.from_stats(group, ratio, core_sec))
     
-    results.sort(key=lambda x: float(x['ratio_pct'].rstrip('%')), reverse=True)
+    results.sort(key=lambda x: float(x.ratio_pct.rstrip('%')), reverse=True)
     
     # Find top lock function for hint
     top_lock_func = max(lock_func_core_sec, key=lock_func_core_sec.get) if lock_func_core_sec else "pthread_mutex_lock"
     
-    # Add risk for high lock contention
+    # Build risk info based on lock contention ratio
     if lock_contention_ratio > 50:
-        builder.add_risk(
-            "critical",
-            f"锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈' --risk 'critical' --hint 'find-callers --target {top_lock_func}'",
+        risk = create_risk_info(
+            level="critical",
+            message=f"锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈",
+            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，系统严重瓶颈' --risk 'critical' --hint 'find-callers --target {top_lock_func}'",
             patterns=["HIGH_LOCK_CONTENTION"]
         )
     elif lock_contention_ratio > 20:
-        builder.add_risk(
-            "warning",
-            f"锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈",
-            "[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈' --risk 'warning' --hint 'find-callers --target pthread_mutex_lock'",
+        risk = create_risk_info(
+            level="warning",
+            message=f"锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈",
+            hint="[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈' --risk 'warning' --hint 'find-callers --target pthread_mutex_lock'",
             patterns=["LOCK_CONTENTION"]
         )
+    else:
+        risk = create_risk_info(level="none")
     
-    # Build and output
-    result = builder.build(
-        data_type="clusters",
-        data=results,
-        summary={
-            "total_core_seconds": format_core_sec(total_core_per_sec),
-            "clusters_found": len(results)
-        }
+    # Build summary
+    summary = ClusterSummary(
+        clusters_found=len(results),
+        total_core_seconds=format_core_sec(total_core_per_sec)
     )
     
-    builder.print_json(result)
+    # Build time range
+    time_range = None
+    if samples:
+        time_range = TimeRange.from_timestamps(
+            samples[0].get('ts'),
+            samples[-1].get('ts') if len(samples) > 0 else None
+        )
+    
+    # Build output
+    output = ClustersOutput(
+        _risk=risk,
+        clusters=results,
+        summary=summary,
+        time_range=time_range
+    )
+    
+    builder.print_output(output)

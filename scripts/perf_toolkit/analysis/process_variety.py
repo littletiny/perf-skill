@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# V2 版本：使用统一数据模型
 """
 Process Variety Analysis - Count process variety to detect short-lived process storms
 
@@ -13,13 +14,14 @@ Process Variety Analysis - Count process variety to detect short-lived process s
 """
 
 from collections import defaultdict
-from ..core.output_builder import OutputBuilder
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import RiskInfo, ProcessVarietyItem, ProcessVarietySummary, ProcessVarietyOutput, TimeRange
 
 
 def cmd_count_process_variety(engine, args):
     """[Skill] Count process variety - detect short-lived process storms"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -83,34 +85,44 @@ def cmd_count_process_variety(engine, args):
             behavior = "process_storm"
             storm_comms.append(comm)
         
-        variety_results.append({
-            "comm": comm,
-            "unique_pids": pid_count,
-            "total_core_sec": round(total_comm_core_sec, 4),
-            "cpu_per_pid": round(cpu_per_pid, 4),
-            "behavior": behavior
-        })
+        # Create V2 data item
+        variety_results.append(ProcessVarietyItem(
+            comm=comm,
+            unique_pids=pid_count,
+            total_core_sec=round(total_comm_core_sec, 4),
+            cpu_per_pid=round(cpu_per_pid, 4),
+            behavior=behavior
+        ))
     
-    # Add risk for process storm
+    # Create risk info
     if storm_comms:
-        builder.add_risk(
-            "critical",
-            f"检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）' --risk 'critical' --hint '对每个进程名运行 cluster-comm --comm <comm> 进行详细分析'",
+        risk = create_risk_info(
+            level="critical",
+            message=f"检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）",
+            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）' --risk 'critical' --hint '对每个进程名运行 cluster-comm --comm <comm> 进行详细分析'",
             patterns=["PROCESS_STORM"],
-            targets=storm_comms
+            pending_targets=storm_comms
         )
+    else:
+        risk = create_risk_info(level="none")
     
-    # Build and output
+    # Build output
     top_n = getattr(args, 'top_n', 20)
-    result = builder.build(
-        data_type="process_variety",
-        data=variety_results[:top_n],
-        summary={
-            "total_processes": len(comm_pid_stats),
-            "storm_detected": len(storm_comms) > 0,
-            "storm_count": len(storm_comms)
-        }
+    top_results = variety_results[:top_n]
+    
+    summary = ProcessVarietySummary(
+        total_processes=len(comm_pid_stats),
+        storm_detected=len(storm_comms) > 0,
+        storm_count=len(storm_comms)
     )
     
-    builder.print_json(result)
+    time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
+    
+    output = ProcessVarietyOutput(
+        _risk=risk,
+        process_variety=top_results,
+        summary=summary,
+        time_range=time_range
+    )
+    
+    builder.print_output(output)

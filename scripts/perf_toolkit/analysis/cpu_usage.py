@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+V2 版本：使用统一数据模型
 CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/total)
 
 使用 Symbol.is_kernel 属性准确区分 user 和 kernel 时间：
@@ -12,13 +13,14 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 """
 
 from ..core.format_utils import format_percent
-from ..core.output_builder import OutputBuilder
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import RiskInfo, CPUUsageData, CPUUsageSummary, CPUUsageOutput
 
 
 def cmd_show_cpu_usage(engine, args):
     """[Skill] Show CPU utilization for OS or specific PID (user/kernel/total)"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -53,26 +55,32 @@ def cmd_show_cpu_usage(engine, args):
     # Get CPU utilization
     util_stats = engine.get_cpu_utilization(samples)
     
-    # Add risk for high kernel usage
+    # Build risk info
     if util_stats['kernel_pct'] > 50:
-        builder.add_risk(
-            "warning",
-            f"内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高' --risk 'warning' --hint '分析内核热点: cluster-symbols'",
+        risk = create_risk_info(
+            level="warning",
+            message=f"内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高",
+            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高' --risk 'warning' --hint '分析内核热点: cluster-symbols'",
             patterns=["HIGH_KERNEL_USAGE"]
         )
+    else:
+        risk = create_risk_info(level="none")
     
-    # Build and output
-    result = builder.build(
-        data_type="generic",
-        data={
-            "target": target_desc,
-            "cpu_utilization": {
-                "total_pct": format_percent(util_stats['total_pct']),
-                "user_pct": format_percent(util_stats['user_pct']),
-                "kernel_pct": format_percent(util_stats['kernel_pct'])
-            }
+    # Build CPU usage data
+    data = CPUUsageData(
+        target=target_desc,
+        cpu_utilization={
+            "total_pct": format_percent(util_stats['total_pct']),
+            "user_pct": format_percent(util_stats['user_pct']),
+            "kernel_pct": format_percent(util_stats['kernel_pct'])
         }
     )
     
-    builder.print_json(result)
+    # Build summary
+    summary = CPUUsageSummary()
+    
+    # Build output
+    output = CPUUsageOutput(_risk=risk, data=data, summary=summary)
+    
+    # Print output
+    builder.print_output(output)

@@ -9,17 +9,22 @@ Specialized for identifying "many small processes consuming resources collective
 - Useful for detecting worker pool issues, connection storms, etc.
 
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
+
+V2 版本：使用统一数据模型
 """
 
 from collections import defaultdict
-from ..core.format_utils import format_percent, format_core_sec
-from ..core.output_builder import OutputBuilder
+
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import (
+    RiskInfo, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
+)
 
 
 def cmd_get_comm_top(engine, args):
     """[Skill] Get top N comm groups by aggregated CPU utilization"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -85,7 +90,6 @@ def cmd_get_comm_top(engine, args):
         
         aggregate_cpu_util = (total_core_sec / duration) * 100 if duration > 0 else 0
         avg_cpu_per_process = aggregate_cpu_util / pid_count if pid_count > 0 else 0
-        density_index = aggregate_cpu_util / pid_count if pid_count > 0 else 0
         
         if total_core_sec > 0:
             kernel_ratio = (stats['kernel_core_sec'] / total_core_sec) * 100
@@ -96,41 +100,59 @@ def cmd_get_comm_top(engine, args):
         if kernel_ratio > 50 and aggregate_cpu_util > 5:
             high_kernel_groups.append(comm)
         
-        results.append({
-            'comm': comm,
-            'pid_count': pid_count,
-            'cpu_pct': format_percent(aggregate_cpu_util),
-            'kernel_pct': format_percent(kernel_ratio),
-            'total_core_sec': format_core_sec(total_core_sec),
-            'avg_cpu_per_process_pct': format_percent(avg_cpu_per_process),
-            'density_index': round(density_index, 4)
-        })
+        # Build event description
+        if aggregate_cpu_util > 10 and avg_cpu_per_process < 1 and pid_count >= 5:
+            event = f"MANY_SMALL_PROCESSES: {pid_count}个进程，每个仅消耗{avg_cpu_per_process:.2f}% CPU"
+        elif kernel_ratio > 50:
+            event = f"HIGH_KERNEL: 内核态占比 {kernel_ratio:.1f}%"
+        else:
+            event = "normal"
+        
+        results.append(CommGroupItem.from_stats(
+            comm=comm,
+            pid_count=pid_count,
+            aggregate_cpu=aggregate_cpu_util,
+            kernel_ratio=kernel_ratio,
+            event_desc=event
+        ))
     
     # Sort by CPU utilization descending
-    results.sort(key=lambda x: float(x['cpu_pct'].rstrip('%')), reverse=True)
+    results.sort(key=lambda x: float(x.cpu.rstrip('%')), reverse=True)
     top_n = getattr(args, 'top_n', 10)
     top_results = results[:top_n]
     
-    # Add risk for high kernel groups
+    # Build RiskInfo
     if len(high_kernel_groups) > 0:
         risk_level = "warning" if len(high_kernel_groups) <= 2 else "critical"
         cluster_commands = [f"cluster-symbols --comm {comm}" for comm in high_kernel_groups]
-        builder.add_risk(
-            risk_level,
-            f"发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%)未分析",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%): {', '.join(high_kernel_groups)}' --risk '{risk_level}' --hint '必须对每个进程运行: {'; '.join(cluster_commands)}'",
+        risk = create_risk_info(
+            level=risk_level,
+            message=f"发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%)未分析",
+            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%): {', '.join(high_kernel_groups)}' --risk '{risk_level}' --hint '必须对每个进程运行: {'; '.join(cluster_commands)}'",
             patterns=["MULTI_HIGH_KERNEL"],
-            targets=high_kernel_groups
+            pending_targets=high_kernel_groups
         )
+    else:
+        risk = create_risk_info(level="none")
     
-    # Build and output
-    result = builder.build(
-        data_type="comm_groups",
-        data=top_results,
-        summary={
-            "total_comm_groups": len(results),
-            "high_kernel_groups": len(high_kernel_groups)
-        }
+    # Build summary
+    summary = CommGroupSummary(
+        total_comm_groups=len(results),
+        high_kernel_groups=len(high_kernel_groups)
     )
     
-    builder.print_json(result)
+    # Build time range
+    time_range = TimeRange.from_timestamps(
+        samples[0].get('ts'),
+        samples[-1].get('ts') if len(samples) > 0 else None
+    )
+    
+    # Build output
+    output = CommTopOutput(
+        _risk=risk,
+        comm_groups=top_results,
+        summary=summary,
+        time_range=time_range
+    )
+    
+    builder.print_output(output)

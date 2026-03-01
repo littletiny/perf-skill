@@ -210,6 +210,7 @@ class OutputBuilder:
               summary: Dict = None,
               time_range: Dict = None,
               include_quality: bool = False,
+              include_time_range: bool = False,
               **extra_fields) -> Dict:
         """
         Build final output with standard structure.
@@ -220,6 +221,7 @@ class OutputBuilder:
             summary: Optional summary statistics
             time_range: Optional time range (auto-detected if None)
             include_quality: Whether to include data_quality field
+            include_time_range: Whether to include time_range field (default False for most tools)
             **extra_fields: Additional fields to include
             
         Returns:
@@ -235,10 +237,11 @@ class OutputBuilder:
         if summary is not None:
             output["summary"] = summary
             
-        # Add time range
-        if time_range is None:
-            time_range = self.get_time_range()
-        output["time_range"] = time_range
+        # Add time range only if explicitly requested
+        if include_time_range:
+            if time_range is None:
+                time_range = self.get_time_range()
+            output["time_range"] = time_range
         
         # Add data quality info if requested
         if include_quality and self._quality_metrics:

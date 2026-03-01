@@ -3,6 +3,8 @@
 """
 Anomaly Detection - Detect CPU utilization anomalies
 
+V2 版本：使用统一数据模型
+
 检测 CPU 利用率异常。
 
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
@@ -10,13 +12,17 @@ Anomaly Detection - Detect CPU utilization anomalies
 
 from collections import defaultdict
 from ..core.format_utils import format_timestamp
-from ..core.output_builder import OutputBuilder
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import (
+    RiskInfo, AnomalyItem, AnomalySummary, AnomaliesOutput,
+    WindowItem, WindowSummary, WindowsOutput, TimeRange
+)
 
 
 def cmd_detect_anomalies(engine, args):
     """[Skill] Detect CPU utilization anomalies or export window data"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -32,7 +38,7 @@ def cmd_detect_anomalies(engine, args):
         return
     
     # Assess quality with early return for critical
-    if builder.assess_quality(samples, early_return_critical=True):
+    if builder.assess_quality(samples, early_return=True):
         return
     
     # Get parameters
@@ -122,26 +128,59 @@ def cmd_detect_anomalies(engine, args):
         else:
             mean_util = std_util = 0
         
-        result = builder.build(
-            data_type="windows",
-            data=[w for windows in all_windows_by_cpu.values() for w in windows],
-            summary={
-                "mode": "export",
-                "window_size_sec": window_size,
-                "export_samples": export_samples,
-                "cpu_count": len(all_windows_by_cpu),
-                "total_windows": sum(len(w) for w in all_windows_by_cpu.values())
-            },
-            statistics={
-                "mean_utilization": f"{mean_util*100:.2f}%",
-                "std_utilization": f"{std_util*100:.2f}%"
-            }
+        # 创建 WindowItem 数据项
+        window_items = []
+        for windows in all_windows_by_cpu.values():
+            for w in windows:
+                window_items.append(WindowItem(
+                    cpu_id=w["cpu_id"],
+                    start_time=w["start_time"],
+                    end_time=w["end_time"],
+                    utilization=w["utilization"],
+                    core_sec=w["core_sec"]
+                ))
+        
+        # 确定风险等级
+        if args.detect_in_export and all_anomalies:
+            risk = create_risk_info(
+                level="warning",
+                message=f"export 模式下检测到 {len(all_anomalies)} 个异常",
+                patterns=["ANOMALY_IN_EXPORT"]
+            )
+        else:
+            risk = create_risk_info(level="none")
+        
+        # 创建摘要
+        summary = WindowSummary(
+            mode="export",
+            window_size_sec=window_size,
+            export_samples=export_samples,
+            cpu_count=len(all_windows_by_cpu),
+            total_windows=sum(len(w) for w in all_windows_by_cpu.values())
         )
         
-        if args.detect_in_export and all_anomalies:
-            result["anomalies"] = _format_anomalies(all_anomalies[:top_n])
+        # 创建时间范围
+        time_range = TimeRange.from_timestamps(
+            samples[0]['ts'] if samples else None,
+            samples[-1]['ts'] if samples else None
+        )
         
-        builder.print_json(result)
+        # 创建统计信息
+        statistics = {
+            "mean_utilization": f"{mean_util*100:.2f}%",
+            "std_utilization": f"{std_util*100:.2f}%"
+        }
+        
+        # 构建输出
+        output = WindowsOutput(
+            _risk=risk,
+            windows=window_items,
+            summary=summary,
+            time_range=time_range,
+            statistics=statistics
+        )
+        
+        builder.print_output(output)
         return
     
     # Normal anomaly detection mode
@@ -150,27 +189,52 @@ def cmd_detect_anomalies(engine, args):
     spike_count = sum(1 for a in all_anomalies if a["type"] == "SPIKE")
     drop_count = sum(1 for a in all_anomalies if a["type"] == "DROP")
     
-    # Add risk if anomalies found
+    # 确定风险等级
     if spike_count > 0:
-        builder.add_risk(
-            "warning",
-            f"检测到 {spike_count} 个 CPU 利用率异常尖峰",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {spike_count} 个 CPU 利用率异常尖峰' --risk 'warning' --hint 'get-hotspots --start-time {format_timestamp(samples[0]['ts'])}'",
+        risk = create_risk_info(
+            level="warning",
+            message=f"检测到 {spike_count} 个 CPU 利用率异常尖峰",
+            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 {spike_count} 个 CPU 利用率异常尖峰' --risk 'warning' --hint 'get-hotspots --start-time {format_timestamp(samples[0]['ts'])}'",
             patterns=["CPU_SPIKE"]
         )
+    else:
+        risk = create_risk_info(level="none")
     
-    # Build and output
-    result = builder.build(
-        data_type="anomalies",
-        data=_format_anomalies(all_anomalies[:top_n]),
-        summary={
-            "total_anomalies": len(all_anomalies),
-            "spike_count": spike_count,
-            "drop_count": drop_count
-        }
+    # 格式化异常数据并创建 AnomalyItem
+    formatted_anomalies = _format_anomalies(all_anomalies[:top_n])
+    anomaly_items = [
+        AnomalyItem(
+            type=a["type"],
+            cpu_id=a["cpu_id"],
+            time_range=a["time_range"],
+            utilization_change=a.get("utilization_change", ""),
+            severity="high" if a.get("z_score", 0) > 2.5 else "medium"
+        )
+        for a in formatted_anomalies
+    ]
+    
+    # 创建摘要
+    summary = AnomalySummary(
+        total_anomalies=len(all_anomalies),
+        spike_count=spike_count,
+        drop_count=drop_count
     )
     
-    builder.print_json(result)
+    # 创建时间范围
+    time_range = TimeRange.from_timestamps(
+        samples[0]['ts'] if samples else None,
+        samples[-1]['ts'] if samples else None
+    )
+    
+    # 构建输出
+    output = AnomaliesOutput(
+        _risk=risk,
+        anomalies=anomaly_items,
+        summary=summary,
+        time_range=time_range
+    )
+    
+    builder.print_output(output)
 
 
 def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):

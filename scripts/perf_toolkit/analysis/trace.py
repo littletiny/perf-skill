@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+V2 版本：使用统一数据模型
+
 Trace Attribution - Bottom-up attribution for specific bottleneck functions
 
 使用 SymbolStack 和规范化后的符号名进行调用链分析。
@@ -11,13 +13,17 @@ Trace Attribution - Bottom-up attribution for specific bottleneck functions
 
 from collections import defaultdict
 from ..core.format_utils import format_core_sec
-from ..core.output_builder import OutputBuilder
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import (
+    RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput,
+    TraceItem, TracesSummary, TracesOutput, TimeRange
+)
 
 
 def cmd_trace_attribution(engine, args):
     """[Skill] Bottom-up attribution for specific bottleneck functions"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -63,40 +69,46 @@ def cmd_trace_attribution(engine, args):
         ratio_in_target = (core_sec / target_core_sec) * 100 if target_core_sec > 0 else 0
         if ratio_in_target < min_ratio:
             continue
-        results.append({
-            "caller_stack": list(stack),
-            "ratio_of_target_pct": f"{ratio_in_target:.2f}%",
-            "core_sec": format_core_sec(core_sec)
-        })
+        results.append(AttributionItem(
+            caller_stack=list(stack),
+            ratio_of_target_pct=f"{ratio_in_target:.2f}%",
+            core_sec=format_core_sec(core_sec)
+        ))
     
-    results.sort(key=lambda x: float(x['ratio_of_target_pct'].rstrip('%')), reverse=True)
+    results.sort(key=lambda x: float(x.ratio_of_target_pct.rstrip('%')), reverse=True)
     
-    # Add risk if target has low activity
+    # Determine risk level
+    risk = None
     if target_core_sec < 0.01:
-        builder.add_risk(
-            "warning",
-            f"目标函数 '{target}' 几乎无 CPU 活动",
-            f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '目标函数 {target} 几乎无 CPU 活动' --risk 'warning' --hint '检查目标函数名称是否正确'",
+        risk = create_risk_info(
+            level="warning",
+            message=f"目标函数 '{target}' 几乎无 CPU 活动",
+            hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '目标函数 {target} 几乎无 CPU 活动' --risk 'warning' --hint '检查目标函数名称是否正确'",
             patterns=["LOW_TARGET_ACTIVITY"]
         )
+    else:
+        risk = RiskInfo(level="none")
     
-    # Build and output
-    result = builder.build(
-        data_type="attributions",
-        data=results,
-        summary={
-            "target": target,
-            "target_core_sec": format_core_sec(target_core_sec)
-        }
+    # Create summary
+    summary = AttributionSummary(
+        target=target,
+        target_core_sec=format_core_sec(target_core_sec)
     )
     
-    builder.print_json(result)
+    # Build and output
+    output = AttributionsOutput(
+        _risk=risk,
+        attributions=results,
+        summary=summary
+    )
+    
+    builder.print_output(output)
 
 
 def cmd_find_callers_auto(engine, args):
     """[Skill] Auto-trace top N hotspot functions"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -153,26 +165,30 @@ def cmd_find_callers_auto(engine, args):
         attr_results = []
         for stack, core_sec in sorted_attr:
             ratio_in_target = (core_sec / target_total_core_sec) * 100 if target_total_core_sec > 0 else 0
-            attr_results.append({
-                "caller_stack": list(stack),
-                "ratio_of_target_pct": f"{ratio_in_target:.2f}%",
-                "core_sec": format_core_sec(core_sec)
-            })
+            attr_results.append(AttributionItem(
+                caller_stack=list(stack),
+                ratio_of_target_pct=f"{ratio_in_target:.2f}%",
+                core_sec=format_core_sec(core_sec)
+            ))
         
         target_ratio = (target_total_core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
-        results.append({
-            "target": target,
-            "target_ratio_pct": f"{target_ratio:.2f}%",
-            "attributions": attr_results
-        })
+        results.append(TraceItem(
+            target=target,
+            target_ratio_pct=f"{target_ratio:.2f}%",
+            attributions=attr_results
+        ))
+    
+    # Create risk (always none for auto trace)
+    risk = RiskInfo(level="none")
+    
+    # Create summary
+    summary = TracesSummary(hotspots_traced=len(results))
     
     # Build and output
-    result = builder.build(
-        data_type="traces",
-        data=results,
-        summary={
-            "hotspots_traced": len(results)
-        }
+    output = TracesOutput(
+        _risk=risk,
+        traces=results,
+        summary=summary
     )
     
-    builder.print_json(result)
+    builder.print_output(output)

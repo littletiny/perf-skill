@@ -3,6 +3,8 @@
 """
 Core Distribution Analysis - Analyze per-core CPU utilization and thread states
 
+V2 版本：使用统一数据模型
+
 分析各 CPU 核心的负载分布，识别负载不均衡、线程休眠模式等问题。
 
 注意：数据已按 1 秒聚合，样本数量仅作为记录数参考，分析基于 core/s 值。
@@ -10,13 +12,14 @@ Core Distribution Analysis - Analyze per-core CPU utilization and thread states
 
 from collections import defaultdict
 from ..core.format_utils import format_percent
-from ..core.output_builder import OutputBuilder
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import RiskInfo, CoreItem, CoreDistributionSummary, CoreDistributionOutput, TimeRange
 
 
 def cmd_analyze_core_distribution(engine, args):
     """[Skill] Analyze CPU core utilization distribution for a process"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -72,17 +75,17 @@ def cmd_analyze_core_distribution(engine, args):
         elif utilization < 5:
             state = "idle"
         
-        core_list.append({
-            "cpu_id": cpu_id,
-            "utilization": format_percent(utilization),
-            "state": state
-        })
+        core_list.append(CoreItem(
+            cpu_id=cpu_id,
+            utilization=format_percent(utilization),
+            state=state
+        ))
     
     # Identify imbalance
     if core_list:
-        max_util = float(core_list[0]['utilization'].rstrip('%'))
-        min_util = float(core_list[-1]['utilization'].rstrip('%'))
-        avg_util = sum(float(c['utilization'].rstrip('%')) for c in core_list) / len(core_list)
+        max_util = float(core_list[0].utilization.rstrip('%'))
+        min_util = float(core_list[-1].utilization.rstrip('%'))
+        avg_util = sum(float(c.utilization.rstrip('%')) for c in core_list) / len(core_list)
         
         imbalance_ratio = max_util / avg_util if avg_util > 0 else 0
         
@@ -95,43 +98,58 @@ def cmd_analyze_core_distribution(engine, args):
         else:
             imbalance_level = "LOW"
         
-        saturated_cores = [c for c in core_list if c['state'] == "saturated"]
+        saturated_cores = [c for c in core_list if c.state == "saturated"]
         
         # Determine target comm for hint
         user_comm = getattr(args, 'comm', None)
         top_comm = max(comm_core_sec, key=comm_core_sec.get) if comm_core_sec else None
         target_comm = user_comm or top_comm or '<comm>'
         
-        # Add risk for critical imbalance
+        # Determine risk level
         if imbalance_level == "CRITICAL":
-            builder.add_risk(
-                "critical",
-                "负载严重不均衡: 单核满载，其他核心空闲",
-                f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '负载严重不均衡: 单核满载，其他核心空闲' --risk 'critical' --hint 'cluster-symbols --comm {target_comm}'",
+            risk_level = "critical"
+            risk_info = create_risk_info(
+                level="critical",
+                message="负载严重不均衡: 单核满载，其他核心空闲",
+                hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '负载严重不均衡: 单核满载，其他核心空闲' --risk 'critical' --hint 'cluster-symbols --comm {target_comm}'",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
         elif len(saturated_cores) == 1 and len(core_list) > 1:
-            builder.add_risk(
-                "warning",
-                f"单核满载 (CPU {saturated_cores[0]['cpu_id']})",
-                f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载 (CPU {saturated_cores[0]['cpu_id']})' --risk 'warning' --hint 'cluster-symbols --comm {target_comm}'",
+            risk_level = "warning"
+            risk_info = create_risk_info(
+                level="warning",
+                message=f"单核满载 (CPU {saturated_cores[0].cpu_id})",
+                hint=f"[必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '单核满载 (CPU {saturated_cores[0].cpu_id})' --risk 'warning' --hint 'cluster-symbols --comm {target_comm}'",
                 patterns=["SINGLE_CORE_SATURATION"]
             )
+        else:
+            risk_level = "none"
+            risk_info = None
     else:
         imbalance_level = "UNKNOWN"
         max_util = min_util = avg_util = 0
         saturated_cores = []
+        risk_level = "none"
+        risk_info = None
     
-    # Build and output
-    result = builder.build(
-        data_type="cores",
-        data=core_list,
-        summary={
-            "imbalance_level": imbalance_level,
-            "max_utilization": format_percent(max_util),
-            "min_utilization": format_percent(min_util),
-            "saturated_cores": len(saturated_cores)
-        }
+    # Build summary
+    summary = CoreDistributionSummary(
+        imbalance_level=imbalance_level,
+        max_utilization=format_percent(max_util),
+        min_utilization=format_percent(min_util),
+        saturated_cores=len(saturated_cores)
     )
     
-    builder.print_json(result)
+    # Create time range
+    time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
+    
+    # Build output
+    output = CoreDistributionOutput(
+        _risk=risk_info,
+        cores=core_list,
+        summary=summary,
+        time_range=time_range
+    )
+    
+    # Print output
+    builder.print_output(output)

@@ -7,17 +7,22 @@ Comm Clustering - Cluster samples by process name (comm) to analyze process grou
 基于 core/s（CPU 利用率）而非记录数统计。
 
 注意：数据已按 1 秒聚合，记录数量无参考价值。
+
+V2 版本：使用统一数据模型，与 comm_top 共享数据结构
 """
 
 from collections import defaultdict
-from ..core.format_utils import format_percent
-from ..core.output_builder import OutputBuilder
+
+from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_models import (
+    RiskInfo, CommGroupItem, CommGroupSummary, ClusterCommOutput, TimeRange
+)
 
 
 def cmd_cluster_comm(engine, args):
     """[Skill] Cluster samples by comm (process name) to analyze process group CPU usage"""
     
-    builder = OutputBuilder(engine, args)
+    builder = OutputBuilderV2(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -57,8 +62,8 @@ def cmd_cluster_comm(engine, args):
         else:
             comm_stats[comm]['user_core_sec'] += core_val
     
-    # Build results
-    results = []
+    # Build results using unified data model (same as comm_top)
+    items = []
     for comm, stats in comm_stats.items():
         unique_pids = len(stats['pids'])
         total_core_sec = stats['total_core_sec']
@@ -66,23 +71,40 @@ def cmd_cluster_comm(engine, args):
         cpu_util = (total_core_sec / duration) * 100 if duration > 0 else 0
         kernel_ratio = (stats['kernel_core_sec'] / total_core_sec) * 100 if total_core_sec > 0 else 0
         
-        results.append({
-            'comm': comm,
-            'unique_pids': unique_pids,
-            'cpu_pct': format_percent(cpu_util),
-            'kernel_pct': format_percent(kernel_ratio)
-        })
+        # cluster-comm uses same CommGroupItem as comm_top
+        # but with different semantics in 'pids' field (unique_pids vs pid_count)
+        items.append(CommGroupItem(
+            comm=comm,
+            pids=unique_pids,  # In cluster-comm, this means unique_pids
+            cpu=f"{cpu_util:.2f}%",
+            kernel=f"{kernel_ratio:.2f}%",
+            event="normal"  # cluster-comm doesn't track events
+        ))
     
-    results.sort(key=lambda x: float(x['cpu_pct'].rstrip('%')), reverse=True)
-    top_results = results[:args.top_n]
+    items.sort(key=lambda x: float(x.cpu.rstrip('%')), reverse=True)
+    top_items = items[:args.top_n]
     
-    # Build and output
-    result = builder.build(
-        data_type="comm_groups",
-        data=top_results,
-        summary={
-            "total_comm_groups": len(results)
-        }
+    # Build RiskInfo (no specific risk for cluster-comm)
+    risk = create_risk_info(level="none")
+    
+    # Build summary using CommGroupSummary (shared with comm_top)
+    summary = CommGroupSummary(
+        total_comm_groups=len(items),
+        high_kernel_groups=0  # cluster-comm doesn't track this
     )
     
-    builder.print_json(result)
+    # Build time range
+    time_range = TimeRange.from_timestamps(
+        samples[0].get('ts'),
+        samples[-1].get('ts') if len(samples) > 0 else None
+    )
+    
+    # Build output using ClusterCommOutput (comm_groups data type)
+    output = ClusterCommOutput(
+        _risk=risk,
+        comm_groups=top_items,
+        summary=summary,
+        time_range=time_range
+    )
+    
+    builder.print_output(output)
