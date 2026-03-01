@@ -1,23 +1,5 @@
 # AGENTS.md - perf-hunter Skill 开发指南
 
-## ⚠️ 重要提醒（修改前必读）
-
-> **每次修改本 skill 的任何文件，完成后必须立即执行 git 提交！**
-> 
-> **每次修改本 skill 的任何文件，完成后必须立即执行 git 提交！**
-> 
-> **每次修改本 skill 的任何文件，完成后必须立即执行 git 提交！**
-
-**正确的工作流程**：
-```
-修改文件 → 验证结果 → git add → git commit → 告知用户提交完成
-```
-
-**禁止的做法**：
-- ❌ 等待用户说"提交git"才提交
-- ❌ 批量修改多个文件后只提交一次（除非它们属于同一变更）
-- ❌ 修改后忘记提交
-
 ---
 
 ## 项目简介
@@ -29,7 +11,6 @@ perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-drive
 ## 目录结构
 
 ```
-.
 ├── AGENTS.md              # 本文件 - 开发指南和约定
 ├── SKILL.md               # 技能文档 - 面向用户的性能诊断方法论（入口）
 ├── docs/
@@ -77,7 +58,7 @@ perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-drive
 
 ### 2. 代码规范
 - 代码中尽量少使用 regex，尤其是对外参数
-- 遵循现有的模块化架构，新功能添加到 `perf_toolkit/analysis/` 目录
+- 遵循现有的模块化架构
 - **对skill中所有文档的描述要尽可能最小修改，修改了工具代码以后都需要同步更新文档**
 
 ### 3. 文档引用准则
@@ -97,15 +78,6 @@ SKILL.md 应保持精简，详细内容应放在 references/ 目录，通过引�
 📗 **分析流程指南**: `references/workflow.md` - 标准工作流程
 ```
 
-### 4. 版本控制（⚠️ 强制执行）
-
-**🚨 铁律：每次修改 skill 都必须立即 git 提交！**
-
-- 完成任何文件修改后，**立即**执行 `git add` 和 `git commit`
-- 提交信息应清晰描述变更内容
-- 不要等待用户提醒才提交
-- 多个相关文件可以一起提交，但应在修改完成后立即进行
-
 ---
 
 ## 子命令清单
@@ -117,8 +89,6 @@ SKILL.md 应保持精简，详细内容应放在 references/ 目录，通过引�
 | `cluster-symbols` | 按专家规则聚类符号 | `clusters.py` |
 | `find-callers` | 热点溯源，调用链分析 | `trace.py` |
 | `detect-anomalies` | 检测时序异常 | `anomalies.py` |
-| `generate-flamegraph` | 生成 FlameGraph 格式 | `flamegraph.py` |
-| `generate-callgraph` | 生成调用图 | `callgraph.py` |
 | `show-cpu-usage` | 查看 CPU 利用率 | `cpu_usage.py` |
 | `get-process-top` | 进程 CPU 排行 | `process_top.py` |
 | `cluster-comm` | 按进程名聚类 | `comm_clusters.py` |
@@ -130,43 +100,6 @@ SKILL.md 应保持精简，详细内容应放在 references/ 目录，通过引�
 ---
 
 ## 输入数据格式
-
-工具集接受 `perf script` 的输出作为输入，需要包含 `core/s` 字段：
-
-```bash
-# 录制 perf 数据（需要 -F 19 或其他频率）
-perf record -F 19 -a -g -- sleep 30
-
-# 生成脚本输出
-perf script > perf.data.txt
-
-# 使用工具分析
-python scripts/perf_expert.py get-hotspots --data perf.data.txt
-```
+数据格式参考/home/tiny/.config/agents/skills/perf-hunter/references/data-format.md
 
 ---
-
-## 版本历史
-
-- **v2.7** (2026-02-28): 建立目标范围界定准则，修复 templates.md 引用问题
-- **v2.6** (2026-02-28): 统一字段名 `tid` → `pid`，与数据格式保持一致
-- **v2.5** (2026-02-28): 新增问题边界判定规则和样本丢失评估规则
-- **v2.4** (2026-02-28): 重构文档体系，SKILL.md 压缩 63%，新增 workflow.md/heuristics.md
-- **v2.3** (2026-02-28): 完善 AGENTS.md 和 CLI 帮助信息
-- **v2.2** (2026-02-28): 新增 `get-comm-top` 工具，重构 tools.md 为 7-Phase 流程
-- **v2.1** (2026-02-28): 新增 `analyze-core-distribution` 工具，支持核心级负载分析
-- **v2.0** (Previous): 移除 `--freq` 参数，直接从 core/s 计算 CPU 利用率
-- **v1.x → v2.0**: PID 2573405 案例分析驱动的诊断决策树新增、工具链关联明确化
-
----
-
-## ✅ 修改检查清单（完成修改后逐项确认）
-
-在结束任何修改任务前，确认以下事项：
-
-- [ ] 所有修改的文件已保存
-- [ ] 修改记录在 `docs/CHANGES.md` 中（如适用）
-- [ ] **已完成 `git add` 和 `git commit`**
-- [ ] 已向用户告知提交结果
-
-**⚠️ 未勾选最后一项，任务不算完成！**
