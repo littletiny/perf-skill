@@ -147,8 +147,8 @@ def cmd_find_callers_auto(engine, args):
             leaf_name = stack.get_normalized_names()[0]
             self_core_sec[leaf_name] += core_per_sec
     
-    auto_target_top_n = getattr(args, 'auto_target_top_n', 5)
-    top_hotspots = sorted(self_core_sec.items(), key=lambda x: -x[1])[:auto_target_top_n]
+    top_n = getattr(args, 'top_n', 10)
+    top_hotspots = sorted(self_core_sec.items(), key=lambda x: -x[1])[:top_n]
     
     # Trace each hotspot
     results = []

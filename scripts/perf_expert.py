@@ -170,10 +170,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p4.add_argument("--auto-target", action="store_true",
                     help="Automatically trace top N hotspot functions")
     p4.add_argument("--top-n", type=int, default=10,
-                    help="Number of top callers to display (default: 10)")
-    p4.add_argument("--auto-target-top-n", type=int, default=5,
-                    dest='auto_target_top_n',
-                    help="Number of top hotspots to auto-trace (default: 5)")
+                    help="Number of top results to display (default: 10)")
     p4.add_argument("--min-ratio", type=float, default=0.5,
                     help="Minimum ratio (0-100) of target samples to include in results (default: 0.5%%)")
     p4.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
