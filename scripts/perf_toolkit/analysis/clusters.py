@@ -139,7 +139,7 @@ def cmd_apply_cluster(engine, args):
     # Build output
     output = ClustersOutput(
         _risk=risk,
-        clusters=results,
+        symbol_clusters=results,
         summary=summary,
         time_range=time_range
     )

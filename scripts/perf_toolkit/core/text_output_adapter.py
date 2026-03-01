@@ -50,7 +50,7 @@ class TextOutputAdapter:
         list_data = None
         list_name = None
         
-        for key in ['hotspots', 'clusters', 'processes', 'comm_groups', 
+        for key in ['hotspots', 'symbol_clusters', 'processes', 'comm_groups',
                     'cores', 'attributions', 'traces', 'path_clusters',
                     'process_variety', 'windows', 'anomalies']:
             if key in data:
@@ -160,7 +160,7 @@ class TextOutputAdapter:
         # Map list_name to summary fields
         field_map = {
             'hotspots': ('total_hotspots', 'shown_hotspots'),
-            'clusters': ('clusters_found', 'shown_clusters'),  # cluster-symbols
+            'symbol_clusters': ('clusters_found', 'shown_clusters'),  # cluster-symbols
             'path_clusters': ('total_clusters', 'shown_clusters'),  # cluster-paths
             'processes': ('total_processes', 'shown_processes'),
             'comm_groups': ('total_comm_groups', None),
@@ -193,7 +193,7 @@ class TextOutputAdapter:
             empty_messages = {
                 'anomalies': 'No anomalies detected',
                 'hotspots': 'No hotspots found',
-                'clusters': 'No clusters found',
+                'symbol_clusters': 'No symbol clusters found',
                 'processes': 'No processes found',
                 'comm_groups': 'No process groups found',
                 'cores': 'No saturated cores found',
@@ -207,7 +207,7 @@ class TextOutputAdapter:
             return (None, [f"({msg})"])
         
         # 格式化不同类型的列表
-        if list_name == 'clusters':
+        if list_name == 'symbol_clusters':
             return self._format_clusters(items)
         elif list_name == 'path_clusters':
             return self._format_path_clusters(items)

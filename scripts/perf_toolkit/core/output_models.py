@@ -386,12 +386,12 @@ class HotspotsOutput(BaseOutput):
 @dataclass
 class ClustersOutput(BaseOutput):
     """cluster-symbols 输出结构"""
-    clusters: List[ClusterItem] = field(default_factory=list)
+    symbol_clusters: List[ClusterItem] = field(default_factory=list)
     
-    def __init__(self, _risk: RiskInfo, clusters: List[ClusterItem],
+    def __init__(self, _risk: RiskInfo, symbol_clusters: List[ClusterItem],
                  summary: ClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
-        self.clusters = clusters
+        self.symbol_clusters = symbol_clusters
 
 
 @dataclass
