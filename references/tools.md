@@ -66,14 +66,18 @@ spear <subcommand> [options]
 ```bash
 spear check-cpu-bottleneck \
   --data <perf.script.txt> \
-  [--cpu-limit-threshold <ratio>]
+  [--cpu-limit <limit>] \
+  [--threshold <pct>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `--data` | string | perf script 文件路径（必填） |
-| `--cpu-limit-threshold` | float | CPU 限制阈值比例（默认 0.8） |
+| `--cpu-limit` | string | CPU limit（如 `0.5c` 表示 0.5 core） |
+| `--threshold` | float | 单核饱和检测阈值（默认 80%） |
 
 **退出码**:
 | 码值 | 含义 |
@@ -92,10 +96,9 @@ spear check-cpu-bottleneck \
 ```bash
 spear show-cpu-usage \
   --data <perf.script.txt> \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--cpu-id <ID>]
+  [--cpu-id <ID>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **输出字段**:
@@ -119,7 +122,8 @@ spear detect-anomalies \
   [--window-size <sec>] \
   [--spike-threshold <ratio>] \
   [--min-utilization <ratio>] \
-  [--cpu-id <ID>]
+  [--cpu-id <ID>] \
+  [--top-n <N>]
 ```
 
 **检测类型**:
@@ -133,9 +137,14 @@ spear detect-anomalies \
 **参数**:
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--window-size` | int | 5 | 滑动窗口大小（秒） |
-| `--spike-threshold` | float | 2.0 | 变化倍数阈值 |
-| `--min-utilization` | float | 0.05 | 最小利用率阈值 |
+| `--window-size` | float | 1.0 | 滑动窗口大小（秒） |
+| `--spike-threshold` | float | 0.5 | 变化倍数阈值 |
+| `--min-utilization` | float | 0.3 | 最小利用率阈值 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
+| `--top-n` | int | 10 | 显示的异常数 |
+| `--export-mode` | flag | - | 导出所有窗口数据 |
+| `--export-samples` | flag | - | 包含详细样本数据 |
+| `--detect-in-export` | flag | - | 导出模式也检测异常 |
 
 ---
 
@@ -146,10 +155,23 @@ spear detect-anomalies \
 ```bash
 spear analyze-core-distribution \
   --data <perf.script.txt> \
+  [--cpu-id <ID>] \
   [--pid <PID>] \
   [--comm <name>] \
-  [--comm-regex <pattern>]
+  [--comm-regex <pattern>] \
+  [--top-n <N>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
+
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--cpu-id` | int | - | 仅分析指定 CPU |
+| `--pid` | int | - | 仅分析指定进程 |
+| `--comm` | string | - | 按进程名过滤 |
+| `--comm-regex` | string | - | 按进程名正则匹配 |
+| `--top-n` | int | 10 | 显示饱和核心数 |
 
 **输出字段**:
 | 字段 | 说明 |
@@ -177,7 +199,9 @@ spear analyze-core-distribution \
 spear get-process-top \
   --data <perf.script.txt> \
   [--top-n <N>] \
-  [--cpu-id <ID>]
+  [--cpu-id <ID>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
@@ -245,17 +269,23 @@ spear get-hotspots \
   --data <perf.script.txt> \
   [--sort-by inclusive|self] \
   [--top-n <N>] \
+  [--cpu-id <ID>] \
   [--pid <PID>] \
-  [--comm <name>]
+  [--comm <name>] \
+  [--comm-regex <pattern>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--sort-by` | string | self | 排序方式: inclusive/self |
-| `--top-n` | int | 20 | 显示热点数 |
+| `--sort-by` | string | inclusive | 排序方式: inclusive/self |
+| `--top-n` | int | 10 | 显示热点数 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
 | `--pid` | int | - | 过滤指定进程 |
 | `--comm` | string | - | 过滤指定进程名 |
+| `--comm-regex` | string | - | 按进程名正则匹配 |
 
 **排序方式**:
 | 方式 | 说明 |
@@ -282,16 +312,25 @@ spear get-hotspots \
 spear find-callers \
   --data <perf.script.txt> \
   --target <function> \
-  [--min-ratio <pct>] \
+  [--min-cpu <pct>] \
+  [--top-n <N>] \
+  [--cpu-id <ID>] \
   [--pid <PID>] \
-  [--comm <name>]
+  [--comm <name>] \
+  [--comm-regex <pattern>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 
 # 自动模式
 spear find-callers \
   --data <perf.script.txt> \
   --auto-target \
-  [--auto-target-top-n <N>] \
-  [--pid <PID>]
+  [--min-cpu <pct>] \
+  [--top-n <N>] \
+  [--cpu-id <ID>] \
+  [--pid <PID>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
@@ -299,10 +338,12 @@ spear find-callers \
 |------|------|--------|------|
 | `--target` | string | - | 目标函数名（与 --auto-target 互斥） |
 | `--auto-target` | flag | - | 自动追踪热点 |
-| `--auto-target-top-n` | int | 3 | 自动追踪热点数 |
-| `--min-ratio` | float | 5.0 | 最小占比阈值（%） |
+| `--top-n` | int | 10 | 显示结果数 |
+| `--min-cpu` | float | 3.0 | 最小 CPU 利用率阈值（%） |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
 | `--pid` | int | - | 过滤指定进程 |
 | `--comm` | string | - | 过滤指定进程名 |
+| `--comm-regex` | string | - | 按进程名正则匹配 |
 
 **常用 target 函数**:
 | 函数 | 用途 |
@@ -325,16 +366,24 @@ spear cluster-paths \
   [--min-depth <N>] \
   [--min-samples <N>] \
   [--top-n <N>] \
-  [--pid <PID>]
+  [--cpu-id <ID>] \
+  [--pid <PID>] \
+  [--comm <name>] \
+  [--comm-regex <pattern>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--min-depth` | int | 3 | 最小调用深度 |
+| `--min-depth` | int | 2 | 最小调用深度 |
 | `--min-samples` | int | 5 | 最小样本数 |
 | `--top-n` | int | 10 | 显示路径数 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
 | `--pid` | int | - | 过滤指定进程 |
+| `--comm` | string | - | 过滤指定进程名 |
+| `--comm-regex` | string | - | 按进程名正则匹配 |
 
 ---
 
@@ -349,8 +398,14 @@ spear cluster-symbols \
   --data <perf.script.txt> \
   [--no-include-experts] \
   [--custom-rules <json>] \
+  [--rules-file <path>] \
+  [--top-n <N>] \
+  [--cpu-id <ID>] \
   [--pid <PID>] \
-  [--comm <name>]
+  [--comm <name>] \
+  [--comm-regex <pattern>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
@@ -359,8 +414,11 @@ spear cluster-symbols \
 | `--no-include-experts` | flag | - | 禁用内置专家规则 |
 | `--custom-rules` | json | - | 自定义规则（最高优先级） |
 | `--rules-file` | path | - | 外部规则文件路径 |
+| `--top-n` | int | 10 | 显示聚类数 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
 | `--pid` | int | - | 过滤指定进程 |
 | `--comm` | string | - | 过滤指定进程名 |
+| `--comm-regex` | string | - | 按进程名正则匹配 |
 
 **规则优先级**（从高到低）：
 1. `--custom-rules` 命令行参数
@@ -427,13 +485,17 @@ spear cluster-symbols --data perf.data \
 ```bash
 spear cluster-comm \
   --data <perf.script.txt> \
-  [--top-n <N>]
+  [--top-n <N>] \
+  [--cpu-id <ID>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--top-n` | int | 20 | 显示进程组数 |
+| `--top-n` | int | 10 | 显示进程组数 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
 
 ---
 
@@ -443,24 +505,38 @@ spear cluster-comm \
 
 检测进程风暴/短生命周期进程。
 
+**适用场景**：发现 fork 炸弹、连接风暴、worker 进程频繁创建销毁等问题。
+
 ```bash
 spear count-process-variety \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--storm-pid-threshold <N>] \
   [--storm-ratio-threshold <ratio>] \
-  [--storm-cpu-threshold <core/s>] \
-  [--pid <PID>] \
-  [--comm <name>]
+  [--cpu-id <ID>] \
+  [--comm <name>] \
+  [--comm-regex <pattern>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **参数**:
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `--top-n` | int | 20 | 显示进程名数 |
-| `--storm-pid-threshold` | int | 50 | PID 数量阈值 |
-| `--storm-ratio-threshold` | float | 2.0 | samples/PID 阈值 |
-| `--storm-cpu-threshold` | float | 0.5 | 单 PID CPU 阈值 |
+| `--storm-pid-threshold` | int | 50 | PID 数量阈值，超过此值考虑为风暴 |
+| `--storm-ratio-threshold` | float | 2.0 | samples/PID 阈值，低于此值说明进程生命周期短 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
+| `--comm` | string | - | 过滤指定进程名 |
+| `--comm-regex` | string | - | 按进程名正则匹配 |
+
+**注意**：本工具用于分析"进程多样性"，不支持 `--pid` 过滤（单个 PID 不存在"多样性"）。
+
+**检测模式**:
+| 模式 | 条件 | 说明 |
+|------|------|------|
+| `PROCESS_STORM` | PID 数≥10 且 samples_per_pid≤2 且短进程比例>50% | 大量短生命周期进程 |
+| `LONG_RUNNING` | 单 PID 主导 | 长运行进程，非风暴场景 |
 
 **检测模式**:
 | 模式 | 条件 |
@@ -562,8 +638,25 @@ spear trace timeline [--format text|json]
 | 参数 | 类型 | 说明 | 示例 |
 |------|------|------|------|
 | `--data <path>` | string | perf script 文件路径（必填） | `--data perf.txt` |
-| `--start-time <ts>` | float | 起始时间戳（含） | `--start-time 1000.5` |
-| `--end-time <ts>` | float | 结束时间戳（含） | `--end-time 1010.0` |
+| `--start-time <time>` | string | 起始时间（含） | `2024-01-15T10:30:00` |
+| `--end-time <time>` | string | 结束时间（含） | `2024-01-15 10:30:00` |
+
+**时间格式说明**:
+
+`--start-time` 和 `--end-time` 支持多种格式：
+
+| 格式 | 示例 | 说明 |
+|------|------|------|
+| Unix 时间戳 | `1705312200` | 秒级时间戳（兼容旧版本） |
+| ISO 8601 | `2024-01-15T10:30:00` | 标准 ISO 格式 |
+| ISO 8601 带时区 | `2024-01-15T10:30:00+08:00` | 带时区信息 |
+| 常用日期时间 | `2024-01-15 10:30:00` | 空格分隔 |
+| 日期 | `2024-01-15` | 自动补全为 00:00:00 |
+
+**其他通用参数**:
+
+| 参数 | 类型 | 说明 | 示例 |
+|------|------|------|------|
 | `--cpu-id <ID>` | int | 仅分析指定 CPU | `--cpu-id 0` |
 | `--pid <PID>` | int | 仅分析指定进程 | `--pid 1234` |
 | `--comm <name>` | string | 按进程名过滤（逗号分隔多值） | `--comm nginx,php-fpm` |
@@ -573,18 +666,18 @@ spear trace timeline [--format text|json]
 
 | 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start/end-time` |
 |------|:----------:|:-------:|:--------:|:--------------:|:------------------:|
-| `check-cpu-bottleneck` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `show-cpu-usage` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `check-cpu-bottleneck` | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `show-cpu-usage` | ✅ | ❌ | ❌ | ❌ | ✅ |
 | `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ |
 | `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `get-process-top` | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `get-comm-top` | ✅ | ❌ | ❌ | ✅ | ✅ |
 | `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `cluster-symbols` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `cluster-comm` | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `count-process-variety` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `count-process-variety` | ✅ | ❌ | ✅ | ✅ | ✅ |
 
 ---
 

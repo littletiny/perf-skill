@@ -13,8 +13,74 @@ V2 版本：CPU 利用率计算收拢到 engine，统一对外提供利用率数
 
 import json
 import re
+from datetime import datetime, timezone
 from collections import defaultdict
 from .symbol import Symbol, SymbolStack
+
+
+def parse_time_string(time_str):
+    """
+    Parse time string to Unix timestamp.
+    
+    Supports formats:
+    - Unix timestamp (float): 1705312200.123
+    - ISO 8601: 2024-01-15T10:30:00, 2024-01-15T10:30:00+08:00
+    - Common date: 2024-01-15 10:30:00
+    - Date only: 2024-01-15 (treated as 00:00:00)
+    
+    Args:
+        time_str: Time string in various formats
+        
+    Returns:
+        Unix timestamp as float
+        
+    Raises:
+        ValueError: If format not recognized
+    """
+    if time_str is None:
+        return None
+    
+    # If already a number, return as float
+    try:
+        return float(time_str)
+    except ValueError:
+        pass
+    
+    # Try various formats
+    formats = [
+        # ISO 8601 with timezone
+        '%Y-%m-%dT%H:%M:%S%z',
+        # ISO 8601 without timezone
+        '%Y-%m-%dT%H:%M:%S',
+        # Common datetime formats
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d %H:%M',
+        # Date only
+        '%Y-%m-%d',
+        # Compact formats
+        '%Y%m%d%H%M%S',
+        '%Y%m%d',
+    ]
+    
+    # Handle special case: ISO 8601 with colon in timezone (e.g., +08:00)
+    time_str_normalized = time_str
+    if len(time_str) > 6 and time_str[-3] == ':' and time_str[-6] in ['+', '-']:
+        # Remove colon in timezone: +08:00 -> +0800
+        time_str_normalized = time_str[:-3] + time_str[-2:]
+    
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(time_str_normalized, fmt)
+            # If no timezone info, assume UTC
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.timestamp()
+        except ValueError:
+            continue
+    
+    raise ValueError(f"Cannot parse time: '{time_str}'. Supported formats: "
+                     f"Unix timestamp, ISO 8601 (2024-01-15T10:30:00), "
+                     f"common datetime (2024-01-15 10:30:00), or date only (2024-01-15)")
 
 
 class PerfExpertEngine:
@@ -384,8 +450,10 @@ class PerfExpertEngine:
         Get samples filtered by time range, CPU, PID, and/or comm.
         
         Args:
-            start_time: Include samples with timestamp >= start_time
-            end_time: Include samples with timestamp <= end_time
+            start_time: Include samples with timestamp >= start_time.
+                       Supports: Unix timestamp, ISO 8601 (2024-01-15T10:30:00), 
+                       common datetime (2024-01-15 10:30:00), or date only.
+            end_time: Include samples with timestamp <= end_time. Same formats as start_time.
             cpu_id: Include samples from this CPU only
             pid: Include samples from this process ID only
             comm: Include samples with exact comm match (支持多值，逗号分隔)
@@ -396,11 +464,15 @@ class PerfExpertEngine:
         """
         filtered = self.samples
         
-        if start_time is not None:
-            filtered = [s for s in filtered if s['ts'] >= start_time]
+        # Parse time strings to timestamps
+        start_ts = parse_time_string(start_time) if start_time is not None else None
+        end_ts = parse_time_string(end_time) if end_time is not None else None
         
-        if end_time is not None:
-            filtered = [s for s in filtered if s['ts'] <= end_time]
+        if start_ts is not None:
+            filtered = [s for s in filtered if s['ts'] >= start_ts]
+        
+        if end_ts is not None:
+            filtered = [s for s in filtered if s['ts'] <= end_ts]
         
         if cpu_id is not None:
             filtered = [s for s in filtered if s['cpu'] == cpu_id]

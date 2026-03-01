@@ -111,8 +111,8 @@ Use '<command> --help' for detailed help on each subcommand."""
     p1.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
                          "Default: 19. Ignored for SPEAR format.")
-    p1.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p1.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p1.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601 (2024-01-15T10:30:00), datetime (2024-01-15 10:30:00), or date only")
+    p1.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # get-hotspots
     p2 = subparsers.add_parser('get-hotspots',
@@ -125,8 +125,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Sort by 'inclusive' (total time in call chain) or 'self' (time in function only)")
     p2.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p2.add_argument("--top-n", type=int, default=10, help="Number of top hotspots to display (default: 10)")
-    p2.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p2.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p2.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p2.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
     p2.add_argument("--pid", type=int, help="Filter by process ID")
     p2.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p2.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
@@ -150,8 +150,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Exclude built-in expert rules")
     p3.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p3.add_argument("--top-n", type=int, default=10, help="Number of top clusters to display (default: 10)")
-    p3.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p3.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p3.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p3.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
     p3.add_argument("--pid", type=int, help="Filter by process ID")
     p3.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p3.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
@@ -175,8 +175,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Minimum CPU utilization %% to display a hotspot (default: 3.0%%). "
                          "Hotspots below this threshold are hidden but counted.")
     p4.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p4.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p4.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p4.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p4.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
     p4.add_argument("--pid", type=int, help="Filter by process ID")
     p4.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p4.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
@@ -207,8 +207,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Include detailed sample data in export mode")
     p5.add_argument("--detect-in-export", action="store_true",
                     help="Also detect anomalies when in export mode")
-    p5.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p5.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p5.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p5.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # show-cpu-usage
     p8 = subparsers.add_parser('show-cpu-usage',
@@ -218,8 +218,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Sampling frequency in Hz for raw perf format. "
                          "Default: 19. Ignored for SPEAR format.")
     p8.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p8.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p8.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p8.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p8.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # get-process-top
     p9 = subparsers.add_parser('get-process-top',
@@ -230,8 +230,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                          "Default: 19. Ignored for SPEAR format.")
     p9.add_argument("--top-n", type=int, default=10, help="Number of top processes to display (default: 10)")
     p9.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p9.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p9.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p9.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p9.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # cluster-comm
     p10 = subparsers.add_parser('cluster-comm',
@@ -242,8 +242,8 @@ Use '<command> --help' for detailed help on each subcommand."""
                          "Default: 19. Ignored for SPEAR format.")
     p10.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p10.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p10.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p10.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p10.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p10.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # cluster-paths
     p11 = subparsers.add_parser('cluster-paths',
@@ -262,8 +262,8 @@ Use '<command> --help' for detailed help on each subcommand."""
     p11.add_argument("--pid", type=int, help="Filter by process ID")
     p11.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p11.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-    p11.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p11.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p11.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p11.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # count-process-variety
     p12 = subparsers.add_parser('count-process-variety',
@@ -283,11 +283,10 @@ Use '<command> --help' for detailed help on each subcommand."""
                           "detected when samples_per_pid falls below this ratio. Low values indicate "
                           "processes with very short lifetime. (default: 2.0)")
     p12.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p12.add_argument("--pid", type=int, help="Filter by process ID")
     p12.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p12.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-    p12.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p12.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p12.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p12.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # analyze-core-distribution
     p13 = subparsers.add_parser('analyze-core-distribution',
@@ -301,8 +300,8 @@ Use '<command> --help' for detailed help on each subcommand."""
     p13.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p13.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
     p13.add_argument("--top-n", type=int, default=10, help="Number of top saturated cores to display (default: 10)")
-    p13.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p13.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p13.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p13.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # get-comm-top
     p14 = subparsers.add_parser('get-comm-top',
@@ -315,10 +314,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14.add_argument("--sort-by-density", action="store_true",
                      help="Sort by density index (CPU per process) instead of aggregate CPU")
     p14.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p14.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p14.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-    p14.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
-    p14.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
+    p14.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
+    p14.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # trace subcommands (v2.0: tracing diagnostic process)
     doc_parser = subparsers.add_parser('trace', help="Tracing diagnostic issues and timeline")
