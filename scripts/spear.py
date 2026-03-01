@@ -55,34 +55,6 @@ from perf_toolkit.core.trace import (
 )
 
 
-def run_analysis_command(cmd_func, cmd_name: str, engine, args):
-    """
-    统一分析命令入口 - 自动处理 Trace 生命周期和前置检查
-    
-    Args:
-        cmd_func: 分析命令函数 (e.g., cmd_get_hotspots)
-        cmd_name: 命令名称
-        engine: PerfExpertEngine 实例
-        args: 命令行参数
-    """
-    from perf_toolkit.core.output_builder import OutputBuilder
-    
-    builder = OutputBuilder(engine, args)
-    
-    # Pre-hook: Issue Overflow Warning
-    builder.print_issue_overflow_warning()
-    
-    # Pre-hook: Begin trace
-    builder.begin_command(cmd_name)
-    
-    try:
-        # Execute actual analysis command
-        cmd_func(engine, args)
-    finally:
-        # Post-hook: End trace (always execute even on exception)
-        builder.end_command()
-
-
 class HelpOnErrorParser(argparse.ArgumentParser):
     """Custom parser that prints full help on error"""
     def error(self, message):
@@ -453,9 +425,9 @@ Use '<command> --help' for detailed help on each subcommand."""
         "get-comm-top": cmd_get_comm_top
     }
 
-    # Execute analysis command with unified wrapper
+    # Execute analysis command
     if args.command in commands:
-        run_analysis_command(commands[args.command], args.command, engine, args)
+        commands[args.command](engine, args)
 
 
 if __name__ == "__main__":
