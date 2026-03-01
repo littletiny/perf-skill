@@ -154,6 +154,7 @@ if __name__ == "__main__":
 |---------|--------|------|
 | test_issue_overflow_warning | 10 | ✅ 通过 |
 | test_rules_loading | 9 | ✅ 通过 |
+| test_external_rules_integration | 12 | ✅ 通过 |
 | spear_wrap | 14 | ✅ 通过 |
 | perfdata (new_format) | 14 | ✅ 通过 |
 | perfdata (perf_format) | 14 | ✅ 通过 |
