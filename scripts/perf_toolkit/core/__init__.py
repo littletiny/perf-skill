@@ -22,6 +22,7 @@ from .format_utils import (
     format_percent, format_weight, safe_time_range
 )
 from .risk_mixin import RiskMixin, RiskAwareOutput
+from .risk_config import RiskDisplayConfig, get_risk_config, clear_risk_config_cache
 from .trace import Trace
 
 # Output System - Unified Data Models
@@ -59,6 +60,9 @@ __all__ = [
     'safe_time_range',
     'RiskMixin',
     'RiskAwareOutput',
+    'RiskDisplayConfig',
+    'get_risk_config',
+    'clear_risk_config_cache',
     'Trace',
     # Output System - Models
     'RiskInfo', 'TimeRange', 'BaseSummary', 'BaseOutput',

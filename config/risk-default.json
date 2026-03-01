@@ -1,0 +1,48 @@
+{
+  "_comment": "Default risk display configuration for SPEAR - 无图标、无缩进、极简设计",
+  "risk": {
+    "colors": {
+      "critical": "\u001b[91m",
+      "warning": "\u001b[93m",
+      "info": "\u001b[94m",
+      "reset": "\u001b[0m"
+    },
+    "templates": {
+      "issue_open": "[OPEN] [{id}] [{level}] {desc}",
+      "issue_resolved": "[RESOLVED] [{id}] [{level}] {desc}",
+      "hint": "→ {hint}",
+      "result": "→ {result}",
+      "list_header_open": "[OPEN] {count} issues pending",
+      "list_header_resolved": "[RESOLVED] {count} issues",
+      "list_header_all": "[ALL] {open_count} open, {resolved_count} resolved",
+      "timeline_command": "[{seq}] {time} {command}",
+      "timeline_finding_created": "[{level}] {issue_id}: {desc}",
+      "timeline_finding_resolved": "[RESOLVED] {issue_id}: {result}",
+      "timeline_info": "[INFO] {message}"
+    },
+    "show": {
+      "hint": true,
+      "result": true
+    }
+  },
+  "modes": {
+    "ci": {
+      "colors": {
+        "critical": "",
+        "warning": "",
+        "info": "",
+        "reset": ""
+      }
+    },
+    "compact": {
+      "templates": {
+        "issue_open": "[OPEN] {id} [{level}] {desc}",
+        "issue_resolved": "[RESOLVED] {id} [{level}] {desc}"
+      },
+      "show": {
+        "hint": false,
+        "result": false
+      }
+    }
+  }
+}

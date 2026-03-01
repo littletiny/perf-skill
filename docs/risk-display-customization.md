@@ -2,732 +2,569 @@
 
 > 设计目标：极简 Risk 消息展示，支持从 init 配置导入文案模板
 > 
-> 版本: 1.3
+> 版本: 1.6
 > 创建时间: 2026-03-02
 
 ---
 
-## 核心原则
+## 设计概览
 
-**极简至上**
-- 纯文本，无图标
-- 无缩进，无层级
-- 扁平结构，一行或两行
-- 级别用大写标签
-
-**配置驱动**
-- 文案模板在 init 时注入
-- 支持从配置文件加载
-- 运行时零代码修改
-
-**统一输出**
-- 分析工具（analysis）和追踪工具（trace）共享同一套格式
-- 配置一处定义，全局生效
-
----
-
-## 展示格式
-
-### 标准格式（推荐）
+### 数据流
 
 ```
-[CRITICAL] 锁竞争占比 79.84%，系统严重瓶颈
-→ find-callers --target 'pthread_mutex_lock'
+[Analysis 工具]
+    ↓ 输出 Risk
+    ↓ 自动捕获 (_auto_record_risk_from_output)
+[Trace 存储] ← 原始数据 (level/message/hint) → .spear.json
+    ↓ 展示 (spear trace issues/timeline)
+[终端输出] ← 使用 RiskDisplayConfig 格式化
 ```
 
-```
-[WARNING] 发现 2 个高内核态进程未分析 [MULTI_HIGH_KERNEL]
-→ cluster-symbols --comm containerd-shim
-```
+### 配置来源（优先级从高到低）
 
-```
-[INFO] 数据质量良好，分析结果可信
-```
-
-### 简洁格式
-
-```
-[CRITICAL] 锁竞争占比 79.84%，系统严重瓶颈
-```
-
-### 单行格式
-
-```
-[WARNING] 发现 2 个高内核态进程未分析 → cluster-symbols --comm containerd-shim
-```
-
-### Trace 专用格式
-
-Trace 输出使用相同的格式系统，但针对 issue 列表有特殊布局：
-
-**Issue 列表（standard）**:
-```
-[OPEN] 2 issues pending
-
-[ISS-001] [WARNING] netstat 高内核态 94.7%
-→ cluster-symbols --comm netstat
-
-[ISS-002] [CRITICAL] 锁竞争占比 79.84%
-→ find-callers --target 'pthread_mutex_lock'
-```
-
-**Issue 列表（compact）**:
-```
-[OPEN] ISS-001 [WARNING] netstat 高内核态 94.7%
-[OPEN] ISS-002 [CRITICAL] 锁竞争占比 79.84%
-```
-
-**Timeline 格式**:
-```
-[1] 10:05:00 get-comm-top
-[WARNING] 发现 2 个高内核态进程未分析
-→ cluster-symbols --comm netstat
-
-[2] 10:10:00 cluster-symbols
-[INFO] 分析完成，无新风险
-```
+1. 命令行参数 `--risk-config PATH`
+2. 环境变量 `SPEAR_RISK_CONFIG`
+3. 当前目录 `.spear/risk.json`
+4. 用户目录 `~/.config/spear/risk.json`
+5. **内置默认配置**（代码中硬编码）
 
 ---
 
 ## 配置文件
 
-```yaml
-# ~/.config/spear/risk.yaml 或 .spear/risk.yaml
+### 文件格式（JSON）
 
-risk:
-  # 格式: standard | compact | oneline
-  format: standard
-  
-  # 颜色（ANSI 码，空字符串表示无色）
-  colors:
-    critical: "\033[91m"   # 红
-    warning: "\033[93m"    # 黄
-    info: "\033[94m"       # 蓝
-    reset: "\033[0m"
-  
-  # 文案模板
-  templates:
-    # 基础 risk 模板
-    message: "[{level}] {message}{pattern_suffix}"
-    pattern_suffix: " [{patterns}]"
-    hint: "→ {hint}"
-    oneline: "[{level}] {message} → {hint}"
+```json
+{
+  "risk": {
+    "colors": {
+      "critical": "\u001b[91m",
+      "warning": "\u001b[93m",
+      "info": "\u001b[94m",
+      "reset": "\u001b[0m"
+    },
+    "templates": {
+      "issue_open": "[OPEN] [{id}] [{level}] {desc}",
+      "issue_resolved": "[RESOLVED] [{id}] [{level}] {desc}",
+      "hint": "→ {hint}",
+      "result": "→ {result}",
+      "list_header_open": "[OPEN] {count} issues pending",
+      "list_header_resolved": "[RESOLVED] {count} issues",
+      "list_header_all": "[ALL] {open_count} open, {resolved_count} resolved",
+      "timeline_command": "[{seq}] {time} {command}",
+      "timeline_finding_created": "[{level}] {issue_id}: {desc}",
+      "timeline_finding_resolved": "[RESOLVED] {issue_id}: {result}"
+    },
+    "show": {
+      "hint": true,
+      "result": true
+    }
+  },
+  "modes": {
+    "ci": {
+      "colors": {
+        "critical": "",
+        "warning": "",
+        "info": "",
+        "reset": ""
+      }
+    },
+    "compact": {
+      "templates": {
+        "issue_open": "[OPEN] {id} [{level}] {desc}",
+        "issue_resolved": "[RESOLVED] {id} [{level}] {desc}"
+      },
+      "show": {
+        "hint": false,
+        "result": false
+      }
+    }
+  }
+}
+```
+
+### 默认配置文件位置
+
+项目内置默认配置：
+```
+config/risk-default.json
+```
+
+安装时复制到用户目录：
+```
+~/.config/spear/risk.json
+```
+
+### 加载优先级
+
+```python
+def load_config():
+    # 1. 内置默认
+    config = load_builtin_default()
     
-    # trace 专用模板
-    issue_id: "[{id}]"
-    issue_open: "[OPEN] {id} [{level}] {desc}"
-    issue_resolved: "[RESOLVED] {id} [{level}] {desc}"
-    timeline_header: "[{seq}] {time} {command}"
-  
-  # 字段显示开关
-  show:
-    message: true
-    hint: true
-    patterns: false
-    pending_targets: false
-    action_required: false
-
-# 模式覆盖
-modes:
-  ci:
-    colors:
-      critical: ""
-      warning: ""
-      info: ""
-      reset: ""
-  
-  compact:
-    format: compact
-    templates:
-      message: "[{level}] {message}"
+    # 2. 用户默认（如果存在）
+    if exists("~/.config/spear/risk.json"):
+        merge(config, load("~/.config/spear/risk.json"))
+    
+    # 3. 项目本地（如果存在）
+    if exists(".spear/risk.json"):
+        merge(config, load(".spear/risk.json"))
+    
+    # 4. 环境变量指定
+    if env_path := getenv("SPEAR_RISK_CONFIG"):
+        merge(config, load(env_path))
+    
+    return config
 ```
 
 ---
 
 ## 代码实现
 
-### 配置类
+### 1. 默认配置文件 (config/risk-default.json)
+
+```json
+{
+  "_comment": "Default risk display configuration for SPEAR",
+  "risk": {
+    "colors": {
+      "critical": "\u001b[91m",
+      "warning": "\u001b[93m",
+      "info": "\u001b[94m",
+      "reset": "\u001b[0m"
+    },
+    "templates": {
+      "issue_open": "[OPEN] [{id}] [{level}] {desc}",
+      "issue_resolved": "[RESOLVED] [{id}] [{level}] {desc}",
+      "hint": "→ {hint}",
+      "result": "→ {result}",
+      "list_header_open": "[OPEN] {count} issues pending",
+      "list_header_resolved": "[RESOLVED] {count} issues",
+      "list_header_all": "[ALL] {open_count} open, {resolved_count} resolved",
+      "timeline_command": "[{seq}] {time} {command}",
+      "timeline_finding_created": "[{level}] {issue_id}: {desc}",
+      "timeline_finding_resolved": "[RESOLVED] {issue_id}: {result}",
+      "timeline_info": "[INFO] {message}"
+    },
+    "show": {
+      "hint": true,
+      "result": true
+    }
+  },
+  "modes": {
+    "ci": {
+      "colors": {
+        "critical": "",
+        "warning": "",
+        "info": "",
+        "reset": ""
+      }
+    },
+    "compact": {
+      "templates": {
+        "issue_open": "[OPEN] {id} [{level}] {desc}",
+        "issue_resolved": "[RESOLVED] {id} [{level}] {desc}"
+      },
+      "show": {
+        "hint": false,
+        "result": false
+      }
+    }
+  }
+}
+```
+
+### 2. 配置加载器 (core/risk_config.py)
 
 ```python
-# core/risk_config.py
+#!/usr/bin/env python3
+"""Risk 展示配置 - JSON 格式，支持内置默认"""
 
+import json
 import os
-import yaml
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 
 
-@dataclass
-class RiskConfig:
-    """Risk/Trace 展示配置"""
-    format: str = "standard"
-    colors: Dict[str, str] = field(default_factory=lambda: {
+# 内置默认配置（硬编码，确保无配置文件也能运行）
+DEFAULT_CONFIG = {
+    "colors": {
         "critical": "\033[91m",
         "warning": "\033[93m",
         "info": "\033[94m",
         "reset": "\033[0m"
-    })
-    templates: Dict[str, str] = field(default_factory=lambda: {
-        # 基础模板
-        "message": "[{level}] {message}{pattern_suffix}",
-        "pattern_suffix": " [{patterns}]",
+    },
+    "templates": {
+        "issue_open": "[OPEN] [{id}] [{level}] {desc}",
+        "issue_resolved": "[RESOLVED] [{id}] [{level}] {desc}",
         "hint": "→ {hint}",
-        "oneline": "[{level}] {message} → {hint}",
-        # Trace 专用
-        "issue_id": "[{id}]",
-        "issue_open": "[OPEN] {id} [{level}] {desc}",
-        "issue_resolved": "[RESOLVED] {id} [{level}] {desc}",
-        "timeline_header": "[{seq}] {time} {command}",
-    })
-    show: Dict[str, bool] = field(default_factory=lambda: {
-        "message": True,
+        "result": "→ {result}",
+        "list_header_open": "[OPEN] {count} issues pending",
+        "list_header_resolved": "[RESOLVED] {count} issues",
+        "list_header_all": "[ALL] {open_count} open, {resolved_count} resolved",
+        "timeline_command": "[{seq}] {time} {command}",
+        "timeline_finding_created": "[{level}] {issue_id}: {desc}",
+        "timeline_finding_resolved": "[RESOLVED] {issue_id}: {result}",
+        "timeline_info": "[INFO] {message}"
+    },
+    "show": {
         "hint": True,
-        "patterns": False,
-        "pending_targets": False,
-        "action_required": False,
-    })
+        "result": True
+    }
+}
+
+
+@dataclass
+class RiskDisplayConfig:
+    """Risk 展示配置"""
+    colors: Dict[str, str] = field(default_factory=lambda: DEFAULT_CONFIG["colors"].copy())
+    templates: Dict[str, str] = field(default_factory=lambda: DEFAULT_CONFIG["templates"].copy())
+    show: Dict[str, bool] = field(default_factory=lambda: DEFAULT_CONFIG["show"].copy())
     
     @classmethod
-    def load(cls, explicit_path: Optional[str] = None) -> 'RiskConfig':
-        """加载配置，按优先级合并"""
+    def load(cls, explicit_path: Optional[str] = None) -> 'RiskDisplayConfig':
+        """
+        加载配置
+        
+        优先级（从低到高）：
+        1. 内置默认
+        2. ~/.config/spear/risk.json
+        3. .spear/risk.json
+        4. SPEAR_RISK_CONFIG 环境变量
+        5. 显式指定路径
+        """
         config = cls()
         
-        # 搜索路径（按优先级）
-        paths = [
-            Path.home() / '.config' / 'spear' / 'risk.yaml',
-            Path('.spear/risk.yaml'),
+        # 搜索路径（按优先级排序）
+        search_paths = [
+            Path.home() / '.config' / 'spear' / 'risk.json',
+            Path('.spear/risk.json'),
         ]
         
-        # 加载所有存在的配置（先加载的会被后加载的覆盖）
-        for path in reversed(paths):  # 反转，让用户目录优先级更低
+        # 按顺序合并（后覆盖前）
+        for path in search_paths:
             if path.exists():
-                if loaded := cls._from_file(path):
-                    config._merge(loaded)
+                config._merge_from_file(path)
         
-        # 环境变量指定的配置（最高优先级）
+        # 环境变量指定
         if env_path := os.getenv('SPEAR_RISK_CONFIG'):
             if Path(env_path).exists():
-                if loaded := cls._from_file(Path(env_path)):
-                    config._merge(loaded)
+                config._merge_from_file(Path(env_path))
         
-        # 显式指定的配置
+        # 显式指定（最高优先级）
         if explicit_path and Path(explicit_path).exists():
-            if loaded := cls._from_file(Path(explicit_path)):
-                config._merge(loaded)
+            config._merge_from_file(Path(explicit_path))
         
         return config
     
-    @classmethod
-    def _from_file(cls, path: Path) -> Optional['RiskConfig']:
-        """从文件加载"""
+    def _merge_from_file(self, path: Path):
+        """从 JSON 文件合并配置"""
         try:
-            with open(path) as f:
-                data = yaml.safe_load(f)
-            if not data or 'risk' not in data:
-                return None
-            return cls._from_dict(data['risk'])
-        except Exception:
-            return None
-    
-    @classmethod
-    def _from_dict(cls, data: Dict) -> 'RiskConfig':
-        return cls(
-            format=data.get('format', 'standard'),
-            colors={**cls().colors, **data.get('colors', {})},
-            templates={**cls().templates, **data.get('templates', {})},
-            show={**cls().show, **data.get('show', {})},
-        )
-    
-    def _merge(self, other: 'RiskConfig'):
-        """合并配置"""
-        if other.format:
-            self.format = other.format
-        self.colors.update(other.colors)
-        self.templates.update(other.templates)
-        self.show.update(other.show)
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            if not isinstance(data, dict) or 'risk' not in data:
+                return
+            
+            risk_data = data['risk']
+            
+            if 'colors' in risk_data:
+                self.colors.update(risk_data['colors'])
+            if 'templates' in risk_data:
+                self.templates.update(risk_data['templates'])
+            if 'show' in risk_data:
+                self.show.update(risk_data['show'])
+                
+        except (json.JSONDecodeError, IOError, KeyError):
+            pass
     
     def apply_mode(self, mode: str):
-        """应用模式覆盖"""
-        # 从配置文件中查找 modes 部分
-        for path in [Path('.spear/risk.yaml'), Path.home() / '.config' / 'spear' / 'risk.yaml']:
+        """应用模式覆盖（从配置文件中查找 modes 部分）"""
+        # 从已加载的配置文件中查找 modes
+        for path in [Path('.spear/risk.json'), Path.home() / '.config' / 'spear' / 'risk.json']:
             if not path.exists():
                 continue
             try:
-                with open(path) as f:
-                    data = yaml.safe_load(f)
-                if 'modes' in data and mode in data['modes']:
-                    mode_cfg = self._from_dict(data['modes'][mode])
-                    self._merge(mode_cfg)
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                if not isinstance(data, dict) or 'modes' not in data:
+                    continue
+                    
+                if mode in data['modes']:
+                    mode_data = data['modes'][mode]
+                    if 'colors' in mode_data:
+                        self.colors.update(mode_data['colors'])
+                    if 'templates' in mode_data:
+                        self.templates.update(mode_data['templates'])
+                    if 'show' in mode_data:
+                        self.show.update(mode_data['show'])
                     break
-            except Exception:
+                    
+            except (json.JSONDecodeError, IOError):
                 continue
 
 
-# 全局配置实例（延迟加载）
-_risk_config = None
+# 全局配置缓存
+_config_cache = None
 
-def get_risk_config(explicit_path: str = None, mode: str = None) -> RiskConfig:
+def get_risk_config(explicit_path: str = None, mode: str = None) -> RiskDisplayConfig:
     """获取全局 Risk 配置"""
-    global _risk_config
-    if _risk_config is None:
-        _risk_config = RiskConfig.load(explicit_path)
+    global _config_cache
+    if _config_cache is None:
+        _config_cache = RiskDisplayConfig.load(explicit_path)
     if mode:
-        _risk_config.apply_mode(mode)
-    return _risk_config
+        _config_cache.apply_mode(mode)
+    return _config_cache
+
+
+def clear_risk_config_cache():
+    """清除配置缓存"""
+    global _config_cache
+    _config_cache = None
 ```
 
-### Risk 渲染引擎（分析工具使用）
+### 3. Trace 类集成 (core/trace.py)
 
 ```python
-# core/risk_renderer.py
+# core/trace.py
 
-from typing import List, Dict, Any
-from .risk_config import RiskConfig
+from .risk_config import RiskDisplayConfig, get_risk_config
 
 
-class RiskRenderer:
-    """Risk 消息渲染器"""
+class Trace:
+    """Trace v2.0 - 支持 RiskDisplayConfig 格式化输出"""
     
-    def __init__(self, config: RiskConfig = None):
-        self.cfg = config or RiskConfig()
+    def __init__(self, path: Optional[str] = None, config: RiskDisplayConfig = None):
+        self.path = path or self._find_doc()
+        self.data = self._load()
+        self._current_seq = None
+        self.config = config
     
-    def render(self, risk: Dict[str, Any]) -> List[str]:
-        """渲染 Risk 信息"""
-        level = risk.get('level', 'none')
-        if level == 'none':
-            return []
-        
-        fmt = self.cfg.format
-        if fmt == 'compact':
-            return self._render_compact(risk, level)
-        elif fmt == 'oneline':
-            return self._render_oneline(risk, level)
-        else:  # standard
-            return self._render_standard(risk, level)
-    
-    def _render_standard(self, risk: Dict, level: str) -> List[str]:
-        """标准格式: 两行"""
-        lines = []
-        level_upper = level.upper()
-        color = self.cfg.colors.get(level, '')
-        reset = self.cfg.colors.get('reset', '')
-        
-        # 第1行: [LEVEL] message [patterns]
-        message = risk.get('message', '')
-        pattern_suffix = ''
-        
-        if self.cfg.show.get('patterns'):
-            patterns = risk.get('patterns', [])
-            if patterns:
-                tpl = self.cfg.templates.get('pattern_suffix', ' [{patterns}]')
-                pattern_suffix = tpl.format(patterns=','.join(patterns))
-        
-        tpl = self.cfg.templates.get('message', '[{level}] {message}{pattern_suffix}')
-        line = tpl.format(level=level_upper, message=message, pattern_suffix=pattern_suffix)
-        
-        if color:
-            line = f"{color}{line}{reset}"
-        lines.append(line)
-        
-        # 第2行: hint
-        if self.cfg.show.get('hint'):
-            hint = risk.get('hint', '')
-            if hint:
-                tpl = self.cfg.templates.get('hint', '→ {hint}')
-                lines.append(tpl.format(hint=hint))
-        
-        return lines
-    
-    def _render_compact(self, risk: Dict, level: str) -> List[str]:
-        """简洁格式: 仅一行"""
-        level_upper = level.upper()
-        color = self.cfg.colors.get(level, '')
-        reset = self.cfg.colors.get('reset', '')
-        message = risk.get('message', '')
-        
-        line = f"[{level_upper}] {message}"
-        if color:
-            line = f"{color}{line}{reset}"
-        return [line]
-    
-    def _render_oneline(self, risk: Dict, level: str) -> List[str]:
-        """单行格式"""
-        level_upper = level.upper()
-        color = self.cfg.colors.get(level, '')
-        reset = self.cfg.colors.get('reset', '')
-        message = risk.get('message', '')
-        hint = risk.get('hint', '')
-        
-        tpl = self.cfg.templates.get('oneline', '[{level}] {message} → {hint}')
-        line = tpl.format(level=level_upper, message=message, hint=hint)
-        
-        if color:
-            line = f"{color}{line}{reset}"
-        return [line]
-    
-    def render_to_string(self, risk: Dict[str, Any]) -> str:
-        return '\n'.join(self.render(risk))
-```
-
-### Trace 渲染引擎（追踪工具使用）
-
-```python
-# core/trace_renderer.py
-
-from typing import List, Dict, Any
-from .risk_config import RiskConfig
-
-
-class TraceRenderer:
-    """Trace 输出渲染器 - 使用 RiskConfig 配置"""
-    
-    def __init__(self, config: RiskConfig = None):
-        self.cfg = config or RiskConfig()
+    def _get_config(self, cfg: RiskDisplayConfig = None) -> RiskDisplayConfig:
+        """获取有效配置（回退机制）"""
+        return cfg or self.config or get_risk_config()
     
     # =====================================================================
-    # Issue 渲染
+    # 格式化方法
     # =====================================================================
     
-    def render_issue(self, issue: Dict[str, Any], compact: bool = False) -> List[str]:
-        """渲染单个 issue"""
-        if compact or self.cfg.format == 'compact':
-            return self._render_issue_compact(issue)
-        return self._render_issue_standard(issue)
-    
-    def _render_issue_standard(self, issue: Dict) -> List[str]:
-        """标准格式渲染 issue"""
-        lines = []
-        issue_id = issue.get('id', 'ISS-???')
+    def format_issue(self, issue: Dict, cfg: RiskDisplayConfig = None) -> str:
+        """格式化单个 issue"""
+        cfg = self._get_config(cfg)
+        
+        issue_id = issue.get('id', '')
         level = issue.get('level', 'warning')
         desc = issue.get('desc', '')
         status = issue.get('status', 'open')
+        hint = issue.get('hint', '')
+        result = issue.get('result', '')
         
-        color = self.cfg.colors.get(level, '')
-        reset = self.cfg.colors.get('reset', '')
+        # 应用颜色
+        color = cfg.colors.get(level, '')
+        reset = cfg.colors.get('reset', '')
         
-        # Issue 标题行
+        # Issue 行
         if status == 'resolved':
-            tpl = self.cfg.templates.get('issue_resolved', '[RESOLVED] {id} [{level}] {desc}')
+            tpl = cfg.templates.get('issue_resolved', '[RESOLVED] [{id}] [{level}] {desc}')
         else:
-            tpl = self.cfg.templates.get('issue_open', '[OPEN] {id} [{level}] {desc}')
+            tpl = cfg.templates.get('issue_open', '[OPEN] [{id}] [{level}] {desc}')
         
         line = tpl.format(id=issue_id, level=level.upper(), desc=desc)
         if color:
             line = f"{color}{line}{reset}"
-        lines.append(line)
         
-        # Hint（如果有且未解决）
-        if status != 'resolved':
-            hint = issue.get('hint', '')
-            if hint:
-                tpl = self.cfg.templates.get('hint', '→ {hint}')
-                lines.append(tpl.format(hint=hint))
-        else:
-            # 显示结果
-            result = issue.get('result', '')
-            if result:
-                lines.append(f"→ {result}")
+        lines = [line]
         
-        return lines
-    
-    def _render_issue_compact(self, issue: Dict) -> List[str]:
-        """简洁格式渲染 issue"""
-        issue_id = issue.get('id', 'ISS-???')
-        level = issue.get('level', 'warning')
-        desc = issue.get('desc', '')
-        status = issue.get('status', 'open')
-        
-        color = self.cfg.colors.get(level, '')
-        reset = self.cfg.colors.get('reset', '')
-        
-        status_tag = "[RESOLVED]" if status == 'resolved' else "[OPEN]"
-        line = f"{status_tag} {issue_id} [{level.upper()}] {desc}"
-        
-        if color:
-            line = f"{color}{line}{reset}"
-        return [line]
-    
-    def render_issue_list(self, issues: List[Dict], title: str = None) -> List[str]:
-        """渲染 issue 列表"""
-        lines = []
-        
-        # 标题
-        if title:
-            lines.append(title)
-        
-        if not issues:
-            lines.append("(No issues)")
-            return lines
-        
-        # 按格式渲染
-        compact = self.cfg.format == 'compact'
-        for issue in issues:
-            lines.extend(self.render_issue(issue, compact))
-            if not compact:
-                lines.append("")  # 标准格式：issue 之间空行
-        
-        return lines
-    
-    # =====================================================================
-    # Timeline 渲染
-    # =====================================================================
-    
-    def render_timeline_record(self, record: Dict) -> List[str]:
-        """渲染 timeline 单条记录"""
-        lines = []
-        seq = record.get('seq', 0)
-        ts = record.get('timestamp', '')
-        cmd = record.get('command', '')
-        
-        # 简化时间显示
-        time_str = ts.split('T')[1].split('.')[0] if 'T' in ts else ts[:8]
-        
-        # Header
-        tpl = self.cfg.templates.get('timeline_header', '[{seq}] {time} {command}')
-        lines.append(tpl.format(seq=seq, time=time_str, command=cmd))
-        
-        # Findings
-        for finding in record.get('findings', []):
-            ftype = finding.get('type', '')
-            if ftype == 'risk_created':
-                level = finding.get('level', 'warning')
-                color = self.cfg.colors.get(level, '')
-                reset = self.cfg.colors.get('reset', '')
-                issue_id = finding.get('issue_id', '')
-                desc = finding.get('desc', '')
-                line = f"[{level.upper()}] {issue_id}: {desc}"
-                if color:
-                    line = f"{color}{line}{reset}"
-                lines.append(line)
-            elif ftype == 'issue_resolved':
-                issue_id = finding.get('issue_id', '')
-                result = finding.get('result', '')
-                lines.append(f"[RESOLVED] {issue_id}: {result}")
-            elif ftype == 'info':
-                msg = finding.get('message', '')
-                lines.append(f"[INFO] {msg}")
-        
-        return lines
-    
-    def render_timeline(self, timeline: List[Dict]) -> List[str]:
-        """渲染完整 timeline"""
-        lines = []
-        for record in timeline:
-            lines.extend(self.render_timeline_record(record))
-            lines.append("")  # 记录之间空行
-        return lines
-    
-    # =====================================================================
-    # Summary 渲染
-    # =====================================================================
-    
-    def render_summary(self, summary: Dict) -> List[str]:
-        """渲染摘要"""
-        return [
-            f"Commands: {summary.get('total_commands', 0)}",
-            f"Open: {summary.get('open_issues', 0)}",
-            f"Resolved: {summary.get('resolved_issues', 0)}",
-        ]
-```
-
-### Trace 类集成
-
-```python
-# core/trace.py (修改部分)
-
-from .risk_config import RiskConfig, get_risk_config
-from .trace_renderer import TraceRenderer
-
-
-class Trace:
-    """Trace v2.0 - 诊断过程追踪"""
-    
-    def __init__(self, path: Optional[str] = None, config: RiskConfig = None):
-        self.path = path or self._find_doc()
-        self.data = self._load()
-        self._current_seq = None
-        
-        # 渲染配置
-        self.config = config or get_risk_config()
-        self.renderer = TraceRenderer(self.config)
-    
-    def set_config(self, config: RiskConfig):
-        """设置配置（用于动态切换）"""
-        self.config = config
-        self.renderer = TraceRenderer(config)
-    
-    # =====================================================================
-    # CLI 输出方法（使用 renderer）
-    # =====================================================================
-    
-    def format_issues(self, status: str = 'all') -> str:
-        """格式化 issue 列表（用于 CLI 输出）"""
-        lines = []
-        
-        if status in ['all', 'open']:
-            open_issues = self.get_open_issues()
-            if open_issues:
-                title = f"[OPEN] {len(open_issues)} issues pending"
-                lines.extend(self.renderer.render_issue_list(open_issues, title))
-        
-        if status in ['all', 'resolved']:
-            resolved_issues = self.get_resolved_issues()
-            if resolved_issues:
-                title = f"[RESOLVED] {len(resolved_issues)} issues"
-                lines.extend(self.renderer.render_issue_list(resolved_issues, title))
+        # Hint / Result
+        if status != 'resolved' and hint and cfg.show.get('hint', True):
+            tpl = cfg.templates.get('hint', '→ {hint}')
+            lines.append(tpl.format(hint=hint))
+        elif status == 'resolved' and result and cfg.show.get('result', True):
+            tpl = cfg.templates.get('result', '→ {result}')
+            lines.append(tpl.format(result=result))
         
         return '\n'.join(lines)
     
-    def format_timeline(self) -> str:
-        """格式化 timeline（用于 CLI 输出）"""
+    def format_issue_list(self, issues: List[Dict], status_filter: str = 'all', 
+                          cfg: RiskDisplayConfig = None) -> str:
+        """格式化 issue 列表"""
+        cfg = self._get_config(cfg)
+        
+        if not issues:
+            return "(No issues)"
+        
+        lines = []
+        
+        # 标题
+        if status_filter == 'open':
+            tpl = cfg.templates.get('list_header_open', '[OPEN] {count} issues pending')
+            lines.append(tpl.format(count=len(issues)))
+        elif status_filter == 'resolved':
+            tpl = cfg.templates.get('list_header_resolved', '[RESOLVED] {count} issues')
+            lines.append(tpl.format(count=len(issues)))
+        else:
+            open_count = len([i for i in issues if i.get('status') == 'open'])
+            resolved_count = len([i for i in issues if i.get('status') == 'resolved'])
+            tpl = cfg.templates.get('list_header_all', '[ALL] {open_count} open, {resolved_count} resolved')
+            lines.append(tpl.format(open_count=open_count, resolved_count=resolved_count))
+        
+        lines.append('')
+        
+        # Issue 列表
+        for issue in issues:
+            lines.append(self.format_issue(issue, cfg))
+            lines.append('')
+        
+        return '\n'.join(lines)
+    
+    def format_timeline(self, cfg: RiskDisplayConfig = None) -> str:
+        """格式化 timeline"""
+        cfg = self._get_config(cfg)
         timeline = self.get_timeline()
+        
         if not timeline:
             return "(No timeline records)"
-        return '\n'.join(self.renderer.render_timeline(timeline))
+        
+        lines = []
+        
+        for record in timeline:
+            seq = record.get('seq', 0)
+            ts = record.get('timestamp', '')
+            cmd = record.get('command', '')
+            
+            # 简化时间显示
+            time_str = ts.split('T')[1].split('.')[0] if 'T' in ts else ts[:8]
+            
+            # Command 行
+            tpl = cfg.templates.get('timeline_command', '[{seq}] {time} {command}')
+            lines.append(tpl.format(seq=seq, time=time_str, command=cmd))
+            
+            # Findings
+            for finding in record.get('findings', []):
+                ftype = finding.get('type', '')
+                
+                if ftype == 'risk_created':
+                    level = finding.get('level', 'warning')
+                    color = cfg.colors.get(level, '')
+                    reset = cfg.colors.get('reset', '')
+                    issue_id = finding.get('issue_id', '')
+                    desc = finding.get('desc', '')
+                    
+                    tpl = cfg.templates.get('timeline_finding_created', '[{level}] {issue_id}: {desc}')
+                    line = tpl.format(level=level.upper(), issue_id=issue_id, desc=desc)
+                    if color:
+                        line = f"{color}{line}{reset}"
+                    lines.append(line)
+                    
+                elif ftype == 'issue_resolved':
+                    issue_id = finding.get('issue_id', '')
+                    result = finding.get('result', '')
+                    tpl = cfg.templates.get('timeline_finding_resolved', '[RESOLVED] {issue_id}: {result}')
+                    lines.append(tpl.format(issue_id=issue_id, result=result))
+                    
+                elif ftype == 'info':
+                    msg = finding.get('message', '')
+                    tpl = cfg.templates.get('timeline_info', '[INFO] {message}')
+                    lines.append(tpl.format(message=msg))
+            
+            lines.append('')
+        
+        # 摘要
+        summary = self.get_summary()
+        lines.append(f"Commands: {summary['total_commands']}, Open: {summary['open_issues']}, Resolved: {summary['resolved_issues']}")
+        
+        return '\n'.join(lines)
 ```
 
-### CLI 命令更新
+### 4. CLI 函数 (core/trace.py)
 
 ```python
 # core/trace.py - CLI 函数
 
-def cmd_doc_issues(args):
-    """查看 issues 状态 - 使用 RiskConfig 格式"""
-    # 加载配置
-    config = get_risk_config(
-        explicit_path=getattr(args, 'risk_config', None),
-        mode=getattr(args, 'risk_style', None)
-    )
+def _load_config_from_args(args) -> RiskDisplayConfig:
+    """从 args 加载配置"""
+    cfg = get_risk_config(explicit_path=getattr(args, 'risk_config', None))
     
-    doc = Trace(config=config)
+    if style := getattr(args, 'risk_style', None):
+        cfg.apply_mode(style)
+    
+    # CI 环境禁用颜色
+    if os.getenv('NO_COLOR') or os.getenv('SPEAR_NO_COLOR'):
+        cfg.colors = {k: '' for k in cfg.colors}
+    
+    return cfg
+
+
+def cmd_doc_issues(args):
+    """查看 issues"""
+    cfg = _load_config_from_args(args)
+    doc = Trace(config=cfg)
+    
     status_filter = getattr(args, 'status', 'all')
     
-    # 使用统一格式输出
-    output = doc.format_issues(status_filter)
-    if output:
-        print(output)
+    if status_filter == 'open':
+        issues = doc.get_open_issues()
+    elif status_filter == 'resolved':
+        issues = doc.get_resolved_issues()
     else:
-        print("(No issues)")
+        issues = doc.get_open_issues() + doc.get_resolved_issues()
     
-    # 提示用法
-    summary = doc.get_summary()
-    if summary['open_issues'] > 0:
-        print(f"\nUsage: spear trace complete --id ISS-001 --result '分析结果'")
+    print(doc.format_issue_list(issues, status_filter, cfg))
+    
+    if status_filter in ['all', 'open'] and doc.get_open_issues():
+        print(f"Usage: spear trace complete --id ISS-001 --result '分析结果'")
 
 
 def cmd_doc_timeline(args):
-    """查看时间线 - 使用 RiskConfig 格式"""
-    config = get_risk_config(
-        explicit_path=getattr(args, 'risk_config', None),
-        mode=getattr(args, 'risk_style', None)
-    )
-    
-    doc = Trace(config=config)
-    print(doc.format_timeline())
-    
-    # 摘要
-    summary = doc.get_summary()
-    print(f"ISSUES: {summary['resolved_issues']} resolved, {summary['open_issues']} open")
+    """查看 timeline"""
+    cfg = _load_config_from_args(args)
+    doc = Trace(config=cfg)
+    print(doc.format_timeline(cfg))
 ```
 
-### OutputBuilder 集成
+### 5. CLI 参数 (spear.py)
 
 ```python
-# core/output_builder.py
+# 为 trace 子命令添加 Risk 参数
+def add_trace_risk_args(parser):
+    parser.add_argument('--risk-config', metavar='PATH',
+                        help='Risk display config file (JSON)')
+    parser.add_argument('--risk-style', choices=['default', 'ci', 'compact'],
+                        help='Risk style preset')
 
-from .risk_config import get_risk_config
-from .risk_renderer import RiskRenderer
-
-
-class OutputBuilder:
-    def __init__(self, engine, args, compact: bool = False, text_mode: bool = True):
-        self.engine = engine
-        self.args = args
-        self.text_mode = text_mode
-        
-        # 加载 Risk 配置（init 时完成，全局共享）
-        self.risk_config = get_risk_config(
-            explicit_path=getattr(args, 'risk_config', None)
-        )
-        
-        # 应用命令行覆盖
-        if fmt := getattr(args, 'risk_format', None):
-            self.risk_config.format = fmt
-        if style := getattr(args, 'risk_style', None):
-            self.risk_config.apply_mode(style)
-        
-        # 禁用颜色（CI 环境）
-        if os.getenv('NO_COLOR') or os.getenv('SPEAR_NO_COLOR'):
-            self.risk_config.colors = {k: '' for k in self.risk_config.colors}
-        
-        self.risk_renderer = RiskRenderer(self.risk_config)
-        
-        # Trace 共享同一配置
-        self._trace = None
+# 应用到相关命令
+add_trace_risk_args(doc_issues)
+add_trace_risk_args(doc_timeline)
+add_trace_risk_args(doc_finalize)
 ```
 
 ---
 
-## CLI 参数
+## 文件结构
 
-```python
-def add_risk_args(parser):
-    """共享的 Risk 格式参数"""
-    parser.add_argument(
-        '--risk-config',
-        metavar='PATH',
-        help='Risk 配置文件路径'
-    )
-    
-    parser.add_argument(
-        '--risk-format',
-        choices=['standard', 'compact', 'oneline'],
-        help='Risk 展示格式'
-    )
-    
-    parser.add_argument(
-        '--risk-style',
-        choices=['default', 'ci'],
-        help='Risk 样式预设 (ci: 无颜色)'
-    )
 ```
+config/
+└── risk-default.json       # 内置默认配置（项目安装时复制到用户目录）
 
-**应用到所有命令**:
-```python
-# 分析工具
-spear get-comm-top --data perf.data --risk-format compact
-spear cluster-symbols --comm nginx --risk-style ci
+scripts/perf_toolkit/core/
+├── risk_config.py          # 配置加载器（JSON 格式）
+└── trace.py                # Trace 类（使用配置格式化）
 
-# Trace 工具（共享相同参数）
-spear trace issues --risk-format compact
-spear trace timeline --risk-style ci
+scripts/spear.py            # CLI 参数
 ```
 
 ---
 
 ## 使用示例
 
-### 1. 全局配置
+### 默认输出（无配置文件）
 
-```yaml
-# .spear/risk.yaml
-risk:
-  format: standard
-  colors:
-    critical: "\033[91m"
-    warning: "\033[93m"
-    info: "\033[94m"
-    reset: "\033[0m"
+```bash
+spear trace issues
 ```
 
-**分析工具输出**:
-```
-[WARNING] 发现 2 个高内核态进程未分析
-→ cluster-symbols --comm containerd-shim
-```
-
-**Trace 输出**:
 ```
 [OPEN] 2 issues pending
 
@@ -738,63 +575,38 @@ risk:
 → find-callers --target 'pthread_mutex_lock'
 ```
 
-### 2. CI 环境配置
-
-```yaml
-# .spear/risk.yaml
-modes:
-  ci:
-    colors:
-      critical: ""
-      warning: ""
-      info: ""
-      reset: ""
-```
+### CI 模式
 
 ```bash
-export SPEAR_RISK_STYLE=ci
-spear get-comm-top --data perf.data
-spear trace issues
+spear trace issues --risk-style ci
 ```
 
-**输出**:
 ```
-[WARNING] 发现 2 个高内核态进程未分析
--> cluster-symbols --comm containerd-shim
+[OPEN] 2 issues pending
+
+[OPEN] [ISS-001] [WARNING] netstat 高内核态 94.7%
+-> cluster-symbols --comm netstat
 ```
 
-### 3. 简洁模式
+### 简洁模式
 
 ```bash
-spear trace issues --risk-format compact
+spear trace issues --risk-style compact
 ```
 
-**输出**:
 ```
+[OPEN] 2 issues pending
+
 [OPEN] ISS-001 [WARNING] netstat 高内核态 94.7%
 [OPEN] ISS-002 [CRITICAL] 锁竞争占比 79.84%
 ```
 
 ---
 
-## 文件结构
+## 环境变量
 
-```
-scripts/perf_toolkit/core/
-├── risk_config.py       # 配置加载器（分析 + Trace 共享）
-├── risk_renderer.py     # 分析工具渲染器
-├── trace_renderer.py    # Trace 专用渲染器
-├── trace.py             # Trace 类（集成配置）
-└── output_builder.py    # 分析工具（集成配置）
-```
-
----
-
-## 实施步骤
-
-1. **创建 `risk_config.py`** - 统一配置加载
-2. **创建 `risk_renderer.py`** - 分析工具渲染
-3. **创建 `trace_renderer.py`** - Trace 专用渲染
-4. **修改 `trace.py`** - 集成配置和渲染器
-5. **修改 `output_builder.py`** - 共享配置系统
-6. **添加全局 CLI 参数** - `--risk-config`, `--risk-format`, `--risk-style`
+| 变量 | 说明 |
+|------|------|
+| `SPEAR_RISK_CONFIG` | 配置文件路径（JSON） |
+| `SPEAR_RISK_STYLE` | 默认样式模式（ci/compact） |
+| `NO_COLOR` / `SPEAR_NO_COLOR` | 禁用颜色输出 |

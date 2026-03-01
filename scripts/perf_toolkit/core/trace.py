@@ -17,6 +17,8 @@ import re
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 
+from .risk_config import RiskDisplayConfig, get_risk_config
+
 
 class Trace:
     """
@@ -28,10 +30,15 @@ class Trace:
     DEFAULT_PATH = ".spear.json"
     CURRENT_VERSION = "2.0"
 
-    def __init__(self, path: Optional[str] = None):
+    def __init__(self, path: Optional[str] = None, config: RiskDisplayConfig = None):
         self.path = path or self._find_doc()
         self.data = self._load()
         self._current_seq = None
+        self.config = config
+    
+    def _get_config(self, cfg: RiskDisplayConfig = None) -> RiskDisplayConfig:
+        """获取有效配置（回退机制）"""
+        return cfg or self.config or get_risk_config()
 
     def _find_doc(self) -> str:
         """查找现有文档或返回默认路径"""
@@ -377,6 +384,137 @@ class Trace:
     # 导出
     # =====================================================================
 
+    # =====================================================================
+    # 格式化方法（使用 RiskDisplayConfig）
+    # =====================================================================
+    
+    def format_issue(self, issue: Dict, cfg: RiskDisplayConfig = None) -> str:
+        """格式化单个 issue"""
+        cfg = self._get_config(cfg)
+        
+        issue_id = issue.get('id', '')
+        level = issue.get('level', 'warning')
+        desc = issue.get('desc', '')
+        status = issue.get('status', 'open')
+        hint = issue.get('hint', '')
+        result = issue.get('result', '')
+        
+        # 应用颜色
+        color = cfg.colors.get(level, '')
+        reset = cfg.colors.get('reset', '')
+        
+        # Issue 行
+        if status == 'resolved':
+            tpl = cfg.templates.get('issue_resolved', '[RESOLVED] [{id}] [{level}] {desc}')
+        else:
+            tpl = cfg.templates.get('issue_open', '[OPEN] [{id}] [{level}] {desc}')
+        
+        line = tpl.format(id=issue_id, level=level.upper(), desc=desc)
+        if color:
+            line = f"{color}{line}{reset}"
+        
+        lines = [line]
+        
+        # Hint / Result
+        if status != 'resolved' and hint and cfg.show.get('hint', True):
+            tpl = cfg.templates.get('hint', '→ {hint}')
+            lines.append(tpl.format(hint=hint))
+        elif status == 'resolved' and result and cfg.show.get('result', True):
+            tpl = cfg.templates.get('result', '→ {result}')
+            lines.append(tpl.format(result=result))
+        
+        return '\n'.join(lines)
+    
+    def format_issue_list(self, issues: List[Dict], status_filter: str = 'all',
+                          cfg: RiskDisplayConfig = None) -> str:
+        """格式化 issue 列表"""
+        cfg = self._get_config(cfg)
+        
+        if not issues:
+            return "(No issues)"
+        
+        lines = []
+        
+        # 标题
+        if status_filter == 'open':
+            tpl = cfg.templates.get('list_header_open', '[OPEN] {count} issues pending')
+            lines.append(tpl.format(count=len(issues)))
+        elif status_filter == 'resolved':
+            tpl = cfg.templates.get('list_header_resolved', '[RESOLVED] {count} issues')
+            lines.append(tpl.format(count=len(issues)))
+        else:
+            open_count = len([i for i in issues if i.get('status') == 'open'])
+            resolved_count = len([i for i in issues if i.get('status') == 'resolved'])
+            tpl = cfg.templates.get('list_header_all', '[ALL] {open_count} open, {resolved_count} resolved')
+            lines.append(tpl.format(open_count=open_count, resolved_count=resolved_count))
+        
+        lines.append('')
+        
+        # Issue 列表
+        for issue in issues:
+            lines.append(self.format_issue(issue, cfg))
+            lines.append('')
+        
+        return '\n'.join(lines)
+    
+    def format_timeline(self, cfg: RiskDisplayConfig = None) -> str:
+        """格式化 timeline"""
+        cfg = self._get_config(cfg)
+        timeline = self.get_timeline()
+        
+        if not timeline:
+            return "(No timeline records)"
+        
+        lines = []
+        
+        for record in timeline:
+            seq = record.get('seq', 0)
+            ts = record.get('timestamp', '')
+            cmd = record.get('command', '')
+            
+            # 简化时间显示
+            time_str = ts.split('T')[1].split('.')[0] if 'T' in ts else ts[:8]
+            
+            # Command 行
+            tpl = cfg.templates.get('timeline_command', '[{seq}] {time} {command}')
+            lines.append(tpl.format(seq=seq, time=time_str, command=cmd))
+            
+            # Findings
+            for finding in record.get('findings', []):
+                ftype = finding.get('type', '')
+                
+                if ftype == 'risk_created':
+                    level = finding.get('level', 'warning')
+                    color = cfg.colors.get(level, '')
+                    reset = cfg.colors.get('reset', '')
+                    issue_id = finding.get('issue_id', '')
+                    desc = finding.get('desc', '')
+                    
+                    tpl = cfg.templates.get('timeline_finding_created', '[{level}] {issue_id}: {desc}')
+                    line = tpl.format(level=level.upper(), issue_id=issue_id, desc=desc)
+                    if color:
+                        line = f"{color}{line}{reset}"
+                    lines.append(line)
+                    
+                elif ftype == 'issue_resolved':
+                    issue_id = finding.get('issue_id', '')
+                    result = finding.get('result', '')
+                    tpl = cfg.templates.get('timeline_finding_resolved', '[RESOLVED] {issue_id}: {result}')
+                    lines.append(tpl.format(issue_id=issue_id, result=result))
+                    
+                elif ftype == 'info':
+                    msg = finding.get('message', '')
+                    tpl = cfg.templates.get('timeline_info', '[INFO] {message}')
+                    lines.append(tpl.format(message=msg))
+            
+            lines.append('')
+        
+        # 摘要
+        summary = self.get_summary()
+        lines.append(f"Commands: {summary['total_commands']}, Open: {summary['open_issues']}, Resolved: {summary['resolved_issues']}")
+        
+        return '\n'.join(lines)
+    
     def export_markdown(self) -> str:
         """导出为 Markdown 报告"""
         lines = ["# 性能诊断报告", ""]
@@ -445,8 +583,8 @@ def cmd_doc_init(args):
     """初始化诊断文档"""
     doc = Trace()
     doc.init(args.data)
-    print(f"✓ 创建诊断文档: {doc.path}")
-    print(f"  数据文件: {args.data}")
+    print(f"[INIT] Created: {doc.path}")
+    print(f"→ Data file: {args.data}")
 
 
 def cmd_doc_add(args):
@@ -459,77 +597,55 @@ def cmd_doc_add(args):
         hint=getattr(args, 'hint', ''),
         level=level
     )
-    print(f"✓ 已添加问题: {issue_id}")
-    print(f"  描述: {args.desc}")
+    print(f"[ADDED] {issue_id}")
+    print(f"→ Desc: {args.desc}")
     if args.hint:
-        print(f"  建议: {args.hint}")
+        print(f"→ Hint: {args.hint}")
 
 
 def cmd_doc_timeline(args):
-    """查看时间线"""
-    doc = Trace()
-    timeline = doc.get_timeline()
+    """查看时间线（使用 RiskDisplayConfig 格式化）"""
+    cfg = _load_risk_config_from_args(args)
+    doc = Trace(config=cfg)
     
-    if not timeline:
-        print("尚无命令执行记录")
-        return
+    print(doc.format_timeline(cfg))
+
+
+def _load_risk_config_from_args(args) -> RiskDisplayConfig:
+    """从 args 加载 Risk 配置"""
+    cfg = get_risk_config(explicit_path=getattr(args, 'risk_config', None))
     
-    print("=" * 65)
-    print(f"DIAGNOSIS TIMELINE  ({len(timeline)} commands executed)")
-    print("=" * 65)
-    print()
+    if style := getattr(args, 'risk_style', None):
+        cfg.apply_mode(style)
     
-    for record in timeline:
-        ts = record['timestamp'].split('T')[1].split('.')[0] if 'T' in record['timestamp'] else record['timestamp']
-        print(f"[{record['seq']}] {ts}  {record['command']}")
-        
-        for finding in record['findings']:
-            ftype = finding.get('type', 'info')
-            if ftype == 'risk_created':
-                level_icon = "🔴" if finding['level'] == 'critical' else "🟡"
-                print(f"    {level_icon} RISK_CREATED: {finding['issue_id']} - {finding['desc']}")
-            elif ftype == 'issue_resolved':
-                print(f"    ✅ RESOLVED: {finding['issue_id']} → {finding['result'][:40]}...")
-            elif ftype == 'risk_duplicate':
-                print(f"    ℹ️  RELATED: {finding['issue_id']}")
-        print()
+    # CI 环境禁用颜色
+    if os.getenv('NO_COLOR') or os.getenv('SPEAR_NO_COLOR'):
+        cfg.colors = {k: '' for k in cfg.colors}
     
-    # 摘要
-    summary = doc.get_summary()
-    print("=" * 65)
-    print(f"ISSUES: {summary['resolved_issues']} resolved, {summary['open_issues']} open")
-    print("=" * 65)
+    return cfg
 
 
 def cmd_doc_issues(args):
-    """查看 issues 状态（显示 ID，可用序号简写）"""
-    doc = Trace()
+    """查看 issues 状态（使用 RiskDisplayConfig 格式化）"""
+    cfg = _load_risk_config_from_args(args)
+    doc = Trace(config=cfg)
     
     status_filter = getattr(args, 'status', 'all')
     
-    if status_filter in ['all', 'open']:
-        open_issues = doc.get_open_issues()
-        if open_issues:
-            print("\n⚠️  OPEN ISSUES (待处理)")
-            print("-" * 65)
-            for issue in open_issues:
-                level_icon = "🔴" if issue['level'] == 'critical' else "🟡"
-                print(f"{level_icon} [{issue['id']}] {issue['desc']}")
-                if issue.get('hint'):
-                    print(f"   └─ 建议: {issue['hint']}")
-            print()
+    # 获取 issues
+    if status_filter == 'open':
+        issues = doc.get_open_issues()
+    elif status_filter == 'resolved':
+        issues = doc.get_resolved_issues()
+    else:
+        issues = doc.get_open_issues() + doc.get_resolved_issues()
     
-    if status_filter in ['all', 'resolved']:
-        resolved_issues = doc.get_resolved_issues()
-        if resolved_issues:
-            print("\n✅ RESOLVED ISSUES")
-            print("-" * 65)
-            for issue in resolved_issues:
-                print(f"[{issue['id']}] {issue['desc']}")
-                print(f"   └─ 结果: {issue.get('result', 'N/A')}")
-            print()
+    # 格式化输出
+    print(doc.format_issue_list(issues, status_filter, cfg))
     
-    print("\n用法: spear trace complete --id ISS-001 --result '分析结果'")
+    # 提示用法
+    if status_filter in ['all', 'open'] and doc.get_open_issues():
+        print(f"Usage: spear trace complete --id ISS-001 --result '分析结果'")
 
 
 def cmd_doc_complete(args):
@@ -538,57 +654,62 @@ def cmd_doc_complete(args):
     
     try:
         doc.complete(args.id, args.result)
-        print(f"✓ 已完成: {args.id}")
-        print(f"  结果: {args.result}")
+        print(f"[COMPLETED] {args.id}")
+        print(f"→ Result: {args.result}")
         
         # 显示剩余 open issues
         open_issues = doc.get_open_issues()
         if open_issues:
-            print(f"\n  剩余 {len(open_issues)} 个待处理 issue")
+            print(f"\n→ {len(open_issues)} issues remaining")
         else:
-            print("\n  🎉 所有 issue 已处理完毕")
+            print("\n[ALL DONE] No more issues")
     except ValueError as e:
-        print(f"✗ 错误: {e}")
+        print(f"[ERROR] {e}")
 
 
 def cmd_doc_finalize(args):
-    """最终审计"""
-    doc = Trace()
+    """最终审计（极简格式）"""
+    cfg = _load_risk_config_from_args(args)
+    doc = Trace(config=cfg)
     result = doc.finalize(getattr(args, 'accept_risk', None))
     
     print("=" * 65)
-    print("最终全局审计")
+    print("FINAL AUDIT")
     print("=" * 65)
     print()
     
     if result['status'] == 'ready':
-        print("✅ 所有问题已处理")
-        print(f"   共解决 {result['resolved_count']} 个问题")
+        print("[READY] All issues resolved")
+        print(f"→ Total resolved: {result['resolved_count']}")
         print()
         print("=" * 65)
-        print("可以生成诊断报告")
+        print("Report can be generated")
         print("=" * 65)
     
     elif result['status'] == 'accepted':
-        print(f"⚠️  已接受风险: {args.accept_risk}")
-        print(f"   已解决: {result['resolved_count']}, 接受: {result['open_count']}")
+        print(f"[ACCEPTED] Risk accepted: {args.accept_risk}")
+        print(f"→ Resolved: {result['resolved_count']}, Accepted: {result['open_count']}")
         print()
         print("=" * 65)
-        print("可以生成诊断报告")
+        print("Report can be generated")
         print("=" * 65)
     
     else:  # blocked
-        print(f"⚠️  存在 {len(result['open_issues'])} 个未处理问题")
+        print(f"[BLOCKED] {len(result['open_issues'])} issues pending")
         print()
         for issue in result['open_issues']:
-            level_icon = "🔴" if issue['level'] == 'critical' else "🟡"
-            print(f"{level_icon} {issue['id']}: {issue['desc']}")
+            color = cfg.colors.get(issue['level'], '')
+            reset = cfg.colors.get('reset', '')
+            line = f"[{issue['level'].upper()}] {issue['id']}: {issue['desc']}"
+            if color:
+                line = f"{color}{line}{reset}"
+            print(line)
             if issue.get('hint'):
-                print(f"   └─ 建议: {issue['hint']}")
-        print()
+                print(f"→ {issue['hint']}")
+            print()
         print("-" * 65)
-        print("[A] 继续分析剩余问题（推荐）")
-        print("[B] 接受风险: --accept-risk '理由'")
+        print("[A] Continue analysis (recommended)")
+        print("[B] Accept risk: --accept-risk 'reason'")
         print("=" * 65)
         import sys
         sys.exit(1)
@@ -608,6 +729,6 @@ def cmd_doc_export(args):
     if output:
         with open(output, 'w') as f:
             f.write(content)
-        print(f"✓ 导出报告: {output}")
+        print(f"[EXPORTED] {output}")
     else:
         print(content)

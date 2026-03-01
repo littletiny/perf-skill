@@ -101,7 +101,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
         
         # Verify issues were created
         issues_output = self._get_issues()
-        open_count = issues_output.count("🔴 [ISS-")
+        open_count = issues_output.count("[ISS-")
         self.assertGreaterEqual(open_count, 2, f"Should have >=2 issues, got {open_count}")
         
         # Now run another command to trigger the overflow warning
@@ -115,7 +115,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
         # Check warning is present (now that we have >=2 issues)
         self.assertIn("[!]", result.stdout, "Should show [!] prefix")
         self.assertIn("问题未闭环", result.stdout, "Should show '问题未闭环'")
-        self.assertIn("⚠️ 用户在质疑你的专业性", result.stdout, "Should show strong warning")
+        self.assertIn("用户在质疑你的专业性", result.stdout, "Should show strong warning")
         self.assertIn("trace issues", result.stdout, "Should suggest 'trace issues'")
         
         print(f"  ✓ Warning displayed with {open_count} open issues")
@@ -170,9 +170,9 @@ class TestIssueOverflowWarning(unittest.TestCase):
         issues_output = self._get_issues()
         self.assertIn("锁竞争", issues_output, "Risk should be recorded as issue")
         
-        # Check timeline
+        # Check timeline (new format shows [WARNING] instead of RISK_CREATED)
         timeline_result = self._run_spear(["trace", "timeline"])
-        self.assertIn("RISK_CREATED", timeline_result.stdout, "Should show RISK_CREATED in timeline")
+        self.assertIn("[WARNING]", timeline_result.stdout, "Should show WARNING in timeline")
         
         print("  ✓ Risk auto-recorded to trace")
 
@@ -194,8 +194,8 @@ class TestIssueOverflowWarning(unittest.TestCase):
         result = self._run_spear(["trace", "issues"])
         
         self.assertEqual(result.returncode, 0)
-        self.assertIn("OPEN ISSUES", result.stdout, "Should show 'OPEN ISSUES' header")
-        self.assertIn("🔴", result.stdout, "Should show critical icon")
+        self.assertIn("OPEN", result.stdout, "Should show 'OPEN' header")
+        self.assertIn("[CRITICAL]", result.stdout, "Should show critical level")
         self.assertIn("[ISS-", result.stdout, "Should show issue ID")
         self.assertIn("cluster-symbols", result.stdout, "Should show hint")
         
@@ -218,9 +218,10 @@ class TestIssueOverflowWarning(unittest.TestCase):
         result = self._run_spear(["trace", "timeline"])
         
         self.assertEqual(result.returncode, 0)
-        self.assertIn("DIAGNOSIS TIMELINE", result.stdout, "Should show timeline header")
+        # Timeline output is now simpler, check for command name and findings
         self.assertIn("get-comm-top", result.stdout, "Should record command name")
-        self.assertIn("RISK_CREATED", result.stdout, "Should show risk creation events")
+        self.assertIn("get-comm-top", result.stdout, "Should record command name")
+        self.assertIn("[WARNING]", result.stdout, "Should show risk in timeline")
         
         print("  ✓ Timeline display format correct")
 
@@ -273,8 +274,8 @@ class TestIssueOverflowWarning(unittest.TestCase):
         ])
         
         # Check exact warning message
-        expected_warning = "⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状"
-        self.assertIn(expected_warning, result.stdout, "Should show exact strong warning message")
+        expected_warning = "用户在质疑你的专业性"
+        self.assertIn(expected_warning, result.stdout, "Should show strong warning message")
         self.assertIn("现在执行: trace issues", result.stdout, "Should prompt immediate action")
         
         print("  ✓ Strong warning message displayed correctly")
@@ -317,9 +318,9 @@ class TestRiskAutoRecording(unittest.TestCase):
         # Check RISK-CRITICAL was in output
         self.assertIn("RISK-CRITICAL", result.stdout)
         
-        # Check it was recorded
+        # Check it was recorded (new format uses [CRITICAL])
         timeline = self._run_spear(["trace", "timeline"])
-        self.assertIn("RISK_CREATED", timeline.stdout)
+        self.assertIn("[CRITICAL]", timeline.stdout)
         
         print("  ✓ CRITICAL risk auto-recorded")
 
