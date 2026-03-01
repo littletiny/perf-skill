@@ -1,35 +1,355 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Text Output Adapter - 将数据模型转换为人类可读的文本格式
+Text Output Adapter - 模板化文本输出系统
 
-用于列表类型数据的友好展示：
-- hotspots: 热点函数列表
-- clusters: 聚类结果列表
-- processes: 进程列表
-- comm_groups: 进程组列表
-- cores: CPU核心列表
-- attributions: 调用链列表
+支持 5 种模板类型:
+- simple_list: 带序号的简单列表, #index field1 field2 ...
+- key_value: 无序号键值对, key value1 value2 ...
+- table: 多字段表格
+- nested: 嵌套结构,有父项和子项
+- custom: 完全自定义格式
+
+使用方式:
+1. 在 Output 模型中定义 _template_config (TemplateConfig)
+2. Adapter 自动根据 template_type 选择渲染器
+3. 如需自定义渲染,继承 Template 基类并注册
 """
 
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
+
+
+class Template(ABC):
+    """模板基类"""
+    
+    @abstractmethod
+    def render(self, data: Any, config: Any) -> List[str]:
+        """渲染数据,返回行列表"""
+        pass
+    
+    def _get_list_data(self, data: Any, list_field: str) -> List[Any]:
+        """获取列表数据"""
+        data_dict = asdict(data) if is_dataclass(data) else data
+        return data_dict.get(list_field, [])
+    
+    def _format_field_value(self, item: Any, field: str) -> str:
+        """格式化字段值"""
+        if isinstance(item, dict):
+            value = item.get(field, "N/A")
+        else:
+            value = getattr(item, field, "N/A")
+        
+        # 特殊处理列表类型(如 caller_stack)
+        if isinstance(value, list):
+            if field == "caller_stack":
+                return " <- ".join(str(v) for v in value) if value else "(root)"
+            return ", ".join(str(v) for v in value)
+        
+        return str(value) if value is not None else "N/A"
+    
+    def _format_process_line(self, item: Any) -> str:
+        """格式化进程行(特殊处理 comm(pid) 格式)"""
+        if isinstance(item, dict):
+            comm = item.get('comm', 'N/A')
+            pid = item.get('pid', 'N/A')
+            total = item.get('total_cpu_util', '0.00%')
+            kernel = item.get('kernel_cpu_util', '0.00%')
+        else:
+            comm = getattr(item, 'comm', 'N/A')
+            pid = getattr(item, 'pid', 'N/A')
+            total = getattr(item, 'total_cpu_util', '0.00%')
+            kernel = getattr(item, 'kernel_cpu_util', '0.00%')
+        return f"{comm}({pid}) {total}/{kernel}"
+
+
+class SimpleListTemplate(Template):
+    """简单列表模板 - #index field1 field2 ...
+    
+    适用于: hotspots, processes, cores, attributions, path_clusters
+    """
+    
+    def render(self, data: Any, config: Any) -> List[str]:
+        items = self._get_list_data(data, config.list_field)
+        lines = []
+        
+        if config.header:
+            lines.append(config.header)
+        
+        if not items:
+            msg = config.empty_message if config.empty_message else 'No data found'
+            lines.append(f"({msg})")
+            return lines
+        
+        for i, item in enumerate(items, 1):
+            if config.list_field == "processes":
+                # 特殊处理: processes 使用 comm(pid) 格式
+                line = self._format_process_line(item)
+            elif config.list_field == "attributions":
+                # 特殊处理: attributions 的 ratio + callstack 格式
+                line = self._format_attribution_line(item, i)
+            else:
+                # 标准格式: #index field1 field2 ...
+                values = [self._format_field_value(item, f) for f in config.display_fields]
+                prefix = config.index_format.format(index=i) if config.index_format else f"#{i}"
+                line = f"{prefix} " + " ".join(values)
+            
+            lines.append(line)
+        
+        return lines
+    
+    def _format_attribution_line(self, item: Any, index: int) -> str:
+        """格式化归因行 - #index [ratio] callstack"""
+        ratio = self._format_field_value(item, "ratio_of_target_pct")
+        stack = self._format_field_value(item, "caller_stack")
+        return f"#{index} [{ratio}] {stack}"
+
+
+class KeyValueTemplate(Template):
+    """键值对模板 - key value1 value2 ...
+    
+    适用于: clusters, comm_groups, process_variety
+    """
+    
+    def render(self, data: Any, config: Any) -> List[str]:
+        items = self._get_list_data(data, config.list_field)
+        lines = []
+        
+        if config.header:
+            lines.append(config.header)
+        
+        if not items:
+            msg = config.empty_message if config.empty_message else 'No data found'
+            lines.append(f"({msg})")
+            return lines
+        
+        for item in items:
+            values = [self._format_field_value(item, f) for f in config.display_fields]
+            lines.append(" ".join(values))
+        
+        return lines
+
+
+class TableTemplate(Template):
+    """表格模板 - field1=value1 field2=value2 ...
+    
+    适用于: anomalies, windows
+    """
+    
+    def render(self, data: Any, config: Any) -> List[str]:
+        items = self._get_list_data(data, config.list_field)
+        lines = []
+        
+        if config.header:
+            lines.append(config.header)
+        
+        if not items:
+            msg = config.empty_message if config.empty_message else 'No data found'
+            lines.append(f"({msg})")
+            return lines
+        
+        for item in items:
+            if config.list_field == "anomalies":
+                lines.append(self._format_anomaly_line(item))
+            elif config.list_field == "windows":
+                lines.append(self._format_window_line(item))
+            else:
+                # 通用 table 格式
+                values = [self._format_field_value(item, f) for f in config.display_fields]
+                lines.append(" ".join(values))
+        
+        return lines
+    
+    def _format_anomaly_line(self, item: Any) -> str:
+        """格式化异常行"""
+        if isinstance(item, dict):
+            anomaly_type = item.get('type', 'N/A')
+            cpu_id = item.get('cpu_id', 'N/A')
+            time_range = item.get('time_range', 'N/A')
+            change = item.get('utilization_change', 'N/A')
+            severity = item.get('severity', 'unknown')
+        else:
+            anomaly_type = getattr(item, 'type', 'N/A')
+            cpu_id = getattr(item, 'cpu_id', 'N/A')
+            time_range = getattr(item, 'time_range', 'N/A')
+            change = getattr(item, 'utilization_change', 'N/A')
+            severity = getattr(item, 'severity', 'unknown')
+        
+        if isinstance(time_range, dict):
+            time_range = f"{time_range.get('start', '')} - {time_range.get('end', '')}"
+        
+        return f"{anomaly_type} cpu={cpu_id} time={time_range} change={change} severity={severity}"
+    
+    def _format_window_line(self, item: Any) -> str:
+        """格式化窗口行"""
+        if isinstance(item, dict):
+            cpu_id = item.get('cpu_id', 'N/A')
+            start = item.get('start_time', 'N/A')
+            end = item.get('end_time', 'N/A')
+            util = item.get('utilization', 'N/A')
+            core_sec = item.get('core_sec', 0)
+        else:
+            cpu_id = getattr(item, 'cpu_id', 'N/A')
+            start = getattr(item, 'start_time', 'N/A')
+            end = getattr(item, 'end_time', 'N/A')
+            util = getattr(item, 'utilization', 'N/A')
+            core_sec = getattr(item, 'core_sec', 0)
+        
+        return f"cpu={cpu_id} start={start} end={end} util={util} core_sec={core_sec:.4f}"
+
+
+class NestedTemplate(Template):
+    """嵌套模板 - 有父项和子项的层次结构
+    
+    适用于: traces
+    """
+    
+    def render(self, data: Any, config: Any) -> List[str]:
+        items = self._get_list_data(data, config.list_field)
+        lines = []
+        
+        if config.header:
+            lines.append(config.header)
+        
+        if not items:
+            msg = config.empty_message if config.empty_message else 'No data found'
+            lines.append(f"({msg})")
+            return lines
+        
+        for item in items:
+            lines.extend(self._format_trace_item(item))
+        
+        return lines
+    
+    def _format_trace_item(self, item: Any) -> List[str]:
+        """格式化单个 trace 项"""
+        if isinstance(item, dict):
+            target = item.get('target', 'N/A')
+            target_ratio = item.get('target_ratio_pct', '0%')
+            attributions = item.get('attributions', [])
+        else:
+            target = getattr(item, 'target', 'N/A')
+            target_ratio = getattr(item, 'target_ratio_pct', '0%')
+            attributions = getattr(item, 'attributions', [])
+        
+        lines = [f">>> {target} ({target_ratio})"]
+        
+        # 解析 target_ratio 用于计算
+        try:
+            target_ratio_val = float(target_ratio.rstrip('%'))
+        except (ValueError, AttributeError):
+            target_ratio_val = 0.0
+        
+        for i, attr in enumerate(attributions, 1):
+            if isinstance(attr, dict):
+                stack = attr.get('caller_stack', [])
+                attr_ratio = attr.get('ratio_of_target_pct', '0%')
+            else:
+                stack = getattr(attr, 'caller_stack', [])
+                attr_ratio = getattr(attr, 'ratio_of_target_pct', '0%')
+            
+            try:
+                attr_ratio_val = float(attr_ratio.rstrip('%'))
+            except (ValueError, AttributeError):
+                attr_ratio_val = 0.0
+            
+            # 计算总占比
+            total_ratio = target_ratio_val * attr_ratio_val / 100
+            stack_str = " <- ".join(str(s) for s in stack) if stack else "(root)"
+            lines.append(f"  #{i} [{total_ratio:.2f}%] {stack_str}")
+        
+        return lines
+
+
+class CustomTemplate(Template):
+    """自定义模板 - 完全自定义的渲染逻辑
+    
+    适用于: bottleneck, cpu_usage
+    """
+    
+    def __init__(self):
+        self.renderers = {
+            "bottleneck": self._render_bottleneck,
+            "cpu_usage": self._render_cpu_usage,
+        }
+    
+    def render(self, data: Any, config: Any) -> List[str]:
+        renderer = self.renderers.get(config.custom_renderer)
+        if renderer:
+            return renderer(data)
+        return [f"[ERROR] Unknown custom renderer: {config.custom_renderer}"]
+    
+    def _render_bottleneck(self, data: Any) -> List[str]:
+        """渲染瓶颈检测结果"""
+        data_dict = asdict(data) if is_dataclass(data) else data
+        special_data = data_dict.get('data', {})
+        lines = []
+        
+        verdict = special_data.get('verdict', 'N/A')
+        events = special_data.get('events', [])
+        high_cpu_cores = special_data.get('high_cpu_cores', [])
+        high_sys_cores = special_data.get('high_sys_cores', [])
+        threshold = special_data.get('threshold', 80)
+        sys_threshold = threshold + 10
+        max_load = special_data.get('max_core_load', {})
+        limit_info = special_data.get('limit_info', {})
+        
+        # Verdict 包含所有 events
+        if len(events) > 1:
+            lines.append(f"Verdict: {','.join(events)}")
+        else:
+            lines.append(f"Verdict: {verdict}")
+        
+        # 显示检测到的瓶颈核心
+        if high_cpu_cores:
+            lines.append(f"CPU High: {','.join(map(str, high_cpu_cores))} (total>{threshold}%)")
+        if high_sys_cores:
+            lines.append(f"CPU Sys High: {','.join(map(str, high_sys_cores))} (sys>{sys_threshold}%)")
+        
+        if max_load:
+            lines.append(f"Max Core Load: CPU {max_load.get('cpu_id', 'N/A')} = {max_load.get('load', 'N/A')}")
+        
+        if limit_info:
+            detected = limit_info.get('cpu_limit_detected', False)
+            cores = limit_info.get('cpu_limit_cores', 0)
+            if cores > 0:
+                lines.append(f"CPU Limit: {cores}c (detected={detected})")
+        
+        return lines
+    
+    def _render_cpu_usage(self, data: Any) -> List[str]:
+        """渲染 CPU 使用率"""
+        data_dict = asdict(data) if is_dataclass(data) else data
+        special_data = data_dict.get('data', {})
+        lines = []
+        
+        target = special_data.get('target', 'System')
+        util = special_data.get('cpu_utilization', {})
+        
+        lines.append(f"Target: {target}")
+        lines.append(f"  Total: {util.get('total_pct', 'N/A')}")
+        lines.append(f"  User:  {util.get('user_pct', 'N/A')}")
+        lines.append(f"  Kernel: {util.get('kernel_pct', 'N/A')}")
+        
+        return lines
 
 
 class TextOutputAdapter:
-    """
-    文本输出适配器，将列表数据转换为人类可读的格式
+    """文本输出适配器 - 模板化版本
     
-    输出格式：
-    [元数据行] 总计=X, 显示=Y, 时间范围=...
-    
-    数据行1
-    数据行2
-    ...
+    自动根据 Output 对象的 _template_config 选择模板进行渲染
     """
     
     def __init__(self, max_width: int = 120):
         self.max_width = max_width
+        self.templates = {
+            "simple_list": SimpleListTemplate(),
+            "key_value": KeyValueTemplate(),
+            "table": TableTemplate(),
+            "nested": NestedTemplate(),
+            "custom": CustomTemplate(),
+        }
     
     def format_output(self, obj: Any) -> str:
         """将输出对象转换为文本格式"""
@@ -42,44 +362,36 @@ class TextOutputAdapter:
         risk_info = data.get('_risk', {})
         risk_lines = self._format_risk(risk_info)
         
-        # 获取摘要信息
-        summary = data.get('summary', {})
-        time_range = data.get('time_range', {})
-        
-        # 获取列表数据
-        list_data = None
-        list_name = None
-        
-        for key in ['hotspots', 'symbol_clusters', 'processes', 'comm_groups',
-                    'cores', 'attributions', 'traces', 'path_clusters',
-                    'process_variety', 'windows', 'anomalies']:
-            if key in data:
-                list_data = data[key]
-                list_name = key
-                break
-        
-        # 获取特殊数据字段（如 bottleneck 和 cpu_usage）
-        special_data = data.get('data')
+        # 获取模板配置
+        template_config = data.get('_template_config')
+        if template_config is None:
+            # 尝试从对象属性获取(未通过 dataclass field 暴露的)
+            template_config = getattr(obj, '_template_config', None)
         
         # 组合输出
         lines = []
         if risk_lines:
             lines.extend(risk_lines)
         
-        # 添加列表数据和format header（如果需要）
-        if list_data is not None:
-            # list_data could be empty list, still need to show empty message
-            format_header, formatted_lines = self._format_list(list_data, list_name)
-            if format_header:
-                lines.append(format_header)
-            lines.extend(formatted_lines)
-            # Check for truncation and add hint
-            trunc_hint = self._check_truncation(summary, list_name)
-            if trunc_hint:
-                lines.append(trunc_hint)
-        elif special_data:
-            # 处理特殊数据类型
-            lines.extend(self._format_special_data(special_data))
+        # 使用模板渲染数据
+        if template_config:
+            template_type = template_config.get('template_type', 'simple_list')
+            template = self.templates.get(template_type)
+            if template:
+                from ..core.output_models import TemplateConfig
+                config = TemplateConfig(**template_config)
+                data_lines = template.render(obj, config)
+                lines.extend(data_lines)
+            else:
+                lines.append(f"[ERROR] Unknown template type: {template_type}")
+        else:
+            # 无模板配置,使用通用格式
+            lines.append("(No template configuration)")
+        
+        # 检查截断提示
+        trunc_hint = self._check_truncation(data)
+        if trunc_hint:
+            lines.append(trunc_hint)
         
         return "\n".join(lines)
     
@@ -108,63 +420,23 @@ class TextOutputAdapter:
         
         return lines
     
-    def _format_summary(self, summary: Dict, list_name: str) -> List[str]:
-        """格式化摘要信息"""
-        parts = []
-        
-        if list_name == 'hotspots':
-            parts.append(f"total_hotspots={summary.get('total_hotspots', 0)}")
-        elif list_name == 'clusters':
-            parts.append(f"clusters_found={summary.get('clusters_found', 0)}")
-            if 'total_core_seconds' in summary:
-                parts.append(f"total_core_sec={summary['total_core_seconds']}")
-        elif list_name == 'processes':
-            parts.append(f"total_processes={summary.get('total_processes', 0)}")
-            parts.append(f"shown={summary.get('shown_processes', 0)}")
-        elif list_name == 'comm_groups':
-            parts.append(f"total_comm_groups={summary.get('total_comm_groups', 0)}")
-            if summary.get('high_kernel_groups', 0) > 0:
-                parts.append(f"high_kernel={summary['high_kernel_groups']}")
-        elif list_name == 'cores':
-            parts.append(f"imbalance_level={summary.get('imbalance_level', 'UNKNOWN')}")
-        elif list_name == 'attributions':
-            parts.append(f"target={summary.get('target', 'N/A')}")
-            if 'target_core_sec' in summary:
-                parts.append(f"target_core_sec={summary['target_core_sec']}")
-        elif list_name == 'traces':
-            parts.append(f"hotspots_traced={summary.get('hotspots_traced', 0)}")
-        elif list_name == 'path_clusters':
-            parts.append(f"total_clusters={summary.get('total_clusters', 0)}")
-            if 'clustered_core_sec' in summary:
-                parts.append(f"clustered_core_sec={summary['clustered_core_sec']}")
-        elif list_name == 'process_variety':
-            parts.append(f"total_processes={summary.get('total_processes', 0)}")
-            if summary.get('storm_detected', False):
-                parts.append(f"storm_count={summary.get('storm_count', 0)}")
-        elif list_name == 'anomalies':
-            parts.append(f"total_anomalies={summary.get('total_anomalies', 0)}")
-            parts.append(f"spikes={summary.get('spike_count', 0)}")
-            parts.append(f"drops={summary.get('drop_count', 0)}")
-        elif list_name == 'windows':
-            parts.append(f"mode={summary.get('mode', 'unknown')}")
-            parts.append(f"windows={summary.get('total_windows', 0)}")
-            parts.append(f"cpus={summary.get('cpu_count', 0)}")
-        
-        return parts
-    
-    def _check_truncation(self, summary: Dict, list_name: str) -> Optional[str]:
-        """检查列表是否被截断，如果被截断返回提示信息"""
+    def _check_truncation(self, data: Dict) -> Optional[str]:
+        """检查列表是否被截断,如果被截断返回提示信息"""
+        summary = data.get('summary', {})
         if not summary:
             return None
         
-        # Map list_name to summary fields
+        # 根据 list_field 判断截断
+        template_config = data.get('_template_config', {})
+        list_field = template_config.get('list_field')
+        
         field_map = {
             'hotspots': ('total_hotspots', 'shown_hotspots'),
-            'symbol_clusters': ('clusters_found', 'shown_clusters'),  # cluster-symbols
-            'path_clusters': ('total_clusters', 'shown_clusters'),  # cluster-paths
+            'symbol_clusters': ('clusters_found', 'shown_clusters'),
+            'path_clusters': ('total_clusters', 'shown_clusters'),
             'processes': ('total_processes', 'shown_processes'),
             'comm_groups': ('total_comm_groups', None),
-            'cores': (None, None),  # cores filtered by threshold, not top_n
+            'cores': (None, None),
             'attributions': ('total_attributions', 'shown_attributions'),
             'traces': (None, None),
             'process_variety': ('total_processes', None),
@@ -172,12 +444,11 @@ class TextOutputAdapter:
             'windows': ('total_windows', None),
         }
         
-        if list_name not in field_map:
+        if list_field not in field_map:
             return None
         
-        total_field, shown_field = field_map[list_name]
+        total_field, shown_field = field_map[list_field]
         
-        # For lists with shown field
         if shown_field and total_field:
             total = summary.get(total_field, 0)
             shown = summary.get(shown_field, 0)
@@ -185,235 +456,3 @@ class TextOutputAdapter:
                 return f"# ... {total - shown} more items (use --top-n to show more)"
         
         return None
-    
-    def _format_list(self, items: List[Dict], list_name: str):
-        """格式化列表数据，返回 (format_header, lines)"""
-        if not items:
-            # 返回友好的空状态消息
-            empty_messages = {
-                'anomalies': 'No anomalies detected',
-                'hotspots': 'No hotspots found',
-                'symbol_clusters': 'No symbol clusters found',
-                'processes': 'No processes found',
-                'comm_groups': 'No process groups found',
-                'cores': 'No saturated cores found',
-                'attributions': 'No attributions found',
-                'traces': 'No traces found',
-                'path_clusters': 'No path clusters found',
-                'process_variety': 'No process variety data',
-                'windows': 'No windows data'
-            }
-            msg = empty_messages.get(list_name, f'No {list_name} found')
-            return (None, [f"({msg})"])
-        
-        # 格式化不同类型的列表
-        if list_name == 'symbol_clusters':
-            return self._format_clusters(items)
-        elif list_name == 'path_clusters':
-            return self._format_path_clusters(items)
-        elif list_name == 'hotspots':
-            return self._format_hotspots(items)
-        elif list_name == 'processes':
-            return self._format_processes(items)
-        elif list_name == 'comm_groups':
-            return self._format_comm_groups(items)
-        elif list_name == 'cores':
-            return self._format_cores(items)
-        elif list_name == 'attributions':
-            return self._format_attributions(items)
-        elif list_name == 'traces':
-            return self._format_traces(items)
-        elif list_name == 'process_variety':
-            return self._format_process_variety(items)
-        elif list_name == 'anomalies':
-            return self._format_anomalies(items)
-        elif list_name == 'windows':
-            return self._format_windows(items)
-        else:
-            # 通用列表格式
-            return (None, [str(item) for item in items])
-    
-    def _format_hotspots(self, items: List[Dict]):
-        """格式化热点函数列表"""
-        format_header = "# index,funcname,self,inclusive"
-        lines = []
-        for i, item in enumerate(items, 1):
-            symbol = item.get('symbol', 'N/A')
-            self_pct = item.get('self', '0%')
-            inclusive = item.get('inclusive', '0%')
-            lines.append(f"#{i} {symbol} {self_pct} {inclusive}")
-        return (format_header, lines)
-    
-    def _format_clusters(self, items: List[Dict]):
-        """格式化聚类结果 (cluster-symbols)"""
-        # pct_of_total: 该聚类占总样本时间的百分比 (core_sec_cluster / core_sec_total * 100)
-        format_header = "# event_type | pct_of_total (cluster_core_sec / total_core_sec)"
-        lines = []
-        for item in items:
-            cluster = item.get('cluster', 'N/A')
-            ratio = item.get('pct_of_total', '0%')
-            lines.append(f"{cluster} {ratio}")
-        return (format_header, lines)
-    
-    def _format_processes(self, items: List[Dict]):
-        """格式化进程列表"""
-        format_header = "# comm(pid) (usr+sys)/sys"
-        lines = []
-        for item in items:
-            comm = item.get('comm', 'N/A')
-            pid = item.get('pid', 'N/A')
-            total = item.get('total_cpu_util', '0.00%')
-            kernel = item.get('kernel_cpu_util', '0.00%')
-            lines.append(f"{comm}({pid}) {total}/{kernel}")
-        return (format_header, lines)
-    
-    def _format_comm_groups(self, items: List[Dict]):
-        """格式化进程组列表 (cluster-comm, get-comm-top)"""
-        format_header = "# comm,pids,cpu_util,event"
-        lines = []
-        for item in items:
-            comm = item.get('comm', 'N/A')
-            pids = item.get('pids', 0)
-            cpu = item.get('cpu', '0%')
-            event = item.get('event', 'normal')
-            lines.append(f"{comm} {pids} {cpu} {event}")
-        return (format_header, lines)
-    
-    def _format_cores(self, items: List[Dict]):
-        """格式化CPU核心列表 (仅展示 saturated 核心)"""
-        format_header = "# SATURATED_CORES: index,cpu_id,(usr+sys)/sys"
-        lines = []
-        for i, item in enumerate(items, 1):
-            cpu_id = item.get('cpu_id', 'N/A')
-            total = item.get('total_cpu_util', '0%')
-            kernel = item.get('kernel_cpu_util', '0%')
-            lines.append(f"#{i} CPU{cpu_id} {total}/{kernel}")
-        return (format_header, lines)
-    
-    def _format_attributions(self, items: List[Dict]):
-        """格式化调用归因列表 (从调用者到被调用者)"""
-        format_header = "# index,ratio,callstack"
-        lines = []
-        for i, item in enumerate(items, 1):
-            stack = item.get('caller_stack', [])
-            ratio = item.get('ratio_of_target_pct', '0%')
-            stack_str = " <- ".join(stack) if stack else "(root)"
-            lines.append(f"#{i} [{ratio}] {stack_str}")
-        return (format_header, lines)
-    
-    def _format_traces(self, items: List[Dict]):
-        """格式化追踪热点列表 (从调用者到被调用者)"""
-        format_header = "# target (cpu_util) <- callstack"
-        lines = []
-        for item in items:
-            target = item.get('target', 'N/A')
-            target_ratio_str = item.get('target_ratio_pct', '0%')
-            target_ratio = float(target_ratio_str.rstrip('%'))
-            lines.append(f">>> {target} ({target_ratio_str})")
-            attributions = item.get('attributions', [])
-            for i, attr in enumerate(attributions, 1):
-                stack = attr.get('caller_stack', [])
-                attr_ratio_str = attr.get('ratio_of_target_pct', '0%')
-                attr_ratio = float(attr_ratio_str.rstrip('%'))
-                # Calculate total ratio: target_ratio * attr_ratio / 100
-                total_ratio = target_ratio * attr_ratio / 100
-                stack_str = " <- ".join(stack) if stack else "(root)"
-                lines.append(f"  #{i} [{total_ratio:.2f}%] {stack_str}")
-        return (format_header, lines)
-    
-    def _format_path_clusters(self, items: List[Dict]):
-        """格式化路径聚类列表"""
-        format_header = "# index,percent,cpu_util,path"
-        lines = []
-        for i, item in enumerate(items, 1):
-            ratio = item.get('ratio_pct', '0%')
-            cpu_util = item.get('cpu_util', '0.00%')
-            path = item.get('path_signature', 'N/A')
-            lines.append(f"#{i} {ratio} {cpu_util} {path}")
-        return (format_header, lines)
-    
-    def _format_process_variety(self, items: List[Dict]):
-        """格式化进程多样性列表 (仅展示 process_storm)"""
-        format_header = "# PROCESS_STORM: comm,pids,cpu_util"
-        lines = []
-        for item in items:
-            comm = item.get('comm', 'N/A')
-            pids = item.get('unique_pids', 0)
-            cpu_util = item.get('cpu_util', '0.00%')
-            lines.append(f"{comm} {pids} {cpu_util}")
-        return (format_header, lines)
-    
-    def _format_anomalies(self, items: List[Dict]):
-        """格式化异常检测列表"""
-        format_header = "# type,cpu_id,time_range,change,severity"
-        lines = []
-        for item in items:
-            anomaly_type = item.get('type', 'N/A')
-            cpu_id = item.get('cpu_id', 'N/A')
-            time_range = item.get('time_range', 'N/A')
-            if isinstance(time_range, dict):
-                time_range = f"{time_range.get('start', '')} - {time_range.get('end', '')}"
-            change = item.get('utilization_change', 'N/A')
-            severity = item.get('severity', 'unknown')
-            lines.append(f"{anomaly_type} cpu={cpu_id} time={time_range} change={change} severity={severity}")
-        return (format_header, lines)
-    
-    def _format_windows(self, items: List[Dict]):
-        """格式化时间窗口列表"""
-        format_header = "# cpu_id,start_time,end_time,util,core_sec"
-        lines = []
-        for item in items:
-            cpu_id = item.get('cpu_id', 'N/A')
-            start = item.get('start_time', 'N/A')
-            end = item.get('end_time', 'N/A')
-            util = item.get('utilization', 'N/A')
-            core_sec = item.get('core_sec', 0)
-            lines.append(f"cpu={cpu_id} start={start} end={end} util={util} core_sec={core_sec:.4f}")
-        return (format_header, lines)
-    
-    def _format_special_data(self, data: Dict) -> List[str]:
-        """格式化特殊数据类型（如 bottleneck, cpu_usage）"""
-        lines = []
-        
-        # check-cpu-bottleneck 数据
-        if 'verdict' in data:
-            verdict = data.get('verdict', 'N/A')
-            events = data.get('events', [])
-            max_load = data.get('max_core_load', {})
-            limit_info = data.get('limit_info', {})
-            high_cpu_cores = data.get('high_cpu_cores', [])
-            high_sys_cores = data.get('high_sys_cores', [])
-            threshold = data.get('threshold', 80)
-            sys_threshold = threshold + 10
-            
-            # Verdict 包含所有 events，用逗号分隔
-            if len(events) > 1:
-                lines.append(f"Verdict: {','.join(events)}")
-            else:
-                lines.append(f"Verdict: {verdict}")
-            
-            # 显示检测到的瓶颈核心
-            if high_cpu_cores:
-                lines.append(f"CPU High: {','.join(map(str, high_cpu_cores))} (total>{threshold}%)")
-            if high_sys_cores:
-                lines.append(f"CPU Sys High: {','.join(map(str, high_sys_cores))} (sys>{sys_threshold}%)")
-            
-            if max_load:
-                lines.append(f"Max Core Load: CPU {max_load.get('cpu_id', 'N/A')} = {max_load.get('load', 'N/A')}")
-            if limit_info:
-                detected = limit_info.get('cpu_limit_detected', False)
-                cores = limit_info.get('cpu_limit_cores', 0)
-                if cores > 0:  # 只在设置了 CPU limit 时输出
-                    lines.append(f"CPU Limit: {cores}c (detected={detected})")
-        
-        # show-cpu-usage 数据
-        elif 'cpu_utilization' in data:
-            target = data.get('target', 'System')
-            util = data.get('cpu_utilization', {})
-            
-            lines.append(f"Target: {target}")
-            lines.append(f"  Total: {util.get('total_pct', 'N/A')}")
-            lines.append(f"  User:  {util.get('user_pct', 'N/A')}")
-            lines.append(f"  Kernel: {util.get('kernel_pct', 'N/A')}")
-        
-        return lines

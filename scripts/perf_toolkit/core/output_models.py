@@ -17,6 +17,48 @@ from datetime import datetime
 
 
 # =============================================================================
+# Template Configuration
+# =============================================================================
+
+@dataclass
+class TemplateConfig:
+    """文本输出模板配置
+    
+    支持的模板类型:
+    - simple_list: 带序号的简单列表, #index field1 field2 ...
+        示例: #1 func_name 15.2% 45.6%
+    - key_value: 无序号键值对, key value1 value2 ...
+        示例: EVENT_IRQ_OFF 7.5%
+    - table: 多字段表格
+        示例: SPIKE cpu=0 time=... change=... severity=high
+    - nested: 嵌套结构,有父项和子项
+        示例: >>> target (15%)
+                  #1 [5%] caller1 <- caller2
+    - custom: 完全自定义格式
+        示例: Verdict: HEALTHY
+    """
+    template_type: str  # "simple_list" | "key_value" | "table" | "nested" | "custom"
+    
+    # 列表数据字段名(用于 simple_list/key_value/table)
+    list_field: Optional[str] = None  # e.g., "hotspots", "processes"
+    
+    # 表头描述(可选)
+    header: Optional[str] = None  # e.g., "# index,funcname,self,inclusive"
+    
+    # 显示的字段列表(按顺序)
+    display_fields: List[str] = field(default_factory=list)
+    
+    # 序号格式(simple_list 专用)
+    index_format: Optional[str] = None  # e.g., "#{index}"
+    
+    # 自定义渲染器标识(custom 类型专用)
+    custom_renderer: Optional[str] = None
+    
+    # 空列表提示信息
+    empty_message: Optional[str] = None
+
+
+# =============================================================================
 # Risk Data Structures
 # =============================================================================
 
@@ -358,99 +400,152 @@ class BaseOutput:
     _risk: RiskInfo
     summary: Optional[BaseSummary] = None
     time_range: Optional[TimeRange] = None
+    _template_config: Optional[TemplateConfig] = None  # 内部使用,由具体子类设置
 
 
 @dataclass  
 class ProcessTopOutput(BaseOutput):
-    """get-process-top 输出结构"""
+    """get-process-top 输出结构 - simple_list 模板"""
     processes: List[ProcessItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, processes: List[ProcessItem],
                  summary: ProcessSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.processes = processes
+        self._template_config = TemplateConfig(
+            template_type="simple_list",
+            list_field="processes",
+            header="# comm(pid) (usr+sys)/sys",
+            display_fields=["comm", "pid", "total_cpu_util", "kernel_cpu_util"],
+            index_format=None,  # 使用 comm(pid) 作为标识
+            empty_message="No processes found"
+        )
 
 
 @dataclass
 class CommTopOutput(BaseOutput):
-    """get-comm-top 输出结构"""
+    """get-comm-top 输出结构 - key_value 模板"""
     comm_groups: List[CommGroupItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, comm_groups: List[CommGroupItem],
                  summary: CommGroupSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.comm_groups = comm_groups
+        self._template_config = TemplateConfig(
+            template_type="key_value",
+            list_field="comm_groups",
+            header="# comm,pids,cpu_util,event",
+            display_fields=["comm", "pids", "cpu", "event"],
+            empty_message="No process groups found"
+        )
 
 
 @dataclass
 class ClusterCommOutput(BaseOutput):
-    """cluster-comm 输出结构"""
+    """cluster-comm 输出结构 - key_value 模板"""
     comm_groups: List[CommGroupItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, comm_groups: List[CommGroupItem],
                  summary: Optional[CommGroupSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.comm_groups = comm_groups
+        self._template_config = TemplateConfig(
+            template_type="key_value",
+            list_field="comm_groups",
+            header="# comm,pids,cpu_util,event",
+            display_fields=["comm", "pids", "cpu", "event"],
+            empty_message="No process groups found"
+        )
 
 
 @dataclass
 class HotspotsOutput(BaseOutput):
-    """get-hotspots 输出结构"""
+    """get-hotspots 输出结构 - simple_list 模板"""
     hotspots: List[HotspotItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, hotspots: List[HotspotItem],
                  summary: HotspotSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.hotspots = hotspots
+        self._template_config = TemplateConfig(
+            template_type="simple_list",
+            list_field="hotspots",
+            header="# index,funcname,self,inclusive",
+            display_fields=["symbol", "self", "inclusive"],
+            index_format="#{index}",
+            empty_message="No hotspots found"
+        )
 
 
 @dataclass
 class ClustersOutput(BaseOutput):
-    """cluster-symbols 输出结构"""
+    """cluster-symbols 输出结构 - key_value 模板"""
     symbol_clusters: List[ClusterItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, symbol_clusters: List[ClusterItem],
                  summary: ClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.symbol_clusters = symbol_clusters
+        self._template_config = TemplateConfig(
+            template_type="key_value",
+            list_field="symbol_clusters",
+            header="# event_type | pct_of_total (cluster_core_sec / total_core_sec)",
+            display_fields=["cluster", "pct_of_total"],
+            empty_message="No symbol clusters found"
+        )
 
 
 @dataclass
 class BottleneckOutput(BaseOutput):
-    """check-cpu-bottleneck 输出结构"""
+    """check-cpu-bottleneck 输出结构 - custom 模板"""
     data: BottleneckData = field(default_factory=dict)
     
     def __init__(self, _risk: RiskInfo, data: BottleneckData,
                  summary: BottleneckSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.data = data
+        self._template_config = TemplateConfig(
+            template_type="custom",
+            custom_renderer="bottleneck"
+        )
 
 
 @dataclass
 class CPUUsageOutput(BaseOutput):
-    """show-cpu-usage 输出结构"""
+    """show-cpu-usage 输出结构 - custom 模板"""
     data: CPUUsageData = field(default_factory=dict)
     
     def __init__(self, _risk: RiskInfo, data: CPUUsageData,
                  summary: CPUUsageSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.data = data
+        self._template_config = TemplateConfig(
+            template_type="custom",
+            custom_renderer="cpu_usage"
+        )
 
 
 @dataclass
 class AnomaliesOutput(BaseOutput):
-    """detect-anomalies 输出结构"""
+    """detect-anomalies 输出结构 - table 模板"""
     anomalies: List[AnomalyItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, anomalies: List[AnomalyItem],
                  summary: AnomalySummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.anomalies = anomalies
+        self._template_config = TemplateConfig(
+            template_type="table",
+            list_field="anomalies",
+            header="# type,cpu_id,time_range,change,severity",
+            display_fields=["type", "cpu_id", "time_range", "utilization_change", "severity"],
+            empty_message="No anomalies detected"
+        )
 
 
 @dataclass
 class WindowsOutput(BaseOutput):
-    """detect-anomalies --export-mode 输出结构"""
+    """detect-anomalies --export-mode 输出结构 - table 模板"""
     windows: List[WindowItem] = field(default_factory=list)
     statistics: Dict[str, str] = field(default_factory=dict)
     
@@ -460,61 +555,105 @@ class WindowsOutput(BaseOutput):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.windows = windows
         self.statistics = statistics or {}
+        self._template_config = TemplateConfig(
+            template_type="table",
+            list_field="windows",
+            header="# cpu_id,start_time,end_time,util,core_sec",
+            display_fields=["cpu_id", "start_time", "end_time", "utilization", "core_sec"],
+            empty_message="No windows data"
+        )
 
 
 @dataclass
 class AttributionsOutput(BaseOutput):
-    """find-callers 输出结构"""
+    """find-callers 输出结构 - simple_list 模板(带特殊 stack 字段)"""
     attributions: List[AttributionItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, attributions: List[AttributionItem],
                  summary: AttributionSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.attributions = attributions
+        self._template_config = TemplateConfig(
+            template_type="simple_list",
+            list_field="attributions",
+            header="# index,ratio,callstack",
+            display_fields=["ratio_of_target_pct", "caller_stack"],
+            index_format="#{index}",
+            empty_message="No attributions found"
+        )
 
 
 @dataclass
 class TracesOutput(BaseOutput):
-    """find-callers --auto 输出结构"""
+    """find-callers --auto 输出结构 - nested 模板"""
     traces: List[TraceItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, traces: List[TraceItem],
                  summary: TracesSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.traces = traces
+        self._template_config = TemplateConfig(
+            template_type="nested",
+            list_field="traces",
+            header="# target (cpu_util) <- callstack",
+            empty_message="No traces found"
+        )
 
 
 @dataclass
 class PathClustersOutput(BaseOutput):
-    """cluster-paths 输出结构"""
+    """cluster-paths 输出结构 - simple_list 模板"""
     path_clusters: List[PathClusterItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, path_clusters: List[PathClusterItem],
                  summary: PathClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.path_clusters = path_clusters
+        self._template_config = TemplateConfig(
+            template_type="simple_list",
+            list_field="path_clusters",
+            header="# index,percent,cpu_util,path",
+            display_fields=["ratio_pct", "cpu_util", "path_signature"],
+            index_format="#{index}",
+            empty_message="No path clusters found"
+        )
 
 
 @dataclass
 class ProcessVarietyOutput(BaseOutput):
-    """count-process-variety 输出结构"""
+    """count-process-variety 输出结构 - key_value 模板"""
     process_variety: List[ProcessVarietyItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, process_variety: List[ProcessVarietyItem],
                  summary: ProcessVarietySummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.process_variety = process_variety
+        self._template_config = TemplateConfig(
+            template_type="key_value",
+            list_field="process_variety",
+            header="# PROCESS_STORM: comm,pids,cpu_util",
+            display_fields=["comm", "unique_pids", "cpu_util"],
+            empty_message="No process variety data"
+        )
 
 
 @dataclass
 class CoreDistributionOutput(BaseOutput):
-    """analyze-core-distribution 输出结构"""
+    """analyze-core-distribution 输出结构 - simple_list 模板"""
     cores: List[CoreItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, cores: List[CoreItem],
                  summary: Optional[CoreDistributionSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.cores = cores
+        self._template_config = TemplateConfig(
+            template_type="simple_list",
+            list_field="cores",
+            header="# SATURATED_CORES: index,cpu_id,(usr+sys)/sys",
+            display_fields=["cpu_id", "total_cpu_util", "kernel_cpu_util"],
+            index_format="#{index}",
+            empty_message="No saturated cores found"
+        )
 
 
 # =============================================================================
