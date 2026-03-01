@@ -59,8 +59,9 @@ def cmd_get_hotspots(engine, args):
                 incl_core_sec[sym] += core_per_sec
                 seen.add(sym)
     
-    total_self_core_sec = sum(self_core_sec.values())
-    total_incl_core_sec = sum(incl_core_sec.values())
+    # Use the same total for both self and inclusive percentages
+    # total_self_core_sec is the total sample time (sum of all stack tops)
+    total_core_sec = sum(self_core_sec.values())
     
     # Build results
     results = []
@@ -68,8 +69,9 @@ def cmd_get_hotspots(engine, args):
     top_kernel_ratio = 0
     
     for sym, core_sec in incl_core_sec.items():
-        self_pct = (self_core_sec[sym] / total_self_core_sec * 100) if total_self_core_sec > 0 else 0
-        incl_pct = (core_sec / total_incl_core_sec * 100) if total_incl_core_sec > 0 else 0
+        # Use the same total for both percentages to ensure inclusive >= self
+        self_pct = (self_core_sec[sym] / total_core_sec * 100) if total_core_sec > 0 else 0
+        incl_pct = (core_sec / total_core_sec * 100) if total_core_sec > 0 else 0
         
         # Track kernel hotspots for risk
         if sym.endswith('_[k]') and incl_pct > top_kernel_ratio:
