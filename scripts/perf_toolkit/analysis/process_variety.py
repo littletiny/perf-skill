@@ -80,16 +80,17 @@ def cmd_count_process_variety(engine, args):
         
         behavior = "normal"
         
-        # Process storm detection
-        if samples_per_pid <= STORM_RATIO_THRESHOLD and short_lived_ratio > 0.5:
-            behavior = "process_storm"
-            storm_comms.append(comm)
-        elif cpu_per_pid <= STORM_CPU_THRESHOLD and short_lived_ratio > 0.5:
-            behavior = "process_storm"
-            storm_comms.append(comm)
+        # Process storm detection (need at least 10 pids to be considered a storm)
+        if pid_count >= 10:
+            if samples_per_pid <= STORM_RATIO_THRESHOLD and short_lived_ratio > 0.5:
+                behavior = "process_storm"
+                storm_comms.append(comm)
+            elif cpu_per_pid <= STORM_CPU_THRESHOLD and short_lived_ratio > 0.5:
+                behavior = "process_storm"
+                storm_comms.append(comm)
         
-        # Skip normal behavior
-        if behavior == "normal":
+        # Skip normal behavior and small pids (< 10)
+        if behavior == "normal" or pid_count < 10:
             continue
         
         # Calculate cpu_util percentage
