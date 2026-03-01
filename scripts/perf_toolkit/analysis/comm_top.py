@@ -22,9 +22,6 @@ def cmd_get_comm_top(engine, args):
     
     builder = OutputBuilder(engine, args)
     
-    # Trace v2.0 - 自动记录命令开始
-    builder.begin_command("get-comm-top")
-    
     # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),

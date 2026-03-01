@@ -96,9 +96,6 @@ def cmd_apply_cluster(engine, args):
     
     builder = OutputBuilder(engine, args)
     
-    # Trace v2.0 - 自动记录命令开始
-    builder.begin_command("cluster-symbols")
-    
     # Fetch samples
     samples = engine.get_filtered_samples(
         start_time=getattr(args, 'start_time', None),

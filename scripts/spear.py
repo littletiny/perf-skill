@@ -55,6 +55,34 @@ from perf_toolkit.core.trace import (
 )
 
 
+def run_analysis_command(cmd_func, cmd_name: str, engine, args):
+    """
+    统一分析命令入口 - 自动处理 Trace 生命周期和前置检查
+    
+    Args:
+        cmd_func: 分析命令函数 (e.g., cmd_get_hotspots)
+        cmd_name: 命令名称
+        engine: PerfExpertEngine 实例
+        args: 命令行参数
+    """
+    from perf_toolkit.core.output_builder import OutputBuilder
+    
+    builder = OutputBuilder(engine, args)
+    
+    # Pre-hook: Issue Overflow Warning
+    builder.print_issue_overflow_warning()
+    
+    # Pre-hook: Begin trace
+    builder.begin_command(cmd_name)
+    
+    try:
+        # Execute actual analysis command
+        cmd_func(engine, args)
+    finally:
+        # Post-hook: End trace (always execute even on exception)
+        builder.end_command()
+
+
 class HelpOnErrorParser(argparse.ArgumentParser):
     """Custom parser that prints full help on error"""
     def error(self, message):
@@ -349,10 +377,14 @@ Use '<command> --help' for detailed help on each subcommand."""
     # doc timeline (v2.0)
     doc_timeline = doc_subparsers.add_parser('timeline', help="Show diagnosis timeline")
     doc_timeline.add_argument("--format", choices=['text', 'json'], default='text', help="Output format")
+    doc_timeline.add_argument('--risk-config', metavar='PATH', help='Risk display config file (JSON)')
+    doc_timeline.add_argument('--risk-style', choices=['default', 'ci', 'compact'], help='Risk style preset')
     
     # doc issues (v2.0)
     doc_issues = doc_subparsers.add_parser('issues', help="List all issues")
     doc_issues.add_argument("--status", choices=['open', 'resolved', 'all'], default='all', help="Filter by status")
+    doc_issues.add_argument('--risk-config', metavar='PATH', help='Risk display config file (JSON)')
+    doc_issues.add_argument('--risk-style', choices=['default', 'ci', 'compact'], help='Risk style preset')
     
     # doc complete
     doc_complete = doc_subparsers.add_parser('complete', help="Mark an issue as completed")
@@ -363,6 +395,8 @@ Use '<command> --help' for detailed help on each subcommand."""
     doc_finalize = doc_subparsers.add_parser('finalize', help="Final audit before generating report")
     doc_finalize.add_argument("--accept-risk", help="Reason for accepting remaining risks")
     doc_finalize.add_argument("--format", choices=['text', 'json'], default='text', help="Output format")
+    doc_finalize.add_argument('--risk-config', metavar='PATH', help='Risk display config file (JSON)')
+    doc_finalize.add_argument('--risk-style', choices=['default', 'ci', 'compact'], help='Risk style preset')
     
     # doc export
     doc_export = doc_subparsers.add_parser('export', help="Export document to other formats")
@@ -419,13 +453,9 @@ Use '<command> --help' for detailed help on each subcommand."""
         "get-comm-top": cmd_get_comm_top
     }
 
-    # Issue Overflow Warning: 检查未处理的 issues
+    # Execute analysis command with unified wrapper
     if args.command in commands:
-        from perf_toolkit.core.output_builder import OutputBuilder
-        builder = OutputBuilder(engine, args)
-        builder.print_issue_overflow_warning()
-
-    commands[args.command](engine, args)
+        run_analysis_command(commands[args.command], args.command, engine, args)
 
 
 if __name__ == "__main__":
