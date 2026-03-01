@@ -403,7 +403,8 @@ class TextOutputAdapter:
             if limit_info:
                 detected = limit_info.get('cpu_limit_detected', False)
                 cores = limit_info.get('cpu_limit_cores', 0)
-                lines.append(f"CPU Limit: {cores}c (detected={detected})")
+                if cores > 0:  # 只在设置了 CPU limit 时输出
+                    lines.append(f"CPU Limit: {cores}c (detected={detected})")
         
         # show-cpu-usage 数据
         elif 'cpu_utilization' in data:

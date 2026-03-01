@@ -24,8 +24,8 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-hotspots
 #1 established_get_first 12.80% 20.73%
 #2 _raw_spin_lock_bh 7.32% 7.32%
 #3 runtime.scanobject 5.49% 10.06%
-#4 runtime.stealWork 3.05% 4.27%
-#5 runtime.gcDrain 3.05% 13.72%
+#4 runtime.gcDrain 3.05% 13.72%
+#5 runtime.stealWork 3.05% 4.27%
 # ... 678 more items (use --top-n to show more)
 
 [✓ PASS] get-hotspots
@@ -162,13 +162,13 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear find-callers
   #1 [2.75%] runtime.gcDrain <- runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0 <- runtime.gcBgMarkWorker
   #2 [2.14%] runtime.gcDrain <- runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0
   #3 [0.61%] runtime.gcDrainN <- runtime.gcAssistAlloc1 <- runtime.gcAssistAlloc.func1 <- runtime.systemstack.abi0 <- runtime.gcAssistAlloc
->>> runtime.gcDrain (3.05%)
-  #1 [2.75%] runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0
-  #2 [0.30%] runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0 <- runtime.gcBgMarkWorker
 >>> runtime.stealWork (3.05%)
   #1 [1.83%] runtime.findRunnable <- runtime.schedule <- runtime.park_m <- runtime.mcall <- runtime.chanrecv
   #2 [0.92%] runtime.findRunnable <- runtime.schedule <- runtime.park_m <- runtime.mcall <- runtime.selectgo
   #3 [0.30%] runtime.findRunnable <- runtime.schedule <- runtime.park_m <- runtime.mcall <- time.Sleep
+>>> runtime.gcDrain (3.05%)
+  #1 [2.75%] runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0
+  #2 [0.30%] runtime.gcBgMarkWorker.func2 <- runtime.systemstack.abi0 <- runtime.gcBgMarkWorker
 
 [✓ PASS] find-callers (auto)
 
