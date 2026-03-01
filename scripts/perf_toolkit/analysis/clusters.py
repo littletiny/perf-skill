@@ -83,21 +83,17 @@ def cmd_apply_cluster(engine, args):
         for g in matched_groups:
             cluster_core_sec[g] += weight
     
-    # 使用 engine 统一接口获取 duration 并计算 CPU 利用率
-    duration = engine.get_duration(samples)
-    
     # Build results
     results = []
     lock_contention_ratio = 0
     
     for group, core_sec in cluster_core_sec.items():
         ratio = (core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
-        cpu_util = (core_sec / duration * 100) if duration > 0 else 0
         if group == "EVENT_LOCK_CONTENTION":
             lock_contention_ratio = ratio
-        results.append(ClusterItem.from_stats(group, ratio, cpu_util))
+        results.append(ClusterItem.from_stats(group, ratio))
     
-    results.sort(key=lambda x: float(x.ratio_pct.rstrip('%')), reverse=True)
+    results.sort(key=lambda x: float(x.pct_of_total.rstrip('%')), reverse=True)
     top_n = getattr(args, 'top_n', 10)
     results = results[:top_n]
     

@@ -235,18 +235,20 @@ class HotspotItem:
 
 @dataclass
 class ClusterItem:
-    """聚类数据项 - 用于 cluster-symbols"""
+    """聚类数据项 - 用于 cluster-symbols
+    
+    pct_of_total: 该聚类占总样本时间的百分比 (core_sec_cluster / core_sec_total * 100)
+                  表示每消耗 100 秒 CPU 时间，有多少秒花在该类事件上
+    """
     cluster: str
-    ratio_pct: str  # "79.84%"
-    cpu_util: str   # "45.50%" (core_sec converted to cpu utilization)
+    pct_of_total: str  # "7.93%" - 占总样本 core/s 的比例
     
     @classmethod
-    def from_stats(cls, cluster: str, ratio: float, cpu_util: float) -> 'ClusterItem':
+    def from_stats(cls, cluster: str, ratio: float) -> 'ClusterItem':
         """从统计数据创建 ClusterItem"""
         return cls(
             cluster=cluster,
-            ratio_pct=f"{ratio:.2f}%",
-            cpu_util=f"{cpu_util:.2f}%"
+            pct_of_total=f"{ratio:.2f}%"
         )
 
 

@@ -246,13 +246,13 @@ class TextOutputAdapter:
     
     def _format_clusters(self, items: List[Dict]):
         """格式化聚类结果 (cluster-symbols)"""
-        format_header = "# type,percent,cpu_util"
+        # pct_of_total: 该聚类占总样本时间的百分比 (core_sec_cluster / core_sec_total * 100)
+        format_header = "# event_type | pct_of_total (cluster_core_sec / total_core_sec)"
         lines = []
         for item in items:
             cluster = item.get('cluster', 'N/A')
-            ratio = item.get('ratio_pct', '0%')
-            cpu_util = item.get('cpu_util', '0.00%')
-            lines.append(f"{cluster} {ratio} {cpu_util}")
+            ratio = item.get('pct_of_total', '0%')
+            lines.append(f"{cluster} {ratio}")
         return (format_header, lines)
     
     def _format_processes(self, items: List[Dict]):
