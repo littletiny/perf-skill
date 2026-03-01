@@ -373,12 +373,6 @@ class PerfExpertEngine:
         # Set the detected flag after parsing all samples
         self._has_core_per_sec = detected_core_per_sec
     
-    def get_duration(self):
-        """Get total duration of samples"""
-        if not self.samples:
-            return 0
-        return self.samples[-1]['ts'] - self.samples[0]['ts']
-    
     def get_time_range(self):
         """Get the time range of all samples"""
         if not self.samples:
