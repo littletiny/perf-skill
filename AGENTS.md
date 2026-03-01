@@ -121,22 +121,27 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 
 
 ### 测试相关
-- 测试数据：`tests/perfdata/new_format/case_test.data`
+
+⚠️ **重要**: 添加新测试必须符合 `tests/` 目录结构，详见 `tests/README.md`
+
+- 功能测试 → `tests/test_<feature>.py`
+- 数据格式测试 → `tests/perfdata/`
+- CLI 测试 → `tests/spear_wrap/`
+- 场景测试 → `tests/scenario/<name>/`
+
+**测试数据**: `tests/perfdata/new_format/case_test.data`
 
 **回归测试**：
 ```bash
-python3 tests/perfdata/test_perfdata.py          # 测试所有格式
-python3 tests/perfdata/test_perfdata.py -d new_format   # 特定格式
-```
+# 数据格式测试
+python3 tests/perfdata/test_perfdata.py
+python3 tests/perfdata/test_perfdata.py -d new_format
 
-**CLI 测试**：
-```bash
+# CLI 测试
 python3 tests/spear_wrap/test_spear_wrap.py
-```
 
-**Issue Overflow Warning 测试**：
-```bash
-python3 tests/test_issue_overflow_warning.py     # 测试 Issue Overflow Warning 和 Risk Auto-Recording
+# Issue Overflow Warning 测试
+python3 tests/test_issue_overflow_warning.py
 ```
 
 ### 文档引用准则
