@@ -76,19 +76,12 @@ def cmd_analyze_core_distribution(engine, args):
         total_util = (stats['total_core_sec'] / duration * 100) if duration > 0 else 0
         kernel_util = (stats['kernel_core_sec'] / duration * 100) if duration > 0 else 0
         
-        state = "normal"
+        # Only show saturated cores (total_util > 90%)
         if total_util > 90:
-            state = "saturated"
-        elif total_util < 5:
-            state = "idle"
-        
-        # Filter: show if usr+sys >= 30% OR sys > 50%
-        if total_util >= 30 or kernel_util > 50:
             core_list.append(CoreItem(
                 cpu_id=cpu_id,
                 total_cpu_util=f"{total_util:.2f}%",
-                kernel_cpu_util=f"{kernel_util:.2f}%",
-                state=state
+                kernel_cpu_util=f"{kernel_util:.2f}%"
             ))
     
     # Identify imbalance
@@ -108,7 +101,8 @@ def cmd_analyze_core_distribution(engine, args):
         else:
             imbalance_level = "LOW"
         
-        saturated_cores = [c for c in core_list if c.state == "saturated"]
+        # All cores in core_list are saturated (already filtered above)
+        saturated_cores = core_list
         
         # Determine target comm for hint
         user_comm = getattr(args, 'comm', None)

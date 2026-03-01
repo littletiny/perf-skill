@@ -317,11 +317,10 @@ class ProcessVarietyItem:
 
 @dataclass
 class CoreItem:
-    """核心分布数据项 - 用于 analyze-core-distribution"""
+    """核心分布数据项 - 用于 analyze-core-distribution (仅 saturated 核心)"""
     cpu_id: int
-    total_cpu_util: str  # "45.50%" (usr+sys)
+    total_cpu_util: str  # "95.50%" (usr+sys)
     kernel_cpu_util: str  # "12.30%" (sys)
-    state: str  # "normal", "saturated", "idle"
 
 
 # =============================================================================

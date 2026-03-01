@@ -67,7 +67,8 @@ class TextOutputAdapter:
             lines.extend(risk_lines)
         
         # 添加列表数据和format header（如果需要）
-        if list_data:
+        if list_data is not None:
+            # list_data could be empty list, still need to show empty message
             format_header, formatted_lines = self._format_list(list_data, list_name)
             if format_header:
                 lines.append(format_header)
@@ -157,7 +158,7 @@ class TextOutputAdapter:
                 'clusters': 'No clusters found',
                 'processes': 'No processes found',
                 'comm_groups': 'No process groups found',
-                'cores': 'No core data available',
+                'cores': 'No saturated cores found',
                 'attributions': 'No attributions found',
                 'traces': 'No traces found',
                 'path_clusters': 'No path clusters found',
@@ -243,15 +244,14 @@ class TextOutputAdapter:
         return (format_header, lines)
     
     def _format_cores(self, items: List[Dict]):
-        """格式化CPU核心列表"""
-        format_header = "# index,cpu_id,(usr+sys)/sys,state"
+        """格式化CPU核心列表 (仅展示 saturated 核心)"""
+        format_header = "# SATURATED_CORES: index,cpu_id,(usr+sys)/sys"
         lines = []
         for i, item in enumerate(items, 1):
             cpu_id = item.get('cpu_id', 'N/A')
             total = item.get('total_cpu_util', '0%')
             kernel = item.get('kernel_cpu_util', '0%')
-            state = item.get('state', 'unknown')
-            lines.append(f"#{i} CPU{cpu_id} {total}/{kernel} {state}")
+            lines.append(f"#{i} CPU{cpu_id} {total}/{kernel}")
         return (format_header, lines)
     
     def _format_attributions(self, items: List[Dict]):
