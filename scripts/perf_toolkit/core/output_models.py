@@ -256,17 +256,24 @@ class ClusterItem:
 class BottleneckData:
     """瓶颈检测数据
     
-    verdict 取值:
+    verdict: 主要结论 (按优先级: CPU_LIMIT_SATURATION > HIGH_SYS_CORES > SINGLE_CORE_SATURATION > HIGH_CORES > HEALTHY)
+    events: 所有检测到的 events 列表
+    flags: event flags 列表 (HIGH_CORES, SINGLE_CORE_SATURATION, HIGH_SYS_CORES, CPU_LIMIT_SATURATION)
+    
+    Event 定义:
     - HEALTHY: 无瓶颈
     - CPU_LIMIT_SATURATION: CPU 限制接近饱和 (cgroup 限制)
     - SINGLE_CORE_SATURATION: 单核满载 (total > threshold)
     - HIGH_SYS_CORES: 单核 sys 利用率过高 (>threshold+10%)
+    - HIGH_CORES: 多核高负载 (>=3 个核心 total > threshold)
     
     high_cpu_cores: 总利用率 >threshold% 的核心列表 [cpu_id, ...]
     high_sys_cores: sys 利用率 >(threshold+10)% 的核心列表 [cpu_id, ...]
     threshold: 检测阈值 (默认 80)
     """
-    verdict: str  # "HEALTHY", "CPU_LIMIT_SATURATION", "SINGLE_CORE_SATURATION", "HIGH_SYS_CORES"
+    verdict: str  # 主要结论
+    events: List[str]  # 所有检测到的 events
+    flags: List[str]  # event flags for quick scan
     high_cpu_cores: List[int]  # 总利用率 >threshold% 的核心
     high_sys_cores: List[int]  # sys 利用率 >(threshold+10)% 的核心
     threshold: int  # 检测阈值 (默认 80)
