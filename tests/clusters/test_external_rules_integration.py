@@ -80,11 +80,11 @@ def test_default_rules_loaded_from_config():
     """测试: 默认规则从 config/default-rules.json 加载"""
     default_path = clusters.get_default_rules_path()
     assert Path(default_path).exists(), f"默认规则文件不存在: {default_path}"
-    
+
     rules = clusters.load_default_rules()
     assert len(rules) >= 5, f"规则数量不足: {len(rules)}"
-    
-    expected = ["EVENT_IRQ_OFF", "EVENT_SCHEDULER", "EVENT_MEM_RECLAIM", 
+
+    expected = ["EVENT_IRQ_OFF", "EVENT_SCHEDULER", "EVENT_MEM_RECLAIM",
                 "EVENT_LOCK_CONTENTION", "EVENT_SYNC_PRIMITIVE"]
     for rule in expected:
         assert rule in rules, f"缺少规则: {rule}"
@@ -98,10 +98,10 @@ def test_external_rules_override_builtin():
             "EVENT_CUSTOM": "custom_pattern"        # 新增
         }, f)
         temp_path = f.name
-    
+
     try:
         clusters._rules_cache.clear()
-        
+
         args = argparse.Namespace(
             include_experts=True,
             no_include_experts=False,
@@ -109,7 +109,7 @@ def test_external_rules_override_builtin():
             custom_rules=None
         )
         rules = clusters.prepare_rules(args)
-        
+
         assert rules["EVENT_IRQ_OFF"] == "overridden_pattern", "外部规则应覆盖内置"
         assert rules["EVENT_CUSTOM"] == "custom_pattern", "应包含外部新增规则"
         assert "EVENT_SCHEDULER" in rules, "应保留其他内置规则"
@@ -126,10 +126,10 @@ def test_cli_rules_highest_priority():
             "EVENT_FILE": "file_only"
         }, f)
         temp_path = f.name
-    
+
     try:
         clusters._rules_cache.clear()
-        
+
         args = argparse.Namespace(
             include_experts=True,
             no_include_experts=False,
@@ -137,7 +137,7 @@ def test_cli_rules_highest_priority():
             custom_rules='{"EVENT_IRQ_OFF": "cli_pattern", "EVENT_CLI": "cli_only"}'
         )
         rules = clusters.prepare_rules(args)
-        
+
         assert rules["EVENT_IRQ_OFF"] == "cli_pattern", "CLI规则应覆盖文件规则"
         assert rules["EVENT_FILE"] == "file_only", "应保留文件规则"
         assert rules["EVENT_CLI"] == "cli_only", "应包含CLI规则"
@@ -151,19 +151,19 @@ def test_rules_caching_mechanism():
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump({"EVENT_CACHE": "cache_test"}, f)
         temp_path = f.name
-    
+
     try:
         clusters._rules_cache.clear()
-        
+
         # 第一次加载
         rules1 = clusters.load_rules_from_file(temp_path)
         cache_key = os.path.abspath(temp_path)
         assert cache_key in clusters._rules_cache, "应存入缓存"
-        
+
         # 第二次加载（应使用缓存）
         rules2 = clusters.load_rules_from_file(temp_path)
         assert rules1 is rules2, "应返回缓存的同一对象"
-        
+
         # 使用绝对路径再次加载
         abs_path = os.path.abspath(temp_path)
         rules3 = clusters.load_rules_from_file(abs_path)
@@ -182,7 +182,7 @@ def test_no_include_experts():
         custom_rules='{"EVENT_ONLY": "only_custom"}'
     )
     rules = clusters.prepare_rules(args)
-    
+
     assert "EVENT_IRQ_OFF" not in rules, "不应包含内置规则"
     assert rules["EVENT_ONLY"] == "only_custom", "应只包含CLI规则"
 
@@ -192,10 +192,10 @@ def test_empty_external_rules():
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump({"_comment": "empty"}, f)
         temp_path = f.name
-    
+
     try:
         clusters._rules_cache.clear()
-        
+
         args = argparse.Namespace(
             include_experts=False,
             no_include_experts=True,
@@ -219,11 +219,11 @@ def test_metadata_keys_filtered():
             "_private": "should also be filtered"
         }, f)
         temp_path = f.name
-    
+
     try:
         clusters._rules_cache.clear()
         rules = clusters.load_rules_from_file(temp_path)
-        
+
         assert "_comment" not in rules, "_comment 应被过滤"
         assert "_version" not in rules, "_version 应被过滤"
         assert "_private" not in rules, "_private 应被过滤"
@@ -240,11 +240,11 @@ def test_list_format_in_rules():
             "EVENT_LIST": ["pattern1", "pattern2", "pattern3"]
         }, f)
         temp_path = f.name
-    
+
     try:
         clusters._rules_cache.clear()
         rules = clusters.load_rules_from_file(temp_path)
-        
+
         assert isinstance(rules["EVENT_LIST"], list), "列表格式应保留"
         assert rules["EVENT_LIST"] == ["pattern1", "pattern2", "pattern3"]
     finally:
@@ -255,7 +255,7 @@ def test_list_format_in_rules():
 def test_file_not_found_error():
     """测试: 文件不存在时正确抛出异常"""
     clusters._rules_cache.clear()
-    
+
     try:
         clusters.load_rules_from_file("/nonexistent/path/rules.json")
         assert False, "应抛出 FileNotFoundError"
@@ -269,13 +269,13 @@ def test_integration_with_real_data():
     if not data_file.exists():
         print(f"  {Colors.YELLOW}⚠ 跳过: 测试数据不存在{Colors.RESET}")
         return
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump({
             "EVENT_INTEGRATION": "integration_test_pattern"
         }, f)
         rules_file = f.name
-    
+
     try:
         # 使用 spear.py 直接测试
         cmd = [
@@ -285,14 +285,14 @@ def test_integration_with_real_data():
             "--rules-file", rules_file,
             "--top-n", "5"
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        
+
         # 命令应成功执行
         assert result.returncode == 0, f"命令失败: {result.stderr}"
         # 应有输出
         assert len(result.stdout) > 0, "命令无输出"
-        
+
     finally:
         os.unlink(rules_file)
 
@@ -303,7 +303,7 @@ def test_unified_entry_trace_recording():
     if not data_file.exists():
         print(f"  {Colors.YELLOW}⚠ 跳过: 测试数据不存在{Colors.RESET}")
         return
-    
+
     # 创建临时 trace 文件
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump({
@@ -316,40 +316,40 @@ def test_unified_entry_trace_recording():
             "profiles_used": [str(data_file)]
         }, f)
         trace_file = f.name
-    
+
     try:
         # 设置工作目录并运行命令
         orig_dir = os.getcwd()
         work_dir = tempfile.mkdtemp()
         os.chdir(work_dir)
-        
+
         # 复制 trace 文件到工作目录
         local_trace = Path(work_dir) / ".spear.json"
         local_trace.write_text(Path(trace_file).read_text())
-        
+
         cmd = [
             sys.executable, str(REPO_ROOT / "scripts" / "spear.py"),
             "cluster-symbols",
             "--data", str(data_file),
             "--top-n", "3"
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        
+
         # 检查 trace 文件是否更新了
         if local_trace.exists():
             trace_data = json.loads(local_trace.read_text())
             timeline = trace_data.get("timeline", [])
-            
+
             # 应至少有一条记录
             assert len(timeline) >= 1, "Trace 应记录命令执行"
-            
+
             # 最后一条记录应是 cluster-symbols
             last_entry = timeline[-1]
             assert "cluster-symbols" in last_entry.get("command", ""), "应记录 cluster-symbols"
-        
+
         os.chdir(orig_dir)
-        
+
     finally:
         import shutil
         os.unlink(trace_file)
@@ -363,7 +363,7 @@ def test_rules_file_with_wrap_script():
     if not data_file.exists():
         print(f"  {Colors.YELLOW}⚠ 跳过: 测试数据不存在{Colors.RESET}")
         return
-    
+
     # 使用测试中已知存在的 pattern（来自真实数据的 hotspot）
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump({
@@ -371,12 +371,12 @@ def test_rules_file_with_wrap_script():
             "EVENT_SPINLOCK": "_raw_spin_lock"  # 测试数据中存在的热点
         }, f)
         rules_file = f.name
-    
+
     try:
         orig_dir = os.getcwd()
         work_dir = tempfile.mkdtemp()
         os.chdir(work_dir)
-        
+
         # 初始化环境
         init_cmd = [
             sys.executable, str(REPO_ROOT / "scripts" / "spear_wrap.py"),
@@ -384,7 +384,7 @@ def test_rules_file_with_wrap_script():
         ]
         result = subprocess.run(init_cmd, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, f"init 失败: {result.stderr}"
-        
+
         # 使用外部规则文件
         cmd = [
             sys.executable, str(REPO_ROOT / "scripts" / "spear_wrap.py"),
@@ -393,15 +393,15 @@ def test_rules_file_with_wrap_script():
             "--no-include-experts",
             "--top-n", "3"
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         assert result.returncode == 0, f"命令失败: {result.stderr}"
         # 验证输出中包含自定义规则分类
         assert "EVENT_RUNTIME" in result.stdout or "EVENT_SPINLOCK" in result.stdout, \
             f"应显示自定义规则结果, 实际输出: {result.stdout[:200]}"
-        
+
         os.chdir(orig_dir)
-        
+
     finally:
         os.unlink(rules_file)
         if 'work_dir' in locals():
@@ -434,13 +434,13 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", help="详细输出")
     parser.add_argument("-f", "--fail-fast", action="store_true", help="失败时停止")
     args = parser.parse_args()
-    
+
     print(f"{Colors.BLUE}=== 外部规则文件集成测试套件 ==={Colors.RESET}")
     print(f"项目根目录: {REPO_ROOT}")
     print()
-    
+
     result = TestResult()
-    
+
     for name, test_func in TESTS:
         try:
             if args.verbose:
@@ -455,7 +455,7 @@ def main():
             result.add_fail(name, f"异常: {type(e).__name__}: {e}")
             if args.fail_fast:
                 break
-    
+
     success = result.summary()
     sys.exit(0 if success else 1)
 

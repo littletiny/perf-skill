@@ -321,43 +321,43 @@ Use '<command> --help' for detailed help on each subcommand."""
     # trace subcommands (v2.0: tracing diagnostic process)
     doc_parser = subparsers.add_parser('trace', help="Tracing diagnostic issues and timeline")
     doc_subparsers = doc_parser.add_subparsers(dest="doc_command")
-    
+
     # doc init
     doc_init = doc_subparsers.add_parser('init', help="Initialize a new diagnosis document")
     doc_init.add_argument("--data", required=True, help="Path to perf data file")
     doc_init.add_argument("--path", default=".spear.json", help="Document storage path (default: .spear.json)")
-    
+
     # doc add (自动生成 ID)
     doc_add = doc_subparsers.add_parser('add', help="Add a new issue to the document (auto-generate ID)")
     doc_add.add_argument("--desc", required=True, help="Issue description")
     doc_add.add_argument("--level", choices=['critical', 'warning', 'info'], default='warning', help="Risk level")
     doc_add.add_argument("--risk", default="", help="Risk of not handling this issue")
     doc_add.add_argument("--hint", default="", help="Recommended next action")
-    
+
     # doc timeline (v2.0)
     doc_timeline = doc_subparsers.add_parser('timeline', help="Show diagnosis timeline")
     doc_timeline.add_argument("--format", choices=['text', 'json'], default='text', help="Output format")
     doc_timeline.add_argument('--risk-config', metavar='PATH', help='Risk display config file (JSON)')
     doc_timeline.add_argument('--risk-style', choices=['default', 'ci', 'compact'], help='Risk style preset')
-    
+
     # doc issues (v2.0)
     doc_issues = doc_subparsers.add_parser('issues', help="List all issues")
     doc_issues.add_argument("--status", choices=['open', 'resolved', 'all'], default='all', help="Filter by status")
     doc_issues.add_argument('--risk-config', metavar='PATH', help='Risk display config file (JSON)')
     doc_issues.add_argument('--risk-style', choices=['default', 'ci', 'compact'], help='Risk style preset')
-    
+
     # doc complete
     doc_complete = doc_subparsers.add_parser('complete', help="Mark an issue as completed")
     doc_complete.add_argument("--id", required=True, help="Issue identifier")
     doc_complete.add_argument("--result", required=True, help="Analysis result and conclusion")
-    
+
     # doc finalize
     doc_finalize = doc_subparsers.add_parser('finalize', help="Final audit before generating report")
     doc_finalize.add_argument("--accept-risk", help="Reason for accepting remaining risks")
     doc_finalize.add_argument("--format", choices=['text', 'json'], default='text', help="Output format")
     doc_finalize.add_argument('--risk-config', metavar='PATH', help='Risk display config file (JSON)')
     doc_finalize.add_argument('--risk-style', choices=['default', 'ci', 'compact'], help='Risk style preset')
-    
+
     # doc export
     doc_export = doc_subparsers.add_parser('export', help="Export document to other formats")
     doc_export.add_argument("--format", choices=['markdown', 'json'], default='markdown', help="Export format")
@@ -373,7 +373,7 @@ Use '<command> --help' for detailed help on each subcommand."""
         if not args.doc_command:
             doc_parser.print_help()
             return
-        
+
         doc_commands = {
             "init": cmd_doc_init,
             "add": cmd_doc_add,

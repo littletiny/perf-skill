@@ -49,16 +49,16 @@ DEFAULT_CONFIG = {
 @dataclass
 class RiskDisplayConfig:
     """Risk 展示配置 - 控制 trace 命令的输出格式"""
-    
+
     colors: Dict[str, str] = field(default_factory=lambda: DEFAULT_CONFIG["colors"].copy())
     templates: Dict[str, str] = field(default_factory=lambda: DEFAULT_CONFIG["templates"].copy())
     show: Dict[str, bool] = field(default_factory=lambda: DEFAULT_CONFIG["show"].copy())
-    
+
     @classmethod
     def load(cls, explicit_path: Optional[str] = None) -> 'RiskDisplayConfig':
         """
         加载配置
-        
+
         优先级（从低到高）：
         1. 内置默认（硬编码）
         2. ~/.config/spear/risk.json
@@ -67,50 +67,50 @@ class RiskDisplayConfig:
         5. 显式指定路径
         """
         config = cls()
-        
+
         # 搜索路径（按优先级排序）
         search_paths = [
             Path.home() / '.config' / 'spear' / 'risk.json',
             Path('.spear/risk.json'),
         ]
-        
+
         # 按顺序合并（后覆盖前）
         for path in search_paths:
             if path.exists():
                 config._merge_from_file(path)
-        
+
         # 环境变量指定
         if env_path := os.getenv('SPEAR_RISK_CONFIG'):
             if Path(env_path).exists():
                 config._merge_from_file(Path(env_path))
-        
+
         # 显式指定（最高优先级）
         if explicit_path and Path(explicit_path).exists():
             config._merge_from_file(Path(explicit_path))
-        
+
         return config
-    
+
     def _merge_from_file(self, path: Path):
         """从 JSON 文件合并配置"""
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             if not isinstance(data, dict) or 'risk' not in data:
                 return
-            
+
             risk_data = data['risk']
-            
+
             if 'colors' in risk_data:
                 self.colors.update(risk_data['colors'])
             if 'templates' in risk_data:
                 self.templates.update(risk_data['templates'])
             if 'show' in risk_data:
                 self.show.update(risk_data['show'])
-                
+
         except (json.JSONDecodeError, IOError, KeyError):
             pass
-    
+
     def apply_mode(self, mode: str):
         """应用模式覆盖（从配置文件中查找 modes 部分）"""
         # 从已加载的配置文件中查找 modes
@@ -120,10 +120,10 @@ class RiskDisplayConfig:
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                
+
                 if not isinstance(data, dict) or 'modes' not in data:
                     continue
-                    
+
                 if mode in data['modes']:
                     mode_data = data['modes'][mode]
                     if 'colors' in mode_data:
@@ -133,7 +133,7 @@ class RiskDisplayConfig:
                     if 'show' in mode_data:
                         self.show.update(mode_data['show'])
                     break
-                    
+
             except (json.JSONDecodeError, IOError):
                 continue
 

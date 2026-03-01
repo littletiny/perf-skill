@@ -233,7 +233,7 @@ class PathCluster:
         self.min_depth = min_depth
         self.min_samples = min_samples
         self.trie = {'_count': 0, '_samples': []}
-    
+
     def add_sample(self, stack):
         # 从 root 到 leaf 构建 Trie
         node = self.trie
@@ -242,7 +242,7 @@ class PathCluster:
                 node[func] = {'_count': 0, '_samples': []}
             node = node[func]
             node['_count'] += 1
-    
+
     def extract_clusters(self):
         # 提取满足 min_depth 和 min_samples 的分支
         # 同时统计 leaf 函数分布

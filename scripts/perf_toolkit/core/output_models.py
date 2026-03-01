@@ -27,14 +27,14 @@ from .display_presets import get_display_preset
 @dataclass
 class TemplateConfig:
     """文本输出模板配置
-    
+
     支持的模板类型:
     - simple_list: 带序号的简单列表, #index field1 field2 ...
     - key_value: 无序号键值对, key value1 value2 ...
     - table: 多字段表格
     - nested: 嵌套结构,有父项和子项
     - custom: 完全自定义格式
-    
+
     截断提示配置:
     - total_field: summary 中总数字段名 (如 "total_hotspots")
     - shown_field: summary 中显示数字段名 (如 "shown_hotspots")
@@ -50,7 +50,7 @@ class TemplateConfig:
     # 截断提示配置
     total_field: Optional[str] = None
     shown_field: Optional[str] = None
-    
+
     @classmethod
     def from_preset(cls, preset_name: str) -> 'TemplateConfig':
         """从 display_presets 加载配置"""
@@ -73,7 +73,7 @@ class RiskInfo:
     patterns: List[str] = field(default_factory=list)
     pending_targets: List[str] = field(default_factory=list)
     action_required: bool = False
-    
+
     def __post_init__(self):
         # Validate level
         valid_levels = ["critical", "warning", "info", "none"]
@@ -93,7 +93,7 @@ class TimeRange:
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     duration: float = 0.0  # seconds
-    
+
     @classmethod
     def from_timestamps(cls, start_ts: Optional[float], end_ts: Optional[float]) -> 'TimeRange':
         """从时间戳创建 TimeRange"""
@@ -225,9 +225,9 @@ class ProcessItem:
     pid: int
     total_cpu_util: str
     kernel_cpu_util: str
-    
+
     @classmethod
-    def from_cpu_util(cls, comm: str, pid: int, total_cpu_util: float, 
+    def from_cpu_util(cls, comm: str, pid: int, total_cpu_util: float,
                       kernel_cpu_util: float) -> 'ProcessItem':
         """从 CPU utilization % 创建 ProcessItem"""
         return cls(
@@ -246,9 +246,9 @@ class CommGroupItem:
     cpu: str
     kernel: str
     event: str = "normal"
-    
+
     @classmethod
-    def from_stats(cls, comm: str, pid_count: int, aggregate_cpu: float, 
+    def from_stats(cls, comm: str, pid_count: int, aggregate_cpu: float,
                    kernel_ratio: float, event_desc: str = "normal") -> 'CommGroupItem':
         """从统计数据创建 CommGroupItem"""
         return cls(
@@ -266,7 +266,7 @@ class HotspotItem:
     symbol: str
     self: str
     inclusive: str
-    
+
     @classmethod
     def from_stats(cls, symbol: str, self_pct: float, inclusive_pct: float) -> 'HotspotItem':
         """从统计数据创建 HotspotItem"""
@@ -282,7 +282,7 @@ class ClusterItem:
     """聚类数据项 - 用于 cluster-symbols"""
     cluster: str
     pct_of_total: str
-    
+
     @classmethod
     def from_stats(cls, cluster: str, ratio: float) -> 'ClusterItem':
         """从统计数据创建 ClusterItem"""
@@ -336,7 +336,7 @@ class CPUUsageData:
 @dataclass
 class AnomalyItem:
     """异常检测数据项 - 用于 detect-anomalies
-    
+
     存储原始数据，格式由模板根据 preset 配置处理
     """
     type: str
@@ -347,7 +347,7 @@ class AnomalyItem:
     curr_util: float
     next_util: float
     severity: str
-    
+
     @classmethod
     def from_raw(cls, type: str, cpu_id: int, start: str, end: str,
                  prev: float, curr: float, next: float, z_score: float) -> 'AnomalyItem':
@@ -394,7 +394,7 @@ class TraceItem:
 @dataclass
 class PathClusterItem:
     """路径聚类数据项 - 用于 cluster-paths
-    
+
     存储原始权重，百分比由模板根据 preset 配置计算和格式化
     """
     cluster_id: str
@@ -402,7 +402,7 @@ class PathClusterItem:
     weight: float
     total_weight: float
     duration: float
-    
+
     @classmethod
     def from_raw(cls, cluster_id: str, path_signature: str, weight: float,
                  total_weight: float, duration: float) -> 'PathClusterItem':
@@ -446,11 +446,11 @@ class BaseOutput:
     _template_config: Optional[TemplateConfig] = None
 
 
-@dataclass  
+@dataclass
 class ProcessTopOutput(BaseOutput):
     """get-process-top 输出结构"""
     processes: List[ProcessItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, processes: List[ProcessItem],
                  summary: ProcessSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -462,7 +462,7 @@ class ProcessTopOutput(BaseOutput):
 class CommTopOutput(BaseOutput):
     """get-comm-top 输出结构"""
     comm_groups: List[CommGroupItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, comm_groups: List[CommGroupItem],
                  summary: CommGroupSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -474,7 +474,7 @@ class CommTopOutput(BaseOutput):
 class ClusterCommOutput(BaseOutput):
     """cluster-comm 输出结构"""
     comm_groups: List[CommGroupItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, comm_groups: List[CommGroupItem],
                  summary: Optional[CommGroupSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -486,7 +486,7 @@ class ClusterCommOutput(BaseOutput):
 class HotspotsOutput(BaseOutput):
     """get-hotspots 输出结构"""
     hotspots: List[HotspotItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, hotspots: List[HotspotItem],
                  summary: HotspotSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -498,7 +498,7 @@ class HotspotsOutput(BaseOutput):
 class ClustersOutput(BaseOutput):
     """cluster-symbols 输出结构"""
     symbol_clusters: List[ClusterItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, symbol_clusters: List[ClusterItem],
                  summary: ClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -510,7 +510,7 @@ class ClustersOutput(BaseOutput):
 class BottleneckOutput(BaseOutput):
     """check-cpu-bottleneck 输出结构"""
     data: BottleneckData = field(default_factory=dict)
-    
+
     def __init__(self, _risk: RiskInfo, data: BottleneckData,
                  summary: BottleneckSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -522,7 +522,7 @@ class BottleneckOutput(BaseOutput):
 class CPUUsageOutput(BaseOutput):
     """show-cpu-usage 输出结构"""
     data: CPUUsageData = field(default_factory=dict)
-    
+
     def __init__(self, _risk: RiskInfo, data: CPUUsageData,
                  summary: CPUUsageSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -534,7 +534,7 @@ class CPUUsageOutput(BaseOutput):
 class AnomaliesOutput(BaseOutput):
     """detect-anomalies 输出结构"""
     anomalies: List[AnomalyItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, anomalies: List[AnomalyItem],
                  summary: AnomalySummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -547,7 +547,7 @@ class WindowsOutput(BaseOutput):
     """detect-anomalies --export-mode 输出结构"""
     windows: List[WindowItem] = field(default_factory=list)
     statistics: Dict[str, str] = field(default_factory=dict)
-    
+
     def __init__(self, _risk: RiskInfo, windows: List[WindowItem],
                  summary: WindowSummary, time_range: Optional[TimeRange] = None,
                  statistics: Dict[str, str] = None):
@@ -561,7 +561,7 @@ class WindowsOutput(BaseOutput):
 class AttributionsOutput(BaseOutput):
     """find-callers 输出结构"""
     attributions: List[AttributionItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, attributions: List[AttributionItem],
                  summary: AttributionSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -573,7 +573,7 @@ class AttributionsOutput(BaseOutput):
 class TracesOutput(BaseOutput):
     """find-callers --auto 输出结构"""
     traces: List[TraceItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, traces: List[TraceItem],
                  summary: TracesSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -585,7 +585,7 @@ class TracesOutput(BaseOutput):
 class PathClustersOutput(BaseOutput):
     """cluster-paths 输出结构"""
     path_clusters: List[PathClusterItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, path_clusters: List[PathClusterItem],
                  summary: PathClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -597,7 +597,7 @@ class PathClustersOutput(BaseOutput):
 class ProcessVarietyOutput(BaseOutput):
     """count-process-variety 输出结构"""
     process_variety: List[ProcessVarietyItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, process_variety: List[ProcessVarietyItem],
                  summary: ProcessVarietySummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
@@ -609,7 +609,7 @@ class ProcessVarietyOutput(BaseOutput):
 class CoreDistributionOutput(BaseOutput):
     """analyze-core-distribution 输出结构"""
     cores: List[CoreItem] = field(default_factory=list)
-    
+
     def __init__(self, _risk: RiskInfo, cores: List[CoreItem],
                  summary: Optional[CoreDistributionSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)

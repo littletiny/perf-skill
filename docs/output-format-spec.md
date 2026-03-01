@@ -402,18 +402,18 @@ def format_duration(seconds: float) -> str:
 
 class RiskMixin:
     """Mixin for standardized risk hints in output"""
-    
+
     RISK_LEVELS = ["critical", "warning", "info", "none"]
-    
+
     def __init__(self):
         self.risks = []
-    
-    def add_risk(self, level: str, message: str, hint: str = "", 
+
+    def add_risk(self, level: str, message: str, hint: str = "",
                  patterns: list = None, targets: list = None):
         """Add a risk hint"""
         if level not in self.RISK_LEVELS:
             level = "info"
-        
+
         self.risks.append({
             "level": level,
             "message": message,
@@ -421,11 +421,11 @@ class RiskMixin:
             "patterns": patterns or [],
             "pending_targets": targets or []
         })
-    
+
     def get_top_risk(self) -> dict:
         """Get the highest level risk"""
         priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        
+
         if not self.risks:
             return {
                 "level": "none",
@@ -435,13 +435,13 @@ class RiskMixin:
                 "pending_targets": [],
                 "action_required": False
             }
-        
+
         top = min(self.risks, key=lambda r: priority.get(r["level"], 3))
         return {
             **top,
             "action_required": top["level"] in ["critical", "warning"]
         }
-    
+
     def format_output(self, data: dict) -> dict:
         """Add _risk field to output"""
         return {
@@ -866,4 +866,3 @@ class RiskMixin:
 |------|------|---------|
 | 1.0 | 2026-02-28 | 初始版本，定义基础规范和 5 个 P0 工具 |
 | 1.1 | 2026-03-01 | 补充所有工具的具体输出格式，新增速查表 |
-

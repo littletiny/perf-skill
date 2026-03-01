@@ -57,7 +57,7 @@
 ### 记录 2: 热点溯源 - netstat内核锁竞争
 
 - **工具**: `find-callers --target established_get_first`
-- **调用链**: 
+- **调用链**:
   ```
   tcp_get_idx → tcp_seq_start → seq_read → proc_reg_read → vfs_read → ksys_read (53.88%)
   tcp_seq_next → seq_read → proc_reg_read → vfs_read → ksys_read (46.12%)
@@ -139,16 +139,16 @@
   - ✅ 内核态51.5%: netstat 94.7%内核态 + containerd-shim 89.9%内核态，大量进程累积
   - ✅ 性能抖动: 进程创建/销毁的突发特性
   - ✅ containerd-shim高消耗: 79.84%锁竞争来自cgroup/kernfs访问
-  
+
 - [x] **证据链是否闭环？**
   - ✅ netstat链: 进程风暴检测(count-process-variety) → 热点识别(get-hotspots) → 调用溯源(find-callers) → 语义聚类(cluster-symbols)
   - ✅ containerd-shim链: 高内核态占比 → 语义聚类(cluster-symbols) → 调用溯源(find-callers) → kernfs锁竞争确认
   - ✅ 各工具结论相互印证，无矛盾
-  
+
 - [x] **是否存在无法解释的孤证？**
   - ✅ kubelet消耗114%属正常系统进程，无异常
   - ✅ python3(826 PIDs)虽有进程风暴但锁竞争仅1.10%，不影响主结论
-  
+
 - [x] **是否考虑过其他可能性？**
   - ✅ 已评估并证伪: Cgroup限流、MySQL自身问题、调度器问题
   - ✅ 已确认: netstat进程风暴+内核锁竞争、containerd-shim cgroup锁竞争

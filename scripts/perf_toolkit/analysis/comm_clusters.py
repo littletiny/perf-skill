@@ -18,22 +18,22 @@ from ..core.output_models import (
 @command("cluster-comm", filters=["start_time", "end_time", "cpu_id"])
 def cmd_cluster_comm(builder, engine, args, samples):
     """[Skill] Cluster samples by comm (process name) to analyze process group CPU usage"""
-    
+
     # 使用 engine 统一接口获取 comm 级 CPU 利用率
     comm_util = engine.get_comm_cpu_util(samples)
-    
+
     # Build results using unified data model (same as comm_top)
     items = []
     for comm, info in comm_util.items():
         unique_pids = info['pid_count']
         cpu_util = info['total_pct']
-        
+
         # 计算 kernel 占比
         if info['total_pct'] > 0:
             kernel_ratio = (info['kernel_pct'] / info['total_pct']) * 100
         else:
             kernel_ratio = 0
-        
+
         # Determine event (skip normal events in output)
         if kernel_ratio > 50:
             event = f"HIGH_KERNEL_RATIO({kernel_ratio:.1f}%)"
@@ -45,11 +45,11 @@ def cmd_cluster_comm(builder, engine, args, samples):
                 event = "normal"
         else:
             event = "normal"
-        
+
         # Skip normal events
         if event == "normal":
             continue
-        
+
         # cluster-comm uses same CommGroupItem as comm_top
         # but with different semantics in 'pids' field (unique_pids vs pid_count)
         items.append(CommGroupItem(
@@ -59,24 +59,24 @@ def cmd_cluster_comm(builder, engine, args, samples):
             kernel=f"{kernel_ratio:.2f}%",
             event=event
         ))
-    
+
     items.sort(key=lambda x: float(x.cpu.rstrip('%')), reverse=True)
     top_items = items[:args.top_n]
-    
+
     # Build RiskInfo (no specific risk for cluster-comm)
     risk = create_risk_info(level="none")
-    
+
     # Build time range
     time_range = TimeRange.from_timestamps(
         samples[0].get('ts'),
         samples[-1].get('ts') if len(samples) > 0 else None
     )
-    
+
     # Build output using ClusterCommOutput (comm_groups data type, no summary)
     output = ClusterCommOutput(
         _risk=risk,
         comm_groups=top_items,
         time_range=time_range
     )
-    
+
     return output

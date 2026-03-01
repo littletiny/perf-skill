@@ -40,11 +40,11 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
         cls.repo_root = cls.test_dir.parent
         cls.spear_script = cls.repo_root / "scripts" / "spear.py"
         cls.test_data = cls.repo_root / "tests" / "perfdata" / "new_format" / "case_huge_samples.data"
-        
+
         # 验证测试数据文件存在
         if not cls.test_data.exists():
             raise FileNotFoundError(f"Test data file not found: {cls.test_data}")
-        
+
         # 主要测试 PID (从数据文件中识别出的高消耗进程)
         cls.test_pids = {
             'kubelet': 1143016,      # 最高消耗进程
@@ -82,25 +82,25 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_01_show_cpu_usage_pid_basic(self):
         """Test: show-cpu-usage --pid 基本功能"""
         print("\n[Test 01] show-cpu-usage --pid 基本功能")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_pid_command("show-cpu-usage", pid)
-        
+
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         self.assertIn("Target: PID", result.stdout)
         self.assertIn("Total:", result.stdout)
         self.assertIn("User:", result.stdout)
         self.assertIn("Kernel:", result.stdout)
-        
+
         print(f"  ✓ PID {pid} CPU usage retrieved successfully")
 
     def test_02_show_cpu_usage_pid_values(self):
         """Test: show-cpu-usage --pid 数值合理性检查"""
         print("\n[Test 02] show-cpu-usage --pid 数值合理性")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_pid_command("show-cpu-usage", pid)
-        
+
         # 解析输出中的数值
         lines = result.stdout.strip().split('\n')
         for line in lines:
@@ -110,40 +110,40 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
                 self.assertGreater(total, 0, "Total CPU should be > 0")
                 # kubelet 是最高消耗进程，应该 > 100%
                 self.assertGreater(total, 100, "kubelet should have > 100% CPU")
-        
+
         print(f"  ✓ PID {pid} CPU values are reasonable")
 
     def test_03_show_cpu_usage_different_pids(self):
         """Test: show-cpu-usage --pid 多个 PID 对比"""
         print("\n[Test 03] show-cpu-usage --pid 多个 PID 对比")
-        
+
         results = {}
         for name, pid in self.test_pids.items():
             result = self._run_pid_command("show-cpu-usage", pid)
             self.assertEqual(result.returncode, 0)
-            
+
             # 提取 Total CPU
             for line in result.stdout.strip().split('\n'):
                 if 'Total:' in line:
                     total_str = line.split(':')[1].strip().rstrip('%')
                     results[name] = float(total_str)
                     break
-        
+
         # kubelet 应该是最高的
         self.assertGreater(
-            results.get('kubelet', 0), 
+            results.get('kubelet', 0),
             results.get('hacontrol', 0),
             "kubelet should have higher CPU than hacontrol"
         )
-        
+
         print(f"  ✓ CPU comparison: kubelet({results.get('kubelet', 0):.1f}%) > hacontrol({results.get('hacontrol', 0):.1f}%)")
 
     def test_04_show_cpu_usage_nonexistent_pid(self):
         """Test: show-cpu-usage --pid 不存在的 PID"""
         print("\n[Test 04] show-cpu-usage --pid 不存在的 PID")
-        
+
         result = self._run_pid_command("show-cpu-usage", 999999999)
-        
+
         # 应该返回 0，但显示风险信息
         self.assertEqual(result.returncode, 0)
         # 输出应该包含风险信息或 NO_SAMPLES 提示
@@ -154,7 +154,7 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             "Target: PID" in result.stdout
         )
         self.assertTrue(has_risk, f"Expected risk info for non-existent PID: {result.stdout[:200]}")
-        
+
         print("  ✓ Non-existent PID handled gracefully")
 
     # =================================================================
@@ -164,31 +164,31 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_05_get_hotspots_pid_basic(self):
         """Test: get-hotspots --pid 基本功能"""
         print("\n[Test 05] get-hotspots --pid 基本功能")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_pid_command("get-hotspots", pid, ["--top-n", "5"])
-        
+
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         self.assertIn("index,funcname,self,inclusive", result.stdout)
-        
+
         # 应该有热点数据
         lines = [l for l in result.stdout.strip().split('\n') if l.startswith('#')]
         self.assertGreater(len(lines), 0, "Should have hotspot data")
-        
+
         print(f"  ✓ PID {pid} hotspots retrieved: {len(lines)} functions")
 
     def test_06_get_hotspots_pid_sort_by_self(self):
         """Test: get-hotspots --pid --sort-by self"""
         print("\n[Test 06] get-hotspots --pid --sort-by self")
-        
+
         pid = self.test_pids['hacontrol']
         result = self._run_pid_command(
-            "get-hotspots", pid, 
+            "get-hotspots", pid,
             ["--sort-by", "self", "--top-n", "5"]
         )
-        
+
         self.assertEqual(result.returncode, 0)
-        
+
         # 检查输出格式
         lines = [l for l in result.stdout.strip().split('\n') if l.startswith('#')]
         if len(lines) >= 2:
@@ -198,24 +198,24 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             self.assertIn("funcname", header)
             self.assertIn("self", header)
             self.assertIn("inclusive", header)
-        
+
         print(f"  ✓ Sort by self working for PID {pid}")
 
     def test_07_get_hotspots_pid_sort_by_inclusive(self):
         """Test: get-hotspots --pid --sort-by inclusive"""
         print("\n[Test 07] get-hotspots --pid --sort-by inclusive")
-        
+
         pid = self.test_pids['hacontrol']
         result = self._run_pid_command(
-            "get-hotspots", pid, 
+            "get-hotspots", pid,
             ["--sort-by", "inclusive", "--top-n", "5"]
         )
-        
+
         self.assertEqual(result.returncode, 0)
-        
+
         # 检查输出包含 inclusive 数据
         self.assertIn("inclusive", result.stdout)
-        
+
         print(f"  ✓ Sort by inclusive working for PID {pid}")
 
     # =================================================================
@@ -225,7 +225,7 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_08_find_callers_pid_basic(self):
         """Test: find-callers --pid 基本功能"""
         print("\n[Test 08] find-callers --pid 基本功能")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_spear([
             "find-callers",
@@ -233,16 +233,16 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             "--pid", str(pid),
             "--target", "entry_SYSCALL_64_after_hwframe"
         ])
-        
+
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         self.assertIn("index,ratio,callstack", result.stdout)
-        
+
         print(f"  ✓ PID {pid} callers analysis completed")
 
     def test_09_find_callers_pid_with_min_cpu(self):
         """Test: find-callers --pid --min-cpu"""
         print("\n[Test 09] find-callers --pid --min-cpu")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_spear([
             "find-callers",
@@ -251,15 +251,15 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             "--target", "entry_SYSCALL_64_after_hwframe",
             "--min-cpu", "1.0"
         ])
-        
+
         self.assertEqual(result.returncode, 0)
-        
+
         print(f"  ✓ Min-cpu filter working for PID {pid}")
 
     def test_10_find_callers_pid_auto_target(self):
         """Test: find-callers --pid --auto-target"""
         print("\n[Test 10] find-callers --pid --auto-target")
-        
+
         pid = self.test_pids['hacontrol']
         result = self._run_spear([
             "find-callers",
@@ -268,11 +268,11 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             "--auto-target",
             "--top-n", "3"
         ])
-        
+
         self.assertEqual(result.returncode, 0)
         # 自动追踪应该产生输出
         self.assertIn("callstack", result.stdout)
-        
+
         print(f"  ✓ Auto-target working for PID {pid}")
 
     # =================================================================
@@ -282,30 +282,30 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_11_cluster_symbols_pid_basic(self):
         """Test: cluster-symbols --pid 基本功能"""
         print("\n[Test 11] cluster-symbols --pid 基本功能")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_pid_command("cluster-symbols", pid)
-        
+
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         # 应该包含聚类输出或"No samples found"
         self.assertTrue(
-            "event_type" in result.stdout or 
+            "event_type" in result.stdout or
             "No samples" in result.stdout or
             "LOCK" in result.stdout or
             "SCHEDULER" in result.stdout
         )
-        
+
         print(f"  ✓ PID {pid} symbol clustering completed")
 
     def test_12_cluster_symbols_pid_hacontrol(self):
         """Test: cluster-symbols --pid Go 进程 (hacontrol)"""
         print("\n[Test 12] cluster-symbols --pid Go 进程 (hacontrol)")
-        
+
         pid = self.test_pids['hacontrol']
         result = self._run_pid_command("cluster-symbols", pid)
-        
+
         self.assertEqual(result.returncode, 0)
-        
+
         # Go 进程应该有 GC 相关的锁竞争事件
         output = result.stdout
         has_events = (
@@ -315,13 +315,13 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             "No samples" in output
         )
         self.assertTrue(has_events, f"Expected events in output: {output}")
-        
+
         print(f"  ✓ Go process (PID {pid}) clustering shows relevant events")
 
     def test_13_cluster_symbols_pid_custom_rules(self):
         """Test: cluster-symbols --pid --custom-rules"""
         print("\n[Test 13] cluster-symbols --pid --custom-rules")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_spear([
             "cluster-symbols",
@@ -329,9 +329,9 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             "--pid", str(pid),
             "--custom-rules", '{"MY_SYSCALL": "syscall|system"}'
         ])
-        
+
         self.assertEqual(result.returncode, 0)
-        
+
         print(f"  ✓ Custom rules working for PID {pid}")
 
     # =================================================================
@@ -341,30 +341,30 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_14_analyze_core_distribution_pid(self):
         """Test: analyze-core-distribution --pid"""
         print("\n[Test 14] analyze-core-distribution --pid")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_pid_command("analyze-core-distribution", pid)
-        
+
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         # 应该包含饱和核心信息或"No saturated cores"
         self.assertTrue(
             "SATURATED_CORES" in result.stdout or
             "No saturated" in result.stdout
         )
-        
+
         print(f"  ✓ PID {pid} core distribution analyzed")
 
     def test_15_analyze_core_distribution_different_pids(self):
         """Test: analyze-core-distribution --pid 对比不同 PID"""
         print("\n[Test 15] analyze-core-distribution --pid 对比不同 PID")
-        
+
         for name, pid in self.test_pids.items():
             result = self._run_pid_command("analyze-core-distribution", pid)
             self.assertEqual(result.returncode, 0)
-            
+
             # 检查输出格式
             self.assertIn("SATURATED_CORES", result.stdout)
-        
+
         print(f"  ✓ Core distribution analyzed for {len(self.test_pids)} PIDs")
 
     # =================================================================
@@ -374,36 +374,36 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_16_cluster_paths_pid(self):
         """Test: cluster-paths --pid"""
         print("\n[Test 16] cluster-paths --pid")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_pid_command(
-            "cluster-paths", pid, 
+            "cluster-paths", pid,
             ["--top-n", "5", "--min-depth", "2"]
         )
-        
+
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         self.assertIn("index,percent,cpu_util,path", result.stdout)
-        
+
         # 应该有路径数据
         lines = [l for l in result.stdout.strip().split('\n') if l.startswith('#')]
         self.assertGreater(len(lines), 0, "Should have path data")
-        
+
         print(f"  ✓ PID {pid} call paths clustered: {len(lines)} paths")
 
     def test_17_cluster_paths_pid_min_depth(self):
         """Test: cluster-paths --pid --min-depth"""
         print("\n[Test 17] cluster-paths --pid --min-depth")
-        
+
         pid = self.test_pids['hacontrol']
-        
+
         # 测试不同 min-depth
         for depth in [2, 3, 5]:
             result = self._run_pid_command(
-                "cluster-paths", pid, 
+                "cluster-paths", pid,
                 ["--min-depth", str(depth), "--top-n", "3"]
             )
             self.assertEqual(result.returncode, 0)
-        
+
         print(f"  ✓ Min-depth filter working for PID {pid}")
 
     # =================================================================
@@ -413,14 +413,14 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_18_count_process_variety_pid(self):
         """Test: count-process-variety --pid"""
         print("\n[Test 18] count-process-variety --pid")
-        
+
         pid = self.test_pids['kubelet']
         result = self._run_pid_command("count-process-variety", pid)
-        
+
         self.assertEqual(result.returncode, 0, f"Command failed: {result.stderr}")
         # 单 PID 不应该有进程多样性（只有自己）
         self.assertIn("PROCESS_STORM", result.stdout)
-        
+
         print(f"  ✓ PID {pid} process variety checked")
 
     # =================================================================
@@ -430,9 +430,9 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
     def test_19_pid_filter_consistency(self):
         """Test: 不同工具对同一 PID 的过滤一致性"""
         print("\n[Test 19] PID 过滤一致性验证")
-        
+
         pid = self.test_pids['hacontrol']
-        
+
         # 使用多个工具分析同一 PID
         tools = [
             ("show-cpu-usage", []),
@@ -440,38 +440,38 @@ class TestPIDLevelDiagnosis(unittest.TestCase):
             ("cluster-symbols", []),
             ("analyze-core-distribution", []),
         ]
-        
+
         results = {}
         for tool, extra_args in tools:
             result = self._run_pid_command(tool, pid, extra_args)
             self.assertEqual(result.returncode, 0, f"{tool} failed: {result.stderr}")
             results[tool] = result.stdout
-        
+
         # 所有工具都应该成功执行
         self.assertEqual(len(results), len(tools))
-        
+
         print(f"  ✓ All {len(tools)} tools work consistently for PID {pid}")
 
     def test_20_pid_vs_comm_filter(self):
         """Test: --pid 与 --comm 过滤结果对比"""
         print("\n[Test 20] --pid vs --comm 过滤对比")
-        
+
         # 使用 PID 过滤
         pid_result = self._run_pid_command("show-cpu-usage", self.test_pids['hacontrol'])
-        
+
         # 使用 comm 过滤
         comm_result = self._run_spear([
             "show-cpu-usage",
             "--data", str(self.test_data),
             "--comm", "hacontrol"
         ])
-        
+
         self.assertEqual(pid_result.returncode, 0)
         self.assertEqual(comm_result.returncode, 0)
-        
+
         # PID 结果应该包含具体 PID
         self.assertIn(str(self.test_pids['hacontrol']), pid_result.stdout)
-        
+
         print("  ✓ PID and COMM filters both work correctly")
 
 
@@ -493,36 +493,36 @@ class TestPIDLevelDataValidation(unittest.TestCase):
     def test_21_data_file_pid_statistics(self):
         """Test: 验证测试数据文件中的 PID 统计信息"""
         print("\n[Test 21] 测试数据文件 PID 统计")
-        
+
         # 使用 get-process-top 获取 PID 统计
         result = self._run_spear([
             "get-process-top",
             "--data", str(self.test_data),
             "--top-n", "20"
         ])
-        
+
         self.assertEqual(result.returncode, 0)
-        
+
         # 解析输出，统计 PID 数量
         lines = result.stdout.strip().split('\n')
         pid_lines = [l for l in lines if '(' in l and ')' in l and '%' in l]
-        
+
         self.assertGreater(len(pid_lines), 10, "Should have multiple PIDs")
-        
+
         print(f"  ✓ Data file contains {len(pid_lines)} unique PIDs")
 
     def test_22_high_cpu_pid_identification(self):
         """Test: 识别高 CPU 消耗 PID"""
         print("\n[Test 22] 高 CPU 消耗 PID 识别")
-        
+
         result = self._run_spear([
             "get-process-top",
             "--data", str(self.test_data),
             "--top-n", "5"
         ])
-        
+
         self.assertEqual(result.returncode, 0)
-        
+
         # 过滤出包含实际 PID 数据的行（格式: comm(pid) total%/kernel%）
         # 排除表头行和以 # 开头的注释行
         all_lines = result.stdout.strip().split('\n')
@@ -532,16 +532,16 @@ class TestPIDLevelDataValidation(unittest.TestCase):
                 continue
             if '(' in l and ')' in l and '%' in l:
                 data_lines.append(l)
-        
+
         # 应该有数据行
         self.assertGreater(len(data_lines), 0, f"Should have PID data lines, got: {all_lines[:5]}")
-        
+
         # 验证第一行数据格式
         first_data_line = data_lines[0]
         self.assertIn('(', first_data_line)
         self.assertIn(')', first_data_line)
         self.assertIn('%', first_data_line)
-        
+
         print(f"  ✓ High CPU PID identification working ({len(data_lines)} PIDs found)")
 
 
@@ -552,26 +552,26 @@ def run_tests():
     print("=" * 70)
     print(f"Test data: tests/perfdata/new_format/case_huge_samples.data")
     print()
-    
+
     # Create test suite
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    
+
     # Add test classes
     suite.addTests(loader.loadTestsFromTestCase(TestPIDLevelDiagnosis))
     suite.addTests(loader.loadTestsFromTestCase(TestPIDLevelDataValidation))
-    
+
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
-    
+
     # Summary
     print("\n" + "=" * 70)
     print(f"Tests run: {result.testsRun}")
     print(f"Failures: {len(result.failures)}")
     print(f"Errors: {len(result.errors)}")
     print("=" * 70)
-    
+
     if result.wasSuccessful():
         print("\n✅ All PID level diagnosis tests passed!")
         print("\n验证结论:")
@@ -584,7 +584,7 @@ def run_tests():
         print("- count-process-variety --pid: ✅ 支持 PID 级别进程多样性")
     else:
         print("\n❌ Some tests failed!")
-    
+
     return 0 if result.wasSuccessful() else 1
 
 

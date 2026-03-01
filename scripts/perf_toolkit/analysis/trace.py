@@ -20,31 +20,31 @@ from ..core.output_models import (
 @command("find-callers")
 def cmd_trace_attribution(builder, engine, args, samples):
     """[Skill] Bottom-up attribution for specific bottleneck functions"""
-    
+
     # 使用 engine 统一接口获取总量
     total_weight, _ = engine.get_total_core_per_sec(samples)
     duration = engine.get_duration(samples)
-    
+
     # Trace attribution
     target = args.target
     attribution = defaultdict(float)
     target_weight = 0.0
-    
+
     for s in samples:
         stack = s.get('stack')
         if not stack:
             continue
-        
+
         weight = engine.get_sample_weight(s)
         normalized_names = stack.get_normalized_names()
-        
+
         if target in normalized_names:
             target_weight += weight
             idx = normalized_names.index(target)
             caller_stack = normalized_names[idx+1:idx+6]
             if caller_stack:
                 attribution[tuple(caller_stack)] += weight
-    
+
     # Build results - show ratio relative to total samples (not just target)
     results = []
     min_ratio = getattr(args, 'min_ratio', 0.5)
@@ -58,11 +58,11 @@ def cmd_trace_attribution(builder, engine, args, samples):
             ratio_of_target_pct=f"{ratio_total:.2f}%",
             cpu_util="0.00%"  # Not used in display
         ))
-    
+
     results.sort(key=lambda x: float(x.ratio_of_target_pct.rstrip('%')), reverse=True)
     top_n = getattr(args, 'top_n', 10)
     results = results[:top_n]
-    
+
     # Determine risk level
     risk = None
     if target_weight < 0.01:
@@ -74,7 +74,7 @@ def cmd_trace_attribution(builder, engine, args, samples):
         )
     else:
         risk = RiskInfo(level="none")
-    
+
     # Create summary with truncation info
     target_cpu_util = (target_weight / duration * 100) if duration > 0 else 0
     summary = AttributionSummary(
@@ -83,28 +83,28 @@ def cmd_trace_attribution(builder, engine, args, samples):
         total_attributions=len(attribution),
         shown_attributions=len(results)
     )
-    
+
     # Build and output
     output = AttributionsOutput(
         _risk=risk,
         attributions=results,
         summary=summary
     )
-    
+
     return output
 
 
 @command("auto-find-callers")
 def cmd_find_callers_auto(builder, engine, args, samples):
     """[Skill] Auto-trace top N hotspot functions"""
-    
+
     # 使用 engine 统一接口获取总量和 duration
     total_weight, _ = engine.get_total_core_per_sec(samples)
     duration = engine.get_duration(samples)
-    
+
     # 使用 engine 统一接口获取符号级利用率
     symbol_util = engine.get_symbol_cpu_util(samples)
-    
+
     # Apply min-cpu threshold filter
     min_cpu = getattr(args, 'min_cpu', 3.0)
     filtered_hotspots = []
@@ -114,27 +114,27 @@ def cmd_find_callers_auto(builder, engine, args, samples):
             filtered_hotspots.append((name, self_pct))
         else:
             hidden_hotspots.append((name, self_pct))
-    
+
     # Print threshold filter info if any hotspots were hidden
     if hidden_hotspots:
         hidden_total_ratio = sum(h[1] for h in hidden_hotspots)
         print(f"# ... {len(hidden_hotspots)} hotspots below {min_cpu}% threshold (total: {hidden_total_ratio:.2f}%)")
         print()
-    
+
     top_n = getattr(args, 'top_n', 10)
     top_hotspots = sorted(filtered_hotspots, key=lambda x: -x[1])[:top_n]
-    
+
     # Trace each hotspot
     results = []
     for target, target_cpu_util in top_hotspots:
         attribution = defaultdict(float)
         target_total_weight = 0.0
-        
+
         for s in samples:
             stack = s.get('stack')
             if not stack:
                 continue
-            
+
             weight = engine.get_sample_weight(s)
             normalized_names = stack.get_normalized_names()
             # Only count when target is at stack top (self time)
@@ -143,9 +143,9 @@ def cmd_find_callers_auto(builder, engine, args, samples):
                 if len(normalized_names) > 1:
                     caller_stack = normalized_names[1:6]
                     attribution[tuple(caller_stack)] += weight
-        
+
         sorted_attr = sorted(attribution.items(), key=lambda x: -x[1])[:5]
-        
+
         attr_results = []
         for stack, weight_val in sorted_attr:
             ratio_in_target = (weight_val / target_total_weight) * 100 if target_total_weight > 0 else 0
@@ -155,24 +155,24 @@ def cmd_find_callers_auto(builder, engine, args, samples):
                 ratio_of_target_pct=f"{ratio_in_target:.2f}%",
                 cpu_util=f"{stack_cpu_util:.2f}%"
             ))
-        
+
         results.append(TraceItem(
             target=target,
             target_ratio_pct=f"{target_cpu_util:.2f}%",
             attributions=attr_results
         ))
-    
+
     # Create risk (always none for auto trace)
     risk = RiskInfo(level="none")
-    
+
     # Create summary
     summary = TracesSummary(hotspots_traced=len(results))
-    
+
     # Build and output
     output = TracesOutput(
         _risk=risk,
         traces=results,
         summary=summary
     )
-    
+
     return output

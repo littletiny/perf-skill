@@ -17,10 +17,10 @@ from ..core.output_models import RiskInfo, CoreItem, CoreDistributionOutput, Tim
 @command("analyze-core-distribution")
 def cmd_analyze_core_distribution(builder, engine, args, samples):
     """[Skill] Analyze CPU core utilization distribution for a process"""
-    
+
     # 使用 engine 统一接口获取核心级 CPU 利用率
     core_util = engine.get_core_cpu_util(samples)
-    
+
     # Build core list with filtering (only show saturated cores > 90%)
     core_list = []
     for cpu_id, info in sorted(core_util.items(), key=lambda x: x[1]['total_pct'], reverse=True):
@@ -30,11 +30,11 @@ def cmd_analyze_core_distribution(builder, engine, args, samples):
                 total_cpu_util=f"{info['total_pct']:.2f}%",
                 kernel_cpu_util=f"{info['kernel_pct']:.2f}%"
             ))
-    
+
     # Apply top_n limit
     top_n = getattr(args, 'top_n', 10)
     core_list = core_list[:top_n]
-    
+
     # Aggregate comm CPU utilization for hint generation
     comm_weight = defaultdict(float)
     for s in samples:
@@ -42,15 +42,15 @@ def cmd_analyze_core_distribution(builder, engine, args, samples):
         if comm:
             weight = engine.get_sample_weight(s)
             comm_weight[comm] += weight
-    
+
     # Identify imbalance
     if core_list:
         max_util = float(core_list[0].total_cpu_util.rstrip('%'))
         min_util = float(core_list[-1].total_cpu_util.rstrip('%'))
         avg_util = sum(float(c.total_cpu_util.rstrip('%')) for c in core_list) / len(core_list)
-        
+
         imbalance_ratio = max_util / avg_util if avg_util > 0 else 0
-        
+
         if imbalance_ratio > 10 and max_util > 50:
             imbalance_level = "CRITICAL"
         elif imbalance_ratio > 5:
@@ -59,15 +59,15 @@ def cmd_analyze_core_distribution(builder, engine, args, samples):
             imbalance_level = "MEDIUM"
         else:
             imbalance_level = "LOW"
-        
+
         # All cores in core_list are saturated (already filtered above)
         saturated_cores = core_list
-        
+
         # Determine target comm for hint
         user_comm = getattr(args, 'comm', None)
         top_comm = max(comm_weight, key=comm_weight.get) if comm_weight else None
         target_comm = user_comm or top_comm or '<comm>'
-        
+
         # Determine risk level
         if imbalance_level == "CRITICAL":
             risk_info = create_risk_info(
@@ -89,15 +89,15 @@ def cmd_analyze_core_distribution(builder, engine, args, samples):
         imbalance_level = "UNKNOWN"
         saturated_cores = []
         risk_info = None
-    
+
     # Create time range
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
-    
+
     # Build output (no summary for cleaner output)
     output = CoreDistributionOutput(
         _risk=risk_info,
         cores=core_list,
         time_range=time_range
     )
-    
+
     return output

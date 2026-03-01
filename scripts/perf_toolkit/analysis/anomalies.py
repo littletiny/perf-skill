@@ -30,7 +30,7 @@ class WindowRawData:
     end_time: str
     utilization: str
     weight: float
-    
+
     def get_utilization_float(self) -> float:
         """获取利用率数值（0-1范围）"""
         return float(self.utilization.rstrip('%')) / 100
@@ -47,12 +47,12 @@ class AnomalyRawData:
     curr_util: float
     next_util: float
     z_score: float
-    
+
     @property
     def change_magnitude(self) -> float:
         """变化幅度（用于排序）"""
         return abs(self.curr_util - self.prev_util)
-    
+
     def to_anomaly_item(self) -> AnomalyItem:
         """转换为输出模型"""
         return AnomalyItem.from_raw(
@@ -70,7 +70,7 @@ class AnomalyRawData:
 @command("detect-anomalies")
 def cmd_detect_anomalies(builder, engine, args, samples):
     """[Skill] Detect CPU utilization anomalies or export window data"""
-    
+
     # Get parameters
     window_size = args.window_size
     spike_threshold = args.spike_threshold
@@ -79,39 +79,39 @@ def cmd_detect_anomalies(builder, engine, args, samples):
     export_samples = args.export_samples
     cpu_id = getattr(args, 'cpu_id', None)
     top_n = getattr(args, 'top_n', 10)
-    
+
     # Group samples by CPU
     cpu_samples = defaultdict(list)
     for s in samples:
         if cpu_id is None or s['cpu'] == cpu_id:
             cpu_samples[s['cpu']].append(s)
-    
+
     all_windows_by_cpu = {}
     all_anomalies = []
-    
+
     for cpu_id_val, cpu_samples_list in cpu_samples.items():
         if not cpu_samples_list:
             continue
-        
+
         cpu_samples_list.sort(key=lambda x: x['ts'])
         start_ts = cpu_samples_list[0]['ts']
         end_ts = cpu_samples_list[-1]['ts']
         cpu_duration = end_ts - start_ts
-        
+
         if cpu_duration < window_size:
             continue
-        
+
         n_windows = int(cpu_duration / window_size) + 1
         windows = []
-        
+
         for i in range(n_windows):
             win_start = start_ts + i * window_size
             win_end = win_start + window_size
             win_samples_raw = [s for s in cpu_samples_list if win_start <= s['ts'] < win_end]
-            
+
             win_weight = sum(engine.get_sample_weight(s) for s in win_samples_raw)
             utilization = win_weight / window_size if window_size > 0 else 0
-            
+
             window_data = WindowRawData(
                 cpu_id=cpu_id_val,
                 start_time=format_timestamp(win_start),
@@ -119,28 +119,28 @@ def cmd_detect_anomalies(builder, engine, args, samples):
                 utilization=f"{utilization*100:.2f}%",
                 weight=round(win_weight, 4)
             )
-            
+
             windows.append(window_data)
-        
+
         all_windows_by_cpu[cpu_id_val] = windows
-        
+
         if not export_mode or args.detect_in_export:
             cpu_anomalies = _detect_cpu_anomalies(cpu_id_val, windows, spike_threshold, min_utilization)
             all_anomalies.extend(cpu_anomalies)
-    
+
     # Export mode
     if export_mode:
         all_utils = []
         for windows in all_windows_by_cpu.values():
             all_utils.extend([w.get_utilization_float() for w in windows])
-        
+
         if all_utils:
             mean_util = sum(all_utils) / len(all_utils)
             variance = sum((u - mean_util) ** 2 for u in all_utils) / len(all_utils)
             std_util = variance ** 0.5
         else:
             mean_util = std_util = 0
-        
+
         # 创建 WindowItem 数据项
         window_items = []
         for windows in all_windows_by_cpu.values():
@@ -152,7 +152,7 @@ def cmd_detect_anomalies(builder, engine, args, samples):
                     utilization=w.utilization,
                     weight=w.weight
                 ))
-        
+
         # 确定风险等级
         if args.detect_in_export and all_anomalies:
             risk = create_risk_info(
@@ -162,7 +162,7 @@ def cmd_detect_anomalies(builder, engine, args, samples):
             )
         else:
             risk = create_risk_info(level="none")
-        
+
         # 创建摘要
         summary = WindowSummary(
             mode="export",
@@ -171,19 +171,19 @@ def cmd_detect_anomalies(builder, engine, args, samples):
             cpu_count=len(all_windows_by_cpu),
             total_windows=sum(len(w) for w in all_windows_by_cpu.values())
         )
-        
+
         # 创建时间范围
         time_range = TimeRange.from_timestamps(
             samples[0]['ts'] if samples else None,
             samples[-1]['ts'] if samples else None
         )
-        
+
         # 创建统计信息
         statistics = {
             "mean_utilization": f"{mean_util*100:.2f}%",
             "std_utilization": f"{std_util*100:.2f}%"
         }
-        
+
         # 构建输出
         output = WindowsOutput(
             _risk=risk,
@@ -192,15 +192,15 @@ def cmd_detect_anomalies(builder, engine, args, samples):
             time_range=time_range,
             statistics=statistics
         )
-        
+
         return output
-    
+
     # Normal anomaly detection mode
     all_anomalies.sort(key=lambda x: x.change_magnitude, reverse=True)
-    
+
     spike_count = sum(1 for a in all_anomalies if a.type == "SPIKE")
     drop_count = sum(1 for a in all_anomalies if a.type == "DROP")
-    
+
     # 确定风险等级
     if spike_count > 0:
         risk = create_risk_info(
@@ -211,23 +211,23 @@ def cmd_detect_anomalies(builder, engine, args, samples):
         )
     else:
         risk = create_risk_info(level="none")
-    
+
     # 创建 AnomalyItem（原始数据，格式由模板处理）
     anomaly_items = [a.to_anomaly_item() for a in all_anomalies[:top_n]]
-    
+
     # 创建摘要
     summary = AnomalySummary(
         total_anomalies=len(all_anomalies),
         spike_count=spike_count,
         drop_count=drop_count
     )
-    
+
     # 创建时间范围
     time_range = TimeRange.from_timestamps(
         samples[0]['ts'] if samples else None,
         samples[-1]['ts'] if samples else None
     )
-    
+
     # 构建输出
     output = AnomaliesOutput(
         _risk=risk,
@@ -235,38 +235,38 @@ def cmd_detect_anomalies(builder, engine, args, samples):
         summary=summary,
         time_range=time_range
     )
-    
+
     return output
 
 
-def _detect_cpu_anomalies(cpu_id: int, windows: List[WindowRawData], spike_threshold: float, 
+def _detect_cpu_anomalies(cpu_id: int, windows: List[WindowRawData], spike_threshold: float,
                           min_utilization: float) -> List[AnomalyRawData]:
     """Detect anomalies for a single CPU's time windows"""
     anomalies: List[AnomalyRawData] = []
-    
+
     if len(windows) < 3:
         return anomalies
-    
+
     utilizations = [w.get_utilization_float() for w in windows]
     if not utilizations:
         return anomalies
-    
+
     mean_util = sum(utilizations) / len(utilizations)
     std_util = (sum((u - mean_util) ** 2 for u in utilizations) / len(utilizations)) ** 0.5
-    
+
     for i in range(1, len(windows) - 1):
         prev_util = utilizations[i - 1]
         curr_util = utilizations[i]
         next_util = utilizations[i + 1]
-        
+
         change_from_prev = curr_util - prev_util
         change_to_next = next_util - curr_util
         z_score = (curr_util - mean_util) / std_util if std_util > 0 else 0
-        
+
         win = windows[i]
-        
+
         # SPIKE detection
-        if (change_from_prev > spike_threshold and 
+        if (change_from_prev > spike_threshold and
             change_to_next < -spike_threshold / 2 and
             curr_util > min_utilization):
             anomalies.append(AnomalyRawData(
@@ -279,9 +279,9 @@ def _detect_cpu_anomalies(cpu_id: int, windows: List[WindowRawData], spike_thres
                 next_util=next_util,
                 z_score=round(z_score, 2)
             ))
-        
+
         # DROP detection
-        elif (change_from_prev < -spike_threshold and 
+        elif (change_from_prev < -spike_threshold and
               change_to_next > spike_threshold / 2 and
               prev_util > min_utilization):
             anomalies.append(AnomalyRawData(
@@ -294,5 +294,5 @@ def _detect_cpu_anomalies(cpu_id: int, windows: List[WindowRawData], spike_thres
                 next_util=next_util,
                 z_score=round(abs(z_score), 2)
             ))
-    
+
     return anomalies

@@ -33,19 +33,19 @@ def load_rules_from_file(file_path):
     """Load rules from external JSON file (with module-level cache)"""
     # Normalize path for consistent caching
     abs_path = os.path.abspath(file_path)
-    
+
     # Return cached result if available
     if abs_path in _rules_cache:
         return _rules_cache[abs_path]
-    
+
     if not os.path.exists(abs_path):
         raise FileNotFoundError(f"Rules file not found: {file_path}")
-    
+
     with open(abs_path, 'r') as f:
         data = json_mod.load(f)
         # Filter out underscore-prefixed metadata keys
         rules = {k: v for k, v in data.items() if not k.startswith('_')}
-    
+
     # Cache the result with absolute path
     _rules_cache[abs_path] = rules
     return rules
@@ -56,7 +56,7 @@ def load_default_rules():
     default_path = get_default_rules_path()
     if os.path.exists(default_path):
         return load_rules_from_file(default_path)
-    
+
     # Fallback to hardcoded rules if file doesn't exist
     return {
         "EVENT_IRQ_OFF": r"irqoff|spin_unlock_irqrestore|ksoftirqd",
@@ -75,43 +75,43 @@ EXPERT_RULES = load_default_rules()
 def prepare_rules(args):
     """Prepare rules: merge built-in, file, and CLI rules by priority"""
     rules = {}
-    
+
     # 1. Built-in expert rules (default included)
     if args.include_experts and not args.no_include_experts:
         rules = EXPERT_RULES.copy()
-    
+
     # 2. External file rules (if specified)
     if getattr(args, 'rules_file', None):
         file_rules = load_rules_from_file(args.rules_file)
         rules.update(file_rules)
-    
+
     # 3. CLI custom rules (highest priority)
     if args.custom_rules:
         rules.update(json_mod.loads(args.custom_rules))
-    
+
     return rules
 
 
 @command("cluster-symbols")
 def cmd_apply_cluster(builder, engine, args, samples):
     """[Skill] Execute expert rule clustering or custom rule clustering"""
-    
+
     # Prepare rules
     rules = prepare_rules(args)
-    
+
     # Cluster samples using CPU utilization weights
     total_weight, _ = engine.get_total_core_per_sec(samples)
     cluster_weight = defaultdict(float)
     lock_func_weight = defaultdict(float)
-    
+
     for s in samples:
         stack = s.get('stack')
         if not stack:
             continue
-        
+
         weight = engine.get_sample_weight(s)
         normalized_names = stack.get_normalized_names()
-        
+
         matched_groups = set()
         for sym in normalized_names:
             for group, pattern in rules.items():
@@ -125,24 +125,24 @@ def cmd_apply_cluster(builder, engine, args, samples):
                         lock_func_weight[sym] += weight
         for g in matched_groups:
             cluster_weight[g] += weight
-    
+
     # Build results
     results = []
     lock_contention_ratio = 0
-    
+
     for group, weight in cluster_weight.items():
         ratio = (weight / total_weight * 100) if total_weight > 0 else 0
         if group == "EVENT_LOCK_CONTENTION":
             lock_contention_ratio = ratio
         results.append(ClusterItem.from_stats(group, ratio))
-    
+
     results.sort(key=lambda x: float(x.pct_of_total.rstrip('%')), reverse=True)
     top_n = getattr(args, 'top_n', 10)
     results = results[:top_n]
-    
+
     # Find top lock function for hint
     top_lock_func = max(lock_func_weight, key=lock_func_weight.get) if lock_func_weight else "pthread_mutex_lock"
-    
+
     # Build risk info based on lock contention ratio
     if lock_contention_ratio > 50:
         risk = create_risk_info(
@@ -160,7 +160,7 @@ def cmd_apply_cluster(builder, engine, args, samples):
         )
     else:
         risk = create_risk_info(level="none")
-    
+
     # Build time range
     time_range = None
     if samples:
@@ -168,13 +168,13 @@ def cmd_apply_cluster(builder, engine, args, samples):
             samples[0].get('ts'),
             samples[-1].get('ts') if len(samples) > 0 else None
         )
-    
+
     # Build summary with truncation info
     summary = ClusterSummary(
         clusters_found=len(cluster_weight),
         shown_clusters=len(results)
     )
-    
+
     # Build output
     output = ClustersOutput(
         _risk=risk,
@@ -182,5 +182,5 @@ def cmd_apply_cluster(builder, engine, args, samples):
         summary=summary,
         time_range=time_range
     )
-    
+
     return output

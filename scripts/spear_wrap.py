@@ -46,7 +46,7 @@ def migrate_old_env() -> dict:
         if "=" in line and not line.startswith("#"):
             key, value = line.split("=", 1)
             old_env[key] = value
-    
+
     data_path = old_env.get("SPEAR_DATA_PATH")
     if data_path and Path(data_path).exists():
         return {
@@ -106,15 +106,15 @@ def cmd_init(args):
     if not data_path.exists():
         print(f"Error: 数据文件不存在: {data_path}")
         sys.exit(1)
-    
+
     script_path = Path(args.script_path).resolve() if args.script_path else get_default_script_path()
     if not script_path.exists():
         print(f"Error: 脚本不存在: {script_path}")
         sys.exit(1)
-    
+
     env = load_env()
     data_path_str = str(data_path)
-    
+
     # 创建或更新 profile
     profile = {
         "init_time": datetime.now().isoformat(),
@@ -123,25 +123,25 @@ def cmd_init(args):
         "risk_config": getattr(args, 'risk_config', None),
         "rules_file": getattr(args, 'rules_file', None)
     }
-    
+
     is_new = data_path_str not in env["profiles"]
     env["profiles"][data_path_str] = profile
     env["default"] = data_path_str
     save_env(env)
-    
+
     if is_new:
         print(f"✓ 数据文件已添加: {data_path}")
     else:
         print(f"✓ 数据文件已更新: {data_path}")
-    
+
     # 初始化 trace（如果不存在）或更新 profiles_used
     is_new_trace = init_global_trace(data_path_str)
-    
+
     if is_new_trace:
         print(f"✓ Trace 文档已创建: {GLOBAL_TRACE}")
     else:
         print(f"✓ Trace 文档已更新")
-    
+
     print()
     cmd_status()
 
@@ -150,9 +150,9 @@ def cmd_use(args):
     """切换默认数据文件"""
     data_path = Path(args.data_path).resolve()
     data_path_str = str(data_path)
-    
+
     env = load_env()
-    
+
     # 如果路径不存在，尝试模糊匹配
     if data_path_str not in env["profiles"]:
         # 尝试匹配文件名
@@ -165,10 +165,10 @@ def cmd_use(args):
             print(f"Error: 数据文件未配置: {data_path}")
             print("请先运行: spear init --data-path", data_path)
             sys.exit(1)
-    
+
     env["default"] = data_path_str
     save_env(env)
-    
+
     profile = env["profiles"][data_path_str]
     print(f"✓ 已切换到: {data_path}")
     print(f"  初始化时间: {profile['init_time']}")
@@ -183,12 +183,12 @@ def cmd_use(args):
 def cmd_list():
     """列出所有已配置的数据文件"""
     env = load_env()
-    
+
     if not env["profiles"]:
         print("未配置任何数据文件")
         print("请运行: spear init --data-path <path>")
         return
-    
+
     # 读取全局 trace，获取使用统计
     profiles_used = []
     trace_path = Path(GLOBAL_TRACE)
@@ -198,12 +198,12 @@ def cmd_list():
             profiles_used = trace.get("profiles_used", [])
         except:
             pass
-    
+
     print("=== 已配置的数据文件 ===")
     print()
-    
+
     default_path = env.get("default")
-    
+
     for i, (path, profile) in enumerate(env["profiles"].items(), 1):
         marker = "▶" if path == default_path else " "
         used = "✓" if path in profiles_used else " "
@@ -216,7 +216,7 @@ def cmd_list():
         if profile.get("rules_file"):
             print(f"       Rules: {profile['rules_file']}")
         print()
-    
+
     print("图例: ▶ 当前默认  ✓ 已在 trace 中使用")
     print()
     print("提示: 使用 'spear use <path|index>' 切换默认数据文件")
@@ -225,19 +225,19 @@ def cmd_list():
 def cmd_status():
     """显示状态"""
     env = load_env()
-    
+
     print("=== spear (perf-hunter) 环境配置 ===")
     print()
     print(f"配置文件: {Path.cwd() / ENV_FILE}")
     print(f"Trace 文件: {Path.cwd() / GLOBAL_TRACE}")
     print()
-    
+
     if not env["profiles"]:
         print("未初始化。请运行: spear init --data-path <path>")
         return
-    
+
     default_path = env.get("default")
-    
+
     # 读取全局 trace 信息
     trace_path = Path(GLOBAL_TRACE)
     if trace_path.exists():
@@ -247,17 +247,17 @@ def cmd_status():
             issues_count = len(trace.get("issues", {}))
             open_issues = sum(1 for i in trace.get("issues", {}).values() if i.get("status") == "open")
             profiles_used = trace.get("profiles_used", [])
-            
+
             print(f"Timeline: {timeline_count} 条命令记录")
             print(f"Issues: {issues_count} 个 ({open_issues} 个待处理)")
             print(f"涉及数据文件: {len(profiles_used)} 个")
             print()
         except:
             pass
-    
+
     print(f"已配置 {len(env['profiles'])} 个数据文件:")
     print()
-    
+
     for path, profile in env["profiles"].items():
         marker = "▶ " if path == default_path else "  "
         display_path = path if len(path) <= 60 else f"...{path[-57:]}"
@@ -269,7 +269,7 @@ def cmd_status():
         if profile.get("rules_file"):
             print(f"    Rules: {profile['rules_file']}")
         print()
-    
+
     if default_path:
         print("▶ 当前默认数据文件")
     print()
@@ -282,7 +282,7 @@ def get_active_config(env: dict) -> tuple:
     default_path = env.get("default")
     if default_path and default_path in env["profiles"]:
         return default_path, env["profiles"][default_path]
-    
+
     return None, None
 
 
@@ -290,7 +290,7 @@ def cmd_exec(subcommand: str, args: list):
     """执行 perf-hunter 命令"""
     env = load_env()
     data_path, profile = get_active_config(env)
-    
+
     # trace 子命令特殊处理（不需要 data 文件配置，除了 init）
     if subcommand == "trace":
         # 如果 args 包含 init，需要检查 data 配置
@@ -301,22 +301,22 @@ def cmd_exec(subcommand: str, args: list):
                 print("请运行以下命令初始化:")
                 print("  spear init --data-path <path_to_perf.data.txt>")
                 sys.exit(1)
-        
+
         # 确定脚本路径（优先从 profile 读取）
         if profile and profile.get("script_path"):
             script_path = Path(profile["script_path"])
         else:
             script_path = get_default_script_path()
-        
+
         if not script_path.exists():
             print(f"Error: 脚本不存在: {script_path}")
             sys.exit(1)
-        
+
         # 构建命令
         # trace 命令格式: spear.py trace <subcommand> [options]
         # --risk-config 需要在子命令之后
         cmd = ["python3", str(script_path), "trace"]
-        
+
         # 提取子命令（如果有）
         trace_subcommand = None
         other_args = args
@@ -324,16 +324,16 @@ def cmd_exec(subcommand: str, args: list):
             trace_subcommand = args[0]
             other_args = args[1:]
             cmd.append(trace_subcommand)
-        
+
         # 自动注入 risk_config（如果 profile 有配置且用户未显式指定）
         if profile and profile.get("risk_config"):
             if not any(arg.startswith("--risk-config") for arg in args):
                 cmd.extend(["--risk-config", profile["risk_config"]])
-        
+
         cmd.extend(other_args)
         os.execvp(cmd[0], cmd)
         return
-    
+
     # 其他命令需要检查 data 文件配置
     if not data_path:
         print("Error: 未配置数据文件路径")
@@ -341,37 +341,37 @@ def cmd_exec(subcommand: str, args: list):
         print("请运行以下命令初始化:")
         print("  spear init --data-path <path_to_perf.data.txt>")
         sys.exit(1)
-    
+
     # 确定脚本路径
     if profile and profile.get("script_path"):
         script_path = Path(profile["script_path"])
     else:
         script_path = get_default_script_path()
-    
+
     if not script_path.exists():
         print(f"Error: 脚本不存在: {script_path}")
         print("请检查配置或重新运行 spear init")
         sys.exit(1)
-    
+
     # 确定频率
     freq = profile.get("freq") if profile else None
-    
+
     # 构建命令
     cmd = ["python3", str(script_path)]
     cmd.extend([subcommand, "--data", data_path])
-    
+
     # 自动注入频率
     if freq and "--freq" not in args:
         cmd.extend(["--freq", freq])
-    
+
     # 自动注入 rules_file（仅限 cluster-symbols 命令）
     if subcommand == "cluster-symbols":
         if profile and profile.get("rules_file"):
             if not any(arg.startswith("--rules-file") for arg in args):
                 cmd.extend(["--rules-file", profile["rules_file"]])
-    
+
     cmd.extend(args)
-    
+
     # 执行
     os.execvp(cmd[0], cmd)
 
@@ -441,24 +441,24 @@ Trace 管理命令:
 
 def main():
     argv = sys.argv[1:]
-    
+
     if not argv:
         show_help()
         return
-    
+
     command = argv[0]
     remaining = argv[1:]
-    
+
     if command in ("-h", "--help", "help"):
         show_help()
         return
-    
+
     if command in ("-v", "--version", "version"):
         version_file = get_script_dir().parent / "version"
         version = version_file.read_text().strip() if version_file.exists() else "unknown"
         print(f"spear (perf-hunter wrapper) version {version}")
         return
-    
+
     if command == "init":
         parser = argparse.ArgumentParser(prog="spear init", add_help=False)
         parser.add_argument("--data-path", required=True)
@@ -467,7 +467,7 @@ def main():
         parser.add_argument("--risk-config", help="Risk display config file for trace commands")
         parser.add_argument("--rules-file", help="Expert rules file for cluster-symbols command")
         parser.add_argument("-h", "--help", action="store_true")
-        
+
         args = parser.parse_args(remaining)
         if args.help:
             print("usage: spear init --data-path <path> [--script-path <path>] [--freq <hz>] [--risk-config <path>] [--rules-file <path>]")
@@ -479,7 +479,7 @@ def main():
             return
         cmd_init(args)
         return
-    
+
     if command == "use":
         if not remaining or remaining[0] in ("-h", "--help"):
             print("usage: spear use <path|index>")
@@ -487,10 +487,10 @@ def main():
             print("  path:  数据文件的完整路径或文件名")
             print("  index: 使用 'spear list' 显示的索引号")
             return
-        
+
         data_arg = remaining[0]
         env = load_env()
-        
+
         try:
             index = int(data_arg)
             profiles = list(env["profiles"].keys())
@@ -501,22 +501,22 @@ def main():
                 sys.exit(1)
         except ValueError:
             pass
-        
+
         class Args:
             pass
         args = Args()
         args.data_path = data_arg
         cmd_use(args)
         return
-    
+
     if command == "list":
         cmd_list()
         return
-    
+
     if command == "status":
         cmd_status()
         return
-    
+
     cmd_exec(command, remaining)
 
 

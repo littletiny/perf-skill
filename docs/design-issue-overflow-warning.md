@@ -65,24 +65,24 @@ EVENT: LOCK_CONTENTION 38.36%
 def print_issue_overflow_warning(self):
     """
     检查 pending issues 并输出 overflow warning
-    
+
     触发条件: open_issues >= 2
     输出格式: [!] {总数}问题未闭环: {分类统计} | {警告文案} | 现在执行: trace issues
     """
     if not self._trace:
         return
-    
+
     open_issues = self._trace.get_open_issues()
     if len(open_issues) < 2:
         return
-    
+
     # 分类统计
     categories = self._categorize_issues(open_issues)
     category_str = ", ".join([f"{cat}x{count}" for cat, count in categories.items()])
-    
+
     # 固定警告文案
     warning = "⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状"
-    
+
     # 输出
     print(f"[!] {len(open_issues)}问题未闭环: {category_str} | {warning} | 现在执行: trace issues")
 ```
@@ -98,7 +98,7 @@ if args.command in commands:
     from perf_toolkit.core.output_builder import OutputBuilder
     builder = OutputBuilder(engine, args)
     builder.print_issue_overflow_warning()
-    
+
     # 执行实际命令
     commands[args.command](engine, args)
 ```

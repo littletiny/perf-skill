@@ -1,7 +1,7 @@
 # Risk 消息展示自定义设计文档
 
 > 设计目标：极简 Risk 消息展示，支持从 init 配置导入文案模板
-> 
+>
 > 版本: 1.6
 > 创建时间: 2026-03-02
 
@@ -101,19 +101,19 @@ config/risk-default.json
 def load_config():
     # 1. 内置默认
     config = load_builtin_default()
-    
+
     # 2. 用户默认（如果存在）
     if exists("~/.config/spear/risk.json"):
         merge(config, load("~/.config/spear/risk.json"))
-    
+
     # 3. 项目本地（如果存在）
     if exists(".spear/risk.json"):
         merge(config, load(".spear/risk.json"))
-    
+
     # 4. 环境变量指定
     if env_path := getenv("SPEAR_RISK_CONFIG"):
         merge(config, load(env_path))
-    
+
     return config
 ```
 
@@ -221,12 +221,12 @@ class RiskDisplayConfig:
     colors: Dict[str, str] = field(default_factory=lambda: DEFAULT_CONFIG["colors"].copy())
     templates: Dict[str, str] = field(default_factory=lambda: DEFAULT_CONFIG["templates"].copy())
     show: Dict[str, bool] = field(default_factory=lambda: DEFAULT_CONFIG["show"].copy())
-    
+
     @classmethod
     def load(cls, explicit_path: Optional[str] = None) -> 'RiskDisplayConfig':
         """
         加载配置
-        
+
         优先级（从低到高）：
         1. 内置默认
         2. ~/.config/spear/risk.json
@@ -235,50 +235,50 @@ class RiskDisplayConfig:
         5. 显式指定路径
         """
         config = cls()
-        
+
         # 搜索路径（按优先级排序）
         search_paths = [
             Path.home() / '.config' / 'spear' / 'risk.json',
             Path('.spear/risk.json'),
         ]
-        
+
         # 按顺序合并（后覆盖前）
         for path in search_paths:
             if path.exists():
                 config._merge_from_file(path)
-        
+
         # 环境变量指定
         if env_path := os.getenv('SPEAR_RISK_CONFIG'):
             if Path(env_path).exists():
                 config._merge_from_file(Path(env_path))
-        
+
         # 显式指定（最高优先级）
         if explicit_path and Path(explicit_path).exists():
             config._merge_from_file(Path(explicit_path))
-        
+
         return config
-    
+
     def _merge_from_file(self, path: Path):
         """从 JSON 文件合并配置"""
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            
+
             if not isinstance(data, dict) or 'risk' not in data:
                 return
-            
+
             risk_data = data['risk']
-            
+
             if 'colors' in risk_data:
                 self.colors.update(risk_data['colors'])
             if 'templates' in risk_data:
                 self.templates.update(risk_data['templates'])
             if 'show' in risk_data:
                 self.show.update(risk_data['show'])
-                
+
         except (json.JSONDecodeError, IOError, KeyError):
             pass
-    
+
     def apply_mode(self, mode: str):
         """应用模式覆盖（从配置文件中查找 modes 部分）"""
         # 从已加载的配置文件中查找 modes
@@ -288,10 +288,10 @@ class RiskDisplayConfig:
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                
+
                 if not isinstance(data, dict) or 'modes' not in data:
                     continue
-                    
+
                 if mode in data['modes']:
                     mode_data = data['modes'][mode]
                     if 'colors' in mode_data:
@@ -301,7 +301,7 @@ class RiskDisplayConfig:
                     if 'show' in mode_data:
                         self.show.update(mode_data['show'])
                     break
-                    
+
             except (json.JSONDecodeError, IOError):
                 continue
 
@@ -335,48 +335,48 @@ from .risk_config import RiskDisplayConfig, get_risk_config
 
 class Trace:
     """Trace v2.0 - 支持 RiskDisplayConfig 格式化输出"""
-    
+
     def __init__(self, path: Optional[str] = None, config: RiskDisplayConfig = None):
         self.path = path or self._find_doc()
         self.data = self._load()
         self._current_seq = None
         self.config = config
-    
+
     def _get_config(self, cfg: RiskDisplayConfig = None) -> RiskDisplayConfig:
         """获取有效配置（回退机制）"""
         return cfg or self.config or get_risk_config()
-    
+
     # =====================================================================
     # 格式化方法
     # =====================================================================
-    
+
     def format_issue(self, issue: Dict, cfg: RiskDisplayConfig = None) -> str:
         """格式化单个 issue"""
         cfg = self._get_config(cfg)
-        
+
         issue_id = issue.get('id', '')
         level = issue.get('level', 'warning')
         desc = issue.get('desc', '')
         status = issue.get('status', 'open')
         hint = issue.get('hint', '')
         result = issue.get('result', '')
-        
+
         # 应用颜色
         color = cfg.colors.get(level, '')
         reset = cfg.colors.get('reset', '')
-        
+
         # Issue 行
         if status == 'resolved':
             tpl = cfg.templates.get('issue_resolved', '[RESOLVED] [{id}] [{level}] {desc}')
         else:
             tpl = cfg.templates.get('issue_open', '[OPEN] [{id}] [{level}] {desc}')
-        
+
         line = tpl.format(id=issue_id, level=level.upper(), desc=desc)
         if color:
             line = f"{color}{line}{reset}"
-        
+
         lines = [line]
-        
+
         # Hint / Result
         if status != 'resolved' and hint and cfg.show.get('hint', True):
             tpl = cfg.templates.get('hint', '→ {hint}')
@@ -384,19 +384,19 @@ class Trace:
         elif status == 'resolved' and result and cfg.show.get('result', True):
             tpl = cfg.templates.get('result', '→ {result}')
             lines.append(tpl.format(result=result))
-        
+
         return '\n'.join(lines)
-    
-    def format_issue_list(self, issues: List[Dict], status_filter: str = 'all', 
+
+    def format_issue_list(self, issues: List[Dict], status_filter: str = 'all',
                           cfg: RiskDisplayConfig = None) -> str:
         """格式化 issue 列表"""
         cfg = self._get_config(cfg)
-        
+
         if not issues:
             return "(No issues)"
-        
+
         lines = []
-        
+
         # 标题
         if status_filter == 'open':
             tpl = cfg.templates.get('list_header_open', '[OPEN] {count} issues pending')
@@ -409,72 +409,72 @@ class Trace:
             resolved_count = len([i for i in issues if i.get('status') == 'resolved'])
             tpl = cfg.templates.get('list_header_all', '[ALL] {open_count} open, {resolved_count} resolved')
             lines.append(tpl.format(open_count=open_count, resolved_count=resolved_count))
-        
+
         lines.append('')
-        
+
         # Issue 列表
         for issue in issues:
             lines.append(self.format_issue(issue, cfg))
             lines.append('')
-        
+
         return '\n'.join(lines)
-    
+
     def format_timeline(self, cfg: RiskDisplayConfig = None) -> str:
         """格式化 timeline"""
         cfg = self._get_config(cfg)
         timeline = self.get_timeline()
-        
+
         if not timeline:
             return "(No timeline records)"
-        
+
         lines = []
-        
+
         for record in timeline:
             seq = record.get('seq', 0)
             ts = record.get('timestamp', '')
             cmd = record.get('command', '')
-            
+
             # 简化时间显示
             time_str = ts.split('T')[1].split('.')[0] if 'T' in ts else ts[:8]
-            
+
             # Command 行
             tpl = cfg.templates.get('timeline_command', '[{seq}] {time} {command}')
             lines.append(tpl.format(seq=seq, time=time_str, command=cmd))
-            
+
             # Findings
             for finding in record.get('findings', []):
                 ftype = finding.get('type', '')
-                
+
                 if ftype == 'risk_created':
                     level = finding.get('level', 'warning')
                     color = cfg.colors.get(level, '')
                     reset = cfg.colors.get('reset', '')
                     issue_id = finding.get('issue_id', '')
                     desc = finding.get('desc', '')
-                    
+
                     tpl = cfg.templates.get('timeline_finding_created', '[{level}] {issue_id}: {desc}')
                     line = tpl.format(level=level.upper(), issue_id=issue_id, desc=desc)
                     if color:
                         line = f"{color}{line}{reset}"
                     lines.append(line)
-                    
+
                 elif ftype == 'issue_resolved':
                     issue_id = finding.get('issue_id', '')
                     result = finding.get('result', '')
                     tpl = cfg.templates.get('timeline_finding_resolved', '[RESOLVED] {issue_id}: {result}')
                     lines.append(tpl.format(issue_id=issue_id, result=result))
-                    
+
                 elif ftype == 'info':
                     msg = finding.get('message', '')
                     tpl = cfg.templates.get('timeline_info', '[INFO] {message}')
                     lines.append(tpl.format(message=msg))
-            
+
             lines.append('')
-        
+
         # 摘要
         summary = self.get_summary()
         lines.append(f"Commands: {summary['total_commands']}, Open: {summary['open_issues']}, Resolved: {summary['resolved_issues']}")
-        
+
         return '\n'.join(lines)
 ```
 
@@ -486,14 +486,14 @@ class Trace:
 def _load_config_from_args(args) -> RiskDisplayConfig:
     """从 args 加载配置"""
     cfg = get_risk_config(explicit_path=getattr(args, 'risk_config', None))
-    
+
     if style := getattr(args, 'risk_style', None):
         cfg.apply_mode(style)
-    
+
     # CI 环境禁用颜色
     if os.getenv('NO_COLOR') or os.getenv('SPEAR_NO_COLOR'):
         cfg.colors = {k: '' for k in cfg.colors}
-    
+
     return cfg
 
 
@@ -501,18 +501,18 @@ def cmd_doc_issues(args):
     """查看 issues"""
     cfg = _load_config_from_args(args)
     doc = Trace(config=cfg)
-    
+
     status_filter = getattr(args, 'status', 'all')
-    
+
     if status_filter == 'open':
         issues = doc.get_open_issues()
     elif status_filter == 'resolved':
         issues = doc.get_resolved_issues()
     else:
         issues = doc.get_open_issues() + doc.get_resolved_issues()
-    
+
     print(doc.format_issue_list(issues, status_filter, cfg))
-    
+
     if status_filter in ['all', 'open'] and doc.get_open_issues():
         print(f"Usage: spear trace complete --id ISS-001 --result '分析结果'")
 

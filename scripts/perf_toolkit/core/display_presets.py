@@ -38,7 +38,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_hotspots",
         "shown_field": "shown_hotspots",
     },
-    
+
     # -------------------------------------------------------------------------
     # get-process-top
     # -------------------------------------------------------------------------
@@ -52,7 +52,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_processes",
         "shown_field": "shown_processes",
     },
-    
+
     # -------------------------------------------------------------------------
     # get-comm-top / cluster-comm
     # -------------------------------------------------------------------------
@@ -65,7 +65,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_comm_groups",
         "shown_field": None,  # comm_groups 不显示截断提示
     },
-    
+
     # -------------------------------------------------------------------------
     # cluster-symbols
     # -------------------------------------------------------------------------
@@ -78,7 +78,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "clusters_found",
         "shown_field": "shown_clusters",
     },
-    
+
     # -------------------------------------------------------------------------
     # cluster-paths
     # -------------------------------------------------------------------------
@@ -95,7 +95,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_clusters",
         "shown_field": "shown_clusters",
     },
-    
+
     # -------------------------------------------------------------------------
     # find-callers
     # -------------------------------------------------------------------------
@@ -109,7 +109,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_attributions",
         "shown_field": "shown_attributions",
     },
-    
+
     # -------------------------------------------------------------------------
     # find-callers --auto
     # -------------------------------------------------------------------------
@@ -121,7 +121,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": None,  # traces 不显示截断提示
         "shown_field": None,
     },
-    
+
     # -------------------------------------------------------------------------
     # analyze-core-distribution
     # -------------------------------------------------------------------------
@@ -135,7 +135,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": None,  # cores 按阈值过滤，不是 top_n 截断
         "shown_field": None,
     },
-    
+
     # -------------------------------------------------------------------------
     # count-process-variety
     # -------------------------------------------------------------------------
@@ -148,7 +148,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_processes",
         "shown_field": None,
     },
-    
+
     # -------------------------------------------------------------------------
     # detect-anomalies
     # -------------------------------------------------------------------------
@@ -164,7 +164,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_anomalies",
         "shown_field": None,
     },
-    
+
     # -------------------------------------------------------------------------
     # detect-anomalies --export-mode
     # -------------------------------------------------------------------------
@@ -177,7 +177,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "total_field": "total_windows",
         "shown_field": None,
     },
-    
+
     # -------------------------------------------------------------------------
     # check-cpu-bottleneck (custom)
     # -------------------------------------------------------------------------
@@ -185,7 +185,7 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "template_type": "custom",
         "custom_renderer": "bottleneck",
     },
-    
+
     # -------------------------------------------------------------------------
     # show-cpu-usage (custom)
     # -------------------------------------------------------------------------
@@ -198,10 +198,10 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
 
 def get_display_preset(name: str) -> Dict[str, Any]:
     """获取显示格式预设
-    
+
     Args:
         name: 预设名称 (如 "hotspots", "processes")
-        
+
     Returns:
         显示格式配置字典
     """

@@ -76,7 +76,7 @@
     ]
   }
   ```
-- **机制发现**: 
+- **机制发现**:
   - CPU 62单核满载99.6%，运行`AdamOptimizer::Optimize`、`VecParameter::Update`等业务函数
   - 其他126个核心利用率均<10%
   - imbalance_ratio=87.09表示极度不均衡
@@ -106,7 +106,7 @@
     }
   }
   ```
-- **机制发现**: 
+- **机制发现**:
   - 热点调用链: `zero_copy_push` → `PushModels` → `PushModel` → `PushVecFid` → `VecParameter::Update` → `AdamOptimizer::Optimize`
   - 这是参数服务器的**Push操作**(模型参数更新)路径
   - AdamOptimizer::Optimize 的self_ratio仅0.97%，但inclusive_ratio达15.24%，说明它是调用树的叶子节点
@@ -130,7 +130,7 @@
     }
   }
   ```
-- **机制发现**: 
+- **机制发现**:
   - 调度器开销仅0.28%，正常范围
   - 86.96%的调度来自nanosleep（主动休眠），属于正常业务行为
   - 锁竞争2.91%，存在但不是主要瓶颈
@@ -159,20 +159,20 @@
   - ✅ 单核满载(CPU 62占99.6%): AdamOptimizer::Optimize串行执行
   - ✅ 其他核心空闲: 任务集中在单核，无法并行分发
   - ✅ 内核态占比31.5%: 包含网络栈和内存管理开销，正常
-  
+
 - [x] **证据链是否闭环？**
   - ✅ 宏观评估(show-cpu-usage) → 核心分布(analyze-core-distribution) → 热点识别(get-hotspots) → 调用溯源(find-callers) → 语义聚类(cluster-symbols)
   - ✅ 各工具结论相互印证：单核饱和是主要瓶颈
-  
+
 - [x] **是否存在无法解释的孤证？**
   - ✅ 无重大孤证
   - ✅ 异常检测发现的SPIKE与单核瓶颈的突发处理特征一致
-  
+
 - [x] **是否考虑过其他可能性？**
   - ✅ 已评估并证伪: Cgroup限流、调度器问题
   - ✅ 已确认: 单核饱和/串行瓶颈是主要根因，锁竞争是次要因素
 
-**根因结论**: 
+**根因结论**:
 
 **PID 2573405 (parameter_serve 参数服务器) 的 CPU 使用率上不去的根本原因是严重的单核饱和瓶颈。**
 
@@ -196,7 +196,7 @@
    for (auto& param : params) {
        optimizer->Optimize(param);  // 全部在CPU 62执行
    }
-   
+
    // 建议: 按参数分片并行更新
    #pragma omp parallel for
    for (auto& param : params) {

@@ -16,32 +16,32 @@ from ..core.output_models import (
 @command("get-hotspots")
 def cmd_get_hotspots(builder, engine, args, samples):
     """[Skill] Extract macro hotspot paths or function rankings"""
-    
+
     # 样本已由装饰器准备好：获取、空检查、质量评估
-    
+
     # 使用 engine 统一接口获取符号级 CPU 利用率
     symbol_util = engine.get_symbol_cpu_util(samples)
-    
+
     # Build results
     results = []
     top_kernel_hotspot = None
     top_kernel_ratio = 0
-    
+
     for sym in symbol_util['inclusive'].keys():
         self_pct = symbol_util['self'].get(sym, 0)
         incl_pct = symbol_util['inclusive'][sym]
-        
+
         # Track kernel hotspots for risk
         if sym.endswith('_[k]') and incl_pct > top_kernel_ratio:
             top_kernel_ratio = incl_pct
             top_kernel_hotspot = sym
-        
+
         results.append(HotspotItem.from_stats(sym, self_pct, incl_pct))
-    
+
     # Sort by self ratio (descending)
     results.sort(key=lambda x: float(x.self.rstrip('%')), reverse=True)
     top_items = results[:args.top_n]
-    
+
     # Build RiskInfo
     if top_kernel_ratio > 30:
         risk = create_risk_info(
@@ -52,7 +52,7 @@ def cmd_get_hotspots(builder, engine, args, samples):
         )
     else:
         risk = create_risk_info(level="none")
-    
+
     # Build time range
     time_range = None
     if samples:
@@ -60,13 +60,13 @@ def cmd_get_hotspots(builder, engine, args, samples):
             samples[0].get('ts'),
             samples[-1].get('ts') if len(samples) > 0 else None
         )
-    
+
     # Build summary with truncation info
     summary = HotspotSummary(
         total_hotspots=len(results),
         shown_hotspots=len(top_items)
     )
-    
+
     # Build output
     output = HotspotsOutput(
         _risk=risk,
@@ -74,5 +74,5 @@ def cmd_get_hotspots(builder, engine, args, samples):
         summary=summary,
         time_range=time_range
     )
-    
+
     return output  # 装饰器会自动调用 print_output

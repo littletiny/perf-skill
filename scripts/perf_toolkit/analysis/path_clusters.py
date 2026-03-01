@@ -29,16 +29,16 @@ class PathClusterRawData:
 
 class PathCluster:
     """Trie-based path clustering for stack samples"""
-    
+
     def __init__(self, min_depth: int = 2, min_weight: float = 0.01):
         self.min_depth = min_depth
         self.min_weight = min_weight
         self.trie: Dict[str, Any] = {'_weight': 0.0, '_samples': []}
-    
+
     def add_sample(self, stack, weight=0):
         if not stack:
             return
-        
+
         node = self.trie
         for func in reversed(stack.get_normalized_names()):
             if func not in node:
@@ -46,7 +46,7 @@ class PathCluster:
             node = node[func]
             node['_weight'] += weight
             node['_samples'].append((stack.get_normalized_names(), weight))
-    
+
     def extract_clusters(self, node=None, path=None, clusters=None) -> List[PathClusterRawData]:
         if node is None:
             node = self.trie
@@ -54,7 +54,7 @@ class PathCluster:
             path = []
         if clusters is None:
             clusters: List[PathClusterRawData] = []
-        
+
         if len(path) >= self.min_depth and node['_weight'] >= self.min_weight:
             clusters.append(PathClusterRawData(
                 path_signature='→'.join(path),
@@ -62,40 +62,40 @@ class PathCluster:
                 weight=node['_weight']
             ))
             return clusters
-        
+
         for key, child in node.items():
             if not key.startswith('_'):
                 self.extract_clusters(child, path + [key], clusters)
-        
+
         return clusters
 
 
 @command("cluster-paths")
 def cmd_cluster_paths(builder, engine, args, samples):
     """[Skill] Cluster samples by common call path prefixes using Trie"""
-    
+
     # 使用 engine 统一接口获取总量和 duration
     total_weight, _ = engine.get_total_core_per_sec(samples)
     duration = engine.get_duration(samples)
-    
+
     # Build clusters
     min_weight = getattr(args, 'min_samples', 5) * 0.001
     cluster_builder = PathCluster(min_depth=args.min_depth, min_weight=min_weight)
-    
+
     for s in samples:
         stack = s.get('stack')
         if stack and len(stack) > 0:
             weight = engine.get_sample_weight(s)
         cluster_builder.add_sample(stack, weight)
-    
+
     clusters = cluster_builder.extract_clusters()
-    
+
     clusters.sort(key=lambda x: -x.weight)
     top_clusters = clusters[:args.top_n]
-    
+
     # Build output using V2 data models
     risk = create_risk_info("none", None, None)
-    
+
     results = [
         PathClusterItem.from_raw(
             cluster_id=f"c_{i+1:03d}",
@@ -106,24 +106,24 @@ def cmd_cluster_paths(builder, engine, args, samples):
         )
         for i, c in enumerate(top_clusters)
     ]
-    
+
     # 计算 clustered_weight
     clustered_weight = sum(c.weight for c in top_clusters)
-    
+
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
-    
+
     # Build summary with truncation info
     summary = PathClusterSummary(
         total_clusters=len(clusters),
         shown_clusters=len(results),
         clustered_weight=clustered_weight
     )
-    
+
     output = PathClustersOutput(
         _risk=risk,
         path_clusters=results,
         summary=summary,
         time_range=time_range
     )
-    
+
     return output

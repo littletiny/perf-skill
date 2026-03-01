@@ -74,7 +74,7 @@ spear trace complete --id ISS-001 --result "xxx"
         },
         {
           "type": "risk_created",
-          "level": "warning", 
+          "level": "warning",
           "desc": "containerd-shim 高内核态 89.9%",
           "issue_id": "ISS-002"
         }
@@ -161,11 +161,11 @@ class OutputBuilder:
     def __init__(self, engine, args):
         self.live_doc = LiveDoc()  # 自动加载或创建
         self.current_seq = None
-    
+
     def begin_command(self, command_name):
         """命令开始时记录"""
         self.current_seq = self.live_doc.record_command(command_name)
-    
+
     def record_risk(self, level, desc, hint=""):
         """检测到风险时自动创建 issue"""
         issue_id = self.live_doc.create_issue(
@@ -175,10 +175,10 @@ class OutputBuilder:
             command_seq=self.current_seq
         )
         return issue_id
-    
+
     # ❌ 不提供自动解决功能
     # def record_resolution(self, issue_id, result): ...
-    
+
     def end_command(self):
         """命令结束时保存"""
         self.live_doc.save()
@@ -194,12 +194,12 @@ class OutputBuilder:
 ```python
 def cmd_get_comm_top(engine, args):
     builder = OutputBuilder(engine, args)
-    
+
     # 1. 自动记录命令开始
     builder.begin_command("get-comm-top")
-    
+
     # ... 分析逻辑 ...
-    
+
     # 2. 发现风险时自动创建 issue
     for comm in high_kernel_comms:
         builder.record_risk(
@@ -207,7 +207,7 @@ def cmd_get_comm_top(engine, args):
             desc=f"{comm} 高内核态 94.7%",
             hint=f"cluster-symbols --comm {comm}"
         )
-    
+
     # 3. 自动保存
     builder.end_command()
 ```
@@ -246,7 +246,7 @@ spear trace complete --id ISS-001 --result "wontfix: 优先级低"
 # 查看 timeline
 spear trace timeline [--format json]
 
-# 查看 issues 状态  
+# 查看 issues 状态
 spear trace issues [--status open|resolved|all]
 
 # 标记 issue 完成（人工执行）

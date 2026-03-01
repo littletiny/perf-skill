@@ -38,48 +38,48 @@ def parse_cpu_quota(value):
 @command("check-cpu-bottleneck")
 def cmd_check_bottleneck(builder, engine, args, samples):
     """[Skill] Determine resource throttling and single-core saturation"""
-    
+
     # 使用 engine 统一接口获取核心级 CPU 利用率
     core_util = engine.get_core_cpu_util(samples)
-    
+
     # 检测各类瓶颈
     cpu_limit = getattr(args, 'cpu_limit', 0) or 0
-    
+
     # 获取阈值参数 (默认 80%)
     threshold = getattr(args, 'threshold', 80)
     sys_threshold = threshold + 10  # sys 阈值比 total 高 10%
-    
+
     # 收集高负载核心
     high_cpu_cores = []  # total > threshold
     high_sys_cores = []  # sys > sys_threshold
     max_cpu_id = None
     max_usage_pct = 0
-    
+
     for cpu_id, info in core_util.items():
         total_pct = info['total_pct']
         sys_pct = info['kernel_pct']
-        
+
         # 记录最高负载核心
         if total_pct > max_usage_pct:
             max_usage_pct = total_pct
             max_cpu_id = cpu_id
-        
+
         # 检测单核高负载 (>threshold)
         if total_pct > threshold:
             high_cpu_cores.append(cpu_id)
-        
+
         # 检测单核 sys 高 (>sys_threshold)
         if sys_pct > sys_threshold:
             high_sys_cores.append(cpu_id)
-    
+
     # 排序
     high_cpu_cores.sort()
     high_sys_cores.sort()
-    
+
     # 收集所有检测到的 events
     events = []
     risk = None
-    
+
     # Event 1: CPU 限制饱和 (最高优先级)
     if cpu_limit > 0 and max_usage_pct / 100 > (cpu_limit * 0.9):
         events.append("CPU_LIMIT_SATURATION")
@@ -89,7 +89,7 @@ def cmd_check_bottleneck(builder, engine, args, samples):
             hint=f"检查 cgroup CPU 限制或扩容",
             patterns=["CPU_LIMIT_SATURATION"]
         )
-    
+
     # Event 2: 单核 sys 过高
     if high_sys_cores:
         events.append("HIGH_SYS_CORES")
@@ -101,7 +101,7 @@ def cmd_check_bottleneck(builder, engine, args, samples):
                 hint="[必须] 分析内核热点: cluster-symbols",
                 patterns=["HIGH_SYS_CORES"]
             )
-    
+
     # Event 3: 单核满载 (至少1个核心高负载)
     if high_cpu_cores:
         events.append("SINGLE_CORE_SATURATION")
@@ -118,7 +118,7 @@ def cmd_check_bottleneck(builder, engine, args, samples):
                 hint=hint,
                 patterns=["SINGLE_CORE_SATURATION"]
             )
-    
+
     # Event 4: 多核高负载 (>=3 个核心高负载，区别于单核满载)
     if len(high_cpu_cores) >= 3:
         events.append("HIGH_CORES")
@@ -131,7 +131,7 @@ def cmd_check_bottleneck(builder, engine, args, samples):
                 hint="检查整体负载情况",
                 patterns=["HIGH_CORES"]
             )
-    
+
     # 确定主要 verdict (按优先级)
     if "CPU_LIMIT_SATURATION" in events:
         verdict = "CPU_LIMIT_SATURATION"
@@ -144,11 +144,11 @@ def cmd_check_bottleneck(builder, engine, args, samples):
     else:
         verdict = "HEALTHY"
         events.append("HEALTHY")
-    
+
     # 无风险时创建空 risk
     if risk is None:
         risk = create_risk_info(level="none")
-    
+
     # Create data model
     data = BottleneckData(
         verdict=verdict,
@@ -165,15 +165,15 @@ def cmd_check_bottleneck(builder, engine, args, samples):
             cpu_limit_detected=cpu_limit > 0
         )
     )
-    
+
     summary = BottleneckSummary()
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
-    
+
     output = BottleneckOutput(
         _risk=risk,
         data=data,
         summary=summary,
         time_range=time_range
     )
-    
+
     return output

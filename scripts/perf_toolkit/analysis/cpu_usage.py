@@ -24,12 +24,12 @@ from ..core.output_models import (
 @command("show-cpu-usage")
 def cmd_show_cpu_usage(builder, engine, args, samples):
     """[Skill] Show CPU utilization for OS or specific PID (user/kernel/total)"""
-    
+
     # Determine target description
     pid = getattr(args, 'pid', None)
     comm = getattr(args, 'comm', None)
     comm_regex = getattr(args, 'comm_regex', None)
-    
+
     if pid:
         target_desc = f"PID {pid}"
     elif comm:
@@ -38,14 +38,14 @@ def cmd_show_cpu_usage(builder, engine, args, samples):
         target_desc = f"comm_regex={comm_regex}"
     else:
         target_desc = "System-wide"
-    
+
     # 使用 engine 统一接口获取整体 CPU 利用率
     util_stats = engine.get_cpu_utilization(samples)
-    
+
     # 使用 engine 统一接口获取核心级利用率，检测高 sys 核心
     core_util = engine.get_core_cpu_util(samples)
     high_sys_cores = []
-    
+
     for cpu_id, info in sorted(core_util.items(), key=lambda x: x[1]['kernel_pct'], reverse=True):
         if info['kernel_pct'] > 70:
             high_sys_cores.append(CoreItem(
@@ -53,7 +53,7 @@ def cmd_show_cpu_usage(builder, engine, args, samples):
                 total_cpu_util=f"{info['total_pct']:.2f}%",
                 kernel_cpu_util=f"{info['kernel_pct']:.2f}%"
             ))
-    
+
     # Build risk info
     if high_sys_cores:
         # High sys cores detected - critical risk
@@ -73,7 +73,7 @@ def cmd_show_cpu_usage(builder, engine, args, samples):
         )
     else:
         risk = create_risk_info(level="none")
-    
+
     # Build CPU usage data
     data = CPUUsageData(
         target=target_desc,
@@ -83,17 +83,17 @@ def cmd_show_cpu_usage(builder, engine, args, samples):
             kernel_pct=format_percent(util_stats['kernel_pct'])
         )
     )
-    
+
     # Build summary with high sys cores info
     summary = CPUUsageSummary()
-    
+
     # Build output
     output = CPUUsageOutput(_risk=risk, data=data, summary=summary)
-    
+
     # Print high sys cores if any (side effect, keep for compatibility)
     if high_sys_cores:
         print("\n# HIGH_SYS_CORES: cpu_id,(usr+sys)/sys")
         for i, core in enumerate(high_sys_cores, 1):
             print(f"#{i} CPU{core.cpu_id} {core.total_cpu_util}/{core.kernel_cpu_util}")
-    
+
     return output

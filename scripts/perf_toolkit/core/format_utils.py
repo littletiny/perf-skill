@@ -57,10 +57,10 @@ def format_weight(value: float) -> float:
 def safe_time_range(samples: list) -> dict:
     """
     Safely extract and format time range from samples list.
-    
+
     Args:
         samples: List of sample dicts with 'ts' field
-        
+
     Returns:
         Formatted time range dict
     """
@@ -70,8 +70,8 @@ def safe_time_range(samples: list) -> dict:
             "end_time": None,
             "duration": 0
         }
-    
+
     start_ts = samples[0].get('ts')
     end_ts = samples[-1].get('ts')
-    
+
     return format_time_range(start_ts, end_ts)

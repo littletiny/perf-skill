@@ -84,24 +84,24 @@ class TestEnv:
         """运行 spear 命令"""
         # SPEAR 是 bash 脚本，需要用 bash 执行
         cmd = ["bash", str(SPEAR)]
-        
+
         # 如果提供了 data_file，使用 SPEAR_DATA 环境变量
         env = os.environ.copy()
         if data_file:
             env["SPEAR_DATA"] = str(data_file)
-        
+
         cmd.extend(args)
-        
+
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             env=env
         )
-        
+
         if check and result.returncode != 0:
             raise RuntimeError(f"Command failed: {' '.join(args)}\n{result.stderr}")
-        
+
         return result
 
     def init_data(self, data_file):
@@ -113,10 +113,10 @@ def get_data_info(data_file):
     """获取数据文件信息"""
     content = data_file.read_text()
     lines = content.splitlines()
-    
+
     # 采样记录数
     sample_count = sum(1 for line in lines if 'core/s:' in line or 'cpu-clock' in line)
-    
+
     # 进程类型数
     comms = set()
     for line in lines:
@@ -129,7 +129,7 @@ def get_data_info(data_file):
             parts = line.split()
             if len(parts) >= 1:
                 comms.add(parts[0])
-    
+
     return {
         "total_lines": len(lines),
         "sample_count": sample_count,
@@ -148,7 +148,7 @@ def test_data_file_exists(data_dir):
 def test_format_detection(data_file, format_type):
     """测试: 格式识别"""
     content = data_file.read_text()
-    
+
     if format_type == "new_format":
         assert "core/s:" in content, "new_format 应包含 core/s: 标识"
     elif format_type == "perf_format":
@@ -226,7 +226,7 @@ def test_find_callers(env, data_file):
     """测试: find-callers（针对第一个热点）"""
     # 先获取热点
     result = env.run_spear("get-hotspots", "--sort-by", "self", "--top-n", "1", data_file=data_file)
-    
+
     # 解析第一个函数名
     for line in result.stdout.splitlines():
         if line.startswith("#"):
@@ -236,7 +236,7 @@ def test_find_callers(env, data_file):
             symbol = parts[0]
             # 尝试查找调用者
             caller_result = env.run_spear(
-                "find-callers", "--target", symbol, 
+                "find-callers", "--target", symbol,
                 "--min-ratio", "1.0",
                 data_file=data_file,
                 check=False
@@ -268,7 +268,7 @@ TEST_TOOLS = [
 def test_format(data_dir, format_type, result, verbose=False):
     """测试单个数据格式"""
     print(f"\n{Colors.YELLOW}▶ 测试 {data_dir} ({format_type}){Colors.RESET}")
-    
+
     # 1. 数据文件存在性
     try:
         data_file = test_data_file_exists(data_dir)
@@ -276,25 +276,25 @@ def test_format(data_dir, format_type, result, verbose=False):
     except Exception as e:
         result.add_fail(f"{data_dir}/data_file_exists", str(e))
         return
-    
+
     # 2. 格式检测
     try:
         test_format_detection(data_file, format_type)
         result.add_pass(f"{data_dir}/format_detection")
     except Exception as e:
         result.add_fail(f"{data_dir}/format_detection", str(e))
-    
+
     # 3. 获取数据信息
     info = get_data_info(data_file)
     if verbose:
         print(f"  总行数: {info['total_lines']}")
         print(f"  采样记录: {info['sample_count']}")
         print(f"  进程类型: {info['comm_count']}")
-    
+
     # 4. 工具测试
     with TestEnv() as env:
         env.init_data(data_file)
-        
+
         for tool_name, test_func in TEST_TOOLS:
             try:
                 test_func(env, data_file)
@@ -306,34 +306,34 @@ def test_format(data_dir, format_type, result, verbose=False):
 def run_tests(data_dirs=None, verbose=False, fail_fast=False):
     """运行所有测试"""
     result = TestResult()
-    
+
     print(f"{Colors.BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Colors.RESET}")
     print(f"perfdata 回归测试套件")
     print(f"{Colors.BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Colors.RESET}")
     print(f"数据目录: {TEST_DIR}")
     print(f"spear: {SPEAR}")
-    
+
     # 确定要测试的格式
     if data_dirs is None:
         data_dirs = ["new_format", "perf_format"]
-    
+
     # 格式类型映射
     format_types = {
         "new_format": "new_format",
         "perf_format": "perf_format",
     }
-    
+
     for data_dir in data_dirs:
         if data_dir not in format_types:
             print(f"{Colors.RED}未知格式: {data_dir}{Colors.RESET}")
             continue
-        
+
         format_type = format_types[data_dir]
         test_format(data_dir, format_type, result, verbose)
-        
+
         if fail_fast and result.failed > 0:
             break
-    
+
     return result.summary()
 
 
@@ -343,13 +343,13 @@ def main():
     parser.add_argument("-f", "--fail-fast", action="store_true", help="失败时停止")
     parser.add_argument("-d", "--dirs", nargs="+", help="指定测试目录 (默认: new_format perf_format)")
     args = parser.parse_args()
-    
+
     success = run_tests(
         data_dirs=args.dirs,
         verbose=args.verbose,
         fail_fast=args.fail_fast
     )
-    
+
     sys.exit(0 if success else 1)
 
 

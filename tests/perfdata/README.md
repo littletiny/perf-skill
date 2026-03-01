@@ -124,7 +124,7 @@ python3 tests/perfdata/test_perfdata.py
 # new_format 检查
 grep "core/s:" tests/perfdata/new_format/case_test.data | head -5
 
-# perf_format 检查  
+# perf_format 检查
 grep "cpu-clock" tests/perfdata/perf_format/case_test.data | head -5
 ```
 

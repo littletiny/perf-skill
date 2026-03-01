@@ -1,7 +1,7 @@
 # 设计决策与经验教训
 
 > 记录关键设计决策背后的思考、踩坑经历和架构演进教训。
-> 
+>
 > 按主题组织，便于查阅特定领域的经验。
 
 ---
@@ -214,7 +214,7 @@ output.add_risk(
 # 统一命名前
 total_core_per_sec, cluster_core_sec, lock_func_core_sec
 
-# 统一命名后  
+# 统一命名后
 total_weight, cluster_weight, lock_func_weight
 ```
 

@@ -82,7 +82,7 @@ def test_default_rules_loading():
     rules = clusters.load_default_rules()
     expected_rules = [
         "EVENT_IRQ_OFF",
-        "EVENT_SCHEDULER", 
+        "EVENT_SCHEDULER",
         "EVENT_MEM_RECLAIM",
         "EVENT_LOCK_CONTENTION",
         "EVENT_SYNC_PRIMITIVE"
@@ -102,7 +102,7 @@ def test_load_rules_from_file():
             "EVENT_CUSTOM": ["pattern1", "pattern2"]
         }, f)
         temp_path = f.name
-    
+
     try:
         rules = clusters.load_rules_from_file(temp_path)
         assert "EVENT_TEST" in rules, "应加载 EVENT_TEST"
@@ -119,19 +119,19 @@ def test_rules_caching():
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump({"EVENT_CACHE_TEST": "cache_value"}, f)
         temp_path = f.name
-    
+
     try:
         # 清空缓存
         clusters._rules_cache.clear()
-        
+
         # 第一次加载（应读取文件）
         rules1 = clusters.load_rules_from_file(temp_path)
         assert temp_path in clusters._rules_cache, "应存入缓存"
-        
+
         # 第二次加载（应使用缓存）
         rules2 = clusters.load_rules_from_file(temp_path)
         assert rules1 is rules2, "应返回同一对象（缓存）"
-        
+
         # 使用绝对路径再次加载（应命中缓存）
         abs_path = os.path.abspath(temp_path)
         rules3 = clusters.load_rules_from_file(abs_path)
@@ -149,11 +149,11 @@ def test_prepare_rules_priority():
             "EVENT_FILE": "file_pattern"
         }, f)
         temp_path = f.name
-    
+
     try:
         # 清空缓存
         clusters._rules_cache.clear()
-        
+
         # 测试: 内置 + 外部文件
         args = argparse.Namespace(
             include_experts=True,
@@ -162,11 +162,11 @@ def test_prepare_rules_priority():
             custom_rules=None
         )
         rules = clusters.prepare_rules(args)
-        
+
         assert "EVENT_SCHEDULER" in rules, "应包含内置规则"
         assert "EVENT_FILE" in rules, "应包含外部文件规则"
         assert rules["EVENT_IRQ_OFF"] == "overridden_by_file", "外部文件应覆盖内置"
-        
+
         # 测试: 命令行最高优先级
         args2 = argparse.Namespace(
             include_experts=True,
@@ -175,7 +175,7 @@ def test_prepare_rules_priority():
             custom_rules='{"EVENT_IRQ_OFF": "overridden_by_cli", "EVENT_CLI": "cli_pattern"}'
         )
         rules2 = clusters.prepare_rules(args2)
-        
+
         assert rules2["EVENT_IRQ_OFF"] == "overridden_by_cli", "CLI应覆盖外部文件"
         assert rules2["EVENT_CLI"] == "cli_pattern", "应包含CLI规则"
         assert rules2["EVENT_FILE"] == "file_pattern", "应保留外部文件规则"
@@ -202,7 +202,7 @@ def test_expert_rules_disabled():
         custom_rules='{"EVENT_CUSTOM": "custom"}'
     )
     rules = clusters.prepare_rules(args)
-    
+
     assert "EVENT_IRQ_OFF" not in rules, "不应包含内置规则"
     assert "EVENT_CUSTOM" in rules, "应包含CLI规则"
 
@@ -212,7 +212,7 @@ def test_empty_rules():
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump({"_comment": "empty rules"}, f)
         temp_path = f.name
-    
+
     try:
         clusters._rules_cache.clear()
         args = argparse.Namespace(
@@ -255,13 +255,13 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", help="详细输出")
     parser.add_argument("-f", "--fail-fast", action="store_true", help="失败时停止")
     args = parser.parse_args()
-    
+
     print(f"{Colors.BLUE}=== Rules 文件加载与缓存机制测试 ==={Colors.RESET}")
     print(f"项目根目录: {REPO_ROOT}")
     print()
-    
+
     result = TestResult()
-    
+
     for name, test_func in TESTS:
         try:
             if args.verbose:
@@ -276,7 +276,7 @@ def main():
             result.add_fail(name, f"异常: {e}")
             if args.fail_fast:
                 break
-    
+
     success = result.summary()
     sys.exit(0 if success else 1)
 
