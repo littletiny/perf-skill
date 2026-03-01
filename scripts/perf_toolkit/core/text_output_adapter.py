@@ -426,30 +426,13 @@ class TextOutputAdapter:
         if not summary:
             return None
         
-        # 根据 list_field 判断截断
+        # 从 TemplateConfig 获取截断配置
         template_config = data.get('_template_config', {})
-        list_field = template_config.get('list_field')
+        total_field = template_config.get('total_field')
+        shown_field = template_config.get('shown_field')
         
-        field_map = {
-            'hotspots': ('total_hotspots', 'shown_hotspots'),
-            'symbol_clusters': ('clusters_found', 'shown_clusters'),
-            'path_clusters': ('total_clusters', 'shown_clusters'),
-            'processes': ('total_processes', 'shown_processes'),
-            'comm_groups': ('total_comm_groups', None),
-            'cores': (None, None),
-            'attributions': ('total_attributions', 'shown_attributions'),
-            'traces': (None, None),
-            'process_variety': ('total_processes', None),
-            'anomalies': ('total_anomalies', None),
-            'windows': ('total_windows', None),
-        }
-        
-        if list_field not in field_map:
-            return None
-        
-        total_field, shown_field = field_map[list_field]
-        
-        if shown_field and total_field:
+        # 只有在配置了这两个字段时才显示截断提示
+        if total_field and shown_field:
             total = summary.get(total_field, 0)
             shown = summary.get(shown_field, 0)
             if total > shown:
