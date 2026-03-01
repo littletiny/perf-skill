@@ -255,8 +255,9 @@ class TextOutputAdapter:
             lines.append(f"#{i} CPU{cpu_id} {total}/{kernel} {state}")
         return (format_header, lines)
     
-    def _format_attributions(self, items: List[Dict]) -> List[str]:
+    def _format_attributions(self, items: List[Dict]):
         """格式化调用归因列表"""
+        format_header = "# index,(ratio|core_sec),callstack"
         lines = []
         for i, item in enumerate(items, 1):
             stack = item.get('caller_stack', [])
@@ -264,10 +265,11 @@ class TextOutputAdapter:
             core_sec = item.get('core_sec', 0)
             stack_str = " -> ".join(stack) if stack else "(root)"
             lines.append(f"#{i} [{ratio} | {core_sec:.4f}s] {stack_str}")
-        return lines
+        return (format_header, lines)
     
-    def _format_traces(self, items: List[Dict]) -> List[str]:
+    def _format_traces(self, items: List[Dict]):
         """格式化追踪热点列表"""
+        format_header = "# target (ratio) -> callstack"
         lines = []
         for item in items:
             target = item.get('target', 'N/A')
@@ -279,7 +281,7 @@ class TextOutputAdapter:
                 attr_ratio = attr.get('ratio_of_target_pct', '0%')
                 stack_str = " -> ".join(stack) if stack else "(root)"
                 lines.append(f"  #{i} [{attr_ratio}] {stack_str}")
-        return lines
+        return (format_header, lines)
     
     def _format_path_clusters(self, items: List[Dict]):
         """格式化路径聚类列表"""
@@ -304,8 +306,9 @@ class TextOutputAdapter:
             lines.append(f"{comm} {pids} {cpu_util} {behavior}")
         return (format_header, lines)
     
-    def _format_anomalies(self, items: List[Dict]) -> List[str]:
+    def _format_anomalies(self, items: List[Dict]):
         """格式化异常检测列表"""
+        format_header = "# type,cpu_id,time_range,change,severity"
         lines = []
         for item in items:
             anomaly_type = item.get('type', 'N/A')
@@ -316,10 +319,11 @@ class TextOutputAdapter:
             change = item.get('utilization_change', 'N/A')
             severity = item.get('severity', 'unknown')
             lines.append(f"{anomaly_type} cpu={cpu_id} time={time_range} change={change} severity={severity}")
-        return lines
+        return (format_header, lines)
     
-    def _format_windows(self, items: List[Dict]) -> List[str]:
+    def _format_windows(self, items: List[Dict]):
         """格式化时间窗口列表"""
+        format_header = "# cpu_id,start_time,end_time,util,core_sec"
         lines = []
         for item in items:
             cpu_id = item.get('cpu_id', 'N/A')
@@ -328,7 +332,7 @@ class TextOutputAdapter:
             util = item.get('utilization', 'N/A')
             core_sec = item.get('core_sec', 0)
             lines.append(f"cpu={cpu_id} start={start} end={end} util={util} core_sec={core_sec:.4f}")
-        return lines
+        return (format_header, lines)
     
     def _format_special_data(self, data: Dict) -> List[str]:
         """格式化特殊数据类型（如 bottleneck, cpu_usage）"""

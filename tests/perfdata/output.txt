@@ -10,7 +10,6 @@ OUTPUT_FILE: output.txt
 Testing: check-cpu-bottleneck
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear check-cpu-bottleneck --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-[duration=1.44s]
 Verdict: HEALTHY
 Max Core Load: CPU 67 = 43.79%
 CPU Limit: 0c (detected=False)
@@ -21,12 +20,12 @@ CPU Limit: 0c (detected=False)
 Testing: get-hotspots
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-hotspots --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data --top-n 5
 ========================================
-[total_hotspots=683, duration=1.44s]
-#1 do_syscall_64 self=0.61% inclusive=3.72%
-#2 entry_SYSCALL_64_after_hwframe self=0.00% inclusive=3.72%
-#3 __libc_start_main self=0.00% inclusive=2.19%
-#4 vfs_read self=0.00% inclusive=2.07%
-#5 seq_read self=0.00% inclusive=2.04%
+# index,funcname,self,inclusive
+#1 established_get_first 12.80% 1.73%
+#2 _raw_spin_lock_bh 7.32% 0.61%
+#3 runtime.scanobject 5.49% 0.84%
+#4 runtime.gcDrain 3.05% 1.15%
+#5 runtime.stealWork 3.05% 0.36%
 
 [✓ PASS] get-hotspots
 
@@ -34,12 +33,12 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-hotspots
 Testing: cluster-symbols
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear cluster-symbols --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-[clusters_found=5, total_core_sec=17.2528, duration=1.44s]
-EVENT_LOCK_CONTENTION 7.93% core_sec=1.3676
-EVENT_MEM_RECLAIM 2.44% core_sec=0.4208
-EVENT_IRQ_OFF 2.13% core_sec=0.3682
-EVENT_SYNC_PRIMITIVE 1.52% core_sec=0.2630
-EVENT_SCHEDULER 0.30% core_sec=0.0526
+# type,percent,cpu_util
+EVENT_LOCK_CONTENTION 7.93% 94.87%
+EVENT_MEM_RECLAIM 2.44% 29.19%
+EVENT_IRQ_OFF 2.13% 25.54%
+EVENT_SYNC_PRIMITIVE 1.52% 18.24%
+EVENT_SCHEDULER 0.30% 3.65%
 
 [✓ PASS] cluster-symbols
 
@@ -47,13 +46,12 @@ EVENT_SCHEDULER 0.30% core_sec=0.0526
 Testing: get-process-top
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-process-top --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data --top-n 5
 ========================================
-[total_processes=253, shown=5, duration=1.44s]
-# Format: (usr+sys)/sys core/s
-hacontrol(453851) 0.55/0.07
-kubelet(1143016) 0.55/0.18
-hacontrol(3392877) 0.47/0.00
-python3(3657995) 0.26/0.00
-logcollector(3218341) 0.26/0.11
+# comm(pid) (usr+sys)/sys
+hacontrol(453851) 54.73%/7.30%
+kubelet(1143016) 54.73%/18.24%
+hacontrol(3392877) 47.44%/0.00%
+python3(3657995) 25.54%/0.00%
+logcollector(3218341) 25.54%/10.95%
 
 [✓ PASS] get-process-top
 
@@ -61,17 +59,17 @@ logcollector(3218341) 0.26/0.11
 Testing: cluster-comm
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear cluster-comm --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-[total_comm_groups=16, duration=1.44s]
-netstat pids=78 cpu=288.26% kernel=94.94% event=normal
-hacontrol pids=29 cpu=218.93% kernel=16.67% event=normal
-dbatman pids=50 cpu=200.69% kernel=14.55% event=normal
-python3 pids=34 cpu=189.74% kernel=34.62% event=normal
-sh pids=17 cpu=62.03% kernel=82.35% event=normal
-kubelet pids=1 cpu=54.73% kernel=33.33% event=normal
-awk pids=9 cpu=32.84% kernel=77.78% event=normal
-ls pids=9 cpu=32.84% kernel=66.67% event=normal
-ps pids=8 cpu=29.19% kernel=87.50% event=normal
-logcollector pids=1 cpu=25.54% kernel=42.86% event=normal
+# comm,pids,cpu_util,kernel_ratio,event
+netstat 78 288.26% 94.94% HIGH_KERNEL: 内核态占比 94.9%
+sh 17 62.03% 82.35% HIGH_KERNEL: 内核态占比 82.4%
+awk 9 32.84% 77.78% HIGH_KERNEL: 内核态占比 77.8%
+ls 9 32.84% 66.67% HIGH_KERNEL: 内核态占比 66.7%
+ps 8 29.19% 87.50% HIGH_KERNEL: 内核态占比 87.5%
+xargs 6 21.89% 83.33% HIGH_KERNEL: 内核态占比 83.3%
+grep 5 18.24% 80.00% HIGH_KERNEL: 内核态占比 80.0%
+bash 3 10.95% 100.00% HIGH_KERNEL: 内核态占比 100.0%
+[kernel] 1 3.65% 100.00% HIGH_KERNEL: 内核态占比 100.0%
+rm 1 3.65% 100.00% HIGH_KERNEL: 内核态占比 100.0%
 
 [✓ PASS] cluster-comm
 
@@ -79,17 +77,17 @@ logcollector pids=1 cpu=25.54% kernel=42.86% event=normal
 Testing: cluster-paths
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear cluster-paths --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-[clusters_found=0, duration=1.44s]
-#1 10.67% core_sec=1.8410 path=clone→start_thread
-#2 8.54% core_sec=1.4728 path=runtime.systemstack.abi0→runtime.gcBgMarkWorker.func2
-#3 5.49% core_sec=0.9468 path=c/g/l/v2.refreshTask→runtime.chanrecv1
-#4 5.18% core_sec=0.8942 path=runtime.gcBgMarkWorker→runtime.systemstack.abi0
-#5 3.96% core_sec=0.6838 path=c/i/r/p/m/metrics_wrapper.(*ProcessCollector).Run.func1→c/i/r/p/m/metrics_wrapper.(*ProcessCollector).collect
-#6 3.05% core_sec=0.5260 path=(sh)→entry_SYSCALL_64_after_hwframe
-#7 2.44% core_sec=0.4208 path=runtime.mstart.abi0→runtime.mstart0
-#8 1.52% core_sec=0.2630 path=(awk)→page_fault
-#9 1.52% core_sec=0.2630 path=(ps)→entry_SYSCALL_64_after_hwframe
-#10 1.22% core_sec=0.2104 path=(python3)→entry_SYSCALL_64_after_hwframe
+# index,percent,cpu_util,path
+#1 10.67% 127.71% clone→start_thread
+#2 8.54% 102.17% runtime.systemstack.abi0→runtime.gcBgMarkWorker.func2
+#3 5.49% 65.68% c/g/l/v2.refreshTask→runtime.chanrecv1
+#4 5.18% 62.03% runtime.gcBgMarkWorker→runtime.systemstack.abi0
+#5 3.96% 47.44% c/i/r/p/m/metrics_wrapper.(*ProcessCollector).Run.func1→c/i/r/p/m/metrics_wrapper.(*ProcessCollector).collect
+#6 3.05% 36.49% (sh)→entry_SYSCALL_64_after_hwframe
+#7 2.44% 29.19% runtime.mstart.abi0→runtime.mstart0
+#8 1.52% 18.24% (awk)→page_fault
+#9 1.52% 18.24% (ps)→entry_SYSCALL_64_after_hwframe
+#10 1.22% 14.60% (python3)→entry_SYSCALL_64_after_hwframe
 
 [✓ PASS] cluster-paths
 
@@ -99,23 +97,22 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear count-proces
 ========================================
 [RISK-CRITICAL] 检测到 15 个进程风暴（短生命周期进程）
   → hint: [必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '检测到 15 个进程风暴（短生命周期进程）' --risk 'critical' --hint '对每个进程名运行 cluster-comm --comm <comm> 进行详细分析'
-[total_processes=16, storm_count=15, duration=1.44s]
-netstat pids=78 core_sec=4.1554 cpu_per_pid=0.0533 behavior=process_storm
-dbatman pids=50 core_sec=2.8930 cpu_per_pid=0.0579 behavior=process_storm
-python3 pids=34 core_sec=2.7352 cpu_per_pid=0.0804 behavior=process_storm
-hacontrol pids=29 core_sec=3.1560 cpu_per_pid=0.1088 behavior=process_storm
-sh pids=17 core_sec=0.8942 cpu_per_pid=0.0526 behavior=process_storm
-awk pids=9 core_sec=0.4734 cpu_per_pid=0.0526 behavior=process_storm
-ls pids=9 core_sec=0.4734 cpu_per_pid=0.0526 behavior=process_storm
-ps pids=8 core_sec=0.4208 cpu_per_pid=0.0526 behavior=process_storm
-xargs pids=6 core_sec=0.3156 cpu_per_pid=0.0526 behavior=process_storm
-grep pids=5 core_sec=0.2630 cpu_per_pid=0.0526 behavior=process_storm
-bash pids=3 core_sec=0.1578 cpu_per_pid=0.0526 behavior=process_storm
-kubelet pids=1 core_sec=0.7890 cpu_per_pid=0.7890 behavior=normal
-logcollector pids=1 core_sec=0.3682 cpu_per_pid=0.3682 behavior=process_storm
-[kernel] pids=1 core_sec=0.0526 cpu_per_pid=0.0526 behavior=process_storm
-rm pids=1 core_sec=0.0526 cpu_per_pid=0.0526 behavior=process_storm
-cli pids=1 core_sec=0.0526 cpu_per_pid=0.0526 behavior=process_storm
+# comm,pids,cpu_util,behavior
+netstat 78 288.26% process_storm
+dbatman 50 200.69% process_storm
+python3 34 189.74% process_storm
+hacontrol 29 218.93% process_storm
+sh 17 62.03% process_storm
+awk 9 32.84% process_storm
+ls 9 32.84% process_storm
+ps 8 29.19% process_storm
+xargs 6 21.89% process_storm
+grep 5 18.24% process_storm
+bash 3 10.95% process_storm
+logcollector 1 25.54% process_storm
+[kernel] 1 3.65% process_storm
+rm 1 3.65% process_storm
+cli 1 3.65% process_storm
 
 [✓ PASS] count-process-variety
 
@@ -123,123 +120,9 @@ cli pids=1 core_sec=0.0526 cpu_per_pid=0.0526 behavior=process_storm
 Testing: analyze-core-distribution
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear analyze-core-distribution --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-[imbalance_level=MEDIUM, duration=1.44s]
-CPU67 util=43.79% state=normal
-CPU85 util=32.84% state=normal
-CPU87 util=29.19% state=normal
-CPU34 util=21.89% state=normal
-CPU49 util=21.89% state=normal
-CPU13 util=18.24% state=normal
-CPU68 util=18.24% state=normal
-CPU22 util=18.24% state=normal
-CPU86 util=18.24% state=normal
-CPU111 util=18.24% state=normal
-CPU96 util=18.24% state=normal
-CPU11 util=18.24% state=normal
-CPU46 util=18.24% state=normal
-CPU15 util=18.24% state=normal
-CPU7 util=18.24% state=normal
-CPU82 util=18.24% state=normal
-CPU62 util=14.60% state=normal
-CPU114 util=14.60% state=normal
-CPU23 util=14.60% state=normal
-CPU5 util=14.60% state=normal
-CPU110 util=14.60% state=normal
-CPU3 util=14.60% state=normal
-CPU101 util=14.60% state=normal
-CPU107 util=14.60% state=normal
-CPU21 util=14.60% state=normal
-CPU116 util=14.60% state=normal
-CPU99 util=14.60% state=normal
-CPU126 util=14.60% state=normal
-CPU94 util=14.60% state=normal
-CPU27 util=10.95% state=normal
-CPU9 util=10.95% state=normal
-CPU97 util=10.95% state=normal
-CPU0 util=10.95% state=normal
-CPU17 util=10.95% state=normal
-CPU80 util=10.95% state=normal
-CPU26 util=10.95% state=normal
-CPU36 util=10.95% state=normal
-CPU32 util=10.95% state=normal
-CPU120 util=10.95% state=normal
-CPU123 util=10.95% state=normal
-CPU124 util=10.95% state=normal
-CPU8 util=10.95% state=normal
-CPU100 util=10.95% state=normal
-CPU18 util=10.95% state=normal
-CPU90 util=10.95% state=normal
-CPU103 util=10.95% state=normal
-CPU2 util=10.95% state=normal
-CPU69 util=10.95% state=normal
-CPU16 util=10.95% state=normal
-CPU106 util=10.95% state=normal
-CPU42 util=10.95% state=normal
-CPU83 util=10.95% state=normal
-CPU57 util=10.95% state=normal
-CPU31 util=10.95% state=normal
-CPU91 util=10.95% state=normal
-CPU76 util=10.95% state=normal
-CPU119 util=10.95% state=normal
-CPU127 util=10.95% state=normal
-CPU56 util=10.95% state=normal
-CPU61 util=10.95% state=normal
-CPU104 util=7.30% state=normal
-CPU40 util=7.30% state=normal
-CPU41 util=7.30% state=normal
-CPU1 util=7.30% state=normal
-CPU74 util=7.30% state=normal
-CPU122 util=7.30% state=normal
-CPU78 util=7.30% state=normal
-CPU52 util=7.30% state=normal
-CPU95 util=7.30% state=normal
-CPU43 util=7.30% state=normal
-CPU4 util=7.30% state=normal
-CPU58 util=7.30% state=normal
-CPU73 util=7.30% state=normal
-CPU59 util=7.30% state=normal
-CPU39 util=7.30% state=normal
-CPU113 util=7.30% state=normal
-CPU118 util=7.30% state=normal
-CPU65 util=7.30% state=normal
-CPU89 util=7.30% state=normal
-CPU6 util=7.30% state=normal
-CPU20 util=7.30% state=normal
-CPU14 util=7.30% state=normal
-CPU98 util=7.30% state=normal
-CPU115 util=7.30% state=normal
-CPU77 util=7.30% state=normal
-CPU109 util=7.30% state=normal
-CPU50 util=7.30% state=normal
-CPU92 util=7.30% state=normal
-CPU63 util=7.30% state=normal
-CPU10 util=7.30% state=normal
-CPU72 util=7.30% state=normal
-CPU48 util=3.65% state=idle
-CPU93 util=3.65% state=idle
-CPU45 util=3.65% state=idle
-CPU60 util=3.65% state=idle
-CPU37 util=3.65% state=idle
-CPU30 util=3.65% state=idle
-CPU35 util=3.65% state=idle
-CPU51 util=3.65% state=idle
-CPU81 util=3.65% state=idle
-CPU117 util=3.65% state=idle
-CPU55 util=3.65% state=idle
-CPU44 util=3.65% state=idle
-CPU75 util=3.65% state=idle
-CPU112 util=3.65% state=idle
-CPU88 util=3.65% state=idle
-CPU70 util=3.65% state=idle
-CPU12 util=3.65% state=idle
-CPU33 util=3.65% state=idle
-CPU64 util=3.65% state=idle
-CPU108 util=3.65% state=idle
-CPU71 util=3.65% state=idle
-CPU28 util=3.65% state=idle
-CPU54 util=3.65% state=idle
-CPU53 util=3.65% state=idle
-CPU105 util=3.65% state=idle
+# index,cpu_id,(usr+sys)/sys,state
+#1 CPU67 43.79%/7.30% normal
+#2 CPU85 32.84%/7.30% normal
 
 [✓ PASS] analyze-core-distribution
 
@@ -249,12 +132,12 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-comm-top
 ========================================
 [RISK-CRITICAL] 发现 8 个高内核态进程组(kernel%>50%)未分析
   → hint: [必须] 添加到 Live Document: doc add --id <ISS-XXX> --desc '发现 8 个高内核态进程组(kernel%>50%): grep, sh, awk, bash, netstat, ps, xargs, ls' --risk 'critical' --hint '必须对每个进程运行: cluster-symbols --comm grep; cluster-symbols --comm sh; cluster-symbols --comm awk; cluster-symbols --comm bash; cluster-symbols --comm netstat; cluster-symbols --comm ps; cluster-symbols --comm xargs; cluster-symbols --comm ls'
-[total_comm_groups=16, high_kernel=8, duration=1.44s]
-netstat pids=78 cpu=288.26% kernel=94.94% event=HIGH_KERNEL: 内核态占比 94.9%
-hacontrol pids=29 cpu=218.93% kernel=16.67% event=normal
-dbatman pids=50 cpu=200.69% kernel=14.55% event=normal
-python3 pids=34 cpu=189.74% kernel=34.62% event=normal
-sh pids=17 cpu=62.03% kernel=82.35% event=HIGH_KERNEL: 内核态占比 82.4%
+# comm,pids,cpu_util,kernel_ratio,event
+netstat 78 288.26% 94.94% HIGH_KERNEL: 内核态占比 94.9%
+sh 17 62.03% 82.35% HIGH_KERNEL: 内核态占比 82.4%
+awk 9 32.84% 77.78% HIGH_KERNEL: 内核态占比 77.8%
+ls 9 32.84% 66.67% HIGH_KERNEL: 内核态占比 66.7%
+ps 8 29.19% 87.50% HIGH_KERNEL: 内核态占比 87.5%
 
 [✓ PASS] get-comm-top
 
@@ -275,32 +158,28 @@ Target: System-wide
 Testing: find-callers (auto)
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear find-callers --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data --auto-target
 ========================================
-[hotspots_traced=5]
->>> established_get_first (12.80%)
-  #1 [95.24%] tcp_get_idx -> tcp_seq_start -> seq_read -> proc_reg_read -> vfs_read
-  #2 [66.67%] tcp_seq_next -> seq_read -> proc_reg_read -> vfs_read -> ksys_read
->>> _raw_spin_lock_bh (7.32%)
-  #1 [79.17%] established_get_first -> tcp_get_idx -> tcp_seq_start -> seq_read -> proc_reg_read
-  #2 [20.83%] established_get_first -> tcp_seq_next -> seq_read -> proc_reg_read -> vfs_read
->>> runtime.scanobject (5.49%)
-  #1 [88.89%] runtime.gcDrain -> runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0 -> runtime.gcBgMarkWorker
-  #2 [72.22%] runtime.gcDrain -> runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0
-  #3 [22.22%] runtime.gcDrainN -> runtime.gcAssistAlloc1 -> runtime.gcAssistAlloc.func1 -> runtime.systemstack.abi0 -> runtime.gcAssistAlloc
->>> runtime.gcDrain (3.05%)
-  #1 [280.00%] runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0
-  #2 [170.00%] runtime.gcBgMarkWorker.func2 -> runtime.systemstack.abi0 -> runtime.gcBgMarkWorker
->>> runtime.stealWork (3.05%)
-  #1 [100.00%] runtime.findRunnable -> runtime.schedule -> runtime.park_m -> runtime.mcall -> runtime.chanrecv
-  #2 [30.00%] runtime.findRunnable -> runtime.schedule -> runtime.park_m -> runtime.mcall -> runtime.selectgo
-  #3 [10.00%] runtime.findRunnable -> runtime.schedule -> runtime.park_m -> runtime.mcall -> time.Sleep
+Traceback (most recent call last):
+  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py", line 417, in <module>
+    main()
+  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_expert.py", line 413, in main
+    commands[args.command](engine, args)
+  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_toolkit/analysis/trace.py", line 194, in cmd_find_callers_auto
+    builder.print_output(output)
+  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_toolkit/core/output_builder.py", line 194, in print_output
+    text_str = self.adapter.format_output(output)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tiny/.config/agents/skills/perf-hunter/scripts/perf_toolkit/core/text_output_adapter.py", line 71, in format_output
+    format_header, formatted_lines = self._format_list(list_data, list_name)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 2)
 
-[✓ PASS] find-callers (auto)
+[✗ FAIL] find-callers (auto)
 
 ========================================
 Testing: detect-anomalies
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear detect-anomalies --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data
 ========================================
-[total_anomalies=0, spikes=0, drops=0, duration=1.44s]
+
 
 [✓ PASS] detect-anomalies
 
@@ -312,5 +191,5 @@ Command: python3 -c 'import sys; sys.path.insert(0, "/home/tiny/.config/agents/s
 [✓ PASS] Python imports
 
 ========================================
-测试完成: 13 通过, 0 失败
+测试完成: 12 通过, 1 失败
 ========================================
