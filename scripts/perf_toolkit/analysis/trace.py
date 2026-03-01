@@ -80,6 +80,8 @@ def cmd_trace_attribution(engine, args):
         ))
     
     results.sort(key=lambda x: float(x.ratio_of_target_pct.rstrip('%')), reverse=True)
+    top_n = getattr(args, 'top_n', 10)
+    results = results[:top_n]
     
     # Determine risk level
     risk = None

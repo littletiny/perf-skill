@@ -84,6 +84,10 @@ def cmd_analyze_core_distribution(engine, args):
                 kernel_cpu_util=f"{kernel_util:.2f}%"
             ))
     
+    # Apply top_n limit
+    top_n = getattr(args, 'top_n', 10)
+    core_list = core_list[:top_n]
+    
     # Identify imbalance
     if core_list:
         max_util = float(core_list[0].total_cpu_util.rstrip('%'))

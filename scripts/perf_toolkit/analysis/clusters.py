@@ -98,6 +98,8 @@ def cmd_apply_cluster(engine, args):
         results.append(ClusterItem.from_stats(group, ratio, cpu_util))
     
     results.sort(key=lambda x: float(x.ratio_pct.rstrip('%')), reverse=True)
+    top_n = getattr(args, 'top_n', 10)
+    results = results[:top_n]
     
     # Find top lock function for hint
     top_lock_func = max(lock_func_core_sec, key=lock_func_core_sec.get) if lock_func_core_sec else "pthread_mutex_lock"

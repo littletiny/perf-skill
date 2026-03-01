@@ -149,6 +149,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p3.add_argument("--no-include-experts", action="store_true",
                     help="Exclude built-in expert rules")
     p3.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
+    p3.add_argument("--top-n", type=int, default=10, help="Number of top clusters to display (default: 10)")
     p3.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p3.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
     p3.add_argument("--pid", type=int, help="Filter by process ID")
@@ -168,7 +169,9 @@ Use '<command> --help' for detailed help on each subcommand."""
                          "If not provided, use --auto-target to trace top hotspots automatically")
     p4.add_argument("--auto-target", action="store_true",
                     help="Automatically trace top N hotspot functions")
-    p4.add_argument("--top-n", "--auto-target-top-n", type=int, default=5,
+    p4.add_argument("--top-n", type=int, default=10,
+                    help="Number of top callers to display (default: 10)")
+    p4.add_argument("--auto-target-top-n", type=int, default=5,
                     dest='auto_target_top_n',
                     help="Number of top hotspots to auto-trace (default: 5)")
     p4.add_argument("--min-ratio", type=float, default=0.5,
@@ -305,6 +308,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p13.add_argument("--pid", type=int, help="Filter by process ID")
     p13.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p13.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
+    p13.add_argument("--top-n", type=int, default=10, help="Number of top saturated cores to display (default: 10)")
     p13.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p13.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
 
