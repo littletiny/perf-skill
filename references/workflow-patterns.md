@@ -186,12 +186,12 @@ ELSE IF (症状局限于单个进程) OR (无共同依赖路径):
 count-process-variety
 get-comm-top  # 关注 cpu消耗总量，尤其是内核态cpu占用
 
-# Step 2: 如果检测到 PROCESS_STORM
-# 在 Live Document 中记录所有风暴进程组
-spearert.py doc add --id ISS-001 \
-  --desc "lsof 进程风暴 (40 PIDs)" \
+# Step 2: 如果检测到lsof高内核开销
+# 在 Live Document 中记录高内核开销
+spearert.py doc add \
+  --desc "lsof 内核开销高" \
   --risk "系统开销激增" \
-  --hint "cluster-symbols --comm netstat"
+  --hint "cluster-symbols --comm lsof"
 
 # Step 3: 逐个分析风暴进程（对 pending_targets 循环执行）
 cluster-symbols --comm <storm-comm>
