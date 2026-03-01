@@ -51,7 +51,7 @@ class TextOutputAdapter:
         list_name = None
         
         for key in ['hotspots', 'clusters', 'processes', 'comm_groups', 
-                    'cores', 'attributions', 'traces', 'path_clusters', 
+                    'cores', 'attributions', 'traces', 'path_clusters',
                     'process_variety', 'windows', 'anomalies']:
             if key in data:
                 list_data = data[key]
@@ -160,7 +160,8 @@ class TextOutputAdapter:
         # Map list_name to summary fields
         field_map = {
             'hotspots': ('total_hotspots', 'shown_hotspots'),
-            'clusters': ('clusters_found', 'shown_clusters'),
+            'clusters': ('clusters_found', 'shown_clusters'),  # cluster-symbols
+            'path_clusters': ('total_clusters', 'shown_clusters'),  # cluster-paths
             'processes': ('total_processes', 'shown_processes'),
             'comm_groups': ('total_comm_groups', None),
             'cores': (None, None),  # cores filtered by threshold, not top_n
@@ -170,22 +171,6 @@ class TextOutputAdapter:
             'anomalies': ('total_anomalies', None),
             'windows': ('total_windows', None),
         }
-        
-        # Special handling for 'clusters' which is used by both cluster-symbols and cluster-paths
-        if list_name == 'clusters':
-            # Try cluster-symbols fields first
-            if 'clusters_found' in summary and 'shown_clusters' in summary:
-                total = summary.get('clusters_found', 0)
-                shown = summary.get('shown_clusters', 0)
-                if total > shown:
-                    return f"# ... {total - shown} more items (use --top-n to show more)"
-            # Then try cluster-paths fields
-            elif 'total_clusters' in summary and 'shown_clusters' in summary:
-                total = summary.get('total_clusters', 0)
-                shown = summary.get('shown_clusters', 0)
-                if total > shown:
-                    return f"# ... {total - shown} more items (use --top-n to show more)"
-            return None
         
         if list_name not in field_map:
             return None
@@ -221,13 +206,11 @@ class TextOutputAdapter:
             msg = empty_messages.get(list_name, f'No {list_name} found')
             return (None, [f"({msg})"])
         
-        # 通过检查第一项的字段来区分不同类型的 clusters
+        # 格式化不同类型的列表
         if list_name == 'clusters':
-            first_item = items[0] if items else {}
-            if 'path_signature' in first_item:
-                return self._format_path_clusters(items)
-            else:
-                return self._format_clusters(items)
+            return self._format_clusters(items)
+        elif list_name == 'path_clusters':
+            return self._format_path_clusters(items)
         elif list_name == 'hotspots':
             return self._format_hotspots(items)
         elif list_name == 'processes':

@@ -90,6 +90,7 @@ Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear cluster-path
 #8 1.52% 18.24% (awk)→page_fault
 #9 1.52% 18.24% (ps)→entry_SYSCALL_64_after_hwframe
 #10 1.22% 14.60% (python3)→entry_SYSCALL_64_after_hwframe
+# ... 41 more items (use --top-n to show more)
 
 [✓ PASS] cluster-paths
 

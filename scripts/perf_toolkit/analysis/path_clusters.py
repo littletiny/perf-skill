@@ -134,7 +134,7 @@ def cmd_cluster_paths(engine, args):
     
     output = PathClustersOutput(
         _risk=risk,
-        clusters=results,
+        path_clusters=results,
         summary=summary,
         time_range=time_range
     )

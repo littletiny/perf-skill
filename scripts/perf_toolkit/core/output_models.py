@@ -466,12 +466,12 @@ class TracesOutput(BaseOutput):
 @dataclass
 class PathClustersOutput(BaseOutput):
     """cluster-paths 输出结构"""
-    clusters: List[PathClusterItem] = field(default_factory=list)
+    path_clusters: List[PathClusterItem] = field(default_factory=list)
     
-    def __init__(self, _risk: RiskInfo, clusters: List[PathClusterItem],
+    def __init__(self, _risk: RiskInfo, path_clusters: List[PathClusterItem],
                  summary: PathClusterSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
-        self.clusters = clusters
+        self.path_clusters = path_clusters
 
 
 @dataclass
