@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.31] - 2026-03-02
+
+### Added
+- 新增 `@command` 装饰器统一分析命令入口 (`scripts/perf_toolkit/core/command_decorator.py`)
+- wrap 脚本支持 `--risk-config` 和 `--rules-file` 参数自动跟随 data 文件
+- wrap `trace` 子命令自动注入 `--risk-config`
+- wrap `cluster-symbols` 命令自动注入 `--rules-file`
+- `spear status` 和 `spear list` 显示 Risk 和 Rules 配置
+- 新增统一测试运行器 `tests/run_tests.py`
+
+### Changed
+- 重构 11 个分析命令使用 `@command` 装饰器，消除样板代码
+- 统一命令入口：装饰器自动处理 builder、样本获取、空检查、质量评估、Trace 记录
+
+### Fixed
+- 移除 `spear.py` 中与装饰器重复的 `run_analysis_command` 函数
+
+**Changed files**: `scripts/perf_toolkit/core/command_decorator.py`, `scripts/perf_toolkit/core/__init__.py`, `scripts/perf_toolkit/analysis/*.py` (11 files), `scripts/spear.py`, `scripts/spear_wrap.py`, `version`
+
+---
+
 ## [2.30] - 2026-03-02
 
 ### Added
