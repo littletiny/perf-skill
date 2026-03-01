@@ -9,10 +9,9 @@ PerfExpert Core Module
 - reliability: 样本可靠性评估
 - format_utils: 时间格式化和输出规范工具
 - risk_mixin: 标准化风险提示
-- output_builder: 统一输出构建器 (V1)
-- output_models: 统一数据模型定义 (V2)
-- output_adapter: JSON 转换器 (V2)
-- output_builder_v2: V2 输出构建器
+- output_models: 统一数据模型定义
+- output_adapter: JSON 转换器
+- output_builder: 输出构建器
 """
 
 from .engine import PerfExpertEngine
@@ -24,7 +23,6 @@ from .format_utils import (
 )
 from .risk_mixin import RiskMixin, RiskAwareOutput
 from .live_doc import LiveDoc
-from .output_builder import OutputBuilder, AnalysisExecutor
 
 # V2 Output System - Unified Data Models
 from .output_models import (
@@ -44,10 +42,10 @@ from .output_adapter import (
     OutputAdapter, CompactOutputAdapter,
     to_json_output, print_json_output,
 )
-from .output_builder_v2 import OutputBuilderV2, create_risk_info
+from .output_builder import OutputBuilder, create_risk_info
 
 __all__ = [
-    # Core V1
+    # Core Engine
     'PerfExpertEngine',
     'Symbol',
     'SymbolStack',
@@ -62,8 +60,6 @@ __all__ = [
     'RiskMixin',
     'RiskAwareOutput',
     'LiveDoc',
-    'OutputBuilder',
-    'AnalysisExecutor',
     # V2 Output System - Models
     'RiskInfo', 'TimeRange', 'BaseSummary', 'BaseOutput',
     'ProcessItem', 'CommGroupItem', 'HotspotItem', 'ClusterItem',
@@ -73,5 +69,5 @@ __all__ = [
     # V2 Output System - Utils
     'OUTPUT_TYPE_MAP', 'get_output_classes',
     'OutputAdapter', 'CompactOutputAdapter', 'to_json_output', 'print_json_output',
-    'OutputBuilderV2', 'create_risk_info',
+    'OutputBuilder', 'create_risk_info',
 ]

@@ -15,7 +15,7 @@ V2 Output System 提供了统一的数据结构来管理所有分析工具的输
 scripts/perf_toolkit/core/
 ├── output_models.py       # 数据模型定义
 ├── output_adapter.py      # JSON 转换器
-├── output_builder_v2.py   # 输出构建器
+├── output_builder.py      # 输出构建器
 └── README_V2.md          # 本文档
 ```
 
@@ -169,13 +169,13 @@ class ClustersOutput(BaseOutput):
 ### 基本用法
 
 ```python
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
     ProcessItem, ProcessSummary, ProcessTopOutput, TimeRange
 )
 
 def cmd_my_tool(engine, args):
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(...)
@@ -227,7 +227,7 @@ from ..core.output_models import CommGroupItem, CommGroupSummary, CommTopOutput,
 
 迁移现有模块到 V2 系统时：
 
-- [ ] 导入 `OutputBuilderV2` 和 `create_risk_info`
+- [ ] 导入 `OutputBuilder` 和 `create_risk_info`
 - [ ] 导入对应的数据模型类（Item, Summary, Output）
 - [ ] 使用 `ProcessItem.from_stats()` 等类方法创建数据项
 - [ ] 使用 `create_risk_info()` 创建风险信息

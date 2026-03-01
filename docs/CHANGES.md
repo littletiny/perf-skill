@@ -3919,3 +3919,98 @@ V2 系统的 JSON 输出与 V1 **完全兼容**，工具使用方无需修改：
 核心改进: 完成 V2 输出系统切换，移除低频率子命令
 
 ---
+
+
+---
+
+# Cleanup: 移除废弃的 V1 输出系统
+
+## 修改时间
+2026-03-01
+
+## 修改原因
+V2 输出系统切换完成后，`output_builder.py`（V1 输出系统）已不再被使用：
+- 所有 13 个分析模块已全部迁移到 `OutputBuilderV2`
+- `OutputBuilder` 和 `AnalysisExecutor` 类无任何实际调用
+- 保留废弃代码会增加维护负担和混淆
+
+## 修改详情
+
+### 删除的文件
+1. `scripts/perf_toolkit/core/output_builder.py`
+   - 移除 `OutputBuilder` 类（V1 统一输出构建器）
+   - 移除 `AnalysisExecutor` 类（V1 分析执行器）
+
+### 修改的文件
+1. `scripts/perf_toolkit/core/__init__.py`
+   - 移除 `from .output_builder import OutputBuilder, AnalysisExecutor`
+   - 移除 `OutputBuilder` 和 `AnalysisExecutor` 的 `__all__` 导出
+   - 更新文档字符串，移除 V1 相关描述
+
+2. `docs/V2_OUTPUT_SYSTEM.md`
+   - 更新文件结构说明，添加 `risk_mixin.py` 和 `live_doc.py`
+
+## 验证
+- [x] 所有分析模块导入正常
+- [x] `OutputBuilderV2` 功能正常
+- [x] 无代码引用已删除的类
+
+---
+
+---
+
+# Cleanup: OutputBuilderV2 重命名为 OutputBuilder
+
+## 修改时间
+2026-03-01
+
+## 修改原因
+V1 输出系统已删除，V2 成为唯一版本。移除 "V2" 后缀简化命名，方便未来维护。
+
+## 修改详情
+
+### 重命名的文件
+1. `scripts/perf_toolkit/core/output_builder_v2.py` → `output_builder.py`
+
+### 修改的文件
+
+**Core 模块:**
+- `scripts/perf_toolkit/core/__init__.py`
+  - 更新导入: `output_builder_v2` → `output_builder`
+  - 更新导出: `OutputBuilderV2` → `OutputBuilder`
+
+- `scripts/perf_toolkit/core/output_builder.py`
+  - 类名: `OutputBuilderV2` → `OutputBuilder`
+
+- `scripts/perf_toolkit/core/README_V2.md`
+  - 更新所有文档中的引用
+
+**分析模块 (13个):**
+- `scripts/perf_toolkit/analysis/hotspots.py`
+- `scripts/perf_toolkit/analysis/process_top.py`
+- `scripts/perf_toolkit/analysis/comm_clusters.py`
+- `scripts/perf_toolkit/analysis/anomalies.py`
+- `scripts/perf_toolkit/analysis/core_distribution.py`
+- `scripts/perf_toolkit/analysis/cpu_usage.py`
+- `scripts/perf_toolkit/analysis/clusters.py`
+- `scripts/perf_toolkit/analysis/path_clusters.py`
+- `scripts/perf_toolkit/analysis/process_variety.py`
+- `scripts/perf_toolkit/analysis/comm_top.py`
+- `scripts/perf_toolkit/analysis/trace.py`
+- `scripts/perf_toolkit/analysis/bottleneck.py`
+
+全部更新:
+- 导入路径: `output_builder_v2` → `output_builder`
+- 类名: `OutputBuilderV2` → `OutputBuilder`
+
+**文档:**
+- `docs/V2_OUTPUT_SYSTEM.md`
+  - 更新快速开始示例中的类名
+
+## 验证
+- [x] 所有分析模块导入正常
+- [x] `OutputBuilder` 功能正常
+- [x] Python 语法检查通过
+- [x] 无遗留的 `OutputBuilderV2` 引用
+
+---

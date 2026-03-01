@@ -13,7 +13,7 @@ Trace Attribution - Bottom-up attribution for specific bottleneck functions
 
 from collections import defaultdict
 from ..core.format_utils import format_core_sec
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
     RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput,
     TraceItem, TracesSummary, TracesOutput, TimeRange
@@ -23,7 +23,7 @@ from ..core.output_models import (
 def cmd_trace_attribution(engine, args):
     """[Skill] Bottom-up attribution for specific bottleneck functions"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
@@ -108,7 +108,7 @@ def cmd_trace_attribution(engine, args):
 def cmd_find_callers_auto(engine, args):
     """[Skill] Auto-trace top N hotspot functions"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(

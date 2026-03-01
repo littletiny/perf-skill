@@ -14,7 +14,7 @@ import re
 import json as json_mod
 from collections import defaultdict
 from ..core.format_utils import format_core_sec
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, ClusterItem, ClusterSummary, ClustersOutput, TimeRange
 
 
@@ -31,7 +31,7 @@ EXPERT_RULES = {
 def cmd_apply_cluster(engine, args):
     """[Skill] Execute expert rule clustering or custom rule clustering"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(

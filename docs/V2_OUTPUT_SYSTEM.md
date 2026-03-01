@@ -15,7 +15,9 @@ V2 Output System 提供了统一的数据结构来管理所有分析工具的输
 scripts/perf_toolkit/core/
 ├── output_models.py       # 数据模型定义
 ├── output_adapter.py      # JSON 转换器
-├── output_builder_v2.py   # 输出构建器
+├── output_builder.py      # 输出构建器
+├── risk_mixin.py         # 风险信息管理
+├── live_doc.py           # Live Document 支持
 ├── README_V2.md          # 详细文档
 └── __init__.py           # 导出 V2 模块
 
@@ -76,7 +78,7 @@ cluster_output = ClusterCommOutput(
 
 ```python
 from perf_toolkit.core import (
-    OutputBuilderV2, create_risk_info,
+    OutputBuilder, create_risk_info,
     ProcessItem, ProcessSummary, ProcessTopOutput, TimeRange
 )
 ```
@@ -84,7 +86,7 @@ from perf_toolkit.core import (
 ### 2. 创建输出构建器
 
 ```python
-builder = OutputBuilderV2(engine, args)
+builder = OutputBuilder(engine, args)
 ```
 
 ### 3. 创建数据项

@@ -11,7 +11,7 @@ V2 版本：使用统一数据模型
 
 from collections import defaultdict
 from ..core.format_utils import format_percent
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, BottleneckData, BottleneckSummary, BottleneckOutput, TimeRange
 
 
@@ -31,7 +31,7 @@ def parse_cpu_quota(value):
 def cmd_check_bottleneck(engine, args):
     """[Skill] Determine resource throttling and single-core saturation"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(

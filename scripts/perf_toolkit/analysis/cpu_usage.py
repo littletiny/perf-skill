@@ -13,14 +13,14 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 """
 
 from ..core.format_utils import format_percent
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, CPUUsageData, CPUUsageSummary, CPUUsageOutput
 
 
 def cmd_show_cpu_usage(engine, args):
     """[Skill] Show CPU utilization for OS or specific PID (user/kernel/total)"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(

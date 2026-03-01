@@ -13,7 +13,7 @@ V2 版本：使用统一数据模型
 
 from collections import defaultdict
 from ..core.format_utils import format_core_sec
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
 
 
@@ -69,7 +69,7 @@ class PathCluster:
 def cmd_cluster_paths(engine, args):
     """[Skill] Cluster samples by common call path prefixes using Trie"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(

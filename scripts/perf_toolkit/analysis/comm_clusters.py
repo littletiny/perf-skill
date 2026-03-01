@@ -13,7 +13,7 @@ V2 版本：使用统一数据模型，与 comm_top 共享数据结构
 
 from collections import defaultdict
 
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
     RiskInfo, CommGroupItem, CommGroupSummary, ClusterCommOutput, TimeRange
 )
@@ -22,7 +22,7 @@ from ..core.output_models import (
 def cmd_cluster_comm(engine, args):
     """[Skill] Cluster samples by comm (process name) to analyze process group CPU usage"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(

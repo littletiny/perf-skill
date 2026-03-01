@@ -15,7 +15,7 @@ V2 版本：使用统一数据模型
 
 from collections import defaultdict
 
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
     RiskInfo, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
 )
@@ -24,7 +24,7 @@ from ..core.output_models import (
 def cmd_get_comm_top(engine, args):
     """[Skill] Get top N comm groups by aggregated CPU utilization"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(

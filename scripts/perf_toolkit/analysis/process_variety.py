@@ -14,14 +14,14 @@ Process Variety Analysis - Count process variety to detect short-lived process s
 """
 
 from collections import defaultdict
-from ..core.output_builder_v2 import OutputBuilderV2, create_risk_info
+from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, ProcessVarietyItem, ProcessVarietySummary, ProcessVarietyOutput, TimeRange
 
 
 def cmd_count_process_variety(engine, args):
     """[Skill] Count process variety - detect short-lived process storms"""
     
-    builder = OutputBuilderV2(engine, args)
+    builder = OutputBuilder(engine, args)
     
     # Fetch samples
     samples = engine.get_filtered_samples(
