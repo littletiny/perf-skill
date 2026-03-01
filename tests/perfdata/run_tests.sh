@@ -165,19 +165,6 @@ test_data_directory() {
         ((failed++))
     fi
     
-    # 6. 可视化工具
-    echo ""
-    echo "--- 6. 可视化工具测试 ---"
-    
-    echo "Testing: generate-flamegraph"
-    if run_tool_test "$full_path" generate-flamegraph > /dev/null 2>&1; then
-        echo "✅ [PASS] generate-flamegraph"
-        ((passed++))
-    else
-        echo "❌ [FAIL] generate-flamegraph"
-        ((failed++))
-    fi
-    
     # 汇总
     echo ""
     echo "--- 测试结果汇总 ($dir_name) ---"

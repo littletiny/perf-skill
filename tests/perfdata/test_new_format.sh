@@ -267,32 +267,6 @@ fi
 # ============ 第六阶段：可视化工具 ============
 echo ""
 echo "========================================"
-echo "第六阶段：可视化工具"
-echo "========================================"
-
-if run_test_with_summary "6.1" generate-flamegraph; then
-    ((passed++))
-else
-    ((failed++))
-fi
-
-if run_test_with_summary "6.2" generate-callgraph --format json; then
-    ((passed++))
-else
-    ((failed++))
-fi
-
-# 针对特定进程的火焰图
-if [ -n "$first_comm" ]; then
-    echo ""
-    echo "[6.3] 生成火焰图 (进程: $first_comm)..."
-    if run_test generate-flamegraph --comm "$first_comm"; then
-        ((passed++))
-    else
-        ((failed++))
-    fi
-fi
-
 # ============ 第七阶段：格式特定测试 ============
 echo ""
 echo "========================================"

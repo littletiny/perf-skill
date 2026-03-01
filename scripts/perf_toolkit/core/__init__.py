@@ -24,7 +24,7 @@ from .format_utils import (
 from .risk_mixin import RiskMixin, RiskAwareOutput
 from .live_doc import LiveDoc
 
-# V2 Output System - Unified Data Models
+# Output System - Unified Data Models
 from .output_models import (
     # Risk & Base
     RiskInfo, TimeRange, BaseSummary, BaseOutput,
@@ -60,13 +60,13 @@ __all__ = [
     'RiskMixin',
     'RiskAwareOutput',
     'LiveDoc',
-    # V2 Output System - Models
+    # Output System - Models
     'RiskInfo', 'TimeRange', 'BaseSummary', 'BaseOutput',
     'ProcessItem', 'CommGroupItem', 'HotspotItem', 'ClusterItem',
     'ProcessSummary', 'CommGroupSummary', 'HotspotSummary', 'ClusterSummary',
     'ProcessTopOutput', 'CommTopOutput', 'HotspotsOutput', 'ClustersOutput',
     'ClusterCommOutput',
-    # V2 Output System - Utils
+    # Output System - Utils
     'OUTPUT_TYPE_MAP', 'get_output_classes',
     'OutputAdapter', 'CompactOutputAdapter', 'to_json_output', 'print_json_output',
     'OutputBuilder', 'create_risk_info',

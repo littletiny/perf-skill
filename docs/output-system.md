@@ -1,13 +1,13 @@
-# V2 Output System 快速参考
+# Output System 快速参考
 
 ## 概述
 
-V2 Output System 提供了统一的数据结构来管理所有分析工具的输出，解决了以下问题：
+Output System 提供了统一的数据结构来管理所有分析工具的输出：
 
-1. **代码重复**: 统一数据结构定义，避免重复
-2. **类型不安全**: 使用 `@dataclass` 提供类型安全
-3. **JSON 直接输出**: 通过 adapter 转换，便于扩展
-4. **统一管理**: 输出格式规范易于维护
+1. **代码复用**: 统一数据结构定义
+2. **类型安全**: 使用 `@dataclass` 提供类型检查
+3. **格式统一**: 通过 adapter 转换，便于扩展
+4. **易于维护**: 输出格式规范集中管理
 
 ## 文件结构
 
@@ -18,11 +18,10 @@ scripts/perf_toolkit/core/
 ├── output_builder.py      # 输出构建器
 ├── risk_mixin.py         # 风险信息管理
 ├── live_doc.py           # Live Document 支持
-├── README_V2.md          # 详细文档
-└── __init__.py           # 导出 V2 模块
+└── __init__.py           # 导出模块
 
 docs/
-├── V2_OUTPUT_SYSTEM.md   # 本文件（快速参考）
+├── output-system.md      # 本文件（快速参考）
 └── CHANGES.md            # 变更记录
 ```
 
@@ -34,8 +33,8 @@ docs/
 from perf_toolkit.core import ProcessItem, ProcessSummary, ProcessTopOutput
 
 # 创建数据项
-item = ProcessItem.from_stats("nginx", 12345, 45.5, 12.3)
-# 输出: {"comm": "nginx", "pid": 12345, "cpu_pct": "45.50%", "kernel_pct": "12.30%"}
+item = ProcessItem.from_cpu_util("nginx", 12345, 45.5, 12.3)
+# 输出: {"comm": "nginx", "pid": 12345, "total_cpu_util": "45.50%", "kernel_cpu_util": "12.30%"}
 
 # 创建输出
 output = ProcessTopOutput(
@@ -95,7 +94,7 @@ builder = OutputBuilder(engine, args)
 items = []
 for sample in samples:
     # 处理逻辑...
-    items.append(ProcessItem.from_stats(comm, pid, cpu_util, kernel_ratio))
+    items.append(ProcessItem.from_cpu_util(comm, pid, cpu_util, kernel_ratio))
 ```
 
 ### 4. 构建输出
@@ -128,14 +127,16 @@ item_cls, summary_cls, output_cls = get_output_classes('comm_groups')
 # 返回: (CommGroupItem, CommGroupSummary, CommTopOutput)
 ```
 
-## 与 V1 的兼容性
+## 数据结构概览
 
-- V2 系统的 JSON 输出与 V1 完全兼容
-- 所有字段名称和类型保持一致
-- 可以逐个模块迁移，V1 和 V2 可以共存
+所有分析工具使用统一的数据模型：
+- **RiskInfo**: 风险提示信息
+- **TimeRange**: 时间范围
+- **Data Items**: 具体数据项（ProcessItem, HotspotItem 等）
+- **Summary**: 统计摘要
+- **Output**: 根输出结构
 
 ## 更多信息
 
-- 详细文档: `scripts/perf_toolkit/core/README_V2.md`
 - 修改记录: `docs/CHANGES.md`
 - 输出格式规范: `docs/output-format-spec.md`

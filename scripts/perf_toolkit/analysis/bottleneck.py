@@ -15,7 +15,10 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 from ..core.format_utils import format_percent
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, BottleneckData, BottleneckSummary, BottleneckOutput, TimeRange
+from ..core.output_models import (
+    RiskInfo, BottleneckData, BottleneckSummary, BottleneckOutput, TimeRange,
+    CoreLoadInfo, LimitInfo
+)
 
 
 def parse_cpu_quota(value):
@@ -169,14 +172,14 @@ def cmd_check_bottleneck(engine, args):
         high_cpu_cores=high_cpu_cores,
         high_sys_cores=high_sys_cores,
         threshold=threshold,
-        max_core_load={
-            "cpu_id": max_cpu_id if max_cpu_id is not None else 0,
-            "load": format_percent(max_usage_pct)
-        },
-        limit_info={
-            "cpu_limit_cores": cpu_limit,
-            "cpu_limit_detected": cpu_limit > 0
-        }
+        max_core_load=CoreLoadInfo(
+            cpu_id=max_cpu_id if max_cpu_id is not None else 0,
+            load=format_percent(max_usage_pct)
+        ),
+        limit_info=LimitInfo(
+            cpu_limit_cores=cpu_limit,
+            cpu_limit_detected=cpu_limit > 0
+        )
     )
     
     summary = BottleneckSummary()

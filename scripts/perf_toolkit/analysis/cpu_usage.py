@@ -16,7 +16,7 @@ from ..core.format_utils import format_percent
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
     RiskInfo, CPUUsageData, CPUUsageSummary, CPUUsageOutput,
-    CoreItem, TimeRange
+    CoreItem, TimeRange, CPUUtilizationBreakdown
 )
 
 
@@ -93,11 +93,11 @@ def cmd_show_cpu_usage(engine, args):
     # Build CPU usage data
     data = CPUUsageData(
         target=target_desc,
-        cpu_utilization={
-            "total_pct": format_percent(util_stats['total_pct']),
-            "user_pct": format_percent(util_stats['user_pct']),
-            "kernel_pct": format_percent(util_stats['kernel_pct'])
-        }
+        cpu_utilization=CPUUtilizationBreakdown(
+            total_pct=format_percent(util_stats['total_pct']),
+            user_pct=format_percent(util_stats['user_pct']),
+            kernel_pct=format_percent(util_stats['kernel_pct'])
+        )
     )
     
     # Build summary with high sys cores info

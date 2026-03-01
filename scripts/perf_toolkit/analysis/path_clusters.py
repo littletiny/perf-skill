@@ -8,18 +8,31 @@ V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 使用 SymbolStack 和规范化后的符号名进行路径聚类。
 """
 
-from collections import defaultdict
+from dataclasses import dataclass
+from typing import List, Any
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
+
+
+# =============================================================================
+# Internal Data Structures
+# =============================================================================
+
+@dataclass
+class PathClusterRawData:
+    """路径聚类原始数据 - Trie 聚类中间结构"""
+    path_signature: str
+    depth: int
+    weight: float
 
 
 class PathCluster:
     """Trie-based path clustering for stack samples"""
     
-    def __init__(self, min_depth=2, min_weight=0.01):
+    def __init__(self, min_depth: int = 2, min_weight: float = 0.01):
         self.min_depth = min_depth
         self.min_weight = min_weight
-        self.trie = {'_weight': 0.0, '_samples': []}
+        self.trie: Dict[str, Any] = {'_weight': 0.0, '_samples': []}
     
     def add_sample(self, stack, weight=0):
         if not stack:
@@ -33,26 +46,20 @@ class PathCluster:
             node['_weight'] += weight
             node['_samples'].append((stack.get_normalized_names(), weight))
     
-    def extract_clusters(self, node=None, path=None, clusters=None):
+    def extract_clusters(self, node=None, path=None, clusters=None) -> List[PathClusterRawData]:
         if node is None:
             node = self.trie
         if path is None:
             path = []
         if clusters is None:
-            clusters = []
+            clusters: List[PathClusterRawData] = []
         
         if len(path) >= self.min_depth and node['_weight'] >= self.min_weight:
-            leaf_weight = defaultdict(float)
-            for stack_names, weight in node['_samples']:
-                if stack_names:
-                    leaf_weight[stack_names[0]] += weight
-            
-            clusters.append({
-                'path_signature': '→'.join(path),
-                'depth': len(path),
-                'weight': node['_weight'],
-                'leaves': dict(sorted(leaf_weight.items(), key=lambda x: -x[1])[:5])
-            })
+            clusters.append(PathClusterRawData(
+                path_signature='→'.join(path),
+                depth=len(path),
+                weight=node['_weight']
+            ))
             return clusters
         
         for key, child in node.items():
@@ -100,7 +107,7 @@ def cmd_cluster_paths(engine, args):
     
     clusters = cluster_builder.extract_clusters()
     
-    clusters.sort(key=lambda x: -x['weight'])
+    clusters.sort(key=lambda x: -x.weight)
     top_clusters = clusters[:args.top_n]
     
     # Build output using V2 data models
@@ -109,8 +116,8 @@ def cmd_cluster_paths(engine, args):
     results = [
         PathClusterItem.from_raw(
             cluster_id=f"c_{i+1:03d}",
-            path_signature=c['path_signature'],
-            weight=c['weight'],
+            path_signature=c.path_signature,
+            weight=c.weight,
             total_weight=total_weight,
             duration=duration
         )
@@ -118,7 +125,7 @@ def cmd_cluster_paths(engine, args):
     ]
     
     # 计算 clustered_weight
-    clustered_weight = sum(c['weight'] for c in top_clusters)
+    clustered_weight = sum(c.weight for c in top_clusters)
     
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     

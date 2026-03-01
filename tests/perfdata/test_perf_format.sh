@@ -243,24 +243,6 @@ echo "========================================"
 echo "第六阶段：可视化工具"
 echo "========================================"
 
-# 6.1 生成火焰图数据
-echo ""
-echo "[6.1] 生成火焰图格式数据..."
-if run_test generate-flamegraph; then
-    ((passed++))
-else
-    ((failed++))
-fi
-
-# 6.2 生成调用图
-echo ""
-echo "[6.2] 生成调用图..."
-if run_test generate-callgraph --format json; then
-    ((passed++))
-else
-    ((failed++))
-fi
-
 # ============ 测试总结 ============
 echo ""
 echo "========================================"

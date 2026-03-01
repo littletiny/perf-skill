@@ -293,6 +293,20 @@ class ClusterItem:
 
 
 @dataclass
+class CoreLoadInfo:
+    """核心负载信息"""
+    cpu_id: int
+    load: str
+
+
+@dataclass
+class LimitInfo:
+    """CPU 限制信息"""
+    cpu_limit_cores: float
+    cpu_limit_detected: bool
+
+
+@dataclass
 class BottleneckData:
     """瓶颈检测数据"""
     verdict: str
@@ -300,15 +314,23 @@ class BottleneckData:
     high_cpu_cores: List[int]
     high_sys_cores: List[int]
     threshold: int
-    max_core_load: Dict[str, Any]
-    limit_info: Dict[str, Any]
+    max_core_load: CoreLoadInfo
+    limit_info: LimitInfo
+
+
+@dataclass
+class CPUUtilizationBreakdown:
+    """CPU 利用率分解"""
+    total_pct: str
+    user_pct: str
+    kernel_pct: str
 
 
 @dataclass
 class CPUUsageData:
     """CPU 使用率数据"""
     target: str
-    cpu_utilization: Dict[str, str]
+    cpu_utilization: CPUUtilizationBreakdown
 
 
 @dataclass

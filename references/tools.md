@@ -54,8 +54,6 @@ python3 $SKILL_DIR/scripts/perf_expert.py <subcommand> --data <perf.data> [optio
 | `cluster-symbols` | 语义规则聚类 | 行为模式识别 |
 | `count-process-variety` | 进程风暴检测 | 短生命周期进程 |
 | `cluster-comm` | 进程名聚类 | 进程组行为分析 |
-| `generate-flamegraph` | FlameGraph 导出 | 可视化报告 |
-| `generate-callgraph` | 调用图导出 | 可视化报告 |
 
 ---
 
@@ -437,52 +435,6 @@ python3 scripts/perf_expert.py count-process-variety \
 |------|------|
 | `PROCESS_STORM` | samples_per_pid ≤ 阈值 且 short_lived_ratio > 50% |
 | `LONG_RUNNING` | 单进程主导 |
-
----
-
-## 可视化工具
-
-### generate-flamegraph
-
-生成 FlameGraph 格式。
-
-```bash
-python3 scripts/perf_expert.py generate-flamegraph \
-  --data <perf.script.txt> \
-  [--output <path>] \
-  [--pid <PID>] \
-  [--comm <name>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--output` | string | - | 输出文件路径（默认 stdout） |
-| `--pid` | int | - | 过滤指定进程 |
-| `--comm` | string | - | 过滤指定进程名 |
-
-**输出格式**: 符合 FlameGraph 标准的折叠栈格式
-
----
-
-### generate-callgraph
-
-生成调用图（DOT/JSON 格式）。
-
-```bash
-python3 scripts/perf_expert.py generate-callgraph \
-  --data <perf.script.txt> \
-  [--output <path>] \
-  [--format dot|json] \
-  [--target <function>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--output` | string | - | 输出文件路径 |
-| `--format` | string | dot | 输出格式: dot/json |
-| `--target` | string | - | 从指定函数开始生成 |
 
 ---
 
