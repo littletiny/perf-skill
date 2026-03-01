@@ -85,7 +85,7 @@ dbatman 2978356 [13] 0.000000: 0.1052 core/s:
 
 ## 故障排查
 
-### 找不到 perf_expert.py
+### 找不到 spear 脚本
 
 确保设置了正确的 `SKILL_DIR`：
 

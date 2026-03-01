@@ -8,7 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="${SKILL_DIR:-$HOME/.config/agents/skills/perf-hunter}"
-PERF_EXPERT="$SKILL_DIR/scripts/perf_expert.py"
+SPEAR="$SKILL_DIR/scripts/spear"
 
 DATA_DIR="$SCRIPT_DIR/new_format"
 DATA_FILE="$DATA_DIR/case_test.data"
@@ -44,7 +44,7 @@ run_test() {
     local output
     local exit_code=0
     
-    output=$(python3 "$PERF_EXPERT" "$tool_name" --data "$DATA_FILE" "$@" 2>&1) || exit_code=$?
+    output=$(SPEAR_DATA="$DATA_FILE" "$SPEAR" "$tool_name" "$@" 2>&1) || exit_code=$?
     check_result "$tool_name $@" "$output" "$exit_code"
     
     if [ $exit_code -eq 0 ] && [ -n "$output" ]; then
@@ -67,7 +67,7 @@ run_test_with_summary() {
     local output
     local exit_code=0
     
-    output=$(python3 "$PERF_EXPERT" "$tool_name" --data "$DATA_FILE" "$@" 2>&1) || exit_code=$?
+    output=$(SPEAR_DATA="$DATA_FILE" "$SPEAR" "$tool_name" "$@" 2>&1) || exit_code=$?
     
     if check_result "$tool_name" "$output" "$exit_code"; then
         # 显示关键信息
@@ -91,8 +91,8 @@ echo "格式特点: 包含预计算的 core/s 值"
 echo ""
 
 # 前置检查
-if [ ! -f "$PERF_EXPERT" ]; then
-    echo -e "${RED}❌ [ERROR]${NC} perf_expert.py 未找到: $PERF_EXPERT"
+if [ ! -f "$SPEAR" ]; then
+    echo -e "${RED}❌ [ERROR]${NC} spear 脚本未找到: $SPEAR"
     echo "请设置 SKILL_DIR 环境变量指向 perf-hunter skill 目录"
     exit 1
 fi
@@ -192,7 +192,7 @@ if [ -n "$first_comm" ]; then
     echo ""
     echo "[3.3] 查找热点调用者 (进程: $first_comm)..."
     # 获取该进程的第一个热点
-    first_symbol=$(python3 "$PERF_EXPERT" get-hotspots --data "$DATA_FILE" --comm "$first_comm" --sort-by self --top-n 1 2>/dev/null | grep -E '^\s+[a-zA-Z_]' | head -1 | awk '{print $1}')
+    first_symbol=$(SPEAR_DATA="$DATA_FILE" "$SPEAR" get-hotspots --comm "$first_comm" --sort-by self --top-n 1 2>/dev/null | grep -E '^\s+[a-zA-Z_]' | head -1 | awk '{print $1}')
     if [ -n "$first_symbol" ] && [ "$first_symbol" != "symbol" ]; then
         echo "   目标函数: $first_symbol (进程: $first_comm)"
         if run_test find-callers --target "$first_symbol" --comm "$first_comm" --min-ratio 1.0; then

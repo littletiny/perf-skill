@@ -1,19 +1,19 @@
 #!/bin/bash
 #
-# perf - perf-hunter 包装脚本
+# spear - perf-hunter 包装脚本
 #
 # 简化 perf-hunter 命令执行，通过 env 文件保存常用配置
 #
 # 用法:
-#   perf init --data-path <data_file> [--script-path <script_path>]
-#   perf <subcommand> [options...]
-#   perf status
+#   spear init --data-path <data_file> [--script-path <script_path>]
+#   spear <subcommand> [options...]
+#   spear status
 #
 
 set -e
 
 # 默认配置
-ENV_FILE=".perf_env"
+ENV_FILE=".spear_env"
 
 # 加载环境变量
 load_env() {
@@ -50,13 +50,14 @@ get_default_script_path() {
 # 显示帮助
 show_help() {
     cat << 'EOF'
-perf - perf-hunter 包装脚本
+spear - perf-hunter 包装脚本
 
 用法:
-  perf init --data-path <path> [--script-path <path>]  初始化环境配置
-  perf status                                           显示当前配置
-  perf <subcommand> [options...]                        执行 perf-hunter 命令
-  perf --help                                           显示此帮助
+  spear init --data-path <path> [--freq <hz>] [--script-path <path>]
+                                                         初始化环境配置
+  spear status                                           显示当前配置
+  spear <subcommand> [options...]                        执行 perf-hunter 命令
+  spear --help                                           显示此帮助
 
 子命令:
   check-cpu-bottleneck    检查资源限制和单核饱和
@@ -74,31 +75,35 @@ perf - perf-hunter 包装脚本
   doc                     Live document 管理
 
 环境配置:
-  配置保存在 .perf_env 文件中，可通过以下方式初始化:
+  配置保存在 .spear_env 文件中，可通过以下方式初始化:
 
-    perf init --data-path /path/to/perf.data.txt
+    spear init --data-path /path/to/perf.data.txt
 
   可选参数:
     --script-path <path>   指定 perf_expert.py 路径（默认自动检测）
+    --freq <hz>            采样频率（用于原始 perf 格式，默认 19Hz）
 
 示例:
   # 初始化（只需执行一次）
-  perf init --data-path ./perf.data.txt
+  spear init --data-path ./perf.data.txt
+
+  # 原始 perf 格式需指定采样频率
+  spear init --data-path ./perf.data.txt --freq 99
 
   # 后续命令自动使用配置的数据文件
-  perf get-hotspots --comm myapp --top-n 20
-  perf check-cpu-bottleneck --cpu-limit 0.5c
-  perf find-callers --target pthread_mutex_lock
+  spear get-hotspots --comm myapp --top-n 20
+  spear check-cpu-bottleneck --cpu-limit 0.5c
+  spear find-callers --target pthread_mutex_lock
 
   # 临时覆盖数据文件
-  PERF_DATA=/other/data.txt perf get-hotspots
+  SPEAR_DATA=/other/data.txt spear get-hotspots
 
 EOF
 }
 
 # 显示状态
 show_status() {
-    echo "=== perf-hunter 环境配置 ==="
+    echo "=== spear (perf-hunter) 环境配置 ==="
     echo ""
     echo "配置文件: $(pwd)/$ENV_FILE"
     echo ""
@@ -115,16 +120,17 @@ show_status() {
             printf "  %-20s = %s\n" "$key" "$display_value"
         done < "$ENV_FILE"
     else
-        echo "未初始化。请运行: perf init --data-path <path>"
+        echo "未初始化。请运行: spear init --data-path <path>"
     fi
     echo ""
-    echo "提示: 使用 PERF_DATA 环境变量可临时覆盖数据文件路径"
+    echo "提示: 使用 SPEAR_DATA 环境变量可临时覆盖数据文件路径"
 }
 
 # init 命令
 cmd_init() {
     local data_path=""
     local script_path=""
+    local freq=""
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -136,9 +142,13 @@ cmd_init() {
                 script_path="$2"
                 shift 2
                 ;;
+            --freq)
+                freq="$2"
+                shift 2
+                ;;
             *)
                 echo "Error: 未知选项 $1"
-                echo "Usage: perf init --data-path <path> [--script-path <path>]"
+                echo "Usage: spear init --data-path <path> [--script-path <path>] [--freq <hz>]"
                 exit 1
                 ;;
         esac
@@ -157,12 +167,8 @@ cmd_init() {
     fi
     
     if [[ ! -f "$data_path" ]]; then
-        echo "Warning: 数据文件不存在: $data_path"
-        read -p "是否继续? [y/N] " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
+        echo "Error: 数据文件不存在: $data_path"
+        exit 1
     fi
     
     # 设置默认脚本路径
@@ -181,9 +187,12 @@ cmd_init() {
     fi
     
     # 保存配置
-    echo "# perf-hunter environment configuration" > "$ENV_FILE"
-    save_env "PERF_SCRIPT_PATH" "$script_path"
-    save_env "PERF_DATA_PATH" "$data_path"
+    echo "# spear (perf-hunter) environment configuration" > "$ENV_FILE"
+    save_env "SPEAR_SCRIPT_PATH" "$script_path"
+    save_env "SPEAR_DATA_PATH" "$data_path"
+    if [[ -n "$freq" ]]; then
+        save_env "SPEAR_FREQ" "$freq"
+    fi
     
     echo "✓ 初始化完成! 配置已保存到 $ENV_FILE"
     echo ""
@@ -196,28 +205,31 @@ cmd_exec() {
     shift
     
     # 确定脚本路径
-    local script_path="${PERF_SCRIPT_PATH:-$(get_default_script_path)}"
+    local script_path="${SPEAR_SCRIPT_PATH:-$(get_default_script_path)}"
     
     # 确定数据路径（优先级: 环境变量 > 配置文件）
-    local data_path="${PERF_DATA:-$PERF_DATA_PATH}"
+    local data_path="${SPEAR_DATA:-$SPEAR_DATA_PATH}"
     
     if [[ -z "$data_path" ]]; then
         echo "Error: 未配置数据文件路径"
         echo ""
         echo "请运行以下命令初始化:"
-        echo "  perf init --data-path <path_to_perf.data.txt>"
+        echo "  spear init --data-path <path_to_perf.data.txt>"
         echo ""
         echo "或使用环境变量临时指定:"
-        echo "  PERF_DATA=<path> perf $subcommand ..."
+        echo "  SPEAR_DATA=<path> spear $subcommand ..."
         exit 1
     fi
     
     # 检查脚本是否存在
     if [[ ! -f "$script_path" ]]; then
         echo "Error: 脚本不存在: $script_path"
-        echo "请检查 PERF_SCRIPT_PATH 配置或重新运行 perf init"
+        echo "请检查 SPEAR_SCRIPT_PATH 配置或重新运行 spear init"
         exit 1
     fi
+    
+    # 确定频率（仅从配置文件读取，不支持环境变量覆盖）
+    local freq="$SPEAR_FREQ"
     
     # 构建命令
     local cmd_args=()
@@ -241,14 +253,28 @@ cmd_exec() {
         cmd_args+=("$subcommand" "--data" "$data_path")
     fi
     
+    # 检查用户是否手动指定了 --freq
+    local has_freq=false
+    for arg in "$@"; do
+        if [[ "$arg" == "--freq" ]]; then
+            has_freq=true
+            break
+        fi
+    done
+    
+    # 如果配置了频率且用户没有手动指定，自动注入
+    if [[ -n "$freq" && "$has_freq" == false ]]; then
+        cmd_args+=("--freq" "$freq")
+    fi
+    
     # 添加其他参数
     cmd_args+=("$@")
     
     # 执行
-    if [[ "${PERF_DEBUG:-}" == "1" ]]; then
+    if [[ "${SPEAR_DEBUG:-}" == "1" ]]; then
         echo "[DEBUG] Executing: python3 $script_path ${cmd_args[*]}"
-        echo "[DEBUG] PERF_SCRIPT_PATH=$script_path"
-        echo "[DEBUG] PERF_DATA_PATH=$data_path"
+        echo "[DEBUG] SPEAR_SCRIPT_PATH=$script_path"
+        echo "[DEBUG] SPEAR_DATA_PATH=$data_path"
         echo ""
     fi
     
@@ -280,7 +306,7 @@ main() {
             show_status
             ;;
         -v|--version|version)
-            cmd_exec --version 2>/dev/null || echo "perf-hunter wrapper"
+            cmd_exec --version 2>/dev/null || echo "spear (perf-hunter wrapper)"
             ;;
         *)
             # 其他都当作子命令执行

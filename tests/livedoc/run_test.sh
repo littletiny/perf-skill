@@ -6,7 +6,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-PERF_EXPERT="../../scripts/perf_expert.py"
+SPEAR="../../scripts/spear"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -95,7 +95,7 @@ run_tc_01() {
     cleanup
     
     print_warning "执行: doc init"
-    python "$PERF_EXPERT" doc init --data ./perf.data.txt
+    "$SPEAR" doc init --data-path ./perf.data.txt
     
     if [[ -f ".perf-doc.json" ]]; then
         print_success "文档文件已创建"
@@ -109,142 +109,142 @@ run_tc_01() {
 # TC-02: 添加单个问题
 run_tc_02() {
     cleanup
-    python "$PERF_EXPERT" doc init --data perf.data.txt
+    "$SPEAR" doc init --data-path perf.data.txt
     
     print_warning "执行: doc add ISS-001"
-    python "$PERF_EXPERT" doc add \
+    "$SPEAR" doc add \
         --id ISS-001 \
         --desc "netstat 高内核态 94.7%" \
         --risk "可能比表面看起来更严重" \
         --hint "cluster-symbols --comm netstat"
     
     print_warning "验证列表"
-    python "$PERF_EXPERT" doc list
+    "$SPEAR" doc list
 }
 
 # TC-03: 添加多个问题
 run_tc_03() {
     cleanup
-    python "$PERF_EXPERT" doc init --data netstat_perf.data
+    "$SPEAR" doc init --data-path netstat_perf.data
     
     print_warning "添加 4 个问题（模拟 get-comm-top 输出）"
     
-    python "$PERF_EXPERT" doc add \
+    "$SPEAR" doc add \
         --id ISS-001 \
         --desc "netstat: 2623 PIDs, 243.87% CPU, 94.7% kernel" \
         --risk "进程风暴" \
         --hint "cluster-symbols --comm netstat"
     
-    python "$PERF_EXPERT" doc add \
+    "$SPEAR" doc add \
         --id ISS-002 \
         --desc "containerd-shim: 240 PIDs, 96.01% CPU, 89.9% kernel" \
         --risk "可能比 netstat 更严重，单进程影响大" \
         --hint "cluster-symbols --comm containerd-shim"
     
-    python "$PERF_EXPERT" doc add \
+    "$SPEAR" doc add \
         --id ISS-003 \
         --desc "python3: 826 PIDs, 207.17% CPU, 35.2% kernel" \
         --risk "worker pool 可能过度扩容" \
         --hint "cluster-symbols --comm python3"
     
-    python "$PERF_EXPERT" doc list
+    "$SPEAR" doc list
 }
 
 # TC-04: 标记问题完成
 run_tc_04() {
     # 先执行 TC-03 的准备
     cleanup
-    python "$PERF_EXPERT" doc init --data netstat_perf.data
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "问题A" --risk "高"
-    python "$PERF_EXPERT" doc add --id ISS-002 --desc "问题B" --risk "中"
+    "$SPEAR" doc init --data-path netstat_perf.data
+    "$SPEAR" doc add --id ISS-001 --desc "问题A" --risk "高"
+    "$SPEAR" doc add --id ISS-002 --desc "问题B" --risk "中"
     
     print_warning "标记 ISS-001 完成"
-    python "$PERF_EXPERT" doc complete \
+    "$SPEAR" doc complete \
         --id ISS-001 \
         --result "LOCK_CONTENTION 38.36%, 锁竞争已定位"
     
     print_warning "当前状态"
-    python "$PERF_EXPERT" doc list
+    "$SPEAR" doc list
 }
 
 # TC-05: 列出过滤
 run_tc_05() {
     # 准备数据
     cleanup
-    python "$PERF_EXPERT" doc init --data test.data
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "问题A"
-    python "$PERF_EXPERT" doc add --id ISS-002 --desc "问题B"
-    python "$PERF_EXPERT" doc complete --id ISS-001 --result "已解决"
+    "$SPEAR" doc init --data-path test.data
+    "$SPEAR" doc add --id ISS-001 --desc "问题A"
+    "$SPEAR" doc add --id ISS-002 --desc "问题B"
+    "$SPEAR" doc complete --id ISS-001 --result "已解决"
     
     print_warning "列出所有 (--status all)"
-    python "$PERF_EXPERT" doc list --status all
+    "$SPEAR" doc list --status all
     
     print_warning "列出 pending (--status pending)"
-    python "$PERF_EXPERT" doc list --status pending
+    "$SPEAR" doc list --status pending
     
     print_warning "列出 completed (--status completed)"
-    python "$PERF_EXPERT" doc list --status completed
+    "$SPEAR" doc list --status completed
     
     print_warning "JSON 格式 (--format json)"
-    python "$PERF_EXPERT" doc list --format json | head -30
+    "$SPEAR" doc list --format json | head -30
 }
 
 # TC-06: 最终审计 - 全部完成
 run_tc_06() {
     cleanup
-    python "$PERF_EXPERT" doc init --data test.data
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "问题A"
-    python "$PERF_EXPERT" doc add --id ISS-002 --desc "问题B"
-    python "$PERF_EXPERT" doc complete --id ISS-001 --result "已解决"
-    python "$PERF_EXPERT" doc complete --id ISS-002 --result "已解决"
+    "$SPEAR" doc init --data-path test.data
+    "$SPEAR" doc add --id ISS-001 --desc "问题A"
+    "$SPEAR" doc add --id ISS-002 --desc "问题B"
+    "$SPEAR" doc complete --id ISS-001 --result "已解决"
+    "$SPEAR" doc complete --id ISS-002 --result "已解决"
     
     print_warning "执行 finalize（应该通过）"
-    python "$PERF_EXPERT" doc finalize
+    "$SPEAR" doc finalize
 }
 
 # TC-07: 最终审计 - 被阻止
 run_tc_07() {
     cleanup
-    python "$PERF_EXPERT" doc init --data test.data
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "问题A"
-    python "$PERF_EXPERT" doc add --id ISS-002 --desc "问题B（关键）"
-    python "$PERF_EXPERT" doc complete --id ISS-001 --result "已解决"
+    "$SPEAR" doc init --data-path test.data
+    "$SPEAR" doc add --id ISS-001 --desc "问题A"
+    "$SPEAR" doc add --id ISS-002 --desc "问题B（关键）"
+    "$SPEAR" doc complete --id ISS-001 --result "已解决"
     # ISS-002 保持 pending
     
     print_warning "执行 finalize（应该有剩余风险警告）"
-    python "$PERF_EXPERT" doc finalize || true  # 允许失败
+    "$SPEAR" doc finalize || true  # 允许失败
     
     print_warning "使用 --accept-risk 强制通过"
-    python "$PERF_EXPERT" doc finalize --accept-risk "问题B影响范围小，可接受"
+    "$SPEAR" doc finalize --accept-risk "问题B影响范围小，可接受"
 }
 
 # TC-08: 导出报告
 run_tc_08() {
     cleanup
-    python "$PERF_EXPERT" doc init --data test.data
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "netstat 高内核态" --risk "高" --hint "cluster-symbols"
-    python "$PERF_EXPERT" doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+    "$SPEAR" doc init --data-path test.data
+    "$SPEAR" doc add --id ISS-001 --desc "netstat 高内核态" --risk "高" --hint "cluster-symbols"
+    "$SPEAR" doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
     
     print_warning "导出 Markdown"
-    python "$PERF_EXPERT" doc export --format markdown --output report.md
+    "$SPEAR" doc export --format markdown --output report.md
     cat report.md
     
     print_warning "导出 JSON"
-    python "$PERF_EXPERT" doc export --format json --output report.json
+    "$SPEAR" doc export --format json --output report.json
     cat report.json
 }
 
 # TC-09: 重复 ID 检测
 run_tc_09() {
     cleanup
-    python "$PERF_EXPERT" doc init --data test.data
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "第一个问题"
+    "$SPEAR" doc init --data-path test.data
+    "$SPEAR" doc add --id ISS-001 --desc "第一个问题"
     
     print_warning "尝试添加重复 ID（应该失败）"
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "重复的问题" || print_success "正确拒绝了重复 ID"
+    "$SPEAR" doc add --id ISS-001 --desc "重复的问题" || print_success "正确拒绝了重复 ID"
     
     print_warning "验证只有 1 个问题"
-    python "$PERF_EXPERT" doc list
+    "$SPEAR" doc list
 }
 
 # TC-10: 完整场景
@@ -252,39 +252,39 @@ run_tc_10() {
     cleanup
     print_header "TC-10: netstat/containerd-shim 完整场景"
     
-    python "$PERF_EXPERT" doc init --data netstat_perf.data
+    "$SPEAR" doc init --data-path netstat_perf.data
     
     print_warning "记录所有 4 个问题"
-    python "$PERF_EXPERT" doc add --id ISS-001 --desc "netstat: 2623 PIDs, 94.7% kernel" --risk "进程风暴" --hint "cluster-symbols --comm netstat"
-    python "$PERF_EXPERT" doc add --id ISS-002 --desc "python3: 826 PIDs, 35.2% kernel" --risk "worker pool" --hint "cluster-symbols --comm python3"
-    python "$PERF_EXPERT" doc add --id ISS-003 --desc "dbatman: 311 PIDs, 26.4% kernel" --risk "中等" --hint "cluster-symbols --comm dbatman"
-    python "$PERF_EXPERT" doc add --id ISS-004 --desc "containerd-shim: 240 PIDs, 89.9% kernel" --risk "⚠️ 可能比netstat更严重" --hint "cluster-symbols --comm containerd-shim"
+    "$SPEAR" doc add --id ISS-001 --desc "netstat: 2623 PIDs, 94.7% kernel" --risk "进程风暴" --hint "cluster-symbols --comm netstat"
+    "$SPEAR" doc add --id ISS-002 --desc "python3: 826 PIDs, 35.2% kernel" --risk "worker pool" --hint "cluster-symbols --comm python3"
+    "$SPEAR" doc add --id ISS-003 --desc "dbatman: 311 PIDs, 26.4% kernel" --risk "中等" --hint "cluster-symbols --comm dbatman"
+    "$SPEAR" doc add --id ISS-004 --desc "containerd-shim: 240 PIDs, 89.9% kernel" --risk "⚠️ 可能比netstat更严重" --hint "cluster-symbols --comm containerd-shim"
     
     echo ""
     print_warning "=== 所有待办问题 ==="
-    python "$PERF_EXPERT" doc list
+    "$SPEAR" doc list
     
     echo ""
     print_warning "=== 完成 netstat 分析 ==="
-    python "$PERF_EXPERT" doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+    "$SPEAR" doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
     
     echo ""
     print_warning "=== 关键：此时应提示还有 3 个 pending，包括 containerd-shim ==="
-    python "$PERF_EXPERT" doc list
+    "$SPEAR" doc list
     
     echo ""
     print_warning "=== 完成其他问题 ==="
-    python "$PERF_EXPERT" doc complete --id ISS-004 --result "LOCK_CONTENTION 79.84% !!! 是netstat的2倍"
-    python "$PERF_EXPERT" doc complete --id ISS-002 --result "NORMAL"
-    python "$PERF_EXPERT" doc complete --id ISS-003 --result "LOW_PRIORITY"
+    "$SPEAR" doc complete --id ISS-004 --result "LOCK_CONTENTION 79.84% !!! 是netstat的2倍"
+    "$SPEAR" doc complete --id ISS-002 --result "NORMAL"
+    "$SPEAR" doc complete --id ISS-003 --result "LOW_PRIORITY"
     
     echo ""
     print_warning "=== 最终审计 ==="
-    python "$PERF_EXPERT" doc finalize
+    "$SPEAR" doc finalize
     
     echo ""
     print_warning "=== 生成报告 ==="
-    python "$PERF_EXPERT" doc export --format markdown --output diagnosis_report.md
+    "$SPEAR" doc export --format markdown --output diagnosis_report.md
     cat diagnosis_report.md
 }
 

@@ -17,15 +17,15 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 
 ```bash
 # 1. 使用 wrap 脚本初始化（自动配置路径）
-$SKILL_DIR/scripts/perf init --data-path <perf.data>
+$SKILL_DIR/scripts/spear init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化（自动注入 --data）
-perf get-hotspots --comm myapp
-perf check-cpu-bottleneck
-perf find-callers --target pthread_mutex_lock
+spear get-hotspots --comm myapp
+spear check-cpu-bottleneck
+spear find-callers --target pthread_mutex_lock
 
 # 3. 查看配置状态
-perf status
+spear status
 ```
 
 ### 传统方式（备用）
@@ -46,7 +46,7 @@ python3 $SKILL_DIR/scripts/perf_expert.py doc init --data <perf.data>
 
 **环境变量**: `SKILL_DIR` = skill 根目录
 
-> 💡 **提示**: wrap 脚本 `perf` 会自动加载 `.perf_env` 配置，无需每次都写完整路径。详情见 `docs/CHANGES.md` v2.18。
+> 💡 **提示**: wrap 脚本 `spear` 会自动加载 `.spear_env` 配置，无需每次都写完整路径。详情见 `docs/CHANGES.md` v2.18。
 
 ---
 

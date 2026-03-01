@@ -8,25 +8,27 @@
 
 ### 方式 1: wrap 脚本（推荐）
 
-使用 `perf` wrap 脚本简化命令执行，自动注入 `--data` 参数：
+使用 `spear` wrap 脚本简化命令执行，自动注入 `--data` 参数：
 
 ```bash
 # 1. 初始化（配置数据路径，只需一次）
-$SKILL_DIR/scripts/perf init --data-path <perf.data>
+$SKILL_DIR/scripts/spear init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化
-perf get-hotspots --comm myapp
-perf check-cpu-bottleneck --cpu-limit 0.5c
-perf find-callers --target pthread_mutex_lock
+spear get-hotspots --comm myapp
+spear check-cpu-bottleneck --cpu-limit 0.5c
+spear find-callers --target pthread_mutex_lock
 
 # 3. 查看当前配置
-perf status
+spear status
 ```
 
 **特点**:
-- 自动从 `.perf_env` 加载配置
+- 自动从 `.spear_env` 加载配置
 - 自动为子命令注入 `--data` 参数
-- 支持 `PERF_DATA` 环境变量临时覆盖
+- 自动注入 `--freq` 参数（如配置了采样频率）
+- 支持 `SPEAR_DATA` 环境变量临时覆盖数据文件
+- **注意**: 若需修改频率，请重新运行 `spear init --freq <hz>`
 
 ### 方式 2: 直接调用
 

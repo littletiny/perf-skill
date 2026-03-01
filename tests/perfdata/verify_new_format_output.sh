@@ -64,11 +64,11 @@ EOF
 fi
 
 SKILL_DIR="${SKILL_DIR:-$HOME/.config/agents/skills/perf-hunter}"
-PERF_EXPERT="$SKILL_DIR/scripts/perf_expert.py"
+SPEAR="$SKILL_DIR/scripts/spear"
 TEST_DATA="$SKILL_DIR/tests/perfdata/new_format/case_test.data"
 
-if [ ! -f "$PERF_EXPERT" ]; then
-    echo "Error: perf_expert.py not found at $PERF_EXPERT"
+if [ ! -f "$SPEAR" ]; then
+    echo "Error: spear script not found at $SPEAR"
     exit 1
 fi
 
@@ -83,7 +83,7 @@ exec > >(tee "$OUTPUT_FILE") 2>&1
 echo "========================================"
 echo "OutputBuilder 验证测试"
 echo "========================================"
-echo "PERF_EXPERT: $PERF_EXPERT"
+echo "SPEAR: $SPEAR"
 echo "TEST_DATA: $TEST_DATA"
 echo "OUTPUT_FILE: $OUTPUT_FILE"
 echo ""
@@ -114,40 +114,40 @@ run_test() {
 
 # 基础命令测试
 run_test "check-cpu-bottleneck" \
-    "python3 $PERF_EXPERT check-cpu-bottleneck --data $TEST_DATA"
+    "$SPEAR check-cpu-bottleneck --data $TEST_DATA"
 
 run_test "get-hotspots" \
-    "python3 $PERF_EXPERT get-hotspots --data $TEST_DATA --top-n 5"
+    "$SPEAR get-hotspots --data $TEST_DATA --top-n 5"
 
 run_test "cluster-symbols" \
-    "python3 $PERF_EXPERT cluster-symbols --data $TEST_DATA"
+    "$SPEAR cluster-symbols --data $TEST_DATA"
 
 run_test "get-process-top" \
-    "python3 $PERF_EXPERT get-process-top --data $TEST_DATA --top-n 5"
+    "$SPEAR get-process-top --data $TEST_DATA --top-n 5"
 
 run_test "cluster-comm" \
-    "python3 $PERF_EXPERT cluster-comm --data $TEST_DATA"
+    "$SPEAR cluster-comm --data $TEST_DATA"
 
 run_test "cluster-paths" \
-    "python3 $PERF_EXPERT cluster-paths --data $TEST_DATA"
+    "$SPEAR cluster-paths --data $TEST_DATA"
 
 run_test "count-process-variety" \
-    "python3 $PERF_EXPERT count-process-variety --data $TEST_DATA"
+    "$SPEAR count-process-variety --data $TEST_DATA"
 
 run_test "analyze-core-distribution" \
-    "python3 $PERF_EXPERT analyze-core-distribution --data $TEST_DATA"
+    "$SPEAR analyze-core-distribution --data $TEST_DATA"
 
 run_test "get-comm-top" \
-    "python3 $PERF_EXPERT get-comm-top --data $TEST_DATA --top-n 5"
+    "$SPEAR get-comm-top --data $TEST_DATA --top-n 5"
 
 run_test "show-cpu-usage" \
-    "python3 $PERF_EXPERT show-cpu-usage --data $TEST_DATA"
+    "$SPEAR show-cpu-usage --data $TEST_DATA"
 
 run_test "find-callers (auto)" \
-    "python3 $PERF_EXPERT find-callers --data $TEST_DATA --auto-target"
+    "$SPEAR find-callers --data $TEST_DATA --auto-target"
 
 run_test "detect-anomalies" \
-    "python3 $PERF_EXPERT detect-anomalies --data $TEST_DATA"
+    "$SPEAR detect-anomalies --data $TEST_DATA"
 
 # Python 导入测试
 run_test "Python imports" \

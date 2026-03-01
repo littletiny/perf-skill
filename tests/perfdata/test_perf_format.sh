@@ -8,7 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="${SKILL_DIR:-$HOME/.config/agents/skills/perf-hunter}"
-PERF_EXPERT="$SKILL_DIR/scripts/perf_expert.py"
+SPEAR="$SKILL_DIR/scripts/spear"
 
 DATA_DIR="$SCRIPT_DIR/perf_format"
 DATA_FILE="$DATA_DIR/case_test.data"
@@ -44,7 +44,7 @@ run_test() {
     local output
     local exit_code=0
     
-    output=$(python3 "$PERF_EXPERT" "$tool_name" --data "$DATA_FILE" "$@" 2>&1) || exit_code=$?
+    output=$(SPEAR_DATA="$DATA_FILE" "$SPEAR" "$tool_name" "$@" 2>&1) || exit_code=$?
     check_result "$tool_name $@" "$output" "$exit_code"
     
     # 如果有输出且成功，显示摘要
@@ -64,8 +64,8 @@ echo "工具路径: $PERF_EXPERT"
 echo ""
 
 # 前置检查
-if [ ! -f "$PERF_EXPERT" ]; then
-    echo -e "${RED}❌ [ERROR]${NC} perf_expert.py 未找到: $PERF_EXPERT"
+if [ ! -f "$SPEAR" ]; then
+    echo -e "${RED}❌ [ERROR]${NC} spear 脚本未找到: $SPEAR"
     echo "请设置 SKILL_DIR 环境变量指向 perf-hunter skill 目录"
     exit 1
 fi
@@ -179,7 +179,7 @@ fi
 echo ""
 echo "[3.3] 查找热点调用者..."
 # 获取第一个热点函数
-first_hotspot=$(python3 "$PERF_EXPERT" get-hotspots --data "$DATA_FILE" --sort-by self --top-n 1 2>/dev/null | grep -E '^\s+[a-zA-Z_]' | head -1 | awk '{print $1}')
+first_hotspot=$(SPEAR_DATA="$DATA_FILE" "$SPEAR" get-hotspots --sort-by self --top-n 1 2>/dev/null | grep -E '^\s+[a-zA-Z_]' | head -1 | awk '{print $1}')
 if [ -n "$first_hotspot" ] && [ "$first_hotspot" != "symbol" ]; then
     echo "   目标函数: $first_hotspot"
     if run_test find-callers --target "$first_hotspot" --min-ratio 1.0; then

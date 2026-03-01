@@ -8,7 +8,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="${SKILL_DIR:-$HOME/.config/agents/skills/perf-hunter}"
-PERF_EXPERT="$SKILL_DIR/scripts/perf_expert.py"
+SPEAR="$SKILL_DIR/scripts/spear"
 
 # 检查结果并输出
 # 参数: $1=测试名, $2=退出码, $3=输出内容
@@ -37,7 +37,7 @@ run_tool_test() {
     local output
     local exit_code
     
-    output=$(python3 "$PERF_EXPERT" "$tool_name" --data "$data_file" "$@" 2>&1) || exit_code=$?
+    output=$(SPEAR_DATA="$data_file" "$SPEAR" "$tool_name" "$@" 2>&1) || exit_code=$?
     exit_code=${exit_code:-0}
     
     echo "$output"
@@ -192,13 +192,14 @@ main() {
     echo "Perfdata 验证工具测试"
     echo "========================================"
     echo "SKILL_DIR: $SKILL_DIR"
-    echo "PERF_EXPERT: $PERF_EXPERT"
+    echo "SPEAR: $SPEAR"
     echo ""
     
     # 检查工具是否存在
-    if [ ! -f "$PERF_EXPERT" ]; then
-        echo "❌ [ERROR] perf_expert.py not found: $PERF_EXPERT"
+    if [ ! -f "$SPEAR" ]; then
+        echo "❌ [ERROR] spear script not found: $SPEAR"
         echo "请设置 SKILL_DIR 环境变量指向 perf-hunter skill 目录"
+        echo "或者使用 'spear init' 初始化环境"
         exit 1
     fi
     
