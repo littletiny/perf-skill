@@ -187,9 +187,9 @@ Use '<command> --help' for detailed help on each subcommand."""
     p5.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format without core/s field. "
                          "Default: 19. Ignored for SPEAR format with core/s values.")
-    p5.add_argument("--window-size", type=float, default=0.5, metavar="SECONDS",
+    p5.add_argument("--window-size", type=float, default=1.0, metavar="SECONDS",
                     help="Time window size in seconds for sliding window analysis. Smaller windows "
-                         "detect rapid changes but may produce more noise. (default: 0.5)")
+                         "detect rapid changes but may produce more noise. (default: 1.0)")
     p5.add_argument("--spike-threshold", type=float, default=0.5, metavar="RATIO",
                     help="Utilization change threshold for spike detection. A spike is detected when "
                          "CPU utilization changes by this ratio between consecutive windows. "
