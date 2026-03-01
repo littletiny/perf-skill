@@ -304,8 +304,8 @@ def test_freq_follows_data():
         assert profile.get("freq") is None, "data1 应无 freq"
 
 
-def test_get_active_config_priority():
-    """测试: 配置优先级 (SPEAR_DATA > default)"""
+def test_get_active_config():
+    """测试: 获取当前激活配置"""
     with TestEnv() as te:
         data1 = te.data_path("data1.data")
         data2 = te.data_path("data2.data")
@@ -324,13 +324,6 @@ def test_get_active_config_priority():
         dp, profile = sw.get_active_config(env)
         assert dp == data2
         assert profile.get("freq") == "99"
-        
-        # 使用环境变量覆盖到 data1
-        os.environ["SPEAR_DATA"] = data1
-        dp, profile = sw.get_active_config(env)
-        assert dp == data1
-        assert profile.get("freq") == "50"
-        del os.environ["SPEAR_DATA"]
 
 
 def test_cmd_build_no_freq():
@@ -462,7 +455,7 @@ TEST_CASES = [
     test_use_switch_profile,
     test_use_by_index,
     test_freq_follows_data,
-    test_get_active_config_priority,
+    test_get_active_config,
     test_cmd_build_no_freq,
     test_cmd_build_with_freq,
     test_cmd_build_trace_no_freq,

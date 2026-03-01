@@ -260,19 +260,10 @@ def cmd_status():
         print("▶ 当前默认数据文件")
     print()
     print("提示: 使用 'spear use <path>' 切换默认数据文件")
-    print("      使用 SPEAR_DATA 环境变量可临时覆盖数据文件路径")
 
 
 def get_active_config(env: dict) -> tuple:
     """获取当前激活的配置"""
-    # 环境变量优先级最高
-    data_override = os.environ.get("SPEAR_DATA")
-    if data_override:
-        data_path = str(Path(data_override).resolve())
-        if data_path in env["profiles"]:
-            return data_path, env["profiles"][data_path]
-        return data_path, None
-    
     # 使用默认配置
     default_path = env.get("default")
     if default_path and default_path in env["profiles"]:
@@ -291,9 +282,6 @@ def cmd_exec(subcommand: str, args: list):
         print()
         print("请运行以下命令初始化:")
         print("  spear init --data-path <path_to_perf.data.txt>")
-        print()
-        print("或使用环境变量临时指定:")
-        print(f"  SPEAR_DATA=<path> spear {subcommand} ...")
         sys.exit(1)
     
     # 确定脚本路径
@@ -323,13 +311,6 @@ def cmd_exec(subcommand: str, args: list):
         if freq and "--freq" not in args:
             cmd.extend(["--freq", freq])
         cmd.extend(args)
-    
-    # 调试输出
-    if os.environ.get("SPEAR_DEBUG") == "1":
-        print(f"[DEBUG] Executing: {' '.join(cmd)}")
-        print(f"[DEBUG] Data: {data_path}")
-        print(f"[DEBUG] Profile: {profile}")
-        print()
     
     # 执行
     os.execvp(cmd[0], cmd)
@@ -389,9 +370,6 @@ Trace 管理命令:
 
   # 使用默认数据文件执行分析
   spear get-hotspots --top-n 20
-
-  # 临时覆盖数据文件
-  SPEAR_DATA=./other.data spear get-hotspots
 
 设计说明:
   - 全局 .spear.json 记录整个诊断过程的 timeline
