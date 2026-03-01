@@ -557,17 +557,34 @@ spear trace timeline [--format text|json]
 
 ## 通用参数
 
-所有命令支持:
+各命令支持的过滤参数如下：
 
 | 参数 | 类型 | 说明 | 示例 |
 |------|------|------|------|
 | `--data <path>` | string | perf script 文件路径（必填） | `--data perf.txt` |
+| `--start-time <ts>` | float | 起始时间戳（含） | `--start-time 1000.5` |
+| `--end-time <ts>` | float | 结束时间戳（含） | `--end-time 1010.0` |
 | `--cpu-id <ID>` | int | 仅分析指定 CPU | `--cpu-id 0` |
 | `--pid <PID>` | int | 仅分析指定进程 | `--pid 1234` |
 | `--comm <name>` | string | 按进程名过滤（逗号分隔多值） | `--comm nginx,php-fpm` |
 | `--comm-regex <pattern>` | string | 按进程名正则匹配 | `--comm-regex 'java.*'` |
-| `--start-time <ts>` | float | 起始时间戳（含） | `--start-time 1000.5` |
-| `--end-time <ts>` | float | 结束时间戳（含） | `--end-time 1010.0` |
+
+**参数支持情况速查**:
+
+| 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start/end-time` |
+|------|:----------:|:-------:|:--------:|:--------------:|:------------------:|
+| `check-cpu-bottleneck` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `show-cpu-usage` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `get-process-top` | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cluster-symbols` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cluster-comm` | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `count-process-variety` | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 

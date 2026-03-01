@@ -212,9 +212,6 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Also detect anomalies when in export mode")
     p5.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p5.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
-    p5.add_argument("--pid", type=int, help="Filter by process ID")
-    p5.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
-    p5.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
 
     # show-cpu-usage
     p8 = subparsers.add_parser('show-cpu-usage',
@@ -324,7 +321,6 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14.add_argument("--sort-by-density", action="store_true",
                      help="Sort by density index (CPU per process) instead of aggregate CPU")
     p14.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p14.add_argument("--pid", type=int, help="Filter by process ID")
     p14.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p14.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
     p14.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
