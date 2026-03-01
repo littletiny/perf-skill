@@ -1,15 +1,15 @@
-# perf-doc 测试用例集
+# Trace 测试用例集
 
-> 测试 Live Document 机制的各项功能
+> 测试 Trace（诊断追踪）机制的各项功能
 
 ## 测试环境准备
 
 ```bash
 # 进入测试目录
-cd tests/doc_testcases
+cd tests/livedoc
 
 # 清理之前的测试数据
-rm -f .perf-doc.json *.md
+rm -f .spear.json *.md
 ```
 
 ## 测试用例清单
@@ -23,8 +23,7 @@ rm -f .perf-doc.json *.md
 | TC-05 | 列出所有问题 | tc_05_list.md | P0 |
 | TC-06 | 最终审计 - 全部完成 | tc_06_finalize_ready.md | P0 |
 | TC-07 | 最终审计 - 有遗留问题 | tc_07_finalize_blocked.md | P0 |
-| TC-08 | 导出 Markdown 报告 | tc_08_export_md.md | P1 |
-| TC-09 | 重复 ID 检测 | tc_09_duplicate_id.md | P1 |
+| TC-08 | 导出 Markdown 报告 | tc_08_export.md | P1 |
 | TC-10 | netstat/containerd-shim 完整场景 | tc_10_full_scenario.md | P0 |
 
 ## 快速执行

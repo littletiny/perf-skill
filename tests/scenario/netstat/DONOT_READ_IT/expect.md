@@ -237,19 +237,19 @@ perf record -a -g -- sleep 60
 perf script -F comm,pid,cpu,time,core,sym,dso > perf.script.fixed
 
 # 验证1: netstat进程风暴是否消除
-python3 $SKILL_DIR/scripts/spear.py count-process-variety --data perf.script.fixed
+python3 $SKILL_DIR/scripts/spear count-process-variety --data perf.script.fixed
 # 预期: netstat PID数量<60(1个/秒)，无PROCESS_STORM告警
 
 # 验证2: containerd-shim锁竞争是否降低
-python3 $SKILL_DIR/scripts/spear.py cluster-symbols --data perf.script.fixed --pid $(pgrep containerd-shim | head -1)
+python3 $SKILL_DIR/scripts/spear cluster-symbols --data perf.script.fixed --pid $(pgrep containerd-shim | head -1)
 # 预期: EVENT_LOCK_CONTENTION<20%
 
 # 验证3: 整体CPU利用率下降
-python3 $SKILL_DIR/scripts/spear.py show-cpu-usage --data perf.script.fixed
+python3 $SKILL_DIR/scripts/spear show-cpu-usage --data perf.script.fixed
 # 预期: 总CPU<500%，内核态比例<30%
 
 # 验证4: 系统级锁竞争消除
-python3 $SKILL_DIR/scripts/spear.py cluster-symbols --data perf.script.fixed
+python3 $SKILL_DIR/scripts/spear cluster-symbols --data perf.script.fixed
 # 预期: EVENT_LOCK_CONTENTION<5%
 ```
 
