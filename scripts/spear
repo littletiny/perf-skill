@@ -72,7 +72,7 @@ spear - perf-hunter 包装脚本
   cluster-paths           按调用路径聚类
   count-process-variety   检测进程风暴
   analyze-core-distribution  核心级负载分布分析
-  doc                     Live document 管理
+  trace                   Trace 诊断追踪管理
 
 环境配置:
   配置保存在 .spear_env 文件中，可通过以下方式初始化:
@@ -194,7 +194,17 @@ cmd_init() {
         save_env "SPEAR_FREQ" "$freq"
     fi
     
-    echo "✓ 初始化完成! 配置已保存到 $ENV_FILE"
+    echo "✓ 环境配置已保存到 $ENV_FILE"
+    echo ""
+    
+    # 顺带初始化 trace
+    echo "初始化 Trace..."
+    if python3 "$script_path" trace init --data "$data_path" 2>/dev/null; then
+        echo "✓ Trace 初始化完成"
+    else
+        echo "⚠ Trace 初始化失败（可能已存在）"
+    fi
+    
     echo ""
     show_status
 }
@@ -234,17 +244,17 @@ cmd_exec() {
     # 构建命令
     local cmd_args=()
     
-    # doc 子命令特殊处理
-    if [[ "$subcommand" == "doc" ]]; then
-        local doc_subcommand="$1"
+    # trace 子命令特殊处理
+    if [[ "$subcommand" == "trace" ]]; then
+        local trace_subcommand="$1"
         shift || true
         
-        if [[ "$doc_subcommand" == "init" ]]; then
-            # doc init 需要 --data 参数
-            cmd_args+=("$subcommand" "$doc_subcommand" "--data" "$data_path")
-        elif [[ -n "$doc_subcommand" ]]; then
-            # 其他 doc 子命令不需要 --data
-            cmd_args+=("$subcommand" "$doc_subcommand")
+        if [[ "$trace_subcommand" == "init" ]]; then
+            # trace init 需要 --data 参数
+            cmd_args+=("$subcommand" "$trace_subcommand" "--data" "$data_path")
+        elif [[ -n "$trace_subcommand" ]]; then
+            # 其他 trace 子命令不需要 --data
+            cmd_args+=("$subcommand" "$trace_subcommand")
         else
             cmd_args+=("$subcommand")
         fi
