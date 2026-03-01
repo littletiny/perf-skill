@@ -59,7 +59,7 @@ mkdir -p debug
 # 基于 references/templates.md 创建 debug/[问题描述].md
 
 # 2. 初始化 Live Document
-perf-expert.py doc init --data <perf.data>
+spearert.py doc init --data <perf.data>
 
 # 3. 提出三候选假说（强制执行）
 # 在诊断文档中记录至少 3 个竞争性假设：
@@ -188,7 +188,7 @@ get-comm-top  # 关注 cpu消耗总量，尤其是内核态cpu占用
 
 # Step 2: 如果检测到 PROCESS_STORM
 # 在 Live Document 中记录所有风暴进程组
-perf-expert.py doc add --id ISS-001 \
+spearert.py doc add --id ISS-001 \
   --desc "lsof 进程风暴 (40 PIDs)" \
   --risk "系统开销激增" \
   --hint "cluster-symbols --comm netstat"
@@ -199,7 +199,7 @@ get-hotspots --comm <storm-comm>
 find-callers --auto-target --comm <storm-comm>
 
 # Step 4: 定期审计
-perf-expert.py doc list  # 确保所有风暴进程组都被分析
+spearert.py doc list  # 确保所有风暴进程组都被分析
 ```
 
 ### 三候选假说示例
@@ -367,14 +367,14 @@ cluster-symbols --comm <xxx>  # 看具体回收函数
 ### 每 2-3 诊断工具后执行
 
 ```bash
-perf-expert.py doc list
+spearert.py doc list
 # 如有 PENDING 问题 → 继续分析，不要提前收敛
 ```
 
 ### 生成报告前执行
 
 ```bash
-perf-expert.py doc finalize
+spearert.py doc finalize
 ```
 
 ### 全局一致性检查清单

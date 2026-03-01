@@ -96,7 +96,7 @@
 > #    - 竞争性假设追踪表（至少3条竞争性假设：代码/架构/环境）
 >
 > # 4. 初始化 Live Document —— 这只是辅助状态追踪
-> perf-expert.py doc init --data xxx.data
+> spearert.py doc init --data xxx.data
 > ```
 >
 > **重要区分**：
@@ -181,11 +181,11 @@
 **如何记录**:
 ```bash
 # 示例：get-comm-top 发现异常进程组，全部记录
-perf-expert.py doc add --id ISS-001 --desc "redis 内核开销 94.7%" \
+spearert.py doc add --id ISS-001 --desc "redis 内核开销 94.7%" \
   --risk "内核负载过高" --hint "cluster-symbols --comm redis"
 ```
 
-**⚠️ 重要**: perf-expert 非doc子命令的任何风险都需要记录
+**⚠️ 重要**: spearert 非doc子命令的任何风险都需要记录
 
 ---
 
@@ -392,7 +392,7 @@ perf-expert.py doc add --id ISS-001 --desc "redis 内核开销 94.7%" \
 **必须执行 `doc list` 检查待办问题**：
 
 ```bash
-perf-expert.py doc list
+spearert.py doc list
 ```
 
 **输出解读**:
@@ -404,7 +404,7 @@ perf-expert.py doc list
 **必须执行 `doc finalize` 确认完整性**：
 
 ```bash
-perf-expert.py doc finalize
+spearert.py doc finalize
 ```
 
 **可能输出**:

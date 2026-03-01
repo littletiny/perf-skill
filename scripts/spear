@@ -44,7 +44,7 @@ get_script_dir() {
 
 # 获取默认脚本路径
 get_default_script_path() {
-    echo "$(get_script_dir)/perf_expert.py"
+    echo "$(get_script_dir)/spear.py"
 }
 
 # 显示帮助

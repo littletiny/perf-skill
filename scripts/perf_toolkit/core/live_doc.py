@@ -25,7 +25,7 @@ class LiveDoc:
     数据文件: .perf-doc.json (当前目录)
     """
 
-    DEFAULT_PATH = ".perf-doc.json"
+    DEFAULT_PATH = ".spear.json"
     CURRENT_VERSION = "2.0"
 
     def __init__(self, path: Optional[str] = None):
@@ -428,6 +428,17 @@ def cmd_doc_init(args):
     doc.init(args.data)
     print(f"✓ 创建诊断文档: {doc.path}")
     print(f"  数据文件: {args.data}")
+
+
+def cmd_doc_add(args):
+    """手动添加 issue（用户主动添加）"""
+    try:
+        doc = LiveDoc()
+        doc.add(args.id, args.desc, getattr(args, 'risk', ''), getattr(args, 'hint', ''))
+        print(f"✓ 已添加问题: {args.id}")
+        print(f"  描述: {args.desc}")
+    except ValueError as e:
+        print(f"✗ 错误: {e}")
 
 
 def cmd_doc_timeline(args):

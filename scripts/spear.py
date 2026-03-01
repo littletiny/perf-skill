@@ -48,10 +48,10 @@ from perf_toolkit.analysis.process_variety import cmd_count_process_variety
 from perf_toolkit.analysis.core_distribution import cmd_analyze_core_distribution
 from perf_toolkit.analysis.comm_top import cmd_get_comm_top
 
-# Import live doc commands
+# Import live doc commands (v2.0: auto add, manual complete)
 from perf_toolkit.core.live_doc import (
-    cmd_doc_init, cmd_doc_add, cmd_doc_complete,
-    cmd_doc_list, cmd_doc_finalize, cmd_doc_export
+    cmd_doc_init, cmd_doc_add, cmd_doc_complete, cmd_doc_timeline,
+    cmd_doc_issues, cmd_doc_finalize, cmd_doc_export
 )
 
 # Import live document
@@ -68,16 +68,16 @@ class HelpOnErrorParser(argparse.ArgumentParser):
 
 def main():
     parser = HelpOnErrorParser(
-        description="Perf Expert Diagnostic Toolkit - Analyze Linux performance data using SPEAR methodology",
+        description="SPEAR Diagnostic Toolkit - Analyze Linux performance data using SPEAR methodology",
         epilog="""Usage Examples:
   # Analyze hotspots in a specific process
-  python perf_expert.py get-hotspots --data perf.data.txt --comm myapp --top-n 20
+  spear get-hotspots --data perf.data.txt --comm myapp --top-n 20
 
   # Check CPU bottleneck with cgroup limit
-  python perf_expert.py check-cpu-bottleneck --data perf.data.txt --cpu-limit 0.5c
+  spear check-cpu-bottleneck --data perf.data.txt --cpu-limit 0.5c
 
   # Find callers of a specific function
-  python perf_expert.py find-callers --data perf.data.txt --target pthread_mutex_lock
+  spear find-callers --data perf.data.txt --target pthread_mutex_lock
 
   # Detect anomalies in a time window
   python perf_expert.py detect-anomalies --data perf.data.txt --window-size 1.0
@@ -337,24 +337,27 @@ Use '<command> --help' for detailed help on each subcommand."""
     # doc init
     doc_init = doc_subparsers.add_parser('init', help="Initialize a new diagnosis document")
     doc_init.add_argument("--data", required=True, help="Path to perf data file")
-    doc_init.add_argument("--path", default=".perf-doc.json", help="Document storage path (default: .perf-doc.json)")
+    doc_init.add_argument("--path", default=".spear.json", help="Document storage path (default: .spear.json)")
     
-    # doc add
+    # doc add (保留：用户可主动添加)
     doc_add = doc_subparsers.add_parser('add', help="Add a new issue to the document")
     doc_add.add_argument("--id", required=True, help="Issue unique identifier (e.g., ISS-001)")
     doc_add.add_argument("--desc", required=True, help="Issue description")
     doc_add.add_argument("--risk", default="", help="Risk of not handling this issue")
     doc_add.add_argument("--hint", default="", help="Recommended next action")
     
+    # doc timeline (v2.0)
+    doc_timeline = doc_subparsers.add_parser('timeline', help="Show diagnosis timeline")
+    doc_timeline.add_argument("--format", choices=['text', 'json'], default='text', help="Output format")
+    
+    # doc issues (v2.0)
+    doc_issues = doc_subparsers.add_parser('issues', help="List all issues")
+    doc_issues.add_argument("--status", choices=['open', 'resolved', 'all'], default='all', help="Filter by status")
+    
     # doc complete
     doc_complete = doc_subparsers.add_parser('complete', help="Mark an issue as completed")
     doc_complete.add_argument("--id", required=True, help="Issue identifier")
     doc_complete.add_argument("--result", required=True, help="Analysis result and conclusion")
-    
-    # doc list
-    doc_list = doc_subparsers.add_parser('list', help="List all issues")
-    doc_list.add_argument("--format", choices=['text', 'json'], default='text', help="Output format (default: text)")
-    doc_list.add_argument("--status", choices=['pending', 'completed', 'all'], default='all', help="Filter by status")
     
     # doc finalize
     doc_finalize = doc_subparsers.add_parser('finalize', help="Final audit before generating report")
@@ -380,8 +383,9 @@ Use '<command> --help' for detailed help on each subcommand."""
         doc_commands = {
             "init": cmd_doc_init,
             "add": cmd_doc_add,
+            "timeline": cmd_doc_timeline,
+            "issues": cmd_doc_issues,
             "complete": cmd_doc_complete,
-            "list": cmd_doc_list,
             "finalize": cmd_doc_finalize,
             "export": cmd_doc_export
         }

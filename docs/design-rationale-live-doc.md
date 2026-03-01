@@ -132,7 +132,7 @@ $ perf-exp hints --show
 
 | 决策 | 理由 |
 |------|------|
-| 独立 `perf-doc` 工具 | 不改造现有工具，最小侵入 |
+| 独立 `spear doc` 工具 | 不改造现有工具，最小侵入 |
 | 仅两种状态: pending/completed | 简单明确，无中间状态 |
 | 强制 `finalize` 命令 | 必须看到全貌才能输出报告 |
 | 文本 + JSON 双输出 | 人类可读，程序可解析 |
@@ -145,14 +145,14 @@ $ perf-exp hints --show
 
 ```
 诊断流程:
-  1. perf-doc init              # 初始化文档
+  1. spear doc init              # 初始化文档
   2. 分析工具执行                # 发现问题
-  3. perf-doc add --id ...      # 记录问题
-  4. perf-doc list              # 查看待办
+  3. spear doc add --id ...      # 记录问题
+  4. spear doc list              # 查看待办
   5. 继续分析                    # 处理问题
-  6. perf-doc complete --id ... # 标记完成
-  7. perf-doc list              # 检查是否还有遗留
-  8. perf-doc finalize          # 最终审计
+  6. spear doc complete --id ... # 标记完成
+  7. spear doc list              # 检查是否还有遗留
+  8. spear doc finalize          # 最终审计
   9. 生成报告                    # 结束
 ```
 
@@ -215,7 +215,7 @@ ISS-002  containerd-shim 高内核态 89.9%
 ### 4.4 强制审计机制
 
 ```bash
-$ perf-doc finalize
+$ spear doc finalize
 ```
 
 输出：
@@ -278,7 +278,7 @@ ISS-002  containerd-shim 高内核态 89.9%
 **⚠️ 非常重要**: 每次执行 2-3 个工具后，必须运行审计。
 
 ```bash
-perf-doc list
+spear doc list
 ```
 
 **不审计的后果**:
@@ -288,9 +288,9 @@ perf-doc list
 
 ### 禁止行为
 
-- ❌ 未执行 `perf-doc list` 直接给出结论
+- ❌ 未执行 `spear doc list` 直接给出结论
 - ❌ `pending` 列表不为空时生成最终报告
-- ❌ 未执行 `perf-doc finalize` 结束诊断
+- ❌ 未执行 `spear doc finalize` 结束诊断
 ```
 
 ---
@@ -305,31 +305,31 @@ $ perf-exp get-comm-top --data netstat_perf.data
 # 输出显示 4 个高内核态进程
 
 # Step 2: 立即记录所有问题
-$ perf-doc add --id ISS-001 --desc "netstat 高内核态 94.7%" --risk "进程风暴" --hint "cluster-symbols --comm netstat"
-$ perf-doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" --risk "可能比 netstat 更严重" --hint "cluster-symbols --comm containerd-shim"
-$ perf-doc add --id ISS-003 --desc "sh 高内核态 86.8%" --risk "未知" --hint "cluster-symbols --comm sh"
+$ spear doc add --id ISS-001 --desc "netstat 高内核态 94.7%" --risk "进程风暴" --hint "cluster-symbols --comm netstat"
+$ spear doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" --risk "可能比 netstat 更严重" --hint "cluster-symbols --comm containerd-shim"
+$ spear doc add --id ISS-003 --desc "sh 高内核态 86.8%" --risk "未知" --hint "cluster-symbols --comm sh"
 
 # Step 3: 查看待办
-$ perf-doc list
+$ spear doc list
 输出:
   ⚠️  PENDING: ISS-001, ISS-002, ISS-003
 
 # Step 4: 分析 netstat
 $ perf-exp cluster-symbols --comm netstat
-$ perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+$ spear doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
 # Step 5: 再次检查
-$ perf-doc list
+$ spear doc list
 输出:
   ✅ COMPLETED: ISS-001
   ⚠️  PENDING: ISS-002, ISS-003  ← 明确提示还有遗留
 
 # Step 6: 被迫分析 containerd-shim
 $ perf-exp cluster-symbols --comm containerd-shim
-$ perf-doc complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
+$ spear doc complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
 
 # Step 7: 最终审计
-$ perf-doc finalize
+$ spear doc finalize
 输出:
   剩余风险: ISS-003 sh (可选择接受或继续)
   选择: [A]继续 [B]接受 [C]标记为无需处理

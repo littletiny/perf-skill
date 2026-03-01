@@ -10,7 +10,7 @@
 
 ### 1.1 v1.0 的问题
 
-v1.0 设计需要**人工执行** `perf-doc add` 和 `perf-doc complete`：
+v1.0 设计需要**人工执行** `spear doc add` 和 `spear doc complete`：
 
 ```bash
 # 发现问题
@@ -18,10 +18,10 @@ perf-exp get-comm-top --data xxx.data
 # 输出提示: [必须] 添加到 Live Document...
 
 # 必须人工执行！
-perf-doc add --id ISS-001 --desc "xxx" --risk "xxx"
+spear doc add --id ISS-001 --desc "xxx" --risk "xxx"
 
 # 分析完再人工标记完成
-perf-doc complete --id ISS-001 --result "xxx"
+spear doc complete --id ISS-001 --result "xxx"
 ```
 
 **问题**：提示容易被忽略，agent 可能忘记执行。
@@ -215,20 +215,20 @@ def cmd_get_comm_top(engine, args):
 **解决 issue 仍需人工执行**：
 ```bash
 # 分析后，人工确认并标记完成
-perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+spear doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 ```
 
 ### 3.3 保留人工解决入口
 
 ```bash
 # 查看待处理 issues
-perf-doc issues
+spear doc issues
 
 # 分析完成后，人工标记完成
-perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+spear doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
 # 或者选择忽略
-perf-doc complete --id ISS-001 --result "wontfix: 优先级低"
+spear doc complete --id ISS-001 --result "wontfix: 优先级低"
 ```
 
 **为什么保留人工解决？**
@@ -244,26 +244,26 @@ perf-doc complete --id ISS-001 --result "wontfix: 优先级低"
 
 ```bash
 # 查看 timeline
-perf-doc timeline [--format json]
+spear doc timeline [--format json]
 
 # 查看 issues 状态  
-perf-doc issues [--status open|resolved|all]
+spear doc issues [--status open|resolved|all]
 
 # 标记 issue 完成（人工执行）
-perf-doc complete --id <issue_id> --result <result>
+spear doc complete --id <issue_id> --result <result>
 
 # 最终审计（检查是否还有 open issue）
-perf-doc finalize [--accept-risk <reason>]
+spear doc finalize [--accept-risk <reason>]
 
 # 导出报告
-perf-doc export [--format markdown|json]
+spear doc export [--format markdown|json]
 ```
 
 ### 4.2 移除命令
 
 ```bash
 # 不再需要手动操作（改为自动）
-perf-doc add      ← 移除，改为自动创建
+spear doc add      ← 移除，改为自动创建
 ```
 
 ### 4.3 timeline 输出示例
@@ -281,7 +281,7 @@ DIAGNOSIS TIMELINE  (2 commands executed)
 [2] 10:01:00  cluster-symbols --comm netstat --data netstat_perf.data
     ───────────────────────────────────────────────────────────
     ℹ️  分析结果: LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争
-        (ISS-001 仍需人工确认: perf-doc complete --id ISS-001 --result "...")
+        (ISS-001 仍需人工确认: spear doc complete --id ISS-001 --result "...")
 
 ═══════════════════════════════════════════════════════════════════
 OPEN ISSUES (2 remaining, 需人工处理)
@@ -289,7 +289,7 @@ OPEN ISSUES (2 remaining, 需人工处理)
 
 ⚠️  ISS-001  netstat 高内核态 94.7%
     ├─ 分析结果: LOCK_CONTENTION 38.36%
-    └─ 确认解决: perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+    └─ 确认解决: spear doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
 ⚠️  ISS-002  containerd-shim 高内核态 89.9%
     └─ 建议: cluster-symbols --comm containerd-shim
@@ -311,7 +311,7 @@ OPEN ISSUES (2 remaining, 需人工处理)
 
 ### 5.2 向后兼容
 
-- v1.0 的 `.perf-doc.json` 自动迁移到 v2.0
+- v1.0 的 `.spear.json` 自动迁移到 v2.0
 - v2.0 添加 `version` 字段用于识别
 
 ---

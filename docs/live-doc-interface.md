@@ -10,7 +10,7 @@
 
 ### 1.1 目的
 
-定义 `perf-doc` 工具的命令行接口、数据格式和集成方式。
+定义 `spear doc` 工具的命令行接口、数据格式和集成方式。
 
 ### 1.2 设计原则
 
@@ -25,7 +25,7 @@
 ### 2.1 文件路径
 
 ```
-.perf-doc.json  # 当前工作目录
+.spear.json  # 当前工作目录
 或
 ~/.perf-diagnosis/<data-file-basename>.json  # 全局存储
 ```
@@ -109,12 +109,12 @@
 ### 3.1 命令总览
 
 ```bash
-perf-doc init                    # 初始化文档
-perf-doc add [options]           # 添加问题
-perf-doc complete [options]      # 标记完成
-perf-doc list [options]          # 列出所有问题
-perf-doc finalize [options]      # 最终审计
-perf-doc export [options]        # 导出为其他格式
+spear doc init                    # 初始化文档
+spear doc add [options]           # 添加问题
+spear doc complete [options]      # 标记完成
+spear doc list [options]          # 列出所有问题
+spear doc finalize [options]      # 最终审计
+spear doc export [options]        # 导出为其他格式
 ```
 
 ### 3.2 init - 初始化文档
@@ -123,24 +123,24 @@ perf-doc export [options]        # 导出为其他格式
 
 **用法**:
 ```bash
-perf-doc init --data <data-file> [--path <doc-path>]
+spear doc init --data <data-file> [--path <doc-path>]
 ```
 
 **参数**:
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | --data | string | 是 | perf 数据文件路径 |
-| --path | string | 否 | 文档存储路径，默认 .perf-doc.json |
+| --path | string | 否 | 文档存储路径，默认 .spear.json |
 
 **输出**:
 ```
-✓ 创建诊断文档: .perf-doc.json
+✓ 创建诊断文档: .spear.json
   数据文件: netstat_perf.data
 ```
 
 **示例**:
 ```bash
-perf-doc init --data netstat_perf.data
+spear doc init --data netstat_perf.data
 ```
 
 ---
@@ -151,7 +151,7 @@ perf-doc init --data netstat_perf.data
 
 **用法**:
 ```bash
-perf-doc add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
+spear doc add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
 ```
 
 **参数**:
@@ -171,7 +171,7 @@ perf-doc add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
 
 **示例**:
 ```bash
-perf-doc add --id ISS-002 \
+spear doc add --id ISS-002 \
   --desc "containerd-shim 高内核态 89.9%" \
   --risk "可能比 netstat 更严重，单进程影响大" \
   --hint "cluster-symbols --comm containerd-shim"
@@ -185,7 +185,7 @@ perf-doc add --id ISS-002 \
 
 **用法**:
 ```bash
-perf-doc complete --id <id> --result <result>
+spear doc complete --id <id> --result <result>
 ```
 
 **参数**:
@@ -202,7 +202,7 @@ perf-doc complete --id <id> --result <result>
 
 **示例**:
 ```bash
-perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
+spear doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
 ```
 
 ---
@@ -213,7 +213,7 @@ perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%, /proc/net/tcp �
 
 **用法**:
 ```bash
-perf-doc list [--format <format>] [--status <status>]
+spear doc list [--format <format>] [--status <status>]
 ```
 
 **参数**:
@@ -268,9 +268,9 @@ ISS-002  containerd-shim 高内核态 89.9%
 
 **示例**:
 ```bash
-perf-doc list                    # 默认 text 格式
-perf-doc list --format json      # JSON 格式
-perf-doc list --status pending   # 只显示待处理
+spear doc list                    # 默认 text 格式
+spear doc list --format json      # JSON 格式
+spear doc list --status pending   # 只显示待处理
 ```
 
 ---
@@ -281,7 +281,7 @@ perf-doc list --status pending   # 只显示待处理
 
 **用法**:
 ```bash
-perf-doc finalize [--accept-risk <reason>] [--format <format>]
+spear doc finalize [--accept-risk <reason>] [--format <format>]
 ```
 
 **参数**:
@@ -320,7 +320,7 @@ ISS-002  containerd-shim 高内核态 89.9%
     必须提供理由（使用 --accept-risk）
 
 [C] 标记为无需处理
-    执行: perf-doc complete --id ISS-002 --result "wontfix: <理由>"
+    执行: spear doc complete --id ISS-002 --result "wontfix: <理由>"
 
 ═══════════════════════════════════════════════════════════════════
 ERROR: 存在未处理问题，无法直接生成报告
@@ -346,8 +346,8 @@ ERROR: 存在未处理问题，无法直接生成报告
 
 **示例**:
 ```bash
-perf-doc finalize                                    # 交互式选择
-perf-doc finalize --accept-risk "与当前问题无关"      # 接受风险
+spear doc finalize                                    # 交互式选择
+spear doc finalize --accept-risk "与当前问题无关"      # 接受风险
 ```
 
 ---
@@ -358,7 +358,7 @@ perf-doc finalize --accept-risk "与当前问题无关"      # 接受风险
 
 **用法**:
 ```bash
-perf-doc export [--format <format>] [--output <path>]
+spear doc export [--format <format>] [--output <path>]
 ```
 
 **参数**:
@@ -369,7 +369,7 @@ perf-doc export [--format <format>] [--output <path>]
 
 **示例**:
 ```bash
-perf-doc export --format markdown --output report.md
+spear doc export --format markdown --output report.md
 ```
 
 ---
@@ -378,7 +378,7 @@ perf-doc export --format markdown --output report.md
 
 ### 4.1 自动记录机制
 
-分析工具自动调用 `perf-doc add` 记录 critical findings:
+分析工具自动调用 `spear doc add` 记录 critical findings:
 
 ```python
 # perf_toolkit/analysis/hotspots.py
@@ -417,7 +417,7 @@ perf-expert.py doc finalize
 
 ```bash
 # 1. 初始化
-perf-doc init --data netstat_perf.data
+spear doc init --data netstat_perf.data
 
 # 2. 宏观评估，发现问题
 perf-expert.py show-cpu-usage --data netstat_perf.data
@@ -427,33 +427,33 @@ perf-expert.py get-comm-top --data netstat_perf.data
 # 输出: 4 个高内核态进程
 
 # 3. 记录所有问题
-perf-doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
+spear doc add --id ISS-001 --desc "netstat 高内核态 94.7%" \
   --risk "进程风暴" --hint "cluster-symbols --comm netstat"
-perf-doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
+spear doc add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
   --risk "单进程影响可能更大" --hint "cluster-symbols --comm containerd-shim"
-perf-doc add --id ISS-003 --desc "sh 高内核态 86.8%" \
+spear doc add --id ISS-003 --desc "sh 高内核态 86.8%" \
   --risk "未知" --hint "cluster-symbols --comm sh"
 
 # 4. 检查待办
-perf-doc list
+spear doc list
 # 输出: 3 pending
 
 # 5. 并行处理问题
 perf-expert.py cluster-symbols --comm netstat --data netstat_perf.data
-perf-doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+spear doc complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
 perf-expert.py cluster-symbols --comm containerd-shim --data netstat_perf.data
-perf-doc complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
+spear doc complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
 
 # 6. 评估 sh 的重要性
-perf-doc complete --id ISS-003 --result "wontfix: 优先级低，CPU 占比小"
+spear doc complete --id ISS-003 --result "wontfix: 优先级低，CPU 占比小"
 
 # 7. 最终审计
-perf-doc finalize
+spear doc finalize
 # 输出: ✅ 所有问题已处理
 
 # 8. 导出报告
-perf-doc export --format markdown --output diagnosis-report.md
+spear doc export --format markdown --output diagnosis-report.md
 ```
 
 ---
@@ -464,7 +464,7 @@ perf-doc export --format markdown --output diagnosis-report.md
 
 | 错误 | 原因 | 处理 |
 |------|------|------|
-| Document not found | 未执行 init | 提示执行 perf-doc init |
+| Document not found | 未执行 init | 提示执行 spear doc init |
 | Duplicate issue ID | ID 已存在 | 提示使用新的 ID |
 | Issue not found | complete 时 ID 不存在 | 提示检查 ID |
 | Cannot converge | finalize 时有 pending | 强制要求处理或提供理由 |
@@ -475,7 +475,7 @@ perf-doc export --format markdown --output diagnosis-report.md
 ERROR: Document not found
 
 请先初始化诊断文档:
-  perf-doc init --data <perf-data-file>
+  spear doc init --data <perf-data-file>
 ```
 
 ```
@@ -485,7 +485,7 @@ ERROR: Duplicate issue ID 'ISS-001'
   ISS-001: netstat 高内核态 94.7% (pending)
 
 请使用新的 ID:
-  perf-doc add --id ISS-004 ...
+  spear doc add --id ISS-004 ...
 ```
 
 ---
@@ -506,7 +506,7 @@ from typing import List, Dict, Optional
 class LiveDoc:
     """Live Document for tracking diagnostic issues"""
 
-    DEFAULT_PATH = ".perf-doc.json"
+    DEFAULT_PATH = ".spear.json"
 
     def __init__(self, path: Optional[str] = None):
         self.path = path or self._find_doc()

@@ -33,7 +33,7 @@
 
 ```bash
 # 任何返回 action_required=true 的 tool 输出，必须执行：
-perf-expert.py doc add --id <ISS-XXX> --desc "<_risk.message>" \
+spearert.py doc add --id <ISS-XXX> --desc "<_risk.message>" \
   --risk "<_risk.level>" --hint "<_risk.hint>"
 ```
 

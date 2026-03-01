@@ -146,13 +146,13 @@ python3 $SKILL_DIR/scripts/perf_expert.py doc init --data <perf.data>
 
 ```bash
 # 发现问题时记录
-perf-expert.py doc add --id ISS-001 --desc "高内核态" --hint "cluster-symbols"
+spearert.py doc add --id ISS-001 --desc "高内核态" --hint "cluster-symbols"
 
-# 每 2-3 个perf-expert工具后审计
-perf-expert.py doc list
+# 每 2-3 个spearert工具后审计
+spearert.py doc list
 
 # 生成报告前最终审计
-perf-expert.py doc finalize
+spearert.py doc finalize
 ```
 
 ---
