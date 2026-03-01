@@ -1,0 +1,2274 @@
+swapper       0 [000] 460661.461601:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.461601:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.461630:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [003] 460661.461654:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.461679:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+perf-exec  265651 [005] 460661.461695:     250000 cpu-clock:ppp: 
+	ffff800080498fcc free_swap_cache+0x5c ([kernel.kallsyms])
+	ffff800080456494 tlb_batch_pages_flush+0x5c ([kernel.kallsyms])
+	ffff800080457218 tlb_finish_mmu+0x80 ([kernel.kallsyms])
+	ffff800080452d64 exit_mmap+0x16c ([kernel.kallsyms])
+	ffff8000800c3324 __mmput+0x3c ([kernel.kallsyms])
+	ffff8000800c3524 mmput+0x94 ([kernel.kallsyms])
+	ffff80008052b6e0 exec_mmap+0x1a0 ([kernel.kallsyms])
+	ffff80008052d240 begin_new_exec+0x138 ([kernel.kallsyms])
+	ffff8000805d4154 load_elf_binary+0x394 ([kernel.kallsyms])
+	ffff800080529744 search_binary_handler+0xdc ([kernel.kallsyms])
+	ffff800080529f34 exec_binprm+0x64 ([kernel.kallsyms])
+	ffff80008052a284 bprm_execve.part.0+0x194 ([kernel.kallsyms])
+	ffff80008052a368 bprm_execve+0x48 ([kernel.kallsyms])
+	ffff80008052ca50 do_execveat_common.isra.0+0x228 ([kernel.kallsyms])
+	ffff80008052cccc __arm64_sys_execve+0x4c ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.461727:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.461755:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.461821:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.461854:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.461877:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [003] 460661.461904:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.461929:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+timeout  265651 [005] 460661.461945:     250000 cpu-clock:ppp: 
+	ffff8000803a8768 perf_iterate_sb.constprop.0+0x0 ([kernel.kallsyms])
+	ffff8000800c6910 copy_process+0xc98 ([kernel.kallsyms])
+	ffff8000800c6e24 kernel_clone+0xa4 ([kernel.kallsyms])
+	ffff8000800c7470 __do_sys_clone+0x78 ([kernel.kallsyms])
+	ffff8000800c7504 __arm64_sys_clone+0x2c ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    e14b2272d4ec arch_fork+0x2c (inlined)
+	    e14b2272d4ec __GI__Fork+0x2c (inlined)
+	    e14b22731b9f __libc_fork+0x4f (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    c28eef9720cf [unknown] (/usr/bin/timeout)
+	    c28eef9720cf [unknown] (/usr/bin/timeout)
+
+swapper       0 [006] 460661.461989:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.462001:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.462075:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.462098:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.462128:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.462145:     250000 cpu-clock:ppp: 
+	ffff800081652e60 memmove+0x0 ([kernel.kallsyms])
+	ffff800081672ea4 mas_wr_store_entry.isra.0+0x12c ([kernel.kallsyms])
+	ffff800081673cf0 mas_store_gfp+0x80 ([kernel.kallsyms])
+	ffff8000804501b8 do_vmi_align_munmap+0x2a8 ([kernel.kallsyms])
+	ffff800080452798 do_vmi_munmap+0xb8 ([kernel.kallsyms])
+	ffff800080452908 __vm_munmap+0xb0 ([kernel.kallsyms])
+	ffff800080452a30 vm_munmap+0x20 ([kernel.kallsyms])
+	ffff8000805d2fe0 elf_load+0x220 ([kernel.kallsyms])
+	ffff8000805d345c load_elf_interp+0x17c ([kernel.kallsyms])
+	ffff8000805d4678 load_elf_binary+0x8b8 ([kernel.kallsyms])
+	ffff800080529744 search_binary_handler+0xdc ([kernel.kallsyms])
+	ffff800080529f34 exec_binprm+0x64 ([kernel.kallsyms])
+	ffff80008052a284 bprm_execve.part.0+0x194 ([kernel.kallsyms])
+	ffff80008052a368 bprm_execve+0x48 ([kernel.kallsyms])
+	ffff80008052ca50 do_execveat_common.isra.0+0x228 ([kernel.kallsyms])
+	ffff80008052cccc __arm64_sys_execve+0x4c ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.462185:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.462203:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.462226:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.462252:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.462330:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.462344:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.462378:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.462431:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.462453:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.462478:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.462502:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.462572:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.462596:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.462628:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.462682:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.462703:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.462727:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.462753:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.462822:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.462846:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.462880:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.462933:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.462952:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.462979:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.463001:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.463079:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.463097:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.463101:     250000 cpu-clock:ppp: 
+	    bb99a6c73a00 [unknown] (/usr/bin/dd)
+	    eccf857baa77 _start+0x37 (/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1)
+	    eccf857baa77 _start+0x37 (/usr/lib/aarch64-linux-gnu/ld-linux-aarch64.so.1)
+
+swapper       0 [002] 460661.463128:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.463183:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.463203:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.463228:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.463252:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.463316:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.463349:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.463372:     250000 cpu-clock:ppp: 
+	    eccf8567c3a4 __GI_strcmp+0x24 (inlined)
+	    eccf8561515f __GI_setlocale+0x6b (inlined)
+
+swapper       0 [002] 460661.463379:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.463394:     250000 cpu-clock:ppp: 
+	ffff8000805527e8 expand_files+0x38 ([kernel.kallsyms])
+	ffff800080552ac0 alloc_fd+0x60 ([kernel.kallsyms])
+	ffff800080552c88 get_unused_fd_flags+0x30 ([kernel.kallsyms])
+	ffff80008051a220 do_sys_openat2+0xc0 ([kernel.kallsyms])
+	ffff80008051a798 __arm64_sys_openat+0x70 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c22b4 __GI___open64_nocancel+0x54 (inlined)
+	    eccf85613963 _nl_load_locale_from_archive+0x353 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+
+swapper       0 [004] 460661.463433:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.463453:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.463477:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.463503:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.463571:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.463598:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.463628:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.463691:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.463703:     250000 cpu-clock:ppp: 
+	    bb99a6c77000 [unknown] (/usr/bin/dd)
+	  4dbb99a6c721bb [unknown] ([unknown])
+
+swapper       0 [005] 460661.463703:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.463732:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.463755:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.463819:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.463846:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.463878:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.463933:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.463958:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.463972:     250000 cpu-clock:ppp: 
+	    bb99a6c721dc [unknown] (/usr/bin/dd)
+	    bb99a6c721bb [unknown] (/usr/bin/dd)
+
+swapper       0 [006] 460661.463981:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.464003:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.464069:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.464095:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.464127:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.464186:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.464201:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.464233:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.464254:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.464315:     250000 cpu-clock:ppp: 
+	ffff800080152a2c cpuidle_idle_call+0xb4 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.464347:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.464378:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [004] 460661.464436:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.464450:     250000 cpu-clock:ppp: 
+	    bb99a6c7b060 [unknown] (/usr/bin/dd)
+	    bb99a6c72c87 [unknown] (/usr/bin/dd)
+	    bb99a6c72c87 [unknown] (/usr/bin/dd)
+
+swapper       0 [005] 460661.464453:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.464477:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.464505:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.464573:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.464597:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.464627:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.464644:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.464683:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.464703:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.464727:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.464758:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.464820:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.464848:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.464877:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.464893:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.464936:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.464953:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.464980:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.465002:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.465073:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.465097:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.465129:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.465144:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.465182:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.465203:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.465229:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.465253:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.465316:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.465346:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.465380:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.465393:     250000 cpu-clock:ppp: 
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.465433:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.465459:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.465479:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.465501:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.465573:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.465596:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.465628:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.465643:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.465684:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.465703:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.465726:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.465755:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.465825:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.465847:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.465880:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.465894:     250000 cpu-clock:ppp: 
+	ffff800080dfcc5c get_random_u16+0x10c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.465933:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.465953:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.465978:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.466002:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.466071:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.466099:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.466129:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.466144:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.466189:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.466204:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.466229:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.466257:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.466317:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.466346:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.466378:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.466393:     250000 cpu-clock:ppp: 
+	ffff8000805954a0 __fsnotify_parent+0x48 ([kernel.kallsyms])
+	ffff80008051e24c vfs_read+0x1cc ([kernel.kallsyms])
+	ffff80008051ece8 ksys_read+0x80 ([kernel.kallsyms])
+	ffff80008051edd0 __arm64_sys_read+0x28 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.466433:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.466455:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.466478:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.466506:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.466572:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.466596:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.466629:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.466644:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.466688:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.466705:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.466728:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.466756:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.466823:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.466848:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.466878:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.466894:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.466935:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.466955:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.466980:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.467003:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.467073:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.467099:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.467130:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.467144:     250000 cpu-clock:ppp: 
+	ffff800080dfcc5c get_random_u16+0x10c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.467186:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.467203:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.467228:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.467254:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.467316:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.467349:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.467386:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.467394:     250000 cpu-clock:ppp: 
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.467435:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.467456:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.467479:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.467503:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.467573:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.467597:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.467629:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.467644:     250000 cpu-clock:ppp: 
+	ffff80008051e0f0 vfs_read+0x70 ([kernel.kallsyms])
+	ffff80008051ece8 ksys_read+0x80 ([kernel.kallsyms])
+	ffff80008051edd0 __arm64_sys_read+0x28 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.467684:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.467704:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.467730:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.467762:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.467824:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.467845:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.467878:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.467894:     250000 cpu-clock:ppp: 
+	ffff80008055185c __fget_light+0x2c ([kernel.kallsyms])
+	ffff8000805542bc __fdget_pos+0x24 ([kernel.kallsyms])
+	ffff80008051ee34 ksys_write+0x3c ([kernel.kallsyms])
+	ffff80008051ef60 __arm64_sys_write+0x28 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.467932:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.467957:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.467978:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.468004:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.468072:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.468097:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.468130:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.468144:     250000 cpu-clock:ppp: 
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.468188:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.468203:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.468228:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.468254:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.468322:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.468349:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.468382:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.468394:     250000 cpu-clock:ppp: 
+	ffff800080dfcc5c get_random_u16+0x10c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.468436:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.468453:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.468478:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.468508:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.468577:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.468601:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.468631:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.468644:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.468685:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.468704:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.468729:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.468756:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.468822:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.468849:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.468878:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.468894:     250000 cpu-clock:ppp: 
+	ffff800080dfcc28 get_random_u16+0xd8 ([kernel.kallsyms])
+	ffff8000800303f0 invoke_syscall+0xb0 ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.468934:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.468953:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.468981:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.469003:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.469074:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.469097:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.469130:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.469144:     250000 cpu-clock:ppp: 
+	    bb99a6c7a61c [unknown] (/usr/bin/dd)
+	    bb99a6c7a67f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.469183:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.469204:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.469230:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.469253:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.469325:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.469347:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.469379:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.469394:     250000 cpu-clock:ppp: 
+	    eccf856c1248 __GI___libc_read+0x28 (inlined)
+	    bb99a6c7a68f [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.469434:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.469453:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.469478:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.469503:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.469574:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.469600:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.469627:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.469644:     250000 cpu-clock:ppp: 
+	ffff8000805954ec __fsnotify_parent+0x94 ([kernel.kallsyms])
+	ffff80008051eba4 vfs_write+0x2e4 ([kernel.kallsyms])
+	ffff80008051ee78 ksys_write+0x80 ([kernel.kallsyms])
+	ffff80008051ef60 __arm64_sys_write+0x28 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.469685:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.469704:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.469729:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.469754:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.469823:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.469848:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.469879:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.469894:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.469933:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.469953:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.469980:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.470003:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.470072:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.470098:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.470132:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.470144:     250000 cpu-clock:ppp: 
+	ffff8000807f1370 aa_file_perm+0x188 ([kernel.kallsyms])
+	ffff800080767bb0 security_file_permission+0x50 ([kernel.kallsyms])
+	ffff80008051b90c rw_verify_area+0x54 ([kernel.kallsyms])
+	ffff80008051e958 vfs_write+0x98 ([kernel.kallsyms])
+	ffff80008051ee78 ksys_write+0x80 ([kernel.kallsyms])
+	ffff80008051ef60 __arm64_sys_write+0x28 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.470186:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.470205:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.470231:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.470256:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.470315:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.470347:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.470378:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.470394:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.470440:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.470455:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.470480:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+perf  265648 [007] 460661.470495:     250000 cpu-clock:ppp: 
+	ffff80008058be9c mark_buffer_dirty+0x4c ([kernel.kallsyms])
+	ffff80008058c1c0 __block_commit_write+0xc0 ([kernel.kallsyms])
+	ffff80008058c510 block_write_end+0x60 ([kernel.kallsyms])
+	ffff80008065ab30 ext4_da_do_write_end+0x60 ([kernel.kallsyms])
+	ffff80008065cdb8 ext4_da_write_end+0x90 ([kernel.kallsyms])
+	ffff8000803ce308 generic_perform_write+0x120 ([kernel.kallsyms])
+	ffff800080640d48 ext4_buffered_write_iter+0x78 ([kernel.kallsyms])
+	ffff800080641384 ext4_file_write_iter+0x44 ([kernel.kallsyms])
+	ffff80008051eb34 vfs_write+0x274 ([kernel.kallsyms])
+	ffff80008051ee78 ksys_write+0x80 ([kernel.kallsyms])
+	ffff80008051ef60 __arm64_sys_write+0x28 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    edbbf8461e8c __GI___libc_write+0x6c (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    edbbf8461e8c __GI___libc_write+0x6c (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    ae840c8d560b ion+0x5f (/usr/lib/linux-tools-6.8.0-94/perf)
+	    ae840c8d57cb writen+0x27 (/usr/lib/linux-tools-6.8.0-94/perf)
+	    ae840c6f39d3 record__pushfn+0x22f (/usr/lib/linux-tools-6.8.0-94/perf)
+	    ae840c7c3617 perf_mmap__push+0xd7 (/usr/lib/linux-tools-6.8.0-94/perf)
+	    ae840c6f27a3 record__mmap_read_evlist+0x233 (/usr/lib/linux-tools-6.8.0-94/perf)
+	    ae840c6f4e8b __cmd_record.constprop.0+0xdab (/usr/lib/linux-tools-6.8.0-94/perf)
+
+swapper       0 [000] 460661.470574:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.470595:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.470632:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.470644:     250000 cpu-clock:ppp: 
+	ffff800080554298 __fdget_pos+0x0 ([kernel.kallsyms])
+	ffff80008051ef60 __arm64_sys_write+0x28 ([kernel.kallsyms])
+	ffff8000800303bc invoke_syscall+0x7c ([kernel.kallsyms])
+	ffff8000800304bc el0_svc_common.constprop.0+0x4c ([kernel.kallsyms])
+	ffff8000800305d8 do_el0_svc+0x28 ([kernel.kallsyms])
+	ffff80008168ccb0 el0_svc+0x40 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.470685:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.470702:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.470732:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [007] 460661.470754:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [000] 460661.470823:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff800081690784 rest_init+0x10c ([kernel.kallsyms])
+	ffff80008269191c arch_call_rest_init+0x1c ([kernel.kallsyms])
+	ffff800082691ce8 start_kernel+0x348 ([kernel.kallsyms])
+	ffff80008269de40 __primary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [001] 460661.470846:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [002] 460661.470880:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+dd  265653 [003] 460661.470894:     250000 cpu-clock:ppp: 
+	ffff80008168cca8 el0_svc+0x38 ([kernel.kallsyms])
+	ffff80008168d478 el0t_64_sync_handler+0x148 ([kernel.kallsyms])
+	ffff800080011648 el0t_64_sync+0x1b0 ([kernel.kallsyms])
+	    eccf856c1e48 __GI___libc_write+0x28 (/usr/lib/aarch64-linux-gnu/libc.so.6)
+	    bb99a6c7aed7 [unknown] (/usr/bin/dd)
+
+swapper       0 [004] 460661.470934:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [005] 460661.470955:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f34 cpu_startup_entry+0x44 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
+swapper       0 [006] 460661.470978:     250000 cpu-clock:ppp: 
+	ffff800080152a30 cpuidle_idle_call+0xb8 ([kernel.kallsyms])
+	ffff800080152c38 do_idle+0xb0 ([kernel.kallsyms])
+	ffff800080152f30 cpu_startup_entry+0x40 ([kernel.kallsyms])
+	ffff80008002e434 secondary_start_kernel+0xec ([kernel.kallsyms])
+	ffff800080042710 __secondary_switched+0xc0 ([kernel.kallsyms])
+
