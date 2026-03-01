@@ -113,9 +113,6 @@ Use '<command> --help' for detailed help on each subcommand."""
                          "Default: 19. Ignored for SPEAR format.")
     p1.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p1.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
-    p1.add_argument("--pid", type=int, help="Filter by process ID")
-    p1.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
-    p1.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
 
     # get-hotspots
     p2 = subparsers.add_parser('get-hotspots',
@@ -220,9 +217,6 @@ Use '<command> --help' for detailed help on each subcommand."""
     p8.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
                          "Default: 19. Ignored for SPEAR format.")
-    p8.add_argument("--pid", type=int, help="Process ID to analyze (default: all processes)")
-    p8.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
-    p8.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
     p8.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p8.add_argument("--start-time", type=float, help="Filter samples after this timestamp (inclusive)")
     p8.add_argument("--end-time", type=float, help="Filter samples before this timestamp (inclusive)")
