@@ -15,7 +15,7 @@ Process Variety Analysis - Count process variety to detect short-lived process s
 
 from collections import defaultdict
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, ProcessVarietyItem, ProcessVarietySummary, ProcessVarietyOutput, TimeRange
+from ..core.output_models import RiskInfo, ProcessVarietyItem, ProcessVarietyOutput, TimeRange
 
 
 def cmd_count_process_variety(engine, args):
@@ -56,6 +56,9 @@ def cmd_count_process_variety(engine, args):
         second_key = int(ts)
         comm_pid_stats[comm][pid]['seconds'].add(second_key)
     
+    # Calculate duration for cpu_util
+    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    
     # Analyze variety
     variety_results = []
     storm_comms = []
@@ -85,12 +88,18 @@ def cmd_count_process_variety(engine, args):
             behavior = "process_storm"
             storm_comms.append(comm)
         
+        # Skip normal behavior
+        if behavior == "normal":
+            continue
+        
+        # Calculate cpu_util percentage
+        cpu_util = (total_comm_core_sec / duration * 100) if duration > 0 else 0
+        
         # Create V2 data item
         variety_results.append(ProcessVarietyItem(
             comm=comm,
             unique_pids=pid_count,
-            total_core_sec=round(total_comm_core_sec, 4),
-            cpu_per_pid=round(cpu_per_pid, 4),
+            cpu_util=f"{cpu_util:.2f}%",
             behavior=behavior
         ))
     
@@ -110,18 +119,11 @@ def cmd_count_process_variety(engine, args):
     top_n = getattr(args, 'top_n', 20)
     top_results = variety_results[:top_n]
     
-    summary = ProcessVarietySummary(
-        total_processes=len(comm_pid_stats),
-        storm_detected=len(storm_comms) > 0,
-        storm_count=len(storm_comms)
-    )
-    
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     
     output = ProcessVarietyOutput(
         _risk=risk,
         process_variety=top_results,
-        summary=summary,
         time_range=time_range
     )
     

@@ -188,13 +188,21 @@ python3 scripts/perf_expert.py get-process-top \
 | `--top-n` | int | 10 | 显示进程数 |
 | `--cpu-id` | int | - | 仅分析指定 CPU |
 
-**输出字段**:
+**输出格式**:
+```
+# Format: comm(pid) total_util/kernel_util
+nginx(1234) 45.50%/12.30%
+redis(5678) 23.40%/5.60%
+...
+```
+
+**字段说明**:
 | 字段 | 说明 |
 |------|------|
-| `pid` | 进程 ID |
 | `comm` | 进程名 |
-| `cpu_pct` | CPU 利用率 |
-| `kernel_pct` | 内核态占比 |
+| `pid` | 进程 ID |
+| `total_util` | 总 CPU 利用率（包含 user + kernel） |
+| `kernel_util` | 内核态 CPU 利用率占比 |
 
 ---
 

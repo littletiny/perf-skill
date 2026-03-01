@@ -13,9 +13,8 @@ V2 版本：使用统一数据模型
 import re
 import json as json_mod
 from collections import defaultdict
-from ..core.format_utils import format_core_sec
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, ClusterItem, ClusterSummary, ClustersOutput, TimeRange
+from ..core.output_models import RiskInfo, ClusterItem, ClustersOutput, TimeRange
 
 
 # Symbol-based event classification (for cluster-symbols)
@@ -84,15 +83,19 @@ def cmd_apply_cluster(engine, args):
         for g in matched_groups:
             cluster_core_sec[g] += core_per_sec
     
+    # Calculate duration for cpu_util conversion
+    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    
     # Build results
     results = []
     lock_contention_ratio = 0
     
     for group, core_sec in cluster_core_sec.items():
         ratio = (core_sec / total_core_per_sec * 100) if total_core_per_sec > 0 else 0
+        cpu_util = (core_sec / duration * 100) if duration > 0 else 0
         if group == "EVENT_LOCK_CONTENTION":
             lock_contention_ratio = ratio
-        results.append(ClusterItem.from_stats(group, ratio, core_sec))
+        results.append(ClusterItem.from_stats(group, ratio, cpu_util))
     
     results.sort(key=lambda x: float(x.ratio_pct.rstrip('%')), reverse=True)
     
@@ -117,12 +120,6 @@ def cmd_apply_cluster(engine, args):
     else:
         risk = create_risk_info(level="none")
     
-    # Build summary
-    summary = ClusterSummary(
-        clusters_found=len(results),
-        total_core_seconds=format_core_sec(total_core_per_sec)
-    )
-    
     # Build time range
     time_range = None
     if samples:
@@ -131,11 +128,10 @@ def cmd_apply_cluster(engine, args):
             samples[-1].get('ts') if len(samples) > 0 else None
         )
     
-    # Build output
+    # Build output (no summary for cleaner output)
     output = ClustersOutput(
         _risk=risk,
         clusters=results,
-        summary=summary,
         time_range=time_range
     )
     

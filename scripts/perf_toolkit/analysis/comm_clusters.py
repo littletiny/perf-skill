@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
-    RiskInfo, CommGroupItem, CommGroupSummary, ClusterCommOutput, TimeRange
+    RiskInfo, CommGroupItem, ClusterCommOutput, TimeRange
 )
 
 
@@ -71,6 +71,22 @@ def cmd_cluster_comm(engine, args):
         cpu_util = (total_core_sec / duration) * 100 if duration > 0 else 0
         kernel_ratio = (stats['kernel_core_sec'] / total_core_sec) * 100 if total_core_sec > 0 else 0
         
+        # Determine event (skip normal events in output)
+        if kernel_ratio > 50:
+            event = f"HIGH_KERNEL: 内核态占比 {kernel_ratio:.1f}%"
+        elif cpu_util > 10 and unique_pids >= 5:
+            avg_cpu = cpu_util / unique_pids
+            if avg_cpu < 1:
+                event = f"MANY_SMALL_PROCESSES: {unique_pids}个进程，每个仅消耗{avg_cpu:.2f}% CPU"
+            else:
+                event = "normal"
+        else:
+            event = "normal"
+        
+        # Skip normal events
+        if event == "normal":
+            continue
+        
         # cluster-comm uses same CommGroupItem as comm_top
         # but with different semantics in 'pids' field (unique_pids vs pid_count)
         items.append(CommGroupItem(
@@ -78,7 +94,7 @@ def cmd_cluster_comm(engine, args):
             pids=unique_pids,  # In cluster-comm, this means unique_pids
             cpu=f"{cpu_util:.2f}%",
             kernel=f"{kernel_ratio:.2f}%",
-            event="normal"  # cluster-comm doesn't track events
+            event=event
         ))
     
     items.sort(key=lambda x: float(x.cpu.rstrip('%')), reverse=True)
@@ -87,23 +103,16 @@ def cmd_cluster_comm(engine, args):
     # Build RiskInfo (no specific risk for cluster-comm)
     risk = create_risk_info(level="none")
     
-    # Build summary using CommGroupSummary (shared with comm_top)
-    summary = CommGroupSummary(
-        total_comm_groups=len(items),
-        high_kernel_groups=0  # cluster-comm doesn't track this
-    )
-    
     # Build time range
     time_range = TimeRange.from_timestamps(
         samples[0].get('ts'),
         samples[-1].get('ts') if len(samples) > 0 else None
     )
     
-    # Build output using ClusterCommOutput (comm_groups data type)
+    # Build output using ClusterCommOutput (comm_groups data type, no summary)
     output = ClusterCommOutput(
         _risk=risk,
         comm_groups=top_items,
-        summary=summary,
         time_range=time_range
     )
     

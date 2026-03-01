@@ -77,6 +77,13 @@ if [ ! -f "$TEST_DATA" ]; then
     exit 1
 fi
 
+# 切换到临时目录执行测试，避免污染源码目录
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
+
+# 初始化 spear 环境
+$SPEAR init --data-path "$TEST_DATA"
+
 # 将输出同时显示在终端并写入文件
 exec > >(tee "$OUTPUT_FILE") 2>&1
 
@@ -157,7 +164,19 @@ echo ""
 echo "========================================"
 echo "测试完成: $PASSED 通过, $FAILED 失败"
 echo "========================================"
-echo "输出已保存到: $OUTPUT_FILE"
+
+# 将输出文件复制回原始目录
+ORIGINAL_DIR="$SKILL_DIR/tests/perfdata"
+if [ "$OUTPUT_FILE" != "output.txt" ]; then
+    # 用户指定了自定义路径
+    ORIGINAL_DIR=$(dirname "$OUTPUT_FILE")
+    OUTPUT_FILE=$(basename "$OUTPUT_FILE")
+fi
+cp "$OUTPUT_FILE" "$ORIGINAL_DIR/"
+cd "$ORIGINAL_DIR"
+rm -rf "$TMP_DIR"
+
+echo "输出已保存到: $ORIGINAL_DIR/$OUTPUT_FILE"
 
 if [ $FAILED -eq 0 ]; then
     echo "✓ 所有测试通过！"

@@ -11,9 +11,8 @@ V2 版本：使用统一数据模型
 """
 
 from collections import defaultdict
-from ..core.format_utils import format_percent
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, CoreItem, CoreDistributionSummary, CoreDistributionOutput, TimeRange
+from ..core.output_models import RiskInfo, CoreItem, CoreDistributionOutput, TimeRange
 
 
 def cmd_analyze_core_distribution(engine, args):
@@ -44,10 +43,11 @@ def cmd_analyze_core_distribution(engine, args):
     # Calculate duration
     duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     
-    # Aggregate core stats
+    # Aggregate core stats (user + kernel separately)
     core_stats = defaultdict(lambda: {
         'record_count': 0,
-        'total_core_per_sec': 0.0,
+        'total_core_sec': 0.0,
+        'kernel_core_sec': 0.0,
     })
     comm_core_sec = defaultdict(float)
     
@@ -60,32 +60,42 @@ def cmd_analyze_core_distribution(engine, args):
             continue
         
         core_stats[cpu_id]['record_count'] += 1
-        core_stats[cpu_id]['total_core_per_sec'] += core_per_sec
+        core_stats[cpu_id]['total_core_sec'] += core_per_sec
+        
+        # Check if kernel mode by looking at stack
+        stack = s.get('stack')
+        if stack and stack.is_leaf_kernel:
+            core_stats[cpu_id]['kernel_core_sec'] += core_per_sec
+        
         if comm:
             comm_core_sec[comm] += core_per_sec
     
-    # Build core list
+    # Build core list with filtering
     core_list = []
-    for cpu_id, stats in sorted(core_stats.items(), key=lambda x: x[1]['total_core_per_sec'], reverse=True):
-        utilization = (stats['total_core_per_sec'] / duration * 100) if duration > 0 else 0
+    for cpu_id, stats in sorted(core_stats.items(), key=lambda x: x[1]['total_core_sec'], reverse=True):
+        total_util = (stats['total_core_sec'] / duration * 100) if duration > 0 else 0
+        kernel_util = (stats['kernel_core_sec'] / duration * 100) if duration > 0 else 0
         
         state = "normal"
-        if utilization > 90:
+        if total_util > 90:
             state = "saturated"
-        elif utilization < 5:
+        elif total_util < 5:
             state = "idle"
         
-        core_list.append(CoreItem(
-            cpu_id=cpu_id,
-            utilization=format_percent(utilization),
-            state=state
-        ))
+        # Filter: show if usr+sys >= 30% OR sys > 50%
+        if total_util >= 30 or kernel_util > 50:
+            core_list.append(CoreItem(
+                cpu_id=cpu_id,
+                total_cpu_util=f"{total_util:.2f}%",
+                kernel_cpu_util=f"{kernel_util:.2f}%",
+                state=state
+            ))
     
     # Identify imbalance
     if core_list:
-        max_util = float(core_list[0].utilization.rstrip('%'))
-        min_util = float(core_list[-1].utilization.rstrip('%'))
-        avg_util = sum(float(c.utilization.rstrip('%')) for c in core_list) / len(core_list)
+        max_util = float(core_list[0].total_cpu_util.rstrip('%'))
+        min_util = float(core_list[-1].total_cpu_util.rstrip('%'))
+        avg_util = sum(float(c.total_cpu_util.rstrip('%')) for c in core_list) / len(core_list)
         
         imbalance_ratio = max_util / avg_util if avg_util > 0 else 0
         
@@ -132,22 +142,13 @@ def cmd_analyze_core_distribution(engine, args):
         risk_level = "none"
         risk_info = None
     
-    # Build summary
-    summary = CoreDistributionSummary(
-        imbalance_level=imbalance_level,
-        max_utilization=format_percent(max_util),
-        min_utilization=format_percent(min_util),
-        saturated_cores=len(saturated_cores)
-    )
-    
     # Create time range
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     
-    # Build output
+    # Build output (no summary for cleaner output)
     output = CoreDistributionOutput(
         _risk=risk_info,
         cores=core_list,
-        summary=summary,
         time_range=time_range
     )
     

@@ -102,6 +102,13 @@ if [ ! -f "$DATA_FILE" ]; then
     exit 1
 fi
 
+# 切换到临时目录执行测试，避免污染源码目录
+TMP_DIR=$(mktemp -d)
+cd "$TMP_DIR"
+
+# 初始化 spear 环境
+$SPEAR init --data-path "$DATA_FILE"
+
 # 统计文件信息
 echo "--- 数据文件信息 ---"
 line_count=$(wc -l < "$DATA_FILE")
@@ -327,6 +334,10 @@ echo "通过: $passed"
 echo "失败: $failed"
 echo "总计: $((passed + failed))"
 echo ""
+
+# 清理临时目录
+cd "$SCRIPT_DIR"
+rm -rf "$TMP_DIR"
 
 if [ $failed -eq 0 ]; then
     echo -e "${GREEN}🎉 所有测试通过！${NC}"

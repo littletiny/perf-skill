@@ -61,25 +61,17 @@ class TextOutputAdapter:
         # 获取特殊数据字段（如 bottleneck 和 cpu_usage）
         special_data = data.get('data')
         
-        # 构建元数据行
-        meta_parts = []
-        if summary:
-            meta_parts.extend(self._format_summary(summary, list_name))
-        if time_range:
-            duration = time_range.get('duration', 0)
-            if duration:
-                meta_parts.append(f"duration={duration}s")
-        
         # 组合输出
         lines = []
         if risk_lines:
             lines.extend(risk_lines)
-        if meta_parts:
-            lines.append("[" + ", ".join(meta_parts) + "]")
         
-        # 添加列表数据
+        # 添加列表数据和format header（如果需要）
         if list_data:
-            lines.extend(self._format_list(list_data, list_name))
+            format_header, formatted_lines = self._format_list(list_data, list_name)
+            if format_header:
+                lines.append(format_header)
+            lines.extend(formatted_lines)
         elif special_data:
             # 处理特殊数据类型
             lines.extend(self._format_special_data(special_data))
@@ -155,8 +147,8 @@ class TextOutputAdapter:
         
         return parts
     
-    def _format_list(self, items: List[Dict], list_name: str) -> List[str]:
-        """格式化列表数据"""
+    def _format_list(self, items: List[Dict], list_name: str):
+        """格式化列表数据，返回 (format_header, lines)"""
         if not items:
             # 返回友好的空状态消息
             empty_messages = {
@@ -173,7 +165,7 @@ class TextOutputAdapter:
                 'windows': 'No windows data'
             }
             msg = empty_messages.get(list_name, f'No {list_name} found')
-            return [f"({msg})"]
+            return (None, [f"({msg})"])
         
         # 通过检查第一项的字段来区分不同类型的 clusters
         if list_name == 'clusters':
@@ -202,41 +194,45 @@ class TextOutputAdapter:
             return self._format_windows(items)
         else:
             # 通用列表格式
-            return [str(item) for item in items]
+            return (None, [str(item) for item in items])
     
-    def _format_hotspots(self, items: List[Dict]) -> List[str]:
+    def _format_hotspots(self, items: List[Dict]):
         """格式化热点函数列表"""
+        format_header = "# index,funcname,self,inclusive"
         lines = []
         for i, item in enumerate(items, 1):
             symbol = item.get('symbol', 'N/A')
             self_pct = item.get('self', '0%')
             inclusive = item.get('inclusive', '0%')
-            lines.append(f"#{i} {symbol} self={self_pct} inclusive={inclusive}")
-        return lines
+            lines.append(f"#{i} {symbol} {self_pct} {inclusive}")
+        return (format_header, lines)
     
-    def _format_clusters(self, items: List[Dict]) -> List[str]:
-        """格式化聚类结果"""
+    def _format_clusters(self, items: List[Dict]):
+        """格式化聚类结果 (cluster-symbols)"""
+        format_header = "# type,percent,cpu_util"
         lines = []
         for item in items:
             cluster = item.get('cluster', 'N/A')
             ratio = item.get('ratio_pct', '0%')
-            core_sec = item.get('core_sec', 0)
-            lines.append(f"{cluster} {ratio} core_sec={core_sec:.4f}")
-        return lines
+            cpu_util = item.get('cpu_util', '0.00%')
+            lines.append(f"{cluster} {ratio} {cpu_util}")
+        return (format_header, lines)
     
-    def _format_processes(self, items: List[Dict]) -> List[str]:
+    def _format_processes(self, items: List[Dict]):
         """格式化进程列表"""
+        format_header = "# comm(pid) (usr+sys)/sys"
         lines = []
         for item in items:
             comm = item.get('comm', 'N/A')
             pid = item.get('pid', 'N/A')
-            cpu = item.get('cpu_pct', '0%')
-            kernel = item.get('kernel_pct', '0%')
-            lines.append(f"{comm} pid={pid} cpu={cpu} kernel={kernel}")
-        return lines
+            total = item.get('total_cpu_util', '0.00%')
+            kernel = item.get('kernel_cpu_util', '0.00%')
+            lines.append(f"{comm}({pid}) {total}/{kernel}")
+        return (format_header, lines)
     
-    def _format_comm_groups(self, items: List[Dict]) -> List[str]:
-        """格式化进程组列表"""
+    def _format_comm_groups(self, items: List[Dict]):
+        """格式化进程组列表 (cluster-comm, get-comm-top)"""
+        format_header = "# comm,pids,cpu_util,kernel_ratio,event"
         lines = []
         for item in items:
             comm = item.get('comm', 'N/A')
@@ -244,18 +240,20 @@ class TextOutputAdapter:
             cpu = item.get('cpu', '0%')
             kernel = item.get('kernel', '0%')
             event = item.get('event', 'normal')
-            lines.append(f"{comm} pids={pids} cpu={cpu} kernel={kernel} event={event}")
-        return lines
+            lines.append(f"{comm} {pids} {cpu} {kernel} {event}")
+        return (format_header, lines)
     
-    def _format_cores(self, items: List[Dict]) -> List[str]:
+    def _format_cores(self, items: List[Dict]):
         """格式化CPU核心列表"""
+        format_header = "# index,cpu_id,(usr+sys)/sys,state"
         lines = []
-        for item in items:
+        for i, item in enumerate(items, 1):
             cpu_id = item.get('cpu_id', 'N/A')
-            util = item.get('utilization', '0%')
+            total = item.get('total_cpu_util', '0%')
+            kernel = item.get('kernel_cpu_util', '0%')
             state = item.get('state', 'unknown')
-            lines.append(f"CPU{cpu_id} util={util} state={state}")
-        return lines
+            lines.append(f"#{i} CPU{cpu_id} {total}/{kernel} {state}")
+        return (format_header, lines)
     
     def _format_attributions(self, items: List[Dict]) -> List[str]:
         """格式化调用归因列表"""
@@ -283,27 +281,28 @@ class TextOutputAdapter:
                 lines.append(f"  #{i} [{attr_ratio}] {stack_str}")
         return lines
     
-    def _format_path_clusters(self, items: List[Dict]) -> List[str]:
+    def _format_path_clusters(self, items: List[Dict]):
         """格式化路径聚类列表"""
+        format_header = "# index,percent,cpu_util,path"
         lines = []
         for i, item in enumerate(items, 1):
             ratio = item.get('ratio_pct', '0%')
-            core_sec = item.get('core_sec', 0)
+            cpu_util = item.get('cpu_util', '0.00%')
             path = item.get('path_signature', 'N/A')
-            lines.append(f"#{i} {ratio} core_sec={core_sec:.4f} path={path}")
-        return lines
+            lines.append(f"#{i} {ratio} {cpu_util} {path}")
+        return (format_header, lines)
     
-    def _format_process_variety(self, items: List[Dict]) -> List[str]:
+    def _format_process_variety(self, items: List[Dict]):
         """格式化进程多样性列表"""
+        format_header = "# comm,pids,cpu_util,behavior"
         lines = []
         for item in items:
             comm = item.get('comm', 'N/A')
             pids = item.get('unique_pids', 0)
-            core_sec = item.get('total_core_sec', 0)
-            cpu_per_pid = item.get('cpu_per_pid', 0)
+            cpu_util = item.get('cpu_util', '0.00%')
             behavior = item.get('behavior', 'normal')
-            lines.append(f"{comm} pids={pids} core_sec={core_sec:.4f} cpu_per_pid={cpu_per_pid:.4f} behavior={behavior}")
-        return lines
+            lines.append(f"{comm} {pids} {cpu_util} {behavior}")
+        return (format_header, lines)
     
     def _format_anomalies(self, items: List[Dict]) -> List[str]:
         """格式化异常检测列表"""

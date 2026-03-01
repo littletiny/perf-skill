@@ -175,17 +175,18 @@ class ProcessItem:
     """进程数据项 - 用于 get-process-top"""
     comm: str
     pid: int
-    cpu_pct: str  # "45.5%"
-    kernel_pct: str  # "12.3%"
+    total_cpu_util: str  # "15.50%"
+    kernel_cpu_util: str  # "3.20%"
     
     @classmethod
-    def from_stats(cls, comm: str, pid: int, cpu_util: float, kernel_ratio: float) -> 'ProcessItem':
-        """从统计数据创建 ProcessItem"""
+    def from_cpu_util(cls, comm: str, pid: int, total_cpu_util: float, 
+                      kernel_cpu_util: float) -> 'ProcessItem':
+        """从 CPU utilization % 创建 ProcessItem"""
         return cls(
             comm=comm,
             pid=pid,
-            cpu_pct=f"{cpu_util:.2f}%",
-            kernel_pct=f"{kernel_ratio:.2f}%"
+            total_cpu_util=f"{total_cpu_util:.2f}%",
+            kernel_cpu_util=f"{kernel_cpu_util:.2f}%"
         )
 
 
@@ -233,15 +234,15 @@ class ClusterItem:
     """聚类数据项 - 用于 cluster-symbols"""
     cluster: str
     ratio_pct: str  # "79.84%"
-    core_sec: float  # 98.7654
+    cpu_util: str   # "45.50%" (core_sec converted to cpu utilization)
     
     @classmethod
-    def from_stats(cls, cluster: str, ratio: float, core_sec: float) -> 'ClusterItem':
+    def from_stats(cls, cluster: str, ratio: float, cpu_util: float) -> 'ClusterItem':
         """从统计数据创建 ClusterItem"""
         return cls(
             cluster=cluster,
             ratio_pct=f"{ratio:.2f}%",
-            core_sec=round(core_sec, 4)
+            cpu_util=f"{cpu_util:.2f}%"
         )
 
 
@@ -302,7 +303,7 @@ class PathClusterItem:
     cluster_id: str  # "c_001"
     path_signature: str  # "func1→func2→func3"
     ratio_pct: str  # "45.50%"
-    core_sec: float
+    cpu_util: str   # "23.50%" (core_sec converted to cpu utilization)
 
 
 @dataclass
@@ -310,16 +311,16 @@ class ProcessVarietyItem:
     """进程多样性数据项 - 用于 count-process-variety"""
     comm: str
     unique_pids: int
-    total_core_sec: float
-    cpu_per_pid: float
-    behavior: str  # "normal", "process_storm"
+    cpu_util: str  # "45.50%" (converted from total_core_sec)
+    behavior: str  # "process_storm" (normal filtered out)
 
 
 @dataclass
 class CoreItem:
     """核心分布数据项 - 用于 analyze-core-distribution"""
     cpu_id: int
-    utilization: str  # "45.50%"
+    total_cpu_util: str  # "45.50%" (usr+sys)
+    kernel_cpu_util: str  # "12.30%" (sys)
     state: str  # "normal", "saturated", "idle"
 
 
@@ -341,7 +342,7 @@ class ProcessTopOutput(BaseOutput):
     processes: List[ProcessItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, processes: List[ProcessItem],
-                 summary: ProcessSummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[ProcessSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.processes = processes
 
@@ -352,7 +353,7 @@ class CommTopOutput(BaseOutput):
     comm_groups: List[CommGroupItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, comm_groups: List[CommGroupItem],
-                 summary: CommGroupSummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[CommGroupSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.comm_groups = comm_groups
 
@@ -363,7 +364,7 @@ class ClusterCommOutput(BaseOutput):
     comm_groups: List[CommGroupItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, comm_groups: List[CommGroupItem],
-                 summary: CommGroupSummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[CommGroupSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.comm_groups = comm_groups
 
@@ -374,7 +375,7 @@ class HotspotsOutput(BaseOutput):
     hotspots: List[HotspotItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, hotspots: List[HotspotItem],
-                 summary: HotspotSummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[HotspotSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.hotspots = hotspots
 
@@ -385,7 +386,7 @@ class ClustersOutput(BaseOutput):
     clusters: List[ClusterItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, clusters: List[ClusterItem],
-                 summary: ClusterSummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[ClusterSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.clusters = clusters
 
@@ -465,7 +466,7 @@ class PathClustersOutput(BaseOutput):
     clusters: List[PathClusterItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, clusters: List[PathClusterItem],
-                 summary: PathClusterSummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[PathClusterSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.clusters = clusters
 
@@ -476,7 +477,7 @@ class ProcessVarietyOutput(BaseOutput):
     process_variety: List[ProcessVarietyItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, process_variety: List[ProcessVarietyItem],
-                 summary: ProcessVarietySummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[ProcessVarietySummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.process_variety = process_variety
 
@@ -487,7 +488,7 @@ class CoreDistributionOutput(BaseOutput):
     cores: List[CoreItem] = field(default_factory=list)
     
     def __init__(self, _risk: RiskInfo, cores: List[CoreItem],
-                 summary: CoreDistributionSummary, time_range: Optional[TimeRange] = None):
+                 summary: Optional[CoreDistributionSummary] = None, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.cores = cores
 

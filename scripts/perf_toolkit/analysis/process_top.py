@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
-    RiskInfo, ProcessItem, ProcessSummary, ProcessTopOutput, TimeRange
+    RiskInfo, ProcessItem, ProcessTopOutput, TimeRange
 )
 
 
@@ -64,25 +64,19 @@ def cmd_get_process_top(engine, args):
             process_stats[key]['user_core_sec'] += core_val
     
     # Build ProcessItem list
+    # 计算 CPU utilization % (usr+sys)/sys 格式
     items = []
     for (comm, pid), stats in process_stats.items():
-        proc_core_sec = stats['total_core_sec']
-        cpu_util = (proc_core_sec / duration) * 100 if duration > 0 else 0
-        kernel_ratio = (stats['kernel_core_sec'] / proc_core_sec) * 100 if proc_core_sec > 0 else 0
+        total_cpu_util = (stats['total_core_sec'] / duration * 100) if duration > 0 else 0
+        kernel_cpu_util = (stats['kernel_core_sec'] / duration * 100) if duration > 0 else 0
         
-        items.append(ProcessItem.from_stats(comm, pid, cpu_util, kernel_ratio))
+        items.append(ProcessItem.from_cpu_util(comm, pid, total_cpu_util, kernel_cpu_util))
     
-    items.sort(key=lambda x: float(x.cpu_pct.rstrip('%')), reverse=True)
+    items.sort(key=lambda x: float(x.total_cpu_util.rstrip('%')), reverse=True)
     top_items = items[:args.top_n]
     
     # Build RiskInfo (no specific risk for process top)
     risk = create_risk_info(level="none")
-    
-    # Build summary
-    summary = ProcessSummary(
-        total_processes=len(items),
-        shown_processes=len(top_items)
-    )
     
     # Build time range
     time_range = None
@@ -92,11 +86,10 @@ def cmd_get_process_top(engine, args):
             samples[-1].get('ts') if len(samples) > 0 else None
         )
     
-    # Build output
+    # Build output (no summary for cleaner output)
     output = ProcessTopOutput(
         _risk=risk,
         processes=top_items,
-        summary=summary,
         time_range=time_range
     )
     

@@ -13,7 +13,7 @@ from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
-    RiskInfo, HotspotItem, HotspotSummary, HotspotsOutput, TimeRange
+    RiskInfo, HotspotItem, HotspotsOutput, TimeRange
 )
 
 
@@ -78,8 +78,8 @@ def cmd_get_hotspots(engine, args):
         
         results.append(HotspotItem.from_stats(sym, self_pct, incl_pct))
     
-    # Sort by inclusive ratio
-    results.sort(key=lambda x: float(x.inclusive.rstrip('%')), reverse=True)
+    # Sort by self ratio (descending)
+    results.sort(key=lambda x: float(x.self.rstrip('%')), reverse=True)
     top_items = results[:args.top_n]
     
     # Build RiskInfo
@@ -93,9 +93,6 @@ def cmd_get_hotspots(engine, args):
     else:
         risk = create_risk_info(level="none")
     
-    # Build summary
-    summary = HotspotSummary(total_hotspots=len(results))
-    
     # Build time range
     time_range = None
     if samples:
@@ -104,11 +101,10 @@ def cmd_get_hotspots(engine, args):
             samples[-1].get('ts') if len(samples) > 0 else None
         )
     
-    # Build output
+    # Build output (no summary for cleaner output)
     output = HotspotsOutput(
         _risk=risk,
         hotspots=top_items,
-        summary=summary,
         time_range=time_range
     )
     

@@ -12,9 +12,8 @@ V2 版本：使用统一数据模型
 """
 
 from collections import defaultdict
-from ..core.format_utils import format_core_sec
 from ..core.output_builder import OutputBuilder, create_risk_info
-from ..core.output_models import RiskInfo, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
+from ..core.output_models import RiskInfo, PathClusterItem, PathClustersOutput, TimeRange
 
 
 class PathCluster:
@@ -88,8 +87,9 @@ def cmd_cluster_paths(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Get total for ratio calculation
+    # Get total for ratio calculation and duration for cpu_util
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
+    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
     
     # Build clusters
     min_core_sec = getattr(args, 'min_samples', 5) * 0.001
@@ -105,11 +105,10 @@ def cmd_cluster_paths(engine, args):
     
     for c in clusters:
         c['ratio_pct'] = f"{(c['core_sec'] / total_core_per_sec * 100):.2f}%" if total_core_per_sec > 0 else "0.00%"
+        c['cpu_util'] = f"{(c['core_sec'] / duration * 100):.2f}%" if duration > 0 else "0.00%"
     
     clusters.sort(key=lambda x: -x['core_sec'])
     top_clusters = clusters[:args.top_n]
-    
-    clustered_core_sec = sum(c['core_sec'] for c in clusters)
     
     # Build output using V2 data models
     risk = create_risk_info("none", None, None)
@@ -119,22 +118,16 @@ def cmd_cluster_paths(engine, args):
             cluster_id=f"c_{i+1:03d}",
             path_signature=c['path_signature'],
             ratio_pct=c['ratio_pct'],
-            core_sec=format_core_sec(c['core_sec'])
+            cpu_util=c['cpu_util']
         )
         for i, c in enumerate(top_clusters)
     ]
-    
-    summary = PathClusterSummary(
-        total_clusters=len(clusters),
-        clustered_core_sec=format_core_sec(clustered_core_sec)
-    )
     
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     
     output = PathClustersOutput(
         _risk=risk,
         clusters=results,
-        summary=summary,
         time_range=time_range
     )
     

@@ -17,7 +17,7 @@ from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
-    RiskInfo, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
+    RiskInfo, CommGroupItem, CommTopOutput, TimeRange
 )
 
 
@@ -100,13 +100,14 @@ def cmd_get_comm_top(engine, args):
         if kernel_ratio > 50 and aggregate_cpu_util > 5:
             high_kernel_groups.append(comm)
         
-        # Build event description
+        # Build event description (skip normal events)
         if aggregate_cpu_util > 10 and avg_cpu_per_process < 1 and pid_count >= 5:
             event = f"MANY_SMALL_PROCESSES: {pid_count}个进程，每个仅消耗{avg_cpu_per_process:.2f}% CPU"
         elif kernel_ratio > 50:
             event = f"HIGH_KERNEL: 内核态占比 {kernel_ratio:.1f}%"
         else:
             event = "normal"
+            continue  # Skip normal events
         
         results.append(CommGroupItem.from_stats(
             comm=comm,
@@ -135,23 +136,16 @@ def cmd_get_comm_top(engine, args):
     else:
         risk = create_risk_info(level="none")
     
-    # Build summary
-    summary = CommGroupSummary(
-        total_comm_groups=len(results),
-        high_kernel_groups=len(high_kernel_groups)
-    )
-    
     # Build time range
     time_range = TimeRange.from_timestamps(
         samples[0].get('ts'),
         samples[-1].get('ts') if len(samples) > 0 else None
     )
     
-    # Build output
+    # Build output (no summary for cleaner output)
     output = CommTopOutput(
         _risk=risk,
         comm_groups=top_results,
-        summary=summary,
         time_range=time_range
     )
     

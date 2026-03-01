@@ -199,9 +199,12 @@ main() {
     if [ ! -f "$SPEAR" ]; then
         echo "❌ [ERROR] spear script not found: $SPEAR"
         echo "请设置 SKILL_DIR 环境变量指向 perf-hunter skill 目录"
-        echo "或者使用 'spear init' 初始化环境"
         exit 1
     fi
+    
+    # 切换到临时目录执行测试，避免污染源码目录
+    local TMP_DIR=$(mktemp -d)
+    cd "$TMP_DIR"
     
     local total_passed=0
     local total_failed=0
@@ -226,6 +229,9 @@ main() {
         
         data_filename=$(basename "$data_file")
         
+        # 为当前数据目录初始化 spear
+        $SPEAR init --data-path "$data_file"
+        
         if test_data_directory "$dir_name" "$data_filename"; then
             ((total_passed++))
         else
@@ -242,6 +248,10 @@ main() {
     echo "通过: $total_passed"
     echo "失败: $total_failed"
     
+    # 清理临时目录
+    cd "$SCRIPT_DIR"
+    rm -rf "$TMP_DIR"
+
     if [ $total_failed -eq 0 ]; then
         echo ""
         echo "🎉 所有测试通过！"
