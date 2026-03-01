@@ -3,7 +3,7 @@
 """
 Anomaly Detection - Detect CPU utilization anomalies
 
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 检测 CPU 利用率异常。
 

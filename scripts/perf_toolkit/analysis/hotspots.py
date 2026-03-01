@@ -6,10 +6,8 @@ Hotspot Analysis - Extract function rankings by self/inclusive time
 使用 Symbol.normalized_name 作为符号标识，基于 core/s（CPU 利用率）进行统计，
 而非样本数量（因为数据已按 1 秒聚合，样本数无意义）。
 
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
-
-from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
@@ -39,39 +37,17 @@ def cmd_get_hotspots(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Calculate self and inclusive core/s
-    self_core_sec = defaultdict(float)
-    incl_core_sec = defaultdict(float)
-    
-    for s in samples:
-        stack = s.get('stack')
-        if not stack or len(stack) == 0:
-            continue
-        
-        core_per_sec = engine.get_sample_weight(s)
-        normalized_names = stack.get_normalized_names()
-        
-        self_core_sec[normalized_names[0]] += core_per_sec
-        
-        seen = set()
-        for sym in normalized_names:
-            if sym not in seen:
-                incl_core_sec[sym] += core_per_sec
-                seen.add(sym)
-    
-    # Use the same total for both self and inclusive percentages
-    # total_self_core_sec is the total sample time (sum of all stack tops)
-    total_core_sec = sum(self_core_sec.values())
+    # 使用 engine 统一接口获取符号级 CPU 利用率
+    symbol_util = engine.get_symbol_cpu_util(samples)
     
     # Build results
     results = []
     top_kernel_hotspot = None
     top_kernel_ratio = 0
     
-    for sym, core_sec in incl_core_sec.items():
-        # Use the same total for both percentages to ensure inclusive >= self
-        self_pct = (self_core_sec[sym] / total_core_sec * 100) if total_core_sec > 0 else 0
-        incl_pct = (core_sec / total_core_sec * 100) if total_core_sec > 0 else 0
+    for sym in symbol_util['inclusive'].keys():
+        self_pct = symbol_util['self'].get(sym, 0)
+        incl_pct = symbol_util['inclusive'][sym]
         
         # Track kernel hotspots for risk
         if sym.endswith('_[k]') and incl_pct > top_kernel_ratio:

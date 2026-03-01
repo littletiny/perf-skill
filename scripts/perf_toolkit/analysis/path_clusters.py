@@ -3,7 +3,7 @@
 """
 Path Clustering - Cluster samples by common call path prefixes using Trie
 
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 使用 SymbolStack 和规范化后的符号名进行路径聚类。
 基于 core/s（CPU 利用率）而非记录数统计。
@@ -87,9 +87,9 @@ def cmd_cluster_paths(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Get total for ratio calculation and duration for cpu_util
+    # 使用 engine 统一接口获取总量和 duration
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    duration = engine.get_duration(samples)
     
     # Build clusters
     min_core_sec = getattr(args, 'min_samples', 5) * 0.001
@@ -98,8 +98,8 @@ def cmd_cluster_paths(engine, args):
     for s in samples:
         stack = s.get('stack')
         if stack and len(stack) > 0:
-            core_per_sec = engine.get_sample_weight(s)
-            cluster_builder.add_sample(stack, core_per_sec)
+            weight = engine.get_sample_weight(s)
+            cluster_builder.add_sample(stack, weight)
     
     clusters = cluster_builder.extract_clusters()
     

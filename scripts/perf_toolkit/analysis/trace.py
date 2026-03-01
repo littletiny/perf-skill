@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 Trace Attribution - Bottom-up attribution for specific bottleneck functions
 
@@ -41,9 +41,9 @@ def cmd_trace_attribution(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Calculate duration for cpu_util conversion and get total
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    # 使用 engine 统一接口获取总量
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
+    duration = engine.get_duration(samples)
     
     # Trace attribution
     target = args.target
@@ -55,15 +55,15 @@ def cmd_trace_attribution(engine, args):
         if not stack:
             continue
         
-        core_per_sec = engine.get_sample_weight(s)
+        weight = engine.get_sample_weight(s)
         normalized_names = stack.get_normalized_names()
         
         if target in normalized_names:
-            target_core_sec += core_per_sec
+            target_core_sec += weight
             idx = normalized_names.index(target)
             caller_stack = normalized_names[idx+1:idx+6]
             if caller_stack:
-                attribution[tuple(caller_stack)] += core_per_sec
+                attribution[tuple(caller_stack)] += weight
     
     # Build results - show ratio relative to total samples (not just target)
     results = []
@@ -136,29 +136,22 @@ def cmd_find_callers_auto(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Get total for ratio calculation and duration
+    # 使用 engine 统一接口获取总量和 duration
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    duration = engine.get_duration(samples)
     
-    # Find top hotspots
-    self_core_sec = defaultdict(float)
-    for s in samples:
-        stack = s.get('stack')
-        if stack and len(stack) > 0:
-            core_per_sec = engine.get_sample_weight(s)
-            leaf_name = stack.get_normalized_names()[0]
-            self_core_sec[leaf_name] += core_per_sec
+    # 使用 engine 统一接口获取符号级利用率
+    symbol_util = engine.get_symbol_cpu_util(samples)
     
     # Apply min-cpu threshold filter
     min_cpu = getattr(args, 'min_cpu', 3.0)
     filtered_hotspots = []
     hidden_hotspots = []
-    for name, core_sec in sorted(self_core_sec.items(), key=lambda x: -x[1]):
-        cpu_util = (core_sec / total_core_per_sec) * 100 if total_core_per_sec > 0 else 0
-        if cpu_util >= min_cpu:
-            filtered_hotspots.append((name, core_sec, cpu_util))
+    for name, self_pct in symbol_util['self'].items():
+        if self_pct >= min_cpu:
+            filtered_hotspots.append((name, self_pct))
         else:
-            hidden_hotspots.append((name, cpu_util))
+            hidden_hotspots.append((name, self_pct))
     
     # Print threshold filter info if any hotspots were hidden
     if hidden_hotspots:
@@ -167,25 +160,27 @@ def cmd_find_callers_auto(engine, args):
         print()
     
     top_n = getattr(args, 'top_n', 10)
-    top_hotspots = filtered_hotspots[:top_n]
+    top_hotspots = sorted(filtered_hotspots, key=lambda x: -x[1])[:top_n]
     
     # Trace each hotspot
     results = []
-    for target, target_total_core_sec, target_cpu_util in top_hotspots:
+    for target, target_cpu_util in top_hotspots:
         attribution = defaultdict(float)
+        target_total_core_sec = 0.0
         
         for s in samples:
             stack = s.get('stack')
             if not stack:
                 continue
             
-            core_per_sec = engine.get_sample_weight(s)
+            weight = engine.get_sample_weight(s)
             normalized_names = stack.get_normalized_names()
             # Only count when target is at stack top (self time)
             if normalized_names and normalized_names[0] == target:
+                target_total_core_sec += weight
                 if len(normalized_names) > 1:
                     caller_stack = normalized_names[1:6]
-                    attribution[tuple(caller_stack)] += core_per_sec
+                    attribution[tuple(caller_stack)] += weight
         
         sorted_attr = sorted(attribution.items(), key=lambda x: -x[1])[:5]
         

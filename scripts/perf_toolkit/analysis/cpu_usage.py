@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/total)
 
 使用 Symbol.is_kernel 属性准确区分 user 和 kernel 时间：
@@ -14,7 +14,6 @@ CPU Usage Analysis - Show CPU utilization for OS or specific PID (user/kernel/to
 注意：数据已按 1 秒聚合，样本数量仅作为记录数参考，分析基于 core/s 值。
 """
 
-from collections import defaultdict
 from ..core.format_utils import format_percent
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
@@ -58,38 +57,19 @@ def cmd_show_cpu_usage(engine, args):
     else:
         target_desc = "System-wide"
     
-    # Get CPU utilization
+    # 使用 engine 统一接口获取整体 CPU 利用率
     util_stats = engine.get_cpu_utilization(samples)
     
-    # Analyze per-core sys utilization (embedded from analyze-core-distribution)
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    
-    # Aggregate per-core stats
-    core_stats = defaultdict(lambda: {
-        'total_core_sec': 0.0,
-        'kernel_core_sec': 0.0,
-    })
-    
-    for s in samples:
-        cpu_id = s.get('cpu')
-        if cpu_id is None:
-            continue
-        core_per_sec = engine.get_sample_weight(s)
-        core_stats[cpu_id]['total_core_sec'] += core_per_sec
-        stack = s.get('stack')
-        if stack and stack.is_leaf_kernel:
-            core_stats[cpu_id]['kernel_core_sec'] += core_per_sec
-    
-    # Find cores with high sys utilization (>70%)
+    # 使用 engine 统一接口获取核心级利用率，检测高 sys 核心
+    core_util = engine.get_core_cpu_util(samples)
     high_sys_cores = []
-    for cpu_id, stats in sorted(core_stats.items(), key=lambda x: x[1]['kernel_core_sec'], reverse=True):
-        kernel_util = (stats['kernel_core_sec'] / duration * 100) if duration > 0 else 0
-        if kernel_util > 70:
-            total_util = (stats['total_core_sec'] / duration * 100) if duration > 0 else 0
+    
+    for cpu_id, info in sorted(core_util.items(), key=lambda x: x[1]['kernel_pct'], reverse=True):
+        if info['kernel_pct'] > 70:
             high_sys_cores.append(CoreItem(
                 cpu_id=cpu_id,
-                total_cpu_util=f"{total_util:.2f}%",
-                kernel_cpu_util=f"{kernel_util:.2f}%"
+                total_cpu_util=f"{info['total_pct']:.2f}%",
+                kernel_cpu_util=f"{info['kernel_pct']:.2f}%"
             ))
     
     # Build risk info

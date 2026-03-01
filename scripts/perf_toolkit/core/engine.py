@@ -618,3 +618,193 @@ class PerfExpertEngine:
             'user_records': uk_stats['user_records'],
             'kernel_records': uk_stats['kernel_records']
         }
+    
+    def get_duration(self, samples=None):
+        """
+        获取样本的时间跨度（秒）。
+        
+        Args:
+            samples: 样本列表，默认使用 engine.samples
+            
+        Returns:
+            float: 时间跨度（秒），如果样本不足则返回 0
+        """
+        if samples is None:
+            samples = self.samples
+        if len(samples) < 2:
+            return 0.0
+        return samples[-1]['ts'] - samples[0]['ts']
+    
+    def get_process_cpu_util(self, samples=None):
+        """
+        按进程聚合 CPU 利用率。
+        
+        Returns:
+            dict: {(comm, pid): {'total_pct': float, 'user_pct': float, 'kernel_pct': float}}
+        """
+        if samples is None:
+            samples = self.samples
+        
+        duration = self.get_duration(samples)
+        if duration <= 0:
+            return {}
+        
+        from collections import defaultdict
+        stats = defaultdict(lambda: {'total': 0.0, 'user': 0.0, 'kernel': 0.0})
+        
+        for s in samples:
+            key = (s['comm'], s['pid'])
+            weight = self.get_sample_weight(s)
+            stats[key]['total'] += weight
+            
+            stack = s.get('stack')
+            if stack and stack.is_leaf_kernel:
+                stats[key]['kernel'] += weight
+            else:
+                stats[key]['user'] += weight
+        
+        # 转换为百分比
+        result = {}
+        for key, val in stats.items():
+            result[key] = {
+                'comm': key[0],
+                'pid': key[1],
+                'total_pct': (val['total'] / duration) * 100,
+                'user_pct': (val['user'] / duration) * 100,
+                'kernel_pct': (val['kernel'] / duration) * 100,
+            }
+        return result
+    
+    def get_comm_cpu_util(self, samples=None):
+        """
+        按进程名(comm)聚合 CPU 利用率。
+        
+        Returns:
+            dict: {comm: {'total_pct': float, 'user_pct': float, 'kernel_pct': float, 'pids': set}}
+        """
+        if samples is None:
+            samples = self.samples
+        
+        duration = self.get_duration(samples)
+        if duration <= 0:
+            return {}
+        
+        from collections import defaultdict
+        stats = defaultdict(lambda: {'total': 0.0, 'user': 0.0, 'kernel': 0.0, 'pids': set()})
+        
+        for s in samples:
+            comm = s['comm']
+            stats[comm]['pids'].add(s['pid'])
+            weight = self.get_sample_weight(s)
+            stats[comm]['total'] += weight
+            
+            stack = s.get('stack')
+            if stack and stack.is_leaf_kernel:
+                stats[comm]['kernel'] += weight
+            else:
+                stats[comm]['user'] += weight
+        
+        # 转换为百分比
+        result = {}
+        for comm, val in stats.items():
+            result[comm] = {
+                'comm': comm,
+                'total_pct': (val['total'] / duration) * 100,
+                'user_pct': (val['user'] / duration) * 100,
+                'kernel_pct': (val['kernel'] / duration) * 100,
+                'pid_count': len(val['pids']),
+                'pids': val['pids'],
+            }
+        return result
+    
+    def get_symbol_cpu_util(self, samples=None):
+        """
+        按符号聚合 CPU 利用率（self 和 inclusive）。
+        
+        Returns:
+            dict: {
+                'self': {symbol: pct},      # self 时间占比（相对于 total self）
+                'inclusive': {symbol: pct},  # inclusive 时间占比（相对于 total self）
+                'core_sec': {symbol: core_sec},  # 原始 core/s 值
+                'total_core_sec': float,     # 总 core/s（用于计算百分比）
+            }
+        """
+        if samples is None:
+            samples = self.samples
+        
+        from collections import defaultdict
+        self_core_sec = defaultdict(float)
+        incl_core_sec = defaultdict(float)
+        
+        for s in samples:
+            stack = s.get('stack')
+            if not stack or len(stack) == 0:
+                continue
+            
+            weight = self.get_sample_weight(s)
+            normalized_names = stack.get_normalized_names()
+            
+            # Self: 栈顶符号
+            self_core_sec[normalized_names[0]] += weight
+            
+            # Inclusive: 栈中所有唯一符号
+            seen = set()
+            for sym in normalized_names:
+                if sym not in seen:
+                    incl_core_sec[sym] += weight
+                    seen.add(sym)
+        
+        total_self_core_sec = sum(self_core_sec.values())
+        
+        # 计算百分比（相对于 total_self，确保 inclusive >= self）
+        self_pct = {}
+        incl_pct = {}
+        for sym in set(list(self_core_sec.keys()) + list(incl_core_sec.keys())):
+            self_pct[sym] = (self_core_sec[sym] / total_self_core_sec * 100) if total_self_core_sec > 0 else 0
+            incl_pct[sym] = (incl_core_sec[sym] / total_self_core_sec * 100) if total_self_core_sec > 0 else 0
+        
+        return {
+            'self': self_pct,
+            'inclusive': incl_pct,
+            'core_sec': dict(incl_core_sec),
+            'self_core_sec': dict(self_core_sec),
+            'total_core_sec': total_self_core_sec,
+        }
+    
+    def get_core_cpu_util(self, samples=None):
+        """
+        按 CPU 核心聚合利用率。
+        
+        Returns:
+            dict: {cpu_id: {'total_pct': float, 'kernel_pct': float}}
+        """
+        if samples is None:
+            samples = self.samples
+        
+        duration = self.get_duration(samples)
+        if duration <= 0:
+            return {}
+        
+        from collections import defaultdict
+        stats = defaultdict(lambda: {'total': 0.0, 'kernel': 0.0})
+        
+        for s in samples:
+            cpu_id = s.get('cpu')
+            if cpu_id is None:
+                continue
+            weight = self.get_sample_weight(s)
+            stats[cpu_id]['total'] += weight
+            
+            stack = s.get('stack')
+            if stack and stack.is_leaf_kernel:
+                stats[cpu_id]['kernel'] += weight
+        
+        # 转换为百分比
+        result = {}
+        for cpu_id, val in stats.items():
+            result[cpu_id] = {
+                'cpu_id': cpu_id,
+                'total_pct': (val['total'] / duration) * 100,
+                'kernel_pct': (val['kernel'] / duration) * 100,
+            }
+        return result

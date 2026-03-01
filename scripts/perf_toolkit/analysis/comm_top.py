@@ -10,10 +10,8 @@ Specialized for identifying "many small processes consuming resources collective
 
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
-
-from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
@@ -51,48 +49,22 @@ def cmd_get_comm_top(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Calculate duration
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    
-    # Aggregate by comm
-    comm_stats = defaultdict(lambda: {
-        'pids': defaultdict(lambda: {'core_sec': 0.0, 'kernel_core_sec': 0.0, 'user_core_sec': 0.0}),
-        'total_core_sec': 0.0,
-        'kernel_core_sec': 0.0,
-        'user_core_sec': 0.0
-    })
-    
-    for s in samples:
-        comm = s['comm']
-        pid = s['pid']
-        core_val = engine.get_sample_weight(s)
-        
-        comm_stats[comm]['pids'][pid]['core_sec'] += core_val
-        comm_stats[comm]['total_core_sec'] += core_val
-        
-        stack = s.get('stack')
-        if stack and stack.is_leaf_kernel:
-            comm_stats[comm]['kernel_core_sec'] += core_val
-            comm_stats[comm]['pids'][pid]['kernel_core_sec'] += core_val
-        else:
-            comm_stats[comm]['user_core_sec'] += core_val
-            comm_stats[comm]['pids'][pid]['user_core_sec'] += core_val
+    # 使用 engine 统一接口获取 comm 级 CPU 利用率
+    comm_util = engine.get_comm_cpu_util(samples)
     
     # Calculate aggregated statistics
-    total_unique_pids = sum(len(stats['pids']) for stats in comm_stats.values())
+    total_unique_pids = sum(info['pid_count'] for info in comm_util.values())
     high_kernel_groups = []
     results = []
     
-    for comm, stats in comm_stats.items():
-        pids_data = stats['pids']
-        pid_count = len(pids_data)
-        total_core_sec = stats['total_core_sec']
-        
-        aggregate_cpu_util = (total_core_sec / duration) * 100 if duration > 0 else 0
+    for comm, info in comm_util.items():
+        pid_count = info['pid_count']
+        aggregate_cpu_util = info['total_pct']
         avg_cpu_per_process = aggregate_cpu_util / pid_count if pid_count > 0 else 0
         
-        if total_core_sec > 0:
-            kernel_ratio = (stats['kernel_core_sec'] / total_core_sec) * 100
+        # 计算 kernel 占比
+        if info['total_pct'] > 0:
+            kernel_ratio = (info['kernel_pct'] / info['total_pct']) * 100
         else:
             kernel_ratio = 0
         

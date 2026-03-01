@@ -8,10 +8,8 @@ Comm Clustering - Cluster samples by process name (comm) to analyze process grou
 
 注意：数据已按 1 秒聚合，记录数量无参考价值。
 
-V2 版本：使用统一数据模型，与 comm_top 共享数据结构
+V2 版本：使用统一数据模型，与 comm_top 共享数据结构，CPU 利用率计算收拢到 engine
 """
-
-from collections import defaultdict
 
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import (
@@ -38,38 +36,20 @@ def cmd_cluster_comm(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Calculate duration
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    
-    # Aggregate comm stats
-    comm_stats = defaultdict(lambda: {
-        'kernel_core_sec': 0.0,
-        'user_core_sec': 0.0,
-        'total_core_sec': 0.0,
-        'pids': set()
-    })
-    
-    for s in samples:
-        comm = s['comm']
-        comm_stats[comm]['pids'].add(s['pid'])
-        
-        core_val = engine.get_sample_weight(s)
-        comm_stats[comm]['total_core_sec'] += core_val
-        
-        stack = s.get('stack')
-        if stack and stack.is_leaf_kernel:
-            comm_stats[comm]['kernel_core_sec'] += core_val
-        else:
-            comm_stats[comm]['user_core_sec'] += core_val
+    # 使用 engine 统一接口获取 comm 级 CPU 利用率
+    comm_util = engine.get_comm_cpu_util(samples)
     
     # Build results using unified data model (same as comm_top)
     items = []
-    for comm, stats in comm_stats.items():
-        unique_pids = len(stats['pids'])
-        total_core_sec = stats['total_core_sec']
+    for comm, info in comm_util.items():
+        unique_pids = info['pid_count']
+        cpu_util = info['total_pct']
         
-        cpu_util = (total_core_sec / duration) * 100 if duration > 0 else 0
-        kernel_ratio = (stats['kernel_core_sec'] / total_core_sec) * 100 if total_core_sec > 0 else 0
+        # 计算 kernel 占比
+        if info['total_pct'] > 0:
+            kernel_ratio = (info['kernel_pct'] / info['total_pct']) * 100
+        else:
+            kernel_ratio = 0
         
         # Determine event (skip normal events in output)
         if kernel_ratio > 50:

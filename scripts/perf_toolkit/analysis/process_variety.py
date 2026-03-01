@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# V2 版本：使用统一数据模型
+# V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 Process Variety Analysis - Count process variety to detect short-lived process storms
 
@@ -50,14 +50,14 @@ def cmd_count_process_variety(engine, args):
         comm = s['comm']
         pid = s['pid']
         ts = s['ts']
-        core_per_sec = engine.get_sample_weight(s)
+        weight = engine.get_sample_weight(s)
         
-        comm_pid_stats[comm][pid]['core_sec'] += core_per_sec
+        comm_pid_stats[comm][pid]['core_sec'] += weight
         second_key = int(ts)
         comm_pid_stats[comm][pid]['seconds'].add(second_key)
     
-    # Calculate duration for cpu_util
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    # 使用 engine 统一接口获取 duration
+    duration = engine.get_duration(samples)
     
     # Analyze variety
     variety_results = []

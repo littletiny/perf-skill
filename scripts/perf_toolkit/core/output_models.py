@@ -282,7 +282,7 @@ class WindowItem:
     start_time: str
     end_time: str
     utilization: str  # "45.50%"
-    core_sec: float
+    cpu_util: str  # "45.50%" (same as utilization, for consistency)
 
 
 @dataclass

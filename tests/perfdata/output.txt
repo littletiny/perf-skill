@@ -21,11 +21,11 @@ Testing: get-hotspots
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear get-hotspots --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data --top-n 5
 ========================================
 # index,funcname,self,inclusive
-#1 established_get_first 12.80% 1.73%
-#2 _raw_spin_lock_bh 7.32% 0.61%
-#3 runtime.scanobject 5.49% 0.84%
-#4 runtime.gcDrain 3.05% 1.15%
-#5 runtime.stealWork 3.05% 0.36%
+#1 established_get_first 12.80% 20.73%
+#2 _raw_spin_lock_bh 7.32% 7.32%
+#3 runtime.scanobject 5.49% 10.06%
+#4 runtime.stealWork 3.05% 4.27%
+#5 runtime.gcDrain 3.05% 13.72%
 # ... 678 more items (use --top-n to show more)
 
 [✓ PASS] get-hotspots
@@ -149,7 +149,7 @@ Target: System-wide
 Testing: find-callers (auto)
 Command: /home/tiny/.config/agents/skills/perf-hunter/scripts/spear find-callers --data /home/tiny/.config/agents/skills/perf-hunter/tests/perfdata/new_format/case_test.data --auto-target
 ========================================
-# ... 153 hotspots below 3.0% threshold (total: 68.29%)
+# ... 678 hotspots below 3.0% threshold (total: 68.29%)
 
 # target (cpu_util) <- callstack
 >>> established_get_first (12.80%)

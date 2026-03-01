@@ -7,7 +7,7 @@ Symbol Clustering - Cluster samples by expert rules (scheduling, locks, memory, 
 
 注意：数据已按 1 秒聚合，记录数量无参考价值。
 
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 """
 
 import re
@@ -56,7 +56,7 @@ def cmd_apply_cluster(engine, args):
     if args.custom_rules:
         rules.update(json_mod.loads(args.custom_rules))
     
-    # Cluster samples
+    # Cluster samples using core/s weights
     total_core_per_sec, _ = engine.get_total_core_per_sec(samples)
     cluster_core_sec = defaultdict(float)
     lock_func_core_sec = defaultdict(float)
@@ -66,7 +66,7 @@ def cmd_apply_cluster(engine, args):
         if not stack:
             continue
         
-        core_per_sec = engine.get_sample_weight(s)
+        weight = engine.get_sample_weight(s)
         normalized_names = stack.get_normalized_names()
         
         matched_groups = set()
@@ -79,12 +79,12 @@ def cmd_apply_cluster(engine, args):
                 if re.search(pattern_str, sym):
                     matched_groups.add(group)
                     if group == "EVENT_LOCK_CONTENTION":
-                        lock_func_core_sec[sym] += core_per_sec
+                        lock_func_core_sec[sym] += weight
         for g in matched_groups:
-            cluster_core_sec[g] += core_per_sec
+            cluster_core_sec[g] += weight
     
-    # Calculate duration for cpu_util conversion
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    # 使用 engine 统一接口获取 duration 并计算 CPU 利用率
+    duration = engine.get_duration(samples)
     
     # Build results
     results = []

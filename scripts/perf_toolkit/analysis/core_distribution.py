@@ -3,7 +3,7 @@
 """
 Core Distribution Analysis - Analyze per-core CPU utilization and thread states
 
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 分析各 CPU 核心的负载分布，识别负载不均衡、线程休眠模式等问题。
 
@@ -40,53 +40,30 @@ def cmd_analyze_core_distribution(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Calculate duration
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+    # 使用 engine 统一接口获取核心级 CPU 利用率
+    core_util = engine.get_core_cpu_util(samples)
     
-    # Aggregate core stats (user + kernel separately)
-    core_stats = defaultdict(lambda: {
-        'record_count': 0,
-        'total_core_sec': 0.0,
-        'kernel_core_sec': 0.0,
-    })
-    comm_core_sec = defaultdict(float)
-    
-    for s in samples:
-        cpu_id = s.get('cpu')
-        core_per_sec = engine.get_sample_weight(s)
-        comm = s.get('comm', '')
-        
-        if cpu_id is None:
-            continue
-        
-        core_stats[cpu_id]['record_count'] += 1
-        core_stats[cpu_id]['total_core_sec'] += core_per_sec
-        
-        # Check if kernel mode by looking at stack
-        stack = s.get('stack')
-        if stack and stack.is_leaf_kernel:
-            core_stats[cpu_id]['kernel_core_sec'] += core_per_sec
-        
-        if comm:
-            comm_core_sec[comm] += core_per_sec
-    
-    # Build core list with filtering
+    # Build core list with filtering (only show saturated cores > 90%)
     core_list = []
-    for cpu_id, stats in sorted(core_stats.items(), key=lambda x: x[1]['total_core_sec'], reverse=True):
-        total_util = (stats['total_core_sec'] / duration * 100) if duration > 0 else 0
-        kernel_util = (stats['kernel_core_sec'] / duration * 100) if duration > 0 else 0
-        
-        # Only show saturated cores (total_util > 90%)
-        if total_util > 90:
+    for cpu_id, info in sorted(core_util.items(), key=lambda x: x[1]['total_pct'], reverse=True):
+        if info['total_pct'] > 90:
             core_list.append(CoreItem(
                 cpu_id=cpu_id,
-                total_cpu_util=f"{total_util:.2f}%",
-                kernel_cpu_util=f"{kernel_util:.2f}%"
+                total_cpu_util=f"{info['total_pct']:.2f}%",
+                kernel_cpu_util=f"{info['kernel_pct']:.2f}%"
             ))
     
     # Apply top_n limit
     top_n = getattr(args, 'top_n', 10)
     core_list = core_list[:top_n]
+    
+    # Aggregate comm core/s for hint generation
+    comm_core_sec = defaultdict(float)
+    for s in samples:
+        comm = s.get('comm', '')
+        if comm:
+            weight = engine.get_sample_weight(s)
+            comm_core_sec[comm] += weight
     
     # Identify imbalance
     if core_list:
@@ -115,7 +92,6 @@ def cmd_analyze_core_distribution(engine, args):
         
         # Determine risk level
         if imbalance_level == "CRITICAL":
-            risk_level = "critical"
             risk_info = create_risk_info(
                 level="critical",
                 message="负载严重不均衡: 单核满载，其他核心空闲",
@@ -123,7 +99,6 @@ def cmd_analyze_core_distribution(engine, args):
                 patterns=["SINGLE_CORE_SATURATION"]
             )
         elif len(saturated_cores) == 1 and len(core_list) > 1:
-            risk_level = "warning"
             risk_info = create_risk_info(
                 level="warning",
                 message=f"单核满载 (CPU {saturated_cores[0].cpu_id})",
@@ -131,13 +106,10 @@ def cmd_analyze_core_distribution(engine, args):
                 patterns=["SINGLE_CORE_SATURATION"]
             )
         else:
-            risk_level = "none"
             risk_info = None
     else:
         imbalance_level = "UNKNOWN"
-        max_util = min_util = avg_util = 0
         saturated_cores = []
-        risk_level = "none"
         risk_info = None
     
     # Create time range

@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 CPU Bottleneck Detection - Check for resource throttling and single-core saturation
-V2 版本：使用统一数据模型
+V2 版本：使用统一数据模型，CPU 利用率计算收拢到 engine
 
 检测资源限制和单核饱和。
 
 注意：数据已按 1 秒聚合，记录数量无参考价值，分析基于 core/s 值。
 """
 
-from collections import defaultdict
 from ..core.format_utils import format_percent
 from ..core.output_builder import OutputBuilder, create_risk_info
 from ..core.output_models import RiskInfo, BottleneckData, BottleneckSummary, BottleneckOutput, TimeRange
@@ -49,21 +48,16 @@ def cmd_check_bottleneck(engine, args):
     # Assess quality
     builder.assess_quality(samples)
     
-    # Calculate per-CPU utilization using core/s values
-    duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
-    cpu_core_per_sec = defaultdict(float)
-    
-    for s in samples:
-        weight = engine.get_sample_weight(s)
-        if weight:
-            cpu_core_per_sec[s['cpu']] += weight
+    # 使用 engine 统一接口获取核心级 CPU 利用率
+    core_util = engine.get_core_cpu_util(samples)
     
     # Find the busiest CPU
-    max_cpu_id = max(cpu_core_per_sec, key=cpu_core_per_sec.get) if cpu_core_per_sec else 0
-    max_cpu_core_sec = cpu_core_per_sec.get(max_cpu_id, 0)
-    
-    # Calculate max core usage: average core/s on that CPU per second
-    max_core_usage = max_cpu_core_sec / duration if duration > 0 else 0
+    if not core_util:
+        max_cpu_id = 0
+        max_core_usage = 0
+    else:
+        max_cpu_id = max(core_util.keys(), key=lambda x: core_util[x]['total_pct'])
+        max_core_usage = core_util[max_cpu_id]['total_pct'] / 100  # 转换为 0-1 范围
     
     # Parse CPU limit
     cpu_limit = getattr(args, 'cpu_limit', 0) or 0
