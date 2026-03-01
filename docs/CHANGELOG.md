@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.30] - 2026-03-02
+
+### Added
+- wrap 脚本 `spear init` 支持 `--risk-config` 和 `--rules-file` 参数
+- wrap 自动为 `trace` 子命令注入 `--risk-config`
+- wrap 自动为 `cluster-symbols` 命令注入 `--rules-file`
+- `spear status` 和 `spear list` 显示 Risk 和 Rules 配置
+
+**Changed files**: `scripts/spear_wrap.py`, `SKILL.md`, `references/tools.md`
+
+---
+
 ## [2.29] - 2026-03-02
 
 ### Changed
