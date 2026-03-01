@@ -65,7 +65,7 @@ perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-drive
 ## 开发约定
 
 ### 1. 修改记录规范
-- 每次修改 skill 都需要在 `docs/changelog/$version.md` 中记录相关的修改信息和修改理由，并且在docs目录下留一个version文件记录当前版本号
+- 每次修改 skill 都需要在 `docs/changelog/$version.md` 中记录相关的修改信息和修改理由，$repo/version文件记录当前版本号
 - 版本变化信息**不要**记录在 skill 本体（SKILL.md 或脚本）里面
 
 ### 2. 代码规范
