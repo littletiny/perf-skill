@@ -36,7 +36,7 @@ mkdir -p debug
 # 使用 references/templates.md 创建 debug/[问题描述].md
 
 # 2. 初始化状态追踪
-python3 $SKILL_DIR/scripts/spear.py doc init --data <perf.data>
+python3 $SKILL_DIR/scripts/spear.py trace init --data <perf.data>
 
 # 3. 提出三候选假说（在诊断文档中记录）
 # - 假说 A: 代码维度（热点函数、算法复杂度）
