@@ -339,10 +339,10 @@ Use '<command> --help' for detailed help on each subcommand."""
     doc_init.add_argument("--data", required=True, help="Path to perf data file")
     doc_init.add_argument("--path", default=".spear.json", help="Document storage path (default: .spear.json)")
     
-    # doc add (保留：用户可主动添加)
-    doc_add = doc_subparsers.add_parser('add', help="Add a new issue to the document")
-    doc_add.add_argument("--id", required=True, help="Issue unique identifier (e.g., ISS-001)")
+    # doc add (自动生成 ID)
+    doc_add = doc_subparsers.add_parser('add', help="Add a new issue to the document (auto-generate ID)")
     doc_add.add_argument("--desc", required=True, help="Issue description")
+    doc_add.add_argument("--level", choices=['critical', 'warning', 'info'], default='warning', help="Risk level")
     doc_add.add_argument("--risk", default="", help="Risk of not handling this issue")
     doc_add.add_argument("--hint", default="", help="Recommended next action")
     

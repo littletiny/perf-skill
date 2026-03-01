@@ -148,17 +148,18 @@ class LiveDoc:
         self.save()
         return seq
 
-    def record_risk(self, level: str, desc: str, hint: str = "") -> str:
+    def add(self, desc: str, risk: str = "", hint: str = "", level: str = "warning") -> str:
         """
-        记录发现的风险，自动创建 issue
+        添加新 issue（自动生成 ID）
         
         Args:
-            level: critical/warning/info
-            desc: 风险描述
+            desc: 问题描述
+            risk: 风险描述
             hint: 建议操作
+            level: 级别 critical/warning/info
             
         Returns:
-            issue_id: 创建的 issue ID
+            issue_id: 自动生成的 ID (ISS-001, ISS-002, ...)
         """
         # 检查是否已存在类似 issue（简单去重）
         existing_id = self._find_similar_issue(desc)
@@ -200,12 +201,12 @@ class LiveDoc:
         self.save()
         return issue_id
 
-    def record_resolution(self, issue_id: str, result: str):
+    def complete(self, issue_id: str, result: str):
         """
-        标记 issue 已解决
+        标记 issue 为已完成
         
         Args:
-            issue_id: 要解决的 issue ID
+            issue_id: Issue ID (如 ISS-001)
             result: 分析结果/结论
         """
         if issue_id not in self.data['issues']:
@@ -240,6 +241,18 @@ class LiveDoc:
         self.save()
 
     # =====================================================================
+    # 别名方法（供 OutputBuilder 自动记录使用）
+    # =====================================================================
+
+    def record_risk(self, level: str, desc: str, hint: str = "") -> str:
+        """OutputBuilder 用的别名"""
+        return self.add(desc=desc, level=level, hint=hint)
+
+    def record_resolution(self, issue_id: str, result: str):
+        """OutputBuilder 用的别名"""
+        self.complete(issue_id, result)
+
+    # =====================================================================
     # 内部辅助方法
     # =====================================================================
 
@@ -255,6 +268,12 @@ class LiveDoc:
         """生成新 issue ID"""
         count = len(self.data['issues']) + 1
         return f"ISS-{count:03d}"
+
+    def _resolve_issue_id(self, identifier: str) -> Optional[str]:
+        """验证 issue ID 是否存在"""
+        if identifier and identifier in self.data['issues']:
+            return identifier
+        return None
 
     def _find_similar_issue(self, desc: str) -> Optional[str]:
         """查找描述相似的已存在 issue（简单实现）"""
@@ -431,14 +450,19 @@ def cmd_doc_init(args):
 
 
 def cmd_doc_add(args):
-    """手动添加 issue（用户主动添加）"""
-    try:
-        doc = LiveDoc()
-        doc.add(args.id, args.desc, getattr(args, 'risk', ''), getattr(args, 'hint', ''))
-        print(f"✓ 已添加问题: {args.id}")
-        print(f"  描述: {args.desc}")
-    except ValueError as e:
-        print(f"✗ 错误: {e}")
+    """手动添加 issue（自动生成 ID）"""
+    doc = LiveDoc()
+    level = getattr(args, 'level', 'warning')
+    issue_id = doc.add(
+        desc=args.desc,
+        risk=getattr(args, 'risk', ''),
+        hint=getattr(args, 'hint', ''),
+        level=level
+    )
+    print(f"✓ 已添加问题: {issue_id}")
+    print(f"  描述: {args.desc}")
+    if args.hint:
+        print(f"  建议: {args.hint}")
 
 
 def cmd_doc_timeline(args):
@@ -478,7 +502,7 @@ def cmd_doc_timeline(args):
 
 
 def cmd_doc_issues(args):
-    """查看 issues 状态"""
+    """查看 issues 状态（显示 ID，可用序号简写）"""
     doc = LiveDoc()
     
     status_filter = getattr(args, 'status', 'all')
@@ -490,7 +514,7 @@ def cmd_doc_issues(args):
             print("-" * 65)
             for issue in open_issues:
                 level_icon = "🔴" if issue['level'] == 'critical' else "🟡"
-                print(f"{level_icon} {issue['id']}: {issue['desc']}")
+                print(f"{level_icon} [{issue['id']}] {issue['desc']}")
                 if issue.get('hint'):
                     print(f"   └─ 建议: {issue['hint']}")
             print()
@@ -501,9 +525,11 @@ def cmd_doc_issues(args):
             print("\n✅ RESOLVED ISSUES")
             print("-" * 65)
             for issue in resolved_issues:
-                print(f"{issue['id']}: {issue['desc']}")
+                print(f"[{issue['id']}] {issue['desc']}")
                 print(f"   └─ 结果: {issue.get('result', 'N/A')}")
             print()
+    
+    print("\n用法: spear trace complete --id ISS-001 --result '分析结果'")
 
 
 def cmd_doc_complete(args):
