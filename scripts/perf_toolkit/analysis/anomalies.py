@@ -200,17 +200,19 @@ def cmd_detect_anomalies(engine, args):
     else:
         risk = create_risk_info(level="none")
     
-    # 格式化异常数据并创建 AnomalyItem
-    formatted_anomalies = _format_anomalies(all_anomalies[:top_n])
+    # 创建 AnomalyItem（原始数据，格式由模板处理）
     anomaly_items = [
-        AnomalyItem(
+        AnomalyItem.from_raw(
             type=a["type"],
             cpu_id=a["cpu_id"],
-            time_range=a["time_range"],
-            utilization_change=a.get("utilization_change", ""),
-            severity="high" if a.get("z_score", 0) > 2.5 else "medium"
+            start=a["time_range_start"],
+            end=a["time_range_end"],
+            prev=a["prev_util"],
+            curr=a["curr_util"],
+            next=a["next_util"],
+            z_score=a["z_score"]
         )
-        for a in formatted_anomalies
+        for a in all_anomalies[:top_n]
     ]
     
     # 创建摘要
@@ -271,12 +273,11 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
             anomalies.append({
                 "type": "SPIKE",
                 "cpu_id": cpu_id,
-                "time_range": {
-                    "start": start_time,
-                    "end": end_time
-                },
-                "utilization_change": f"{prev_util*100:.1f}% -> {curr_util*100:.1f}% -> {next_util*100:.1f}%",
-                "change_magnitude": round(change_from_prev, 3),
+                "time_range_start": start_time,
+                "time_range_end": end_time,
+                "prev_util": prev_util,
+                "curr_util": curr_util,
+                "next_util": next_util,
                 "z_score": round(z_score, 2)
             })
         
@@ -287,27 +288,15 @@ def _detect_cpu_anomalies(cpu_id, windows, spike_threshold, min_utilization):
             anomalies.append({
                 "type": "DROP",
                 "cpu_id": cpu_id,
-                "time_range": {
-                    "start": start_time,
-                    "end": end_time
-                },
-                "utilization_change": f"{prev_util*100:.1f}% -> {curr_util*100:.1f}% -> {next_util*100:.1f}%",
-                "change_magnitude": round(abs(change_from_prev), 3),
+                "time_range_start": start_time,
+                "time_range_end": end_time,
+                "prev_util": prev_util,
+                "curr_util": curr_util,
+                "next_util": next_util,
                 "z_score": round(abs(z_score), 2)
             })
     
     return anomalies
 
 
-def _format_anomalies(anomalies):
-    """Format anomalies to simplified structure"""
-    formatted = []
-    for a in anomalies:
-        formatted.append({
-            "type": a["type"],
-            "cpu_id": a["cpu_id"],
-            "time_range": f"{a['time_range']['start']} - {a['time_range']['end']}",
-            "utilization_change": a.get("utilization_change", ""),
-            "severity": "high" if a.get("z_score", 0) > 2.5 else "medium"
-        })
-    return formatted
+

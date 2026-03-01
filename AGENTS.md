@@ -67,7 +67,7 @@ perf-hunter 是一个基于 SPEAR (**S**ystematic **P**roblem **E**vidence-drive
 ### 1. 修改记录规范
 - 每次完成修改skilk后都需要提交git commit，不需要我强调
 - 每次完成修改skilk后都需要提交git commit，不需要我强调
-- 每当用户提示要更新版本或者push的时候，更新版本号文件$repo/version, 并在`docs/changelog/$version.md` 中记录相关的修改信息和修改理由
+- **只有用户提示要更新版本**，更新版本号文件$repo/version, 并在`docs/changelog/$version.md` 中记录相关的修改信息和修改理由
 - 每当用户提示要更新版本或者push的时候，更新版本号文件$repo/version, 并在`docs/changelog/$version.md` 中记录相关的修改信息和修改理由
 - 版本变化信息**不要**记录在 skill 本体（SKILL.md 或脚本）里面
 

@@ -89,6 +89,9 @@ class SimpleListTemplate(Template):
             elif config.list_field == "attributions":
                 # 特殊处理: attributions 的 ratio + callstack 格式
                 line = self._format_attribution_line(item, i)
+            elif config.list_field == "path_clusters":
+                # 特殊处理: path_clusters 从原始 core_sec 计算百分比
+                line = self._format_path_cluster_line(item, i, config)
             else:
                 # 标准格式: #index field1 field2 ...
                 values = [self._format_field_value(item, f) for f in config.display_fields]
@@ -98,6 +101,27 @@ class SimpleListTemplate(Template):
             lines.append(line)
         
         return lines
+    
+    def _format_path_cluster_line(self, item: Any, index: int, config: Any) -> str:
+        """格式化路径聚类行 - 从原始 core_sec 计算百分比"""
+        # 从原始数据计算百分比
+        if isinstance(item, dict):
+            core_sec = item.get('core_sec', 0)
+            total = item.get('total_core_sec', 1)
+            duration = item.get('duration', 1)
+            path = item.get('path_signature', 'N/A')
+        else:
+            core_sec = getattr(item, 'core_sec', 0)
+            total = getattr(item, 'total_core_sec', 1)
+            duration = getattr(item, 'duration', 1)
+            path = getattr(item, 'path_signature', 'N/A')
+        
+        # 计算百分比
+        ratio_pct = (core_sec / total * 100) if total > 0 else 0
+        cpu_util = (core_sec / duration * 100) if duration > 0 else 0
+        
+        prefix = config.index_format.format(index=index) if config.index_format else f"#{index}"
+        return f"{prefix} {ratio_pct:.2f}% {cpu_util:.2f}% {path}"
     
     def _format_attribution_line(self, item: Any, index: int) -> str:
         """格式化归因行 - #index [ratio] callstack"""
@@ -162,16 +186,41 @@ class TableTemplate(Template):
         return lines
     
     def _format_anomaly_line(self, item: Any) -> str:
-        """格式化异常行"""
+        """格式化异常行 - 从原始数据构建显示"""
         if isinstance(item, dict):
             anomaly_type = item.get('type', 'N/A')
             cpu_id = item.get('cpu_id', 'N/A')
-            time_range = item.get('time_range', 'N/A')
-            change = item.get('utilization_change', 'N/A')
+            # 优先使用已格式化的字段（兼容性）
+            if 'time_range' in item:
+                time_range = item.get('time_range', 'N/A')
+                change = item.get('utilization_change', 'N/A')
+            else:
+                # 从原始数据格式化
+                start = item.get('time_range_start', '')
+                end = item.get('time_range_end', '')
+                time_range = f"{start} - {end}" if start and end else 'N/A'
+                prev = item.get('prev_util', 0) * 100
+                curr = item.get('curr_util', 0) * 100
+                next_v = item.get('next_util', 0) * 100
+                change = f"{prev:.1f}% -> {curr:.1f}% -> {next_v:.1f}%"
             severity = item.get('severity', 'unknown')
         else:
             anomaly_type = getattr(item, 'type', 'N/A')
             cpu_id = getattr(item, 'cpu_id', 'N/A')
+            # 优先使用已格式化的字段（兼容性）
+            time_range = getattr(item, 'time_range', None)
+            change = getattr(item, 'utilization_change', None)
+            if time_range is None:
+                # 从原始数据格式化
+                start = getattr(item, 'time_range_start', '')
+                end = getattr(item, 'time_range_end', '')
+                time_range = f"{start} - {end}" if start and end else 'N/A'
+            if change is None:
+                prev = getattr(item, 'prev_util', 0) * 100
+                curr = getattr(item, 'curr_util', 0) * 100
+                next_v = getattr(item, 'next_util', 0) * 100
+                change = f"{prev:.1f}% -> {curr:.1f}% -> {next_v:.1f}%"
+            severity = getattr(item, 'severity', 'unknown')
             time_range = getattr(item, 'time_range', 'N/A')
             change = getattr(item, 'utilization_change', 'N/A')
             severity = getattr(item, 'severity', 'unknown')

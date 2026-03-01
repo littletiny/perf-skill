@@ -313,12 +313,34 @@ class CPUUsageData:
 
 @dataclass
 class AnomalyItem:
-    """异常检测数据项 - 用于 detect-anomalies"""
+    """异常检测数据项 - 用于 detect-anomalies
+    
+    存储原始数据，格式由模板根据 preset 配置处理
+    """
     type: str
     cpu_id: int
-    time_range: str
-    utilization_change: str
+    time_range_start: str
+    time_range_end: str
+    prev_util: float
+    curr_util: float
+    next_util: float
     severity: str
+    
+    @classmethod
+    def from_raw(cls, type: str, cpu_id: int, start: str, end: str,
+                 prev: float, curr: float, next: float, z_score: float) -> 'AnomalyItem':
+        """从原始数据创建 AnomalyItem"""
+        severity = "high" if z_score > 2.5 else "medium"
+        return cls(
+            type=type,
+            cpu_id=cpu_id,
+            time_range_start=start,
+            time_range_end=end,
+            prev_util=prev,
+            curr_util=curr,
+            next_util=next,
+            severity=severity
+        )
 
 
 @dataclass
@@ -349,11 +371,27 @@ class TraceItem:
 
 @dataclass
 class PathClusterItem:
-    """路径聚类数据项 - 用于 cluster-paths"""
+    """路径聚类数据项 - 用于 cluster-paths
+    
+    存储原始 core_sec，百分比由模板根据 preset 配置计算和格式化
+    """
     cluster_id: str
     path_signature: str
-    ratio_pct: str
-    cpu_util: str
+    core_sec: float
+    total_core_sec: float
+    duration: float
+    
+    @classmethod
+    def from_raw(cls, cluster_id: str, path_signature: str, core_sec: float,
+                 total_core_sec: float, duration: float) -> 'PathClusterItem':
+        """从原始数据创建 PathClusterItem"""
+        return cls(
+            cluster_id=cluster_id,
+            path_signature=path_signature,
+            core_sec=core_sec,
+            total_core_sec=total_core_sec,
+            duration=duration
+        )
 
 
 @dataclass

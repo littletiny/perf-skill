@@ -86,7 +86,10 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "template_type": "simple_list",
         "list_field": "path_clusters",
         "header": "# index,percent,cpu_util,path",
-        "display_fields": ["ratio_pct", "cpu_util", "path_signature"],
+        # 特殊字段说明:
+        # - _ratio_pct: 由模板根据 core_sec/total_core_sec 计算并格式化为百分比
+        # - _cpu_util: 由模板根据 core_sec/duration 计算并格式化为百分比
+        "display_fields": ["_ratio_pct", "_cpu_util", "path_signature"],
         "index_format": "#{index}",
         "empty_message": "No path clusters found",
         "total_field": "total_clusters",
@@ -153,7 +156,10 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
         "template_type": "table",
         "list_field": "anomalies",
         "header": "# type,cpu_id,time_range,change,severity",
-        "display_fields": ["type", "cpu_id", "time_range", "utilization_change", "severity"],
+        # 特殊字段说明:
+        # - _time_range: 由模板将 time_range_start 和 time_range_end 格式化为 "start - end"
+        # - _util_change: 由模板将 prev_util/curr_util/next_util 格式化为 "X% -> Y% -> Z%"
+        "display_fields": ["type", "cpu_id", "_time_range", "_util_change", "severity"],
         "empty_message": "No anomalies detected",
         "total_field": "total_anomalies",
         "shown_field": None,

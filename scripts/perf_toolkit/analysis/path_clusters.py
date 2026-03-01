@@ -103,10 +103,6 @@ def cmd_cluster_paths(engine, args):
     
     clusters = cluster_builder.extract_clusters()
     
-    for c in clusters:
-        c['ratio_pct'] = f"{(c['core_sec'] / total_core_per_sec * 100):.2f}%" if total_core_per_sec > 0 else "0.00%"
-        c['cpu_util'] = f"{(c['core_sec'] / duration * 100):.2f}%" if duration > 0 else "0.00%"
-    
     clusters.sort(key=lambda x: -x['core_sec'])
     top_clusters = clusters[:args.top_n]
     
@@ -114,14 +110,18 @@ def cmd_cluster_paths(engine, args):
     risk = create_risk_info("none", None, None)
     
     results = [
-        PathClusterItem(
+        PathClusterItem.from_raw(
             cluster_id=f"c_{i+1:03d}",
             path_signature=c['path_signature'],
-            ratio_pct=c['ratio_pct'],
-            cpu_util=c['cpu_util']
+            core_sec=c['core_sec'],
+            total_core_sec=total_core_per_sec,
+            duration=duration
         )
         for i, c in enumerate(top_clusters)
     ]
+    
+    # 计算 clustered_core_sec
+    clustered_core_sec = sum(c['core_sec'] for c in top_clusters)
     
     time_range = TimeRange.from_timestamps(samples[0]['ts'], samples[-1]['ts'])
     
@@ -129,7 +129,7 @@ def cmd_cluster_paths(engine, args):
     summary = PathClusterSummary(
         total_clusters=len(clusters),
         shown_clusters=len(results),
-        clustered_core_sec=0.0  # Not used in display
+        clustered_core_sec=clustered_core_sec
     )
     
     output = PathClustersOutput(
