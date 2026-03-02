@@ -170,8 +170,7 @@ spear [工具2]
 
 ### 参考文档
 
-- [heuristics.md](references/heuristics.md): SPEAR 启发式规则（五大认知闭包、领域诊断规则）
-- [workflow.md](references/workflow.md): 分析流程指南与典型模式
+- [methodology.md](references/methodology.md): SPEAR 分析方法论（三层架构驱动）
 - [tools.md](references/tools.md): 工具命令详细说明
 - [data-format.md](references/data-format.md): perf script 格式说明
 

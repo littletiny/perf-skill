@@ -1,6 +1,8 @@
 # Perf Expert 工具命令参考
 
-> 纯命令参考手册。分析策略和方法论请查阅 [workflow-patterns.md](./workflow-patterns.md) 和 [workflow-core.md](./workflow-core.md)。
+> 纯命令参考手册。分析策略和方法论请查阅 [methodology.md](./methodology.md) 和 [workflow-patterns.md](./workflow-patterns.md)。
+>
+> **版本更新**: 工具集已精简（12个 → 6个核心 + 3个组合），详见 [design-three-tier-architecture.md](../docs/design-three-tier-architecture.md)
 
 ---
 
@@ -40,75 +42,83 @@ spear <subcommand> [options]
 
 ## 命令速查表
 
-| 工具 | 用途 | 典型场景 |
-|------|------|---------|
-| `check-cpu-bottleneck` | 资源限制判定 | 环境边界检查 |
-| `show-cpu-usage` | CPU 利用率概览 | user/kernel 分解 |
-| `detect-anomalies` | 时序异常定位 | 突发问题分析 |
-| `analyze-core-distribution` | 核心级负载分析 | 负载不均衡检查 |
-| `get-process-top` | 高消耗单进程识别 | 定位主要消耗者 |
-| `get-comm-top` | 高消耗进程组识别 | 大量小进程场景 |
-| `get-hotspots` | 热点函数排名 | 代码级优化 |
-| `find-callers` | 热点函数溯源 | 调用链分析 |
-| `cluster-paths` | 调用路径聚类 | 共同前缀模式 |
-| `cluster-symbols` | 语义规则聚类 | 行为模式识别 |
-| `count-process-variety` | 进程风暴检测 | 短生命周期进程 |
-| `cluster-comm` | 进程名聚类 | 进程组行为分析 |
+### 核心分析工具（6个）
+
+| 工具 | 层级 | 用途 | 典型场景 |
+|------|------|------|---------|
+| `analyze-core-distribution` | 系统级 | 核心级负载分析、单核饱和检测 | 负载不均衡检查 |
+| `detect-anomalies` | 时间级 | 时序异常定位 | 突发问题分析 |
+| `get-comm-top` | 实体级 | 进程组资源识别 + 离群检测 + 风暴检测 | 大量小进程场景、单进程瓶颈 |
+| `get-hotspots` | 函数级 | 热点函数排名 | 代码级优化 |
+| `find-callers` | 关系级 | 热点函数溯源 | 调用链分析 |
+| `cluster-paths` | 模式级 | 调用路径聚类 | 业务逻辑定位 |
+
+### 组合诊断工具（3个）
+
+| 工具 | 链式触发 | 用途 | 典型场景 |
+|------|----------|------|---------|
+| `sys-audit` | anomalies → core-dist → comm-top | 系统全景扫描 | 快速定位真瓶颈 |
+| `bottleneck-trace` | comm-top → hotspots → cluster-paths | 瓶颈深度追踪 | 单点性能问题 |
+
+### 已合并/删除的工具
+
+| 原工具 | 合并到 | 说明 |
+|--------|--------|------|
+| `check-cpu-bottleneck` | `analyze-core-distribution` | 单核饱和检测已整合 |
+| `show-cpu-usage` | `analyze-core-distribution` | CPU利用率展示已整合 |
+| `get-process-top` | `get-comm-top` | 通过CV/Monopoly实现单进程定位 |
+| `cluster-comm` | `get-comm-top` | 进程组聚类已整合 |
+| `count-process-variety` | `get-comm-top` | 作为Spawn Rate指标 |
+| `cluster-symbols` | `cluster-paths` | 语义聚类已整合 |
 
 ---
 
-## 环境评估工具
+## 系统级工具
 
-### check-cpu-bottleneck
+### analyze-core-distribution
 
-检查资源限制和单核饱和。
+核心级负载分布分析（整合原 `check-cpu-bottleneck` 能力）。
+
+检测单核饱和、中断不均、负载分布情况。
 
 ```bash
-spear check-cpu-bottleneck \
+spear analyze-core-distribution \
   --data <perf.script.txt> \
-  [--cpu-limit <limit>] \
-  [--threshold <pct>] \
+  [--cpu-id <ID>] \
+  [--pid <PID>] \
+  [--comm <name>] \
+  [--comm-regex <pattern>] \
+  [--top-n <N>] \
   [--start-time <ts>] \
   [--end-time <ts>]
 ```
 
 **参数**:
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `--data` | string | perf script 文件路径（必填） |
-| `--cpu-limit` | string | CPU limit（如 `0.5c` 表示 0.5 core） |
-| `--threshold` | float | 单核饱和检测阈值（默认 80%） |
-
-**退出码**:
-| 码值 | 含义 |
-|------|------|
-| 0 | 无瓶颈 |
-| 1 | 检测到 CPU 限制瓶颈 |
-| 2 | 检测到单核饱和 |
-| 3 | 同时存在限制和单核饱和 |
-
----
-
-### show-cpu-usage
-
-查看 CPU 利用率 (user/kernel)。
-
-```bash
-spear show-cpu-usage \
-  --data <perf.script.txt> \
-  [--cpu-id <ID>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--cpu-id` | int | - | 仅分析指定 CPU |
+| `--pid` | int | - | 仅分析指定进程 |
+| `--comm` | string | - | 按进程名过滤 |
+| `--comm-regex` | string | - | 按进程名正则匹配 |
+| `--top-n` | int | 10 | 显示饱和核心数 |
+| `--cpu-limit` | string | - | CPU limit检测（如 `0.5c`） |
+| `--threshold` | float | 80% | 单核饱和检测阈值 |
 
 **输出字段**:
 | 字段 | 说明 |
 |------|------|
-| `user_pct` | 用户态 CPU 百分比 |
-| `kernel_pct` | 内核态 CPU 百分比 |
-| `total_pct` | 总 CPU 利用率 |
-| `user_records` | 用户态聚合记录数 |
-| `kernel_records` | 内核态聚合记录数 |
+| `imbalance_level` | 不均衡等级: LOW/MEDIUM/HIGH/CRITICAL |
+| `max_utilization_pct` | 最高核心利用率 |
+| `min_utilization_pct` | 最低核心利用率 |
+| `saturated_cores` | 饱和核心列表 |
+| `patterns` | 检测到的模式数组 |
+
+**检测模式**:
+| 模式 | 说明 |
+|------|------|
+| `SINGLE_CORE_SATURATION` | 单核满载，其他核心空闲 |
+| `WIDE_DISTRIBUTION_LOW_UTIL` | 广泛分布但利用率低 |
+| `IRQ_IMBALANCE` | 中断分布不均 |
 
 ---
 
@@ -191,70 +201,59 @@ spear analyze-core-distribution \
 
 ## 进程分析工具
 
-### get-process-top
-
-识别高消耗单个进程。
-
-```bash
-spear get-process-top \
-  --data <perf.script.txt> \
-  [--top-n <N>] \
-  [--cpu-id <ID>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--top-n` | int | 10 | 显示进程数 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-
-**输出格式**:
-```
-# Format: comm(pid) total_util/kernel_util
-nginx(1234) 45.50%/12.30%
-redis(5678) 23.40%/5.60%
-...
-```
-
-**字段说明**:
-| 字段 | 说明 |
-|------|------|
-| `comm` | 进程名 |
-| `pid` | 进程 ID |
-| `total_util` | 总 CPU 利用率（包含 user + kernel） |
-| `kernel_util` | 内核态 CPU 利用率占比 |
-
----
-
 ### get-comm-top
 
-识别高消耗进程组（大量小进程场景）。
+进程组资源分析（增强版 - 三合一工具）。
+
+整合原 `get-process-top` + `cluster-comm` + `count-process-variety` 能力：
+- **聚合视图**: 按进程名分组统计
+- **离群检测**: CV变异系数识别异常PID
+- **风暴检测**: Spawn Rate检测短生命周期进程
+- **自动降噪**: 折叠高Count低CPU的背景组
 
 ```bash
 spear get-comm-top \
   --data <perf.script.txt> \
   [--top-n <N>] \
-  [--sort-by-density] \
+  [--show-all] \
   [--comm <name>]
 ```
 
 **参数**:
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--top-n` | int | 10 | 显示进程组数 |
-| `--sort-by-density` | flag | - | 按密度指数排序 |
+| `--top-n` | int | 10 | 显示进程组数（已过滤噪音） |
+| `--show-all` | flag | - | 显示所有组（包括被折叠的背景组） |
 | `--comm` | string | - | 过滤指定进程名 |
+| `--cv-threshold` | float | 1.0 | CV异常阈值 |
+| `--monopoly-threshold` | float | 0.8 | 核心独占率阈值 |
+| `--spawn-threshold` | float | 10.0 | 进程风暴阈值（个/秒） |
 
 **输出字段**:
 | 字段 | 说明 |
 |------|------|
 | `comm` | 进程名 |
-| `pid_count` | 进程数量 |
-| `aggregate_cpu_pct` | 聚合 CPU 利用率 |
-| `kernel_pct` | 平均内核态占比 |
-| `density_index` | 密度指数（总CPU/进程数） |
+| `total_cpu` | 聚合 CPU 利用率 |
+| `count` | 进程数量 |
+| `cv` | 变异系数（组内离散程度） |
+| `monopoly` | 核心独占率（0-1） |
+| `spawn_rate` | 进程产生速率（个/秒） |
+| `impact_score` | 危害指数（排序依据） |
+| `diagnosis` | 诊断标签: HEALTHY/UNBALANCED/BOTTLENECK/STORM |
+| `outlier_pid` | 离群PID（CV异常时） |
+
+**诊断标签说明**:
+| 标签 | 条件 | 含义 |
+|------|------|------|
+| `HEALTHY` | CV低 + Monopoly低 | 负载均衡，正常 |
+| `UNBALANCED` | CV高 | 组内进程负载不均，存在离群 |
+| `BOTTLENECK` | Monopoly高 | 单点瓶颈，独占核心 |
+| `STORM` | Spawn Rate高 | 短生命周期进程风暴 |
+
+**自动降噪逻辑**:
+以下组会被自动折叠（除非使用 `--show-all`）：
+- Count > 100 且 Total_CPU < 5%
+- CV < 0.1 且 Monopoly < 0.1（分布均匀无离群）
 
 ---
 
@@ -312,7 +311,7 @@ spear get-hotspots \
 spear find-callers \
   --data <perf.script.txt> \
   --target <function> \
-  [--min-cpu <pct>] \
+  [--min-ratio <pct>] \
   [--top-n <N>] \
   [--cpu-id <ID>] \
   [--pid <PID>] \
@@ -325,7 +324,7 @@ spear find-callers \
 spear find-callers \
   --data <perf.script.txt> \
   --auto-target \
-  [--min-cpu <pct>] \
+  [--min-ratio <pct>] \
   [--top-n <N>] \
   [--cpu-id <ID>] \
   [--pid <PID>] \
@@ -339,7 +338,7 @@ spear find-callers \
 | `--target` | string | - | 目标函数名（与 --auto-target 互斥） |
 | `--auto-target` | flag | - | 自动追踪热点 |
 | `--top-n` | int | 10 | 显示结果数 |
-| `--min-cpu` | float | 3.0 | 最小 CPU 利用率阈值（%） |
+| `--min-ratio` | float | 0.5 | 最小占比阈值（%），低于此值的调用者被隐藏 |
 | `--cpu-id` | int | - | 仅分析指定 CPU |
 | `--pid` | int | - | 过滤指定进程 |
 | `--comm` | string | - | 过滤指定进程名 |
@@ -387,164 +386,78 @@ spear cluster-paths \
 
 ---
 
-## 语义聚类工具
+## 组合诊断工具
 
-### cluster-symbols
+### sys-audit
 
-按专家规则语义聚类。
+系统审计 - 自动扫描全景并识别真瓶颈（解决"亮眼数字掩盖真问题"）。
+
+**链式触发**: `detect-anomalies` → `analyze-core-distribution` → `get-comm-top`
+
+**核心能力**:
+- 自动降噪：折叠高Count低CPU的背景进程
+- 危害排序：按Impact Score排序，非单纯CPU%
+- A/B分离：区分"背景负载(A)"和"真瓶颈(B)"
 
 ```bash
-spear cluster-symbols \
+spear sys-audit \
   --data <perf.script.txt> \
-  [--no-include-experts] \
-  [--custom-rules <json>] \
-  [--rules-file <path>] \
   [--top-n <N>] \
-  [--cpu-id <ID>] \
+  [--show-all] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
+```
+
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--top-n` | int | 10 | 显示关键进程组数 |
+| `--show-all` | flag | - | 显示所有组（包括折叠的背景组） |
+
+**输出结构**:
+```
+[系统审计报告]
+1. 异常发现
+   系统CPU在10:05突变+80%，Core #7单核饱和
+
+2. 关键进程（按Impact Score排序）
+   COMM           CPU%   Count   Monopoly   Diagnosis
+   app_worker     12%    10      0.92!!     BOTTLENECK  ← 真凶
+   lsof           400%   2000    0.05       HIGH_VOLUME ← 背景
+
+3. 背景噪音（已折叠）
+   24个组 | 总CPU: 15% | 状态: Quiet
+
+4. 建议操作
+   [CRITICAL] app_worker独占Core #7，建议执行: bottleneck-trace --comm app_worker
+```
+
+---
+
+### bottleneck-trace
+
+瓶颈追踪 - 深度分析被识别出的瓶颈进程。
+
+**链式触发**: `get-comm-top` → `get-hotspots` → `cluster-paths`
+
+**适用场景**: `sys-audit`发现高Monopoly进程，或手动指定目标进程
+
+```bash
+spear bottleneck-trace \
+  --data <perf.script.txt> \
+  [--comm <name>] \
   [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
+  [--auto-detect] \
+  [--top-n <N>]
 ```
 
 **参数**:
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `--no-include-experts` | flag | - | 禁用内置专家规则 |
-| `--custom-rules` | json | - | 自定义规则（最高优先级） |
-| `--rules-file` | path | - | 外部规则文件路径 |
-| `--top-n` | int | 10 | 显示聚类数 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--pid` | int | - | 过滤指定进程 |
-| `--comm` | string | - | 过滤指定进程名 |
-| `--comm-regex` | string | - | 按进程名正则匹配 |
-
-**规则优先级**（从高到低）：
-1. `--custom-rules` 命令行参数
-2. `--rules-file` 外部文件规则
-3. 内置专家规则（默认启用）
-
-**内置规则分类**:
-| 类别 | 匹配模式 | 含义 |
-|------|---------|------|
-| `EVENT_IRQ_OFF` | IRQ off, spin_unlock | 长临界区 |
-| `EVENT_SCHEDULER` | schedule, yield | 调度器活动 |
-| `EVENT_MEM_RECLAIM` | reclaim, TLB, page | 内存回收 |
-| `EVENT_LOCK_CONTENTION` | mutex, spinlock, futex | 锁竞争 |
-| `EVENT_SYNC_PRIMITIVE` | pthread_cond, barrier | 同步原语 |
-
-**外部规则文件** (`--rules-file`):
-```bash
-# 使用外部规则文件（完全替代内置规则）
-spear cluster-symbols --data perf.data --rules-file my_rules.json --no-include-experts
-
-# 扩展内置规则（外部规则补充或覆盖）
-spear cluster-symbols --data perf.data --rules-file extra_rules.json
-```
-
-规则文件格式（JSON）：
-```json
-{
-  "EVENT_NETWORK": "sock_|tcp_|udp_|sk_",
-  "EVENT_IO_WAIT": ["blk_", "scsi_", "nvme_"],
-  "EVENT_CUSTOM": "my_pattern.*"
-}
-```
-
-**自定义规则**（`--custom-rules`）：
-```bash
-# 字符串格式
---custom-rules '{"MY_SCHEDULING": "schedule|nanosleep|epoll_wait"}'
-
-# 列表格式
---custom-rules '{"MY_SCHEDULING": ["schedule", "nanosleep", "epoll_wait"]}'
-
-# 领域特定规则
---custom-rules '{
-  "RPC": "grpc|protobuf|thrift",
-  "DB": "rocksdb|leveldb|sqlite",
-  "ML": "tensorflow|torch|cudnn"
-}'
-```
-
-**组合使用示例**：
-```bash
-# 内置规则 + 外部文件 + 命令行覆盖
-spear cluster-symbols --data perf.data \
-  --rules-file base_rules.json \
-  --custom-rules '{"URGENT": "critical_.*"}'
-```
-
----
-
-### cluster-comm
-
-按进程名聚类分析进程组行为。
-
-```bash
-spear cluster-comm \
-  --data <perf.script.txt> \
-  [--top-n <N>] \
-  [--cpu-id <ID>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--top-n` | int | 10 | 显示进程组数 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-
----
-
-## 领域定位工具
-
-### count-process-variety
-
-检测进程风暴/短生命周期进程。
-
-**适用场景**：发现 fork 炸弹、连接风暴、worker 进程频繁创建销毁等问题。
-
-```bash
-spear count-process-variety \
-  --data <perf.script.txt> \
-  [--top-n <N>] \
-  [--storm-pid-threshold <N>] \
-  [--storm-ratio-threshold <ratio>] \
-  [--cpu-id <ID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--top-n` | int | 20 | 显示进程名数 |
-| `--storm-pid-threshold` | int | 50 | PID 数量阈值，超过此值考虑为风暴 |
-| `--storm-ratio-threshold` | float | 2.0 | samples/PID 阈值，低于此值说明进程生命周期短 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--comm` | string | - | 过滤指定进程名 |
-| `--comm-regex` | string | - | 按进程名正则匹配 |
-
-**注意**：本工具用于分析"进程多样性"，不支持 `--pid` 过滤（单个 PID 不存在"多样性"）。
-
-**输出字段**:
-| 字段 | 说明 |
-|------|------|
-| `comm` | 进程名 |
-| `pids_per_min` | 每分钟进程数（去重后的 PID 速率） |
-| `cpu_util` | CPU 利用率 |
-| `behavior` | 行为模式: process_storm/normal |
-
-**检测模式**:
-| 模式 | 条件 | 说明 |
-|------|------|------|
-| `PROCESS_STORM` | PID 数≥10 且 samples_per_pid≤2 且短进程比例>50% | 大量短生命周期进程 |
-| `LONG_RUNNING` | 单 PID 主导 | 长运行进程，非风暴场景 |
+| `--comm` | string | - | 目标进程名（与--auto-detect互斥） |
+| `--pid` | int | - | 目标PID |
+| `--auto-detect` | flag | - | 自动检测系统中的瓶颈进程 |
+| `--top-n` | int | 10 | 显示热点数 |
 
 ---
 
@@ -717,24 +630,28 @@ spear trace timeline [--format text|json]
 
 | 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start/end-time` |
 |------|:----------:|:-------:|:--------:|:--------------:|:------------------:|
-| `check-cpu-bottleneck` | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `show-cpu-usage` | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ |
 | `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `get-process-top` | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `get-comm-top` | ✅ | ❌ | ❌ | ✅ | ✅ |
+| `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ |
 | `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `cluster-symbols` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `cluster-comm` | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `count-process-variety` | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ |
+
+**已删除工具的替代方案**:
+
+| 原工具 | 替代方案 | 示例 |
+|--------|----------|------|
+| `check-cpu-bottleneck` | `analyze-core-distribution` | `spear analyze-core-distribution --cpu-limit 0.5c` |
+| `get-process-top` | `get-comm-top`（增强版） | `spear get-comm-top`（自动显示离群PID） |
+| `count-process-variety` | `get-comm-top` | `spear get-comm-top`（查看Spawn Rate列） |
+| `cluster-symbols` | `cluster-paths` | `spear cluster-paths` |
 
 ---
 
 ## 参考文档
 
-- 📗 **典型分析模式**: [workflow-patterns.md](./workflow-patterns.md) - 5 种场景的完整分析路径
-- 📘 **核心流程详解**: [workflow-core.md](./workflow-core.md) - 7 Phase 分析流程
-- 📕 **启发式规则手册**: [heuristics.md](./heuristics.md) - 五大认知闭包、诊断规则
+- 📗 **分析方法论**: [methodology.md](./methodology.md) - 三层架构驱动的完整方法论
+- 📘 **典型分析模式**: [workflow-patterns.md](./workflow-patterns.md) - 5 种场景的速查路径
 - 📋 **文档模板**: [templates.md](./templates.md) - 诊断报告格式

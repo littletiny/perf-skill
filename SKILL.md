@@ -9,6 +9,8 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 
 通过"领域知识驱动的假设验证"实现根因定位。
 
+**最新更新**: 工具集已精简为 6 个核心工具 + 3 个组合命令，详见 [design-three-tier-architecture.md](./docs/design-three-tier-architecture.md)
+
 ---
 
 ## ⚡ 三分钟开始
@@ -50,11 +52,14 @@ spear trace init --data <perf.data>
 
 | 如果你看到... | 立即执行 | 完整路径 |
 |--------------|---------|---------|
-| 某 PID CPU 异常高 | `get-hotspots --pid <PID>` | [模式 A](./references/workflow-patterns.md#模式-a-单进程-cpu-高) |
-| 整个系统都很慢 | `check-cpu-bottleneck` | [模式 B](./references/workflow-patterns.md#模式-b-系统整体缓慢) |
-| 大量进程频繁创建 | `count-process-variety` | [模式 C](./references/workflow-patterns.md#模式-c-进程风暴) |
+| 不知道从何入手 | `sys-audit` | 自动扫描全景，识别真瓶颈 |
+| 某 PID CPU 异常高 | `bottleneck-trace --comm <name>` | [模式 A](./references/workflow-patterns.md#模式-a-单进程-cpu-高) |
+| 整个系统都很慢 | `sys-audit` | [模式 B](./references/workflow-patterns.md#模式-b-系统整体缓慢) |
+| 大量进程频繁创建 | `get-comm-top`（查看Spawn Rate） | [模式 C](./references/workflow-patterns.md#模式-c-进程风暴) |
 | 单核满载其他空闲 | `analyze-core-distribution` | [模式 D](./references/workflow-patterns.md#模式-d-负载不均衡) |
-| kernel 开销高 | `cluster-symbols` | [模式 E](./references/workflow-patterns.md#模式-e-高内核态分析) |
+| kernel 开销高 | `cluster-paths` | [模式 E](./references/workflow-patterns.md#模式-e-高内核态分析) |
+| 某进程组CPU高 | `get-comm-top` | 查看CV/Monopoly指标 |
+| 突发性能下降 | `detect-anomalies` | 定位异常时刻 |
 
 **工具路径**: `scripts/spear`
 
@@ -66,17 +71,14 @@ spear trace init --data <perf.data>
 ┌─ 第一层：快速开始（本文档）
 │   └─ 场景速查 + 核心概念
 │
-├─ 第二层：分析模式 [workflow-patterns.md](./references/workflow-patterns.md)
-│   └─ 5 种典型场景的完整分析路径
+├─ 第二层：分析方法论 [methodology.md](./references/methodology.md)
+│   └─ 三层架构驱动的完整方法论（决策树、指标解读、陷阱对策）
 │
-├─ 第三层：核心流程 [workflow.md](./references/workflow.md)
-│   └─ 7 Phase 分析流程详解
+├─ 第三层：分析模式 [workflow-patterns.md](./references/workflow-patterns.md)
+│   └─ 5 种典型场景的速查路径
 │
-├─ 第四层：工具参考 [tools.md](./references/tools.md)
-│   └─ 命令参数速查
-│
-└─ 第五层：规则手册 [heuristics.md](./references/heuristics.md)
-    └─ 五大认知闭包、问题边界判定
+└─ 第四层：工具参考 [tools.md](./references/tools.md)
+    └─ 命令参数速查
 ```
 
 ---
@@ -190,16 +192,33 @@ spear trace audit --format json
 
 ## 🛠️ 核心工具速查
 
-| 工具 | 用途 | 典型场景 |
-|------|------|---------|
-| `check-cpu-bottleneck` | 资源限制判定 | 环境边界检查 | top-down |
-| `show-cpu-usage` | CPU 利用率概览 | user/kernel 分解 |
-| `get-comm-top` | 进程组资源识别 | 大量小进程集体消耗 |
-| `get-hotspots` | 热点函数识别 | `--sort-by self/inclusive` |
-| `find-callers` | 热点溯源 | `--target <func>` |
-| `cluster-symbols` | 语义规则聚类 | `EVENT_LOCK_CONTENTION` |
-| `analyze-core-distribution` | 核心级负载分析 | 负载不均衡检查 |
-| `count-process-variety` | 进程风暴检测 | 短生命周期进程 |
+### 6个原子工具
+
+| 工具 | 层级 | 用途 | 典型场景 |
+|------|------|------|---------|
+| `analyze-core-distribution` | 系统级 | 核心负载分析、单核饱和检测 | 负载不均衡检查 |
+| `detect-anomalies` | 时间级 | 时序异常定位 | 突发问题分析 |
+| `get-comm-top` | 实体级 | 进程组分析（聚合+离群+风暴） | 大量小进程、单点瓶颈 |
+| `get-hotspots` | 函数级 | 热点函数识别 | `--sort-by self/inclusive` |
+| `find-callers` | 关系级 | 热点溯源 | `--target <func>` |
+| `cluster-paths` | 模式级 | 调用路径聚类 | 业务逻辑定位 |
+
+### 3个组合命令
+
+| 工具 | 链式触发 | 用途 | 典型场景 |
+|------|----------|------|---------|
+| `sys-audit` | anomalies→core-dist→comm-top | 系统全景扫描 | **推荐作为入口** |
+| `bottleneck-trace` | comm-top→hotspots→paths | 瓶颈深度追踪 | 单点性能问题 |
+
+### 快速开始推荐
+
+```bash
+# 第一步：系统全景扫描（自动降噪 + 危害排序）
+spear sys-audit
+
+# 第二步：根据建议执行深度分析
+spear bottleneck-trace --comm <瓶颈进程名>
+```
 
 ---
 
@@ -216,8 +235,7 @@ spear trace audit --format json
 
 ## 📖 完整参考
 
-- 📗 **典型分析模式**: [workflow-patterns.md](./references/workflow-patterns.md) - 5 种场景的完整路径
-- 📘 **核心流程详解**: [workflow.md](./references/workflow.md) - 7 Phase 分析流程
+- 📗 **分析方法论**: [methodology.md](./references/methodology.md) - 三层架构驱动的完整方法论
+- 📘 **典型分析模式**: [workflow-patterns.md](./references/workflow-patterns.md) - 5 种场景的速查路径
 - 📙 **工具命令参考**: [tools.md](./references/tools.md) - 详细命令、参数
-- 📕 **启发式规则**: [heuristics.md](./references/heuristics.md) - 五大认知闭包
 - 📋 **文档模板**: [templates.md](./references/templates.md) - 诊断报告格式

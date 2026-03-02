@@ -1,8 +1,11 @@
 # Trace 接口设计文档
 
 > 技术实现规格说明
-> 版本: 1.0
+> 版本: 2.0
 > 创建时间: 2026-02-28
+> 更新日期: 2026-03-03
+>
+> **本次更新**: 适配三层架构设计，明确Trace边界（Composite记录，Analysis内部不记录）
 
 ---
 
@@ -17,6 +20,10 @@
 - **极简**: 3 个核心命令（add / complete / list）
 - **扁平**: JSON 结构最多 2 层
 - **强制**: finalize 是结束诊断的必要步骤
+- **分层**: 三层架构下的Trace边界
+  - **Composite层**: 记录顶层命令到timeline
+  - **Analysis层**: CLI调用记录，内部调用不记录
+  - **Core层**: 不记录Trace
 
 ---
 
@@ -34,10 +41,17 @@
 
 ```json
 {
-  "version": "1.0",
+  "version": "2.0",
   "data_file": "string",
   "created_at": "ISO-8601 timestamp",
   "updated_at": "ISO-8601 timestamp",
+  "timeline": [
+    {
+      "command": "sys-audit --data perf.data",
+      "timestamp": "ISO-8601 timestamp",
+      "layer": "composite"
+    }
+  ],
   "issues": [
     {
       "id": "string",
@@ -47,20 +61,63 @@
       "hint": "string (optional)",
       "result": "string (optional, status=completed)",
       "created_at": "ISO-8601 timestamp",
-      "completed_at": "ISO-8601 timestamp (optional)"
+      "completed_at": "ISO-8601 timestamp (optional)",
+      "source_command": "string (optional)"
     }
   ]
 }
 ```
 
-### 2.3 字段说明
+### 2.3 Trace边界说明（三层架构）
+
+```
+用户执行: spear sys-audit --data perf.data
+
+记录行为:
+┌─────────────────────────────────────────────────────────┐
+│ timeline[0]: command="sys-audit --data perf.data"      │  ◄── 记录（Composite层）
+│              layer="composite"                          │
+└─────────────────────────────────────────────────────────┘
+                          │
+                    内部调用（不记录）
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+   detect-anomalies  core-distribution   get-comm-top
+   （不记录）         （不记录）          （不记录）
+
+用户执行: spear get-comm-top --data perf.data
+
+记录行为:
+┌─────────────────────────────────────────────────────────┐
+│ timeline[0]: command="get-comm-top --data perf.data"   │  ◄── 记录（Analysis CLI）
+│              layer="analysis"                           │
+└─────────────────────────────────────────────────────────┘
+```
+
+**记录规则**:
+| 层级 | 调用方式 | 是否记录 | 示例 |
+|------|----------|----------|------|
+| Composite | CLI命令 | ✅ 记录 | `sys-audit`, `bottleneck-trace` |
+| Analysis | CLI命令 | ✅ 记录 | `get-comm-top`, `get-hotspots` |
+| Analysis | 内部调用（Facade） | ❌ 不记录 | `facade.analyze_comm_top()` |
+
+**设计理由**:
+- 避免Composite调用多个Analysis工具时timeline被污染
+- 用户关心的是"执行了什么诊断"，不是"内部调用了哪些工具"
+
+### 2.4 字段说明
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| version | string | 是 | 文档格式版本 |
+| version | string | 是 | 文档格式版本（当前 2.0） |
 | data_file | string | 是 | 关联的 perf 数据文件 |
 | created_at | string | 是 | 文档创建时间 |
 | updated_at | string | 是 | 最后更新时间 |
+| timeline | array | 是 | 命令执行时间线 |
+| timeline[].command | string | 是 | 执行的命令 |
+| timeline[].timestamp | string | 是 | 执行时间 |
+| timeline[].layer | string | 是 | 命令层级: composite / analysis |
 | issues | array | 是 | 问题列表 |
 | issues[].id | string | 是 | 唯一标识符，如 ISS-001 |
 | issues[].desc | string | 是 | 问题描述 |
@@ -70,37 +127,57 @@
 | issues[].result | string | 否 | 分析结果（completed 时必填）|
 | issues[].created_at | string | 是 | 问题创建时间 |
 | issues[].completed_at | string | 否 | 问题完成时间 |
+| issues[].source_command | string | 否 | 触发该issue的命令（如 sys-audit）|
 
-### 2.4 示例
+### 2.5 示例（v2.0 三层架构）
+
+**场景**: 用户执行 `sys-audit`，内部调用多个analysis工具
 
 ```json
 {
-  "version": "1.0",
+  "version": "2.0",
   "data_file": "netstat_perf.data",
   "created_at": "2026-02-28T10:00:00Z",
   "updated_at": "2026-02-28T11:30:00Z",
+  "timeline": [
+    {
+      "command": "sys-audit --data netstat_perf.data",
+      "timestamp": "2026-02-28T10:05:00Z",
+      "layer": "composite"
+    },
+    {
+      "command": "bottleneck-trace --comm app_worker --data netstat_perf.data",
+      "timestamp": "2026-02-28T10:15:00Z",
+      "layer": "composite"
+    }
+  ],
   "issues": [
     {
       "id": "ISS-001",
-      "desc": "netstat 高内核态 94.7%",
+      "desc": "app_worker 核心独占率 0.92（单核瓶颈）",
       "status": "completed",
-      "risk": "进程风暴可能导致系统卡顿",
-      "hint": "cluster-symbols --comm netstat",
-      "result": "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争",
+      "risk": "独占Core #7导致响应延迟",
+      "hint": "bottleneck-trace --comm app_worker",
+      "result": "spinlock_wait 85% - 数据库查询触发锁竞争",
       "created_at": "2026-02-28T10:05:00Z",
-      "completed_at": "2026-02-28T11:00:00Z"
+      "completed_at": "2026-02-28T10:20:00Z",
+      "source_command": "sys-audit"
     },
     {
       "id": "ISS-002",
-      "desc": "containerd-shim 高内核态 89.9%",
+      "desc": "lsof 进程风暴 2000个（Spawn Rate 100/s）",
       "status": "pending",
-      "risk": "kernel_ratio 接近 netstat 但 PID 数少9倍，单进程影响可能更大",
-      "hint": "cluster-symbols --comm containerd-shim",
-      "created_at": "2026-02-28T10:10:00Z"
+      "risk": "虽然CPU总量高但分布均匀，可能被误判为主要瓶颈",
+      "hint": "find-callers --target do_fork --comm lsof",
+      "created_at": "2026-02-28T10:05:00Z",
+      "source_command": "sys-audit"
     }
   ]
 }
 ```
+
+**注意**: timeline只记录了`sys-audit`和`bottleneck-trace`两个composite命令，
+没有记录内部的`detect-anomalies`、`get-comm-top`、`get-hotspots`等analysis调用。
 
 ---
 
@@ -174,7 +251,7 @@ spear trace add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
 spear trace add --id ISS-002 \
   --desc "containerd-shim 高内核态 89.9%" \
   --risk "可能比 netstat 更严重，单进程影响大" \
-  --hint "cluster-symbols --comm containerd-shim"
+  --hint "bottleneck-trace --comm containerd-shim"
 ```
 
 ---
@@ -253,7 +330,7 @@ ISS-002  containerd-shim 高内核态 89.9%
       "id": "ISS-002",
       "desc": "containerd-shim 高内核态 89.9%",
       "risk": "可能比 netstat 更严重，单进程影响大",
-      "next_step": "cluster-symbols --comm containerd-shim"
+      "next_step": "bottleneck-trace --comm containerd-shim"
     }
   ],
   "completed": [
@@ -314,7 +391,7 @@ ISS-002  containerd-shim 高内核态 89.9%
 ───────────────────────────────────────────────────────────────────
 
 [A] 继续分析剩余问题（推荐）
-    执行: cluster-symbols --comm containerd-shim
+    执行: bottleneck-trace --comm containerd-shim
 
 [B] 接受风险，生成报告
     必须提供理由（使用 --accept-risk）
@@ -374,29 +451,69 @@ spear trace export --format markdown --output report.md
 
 ---
 
-## 4. 集成到 spear
+## 4. 集成到 spear（三层架构）
 
 ### 4.1 自动记录机制
 
-分析工具自动调用 `spear trace add` 记录 critical findings:
+#### Analysis层（CLI命令）自动记录
 
 ```python
 # perf_toolkit/analysis/hotspots.py
-def cmd_get_hotspots(engine, args):
-    # ... 分析逻辑 ...
 
-    # 发现高内核态进程
-    if kernel_ratio > 0.8:
-        doc = LiveDoc()
-        doc.add(
-            id=f"ISS-{doc.next_id()}",
-            desc=f"{comm} 高内核态 {kernel_ratio:.1%}",
-            risk="可能是系统瓶颈",
-            hint=f"cluster-symbols --comm {comm}"
+@command("get-hotspots")
+def cmd_get_hotspots(builder, engine, args, samples):
+    """CLI入口 - 记录到timeline"""
+    # 1. 分析
+    analyzer = HotspotsAnalyzer(engine)
+    result = analyzer.analyze(samples, ...)
+    
+    # 2. 自动记录risk到Trace
+    for risk_dict in result["risks"]:
+        builder.record_risk(
+            risk_dict["level"],
+            risk_dict["message"],
+            risk_dict["hint"]
         )
-
-    # ... 返回结果 ...
+    
+    return output
 ```
+
+#### Composite层（组合命令）自动记录
+
+```python
+# perf_toolkit/composite/sys_audit.py
+
+@command("sys-audit")
+def cmd_sys_audit(builder, engine, args, samples):
+    """系统审计 - 只记录顶层，内部调用不记录"""
+    from ..analysis.facade import AnalysisFacade
+    
+    # 创建facade（内部调用，不触发Trace）
+    facade = AnalysisFacade(engine)
+    
+    # 执行多个分析（不记录到timeline）
+    anomalies = facade.detect_anomalies(samples)      # 不记录
+    core_dist = facade.analyze_core_distribution(samples)  # 不记录
+    comm_top = facade.analyze_comm_top(samples)       # 不记录
+    
+    # 综合分析结果
+    diagnosis = _synthesize(anomalies, core_dist, comm_top)
+    
+    # 记录综合诊断结果
+    if diagnosis["primary_suspect"]:
+        builder.record_risk(
+            "critical",
+            f"主要性能瓶颈: {diagnosis['primary_suspect']['comm']}",
+            f"执行 bottleneck-trace --comm {diagnosis['primary_suspect']['comm']} 深入分析"
+        )
+    
+    return output
+```
+
+**关键区别**:
+- Analysis CLI命令（如`get-hotspots`）: 自动记录到timeline
+- Composite命令内部通过Facade调用: 不记录到timeline
+- Composite命令本身（如`sys-audit`）: 记录到timeline
 
 ### 4.2 集成命令
 
@@ -413,47 +530,65 @@ spear trace finalize
 
 ## 5. 使用流程示例
 
-### 5.1 完整诊断流程
+### 5.1 完整诊断流程（推荐：组合命令入口）
 
 ```bash
 # 1. 初始化
 spear trace init --data netstat_perf.data
 
-# 2. 宏观评估，发现问题
-spear show-cpu-usage --data netstat_perf.data
-# 输出: kernel 51.5% 异常
+# 2. 系统全景扫描（自动降噪 + 危害排序）
+spear sys-audit --data netstat_perf.data
+# 输出: 
+#   - 主要瓶颈: app_worker (Monopoly 0.92)
+#   - 次要负载: lsof (Count 2000, 但分布均匀)
+#   - 自动记录到timeline: sys-audit
+#   - 自动添加issues: ISS-001 (BOTTLENECK), ISS-002 (STORM)
 
-spear get-comm-top --data netstat_perf.data
-# 输出: 4 个高内核态进程
-
-# 3. 记录所有问题
-spear trace add --id ISS-001 --desc "netstat 高内核态 94.7%" \
-  --risk "进程风暴" --hint "cluster-symbols --comm netstat"
-spear trace add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" \
-  --risk "单进程影响可能更大" --hint "cluster-symbols --comm containerd-shim"
-spear trace add --id ISS-003 --desc "sh 高内核态 86.8%" \
-  --risk "未知" --hint "cluster-symbols --comm sh"
-
-# 4. 检查待办
+# 3. 检查待办
 spear trace list
-# 输出: 3 pending
+# 输出: 2 pending (ISS-001, ISS-002)
 
-# 5. 并行处理问题
-spear cluster-symbols --comm netstat --data netstat_perf.data
-spear trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+# 4. 深度分析主要瓶颈
+spear bottleneck-trace --comm app_worker --data netstat_perf.data
+# 输出: spinlock_wait 85% - 数据库查询触发锁竞争
+# 自动记录到timeline: bottleneck-trace
+spear trace complete --id ISS-001 --result "spinlock_wait 85% - 数据库查询触发锁竞争"
 
-spear cluster-symbols --comm containerd-shim --data netstat_perf.data
-spear trace complete --id ISS-002 --result "LOCK_CONTENTION 79.84%"
+# 5. 分析进程风暴源头
+spear find-callers --target do_fork --comm lsof --data netstat_perf.data
+# 输出: 所有lsof追溯到app_worker调用的system()函数
+spear trace complete --id ISS-002 --result "lsof风暴由app_worker超时处理逻辑触发"
 
-# 6. 评估 sh 的重要性
-spear trace complete --id ISS-003 --result "wontfix: 优先级低，CPU 占比小"
-
-# 7. 最终审计
+# 6. 最终审计
 spear trace finalize
 # 输出: ✅ 所有问题已处理
 
-# 8. 导出报告
+# 7. 导出报告
 spear trace export --format markdown --output diagnosis-report.md
+```
+
+### 5.2 传统方式（单工具调用）
+
+如果不需要组合命令的智能降噪，仍可使用单个工具：
+
+```bash
+# 1. 初始化
+spear trace init --data netstat_perf.data
+
+# 2. 使用单个analysis工具（会自动记录到timeline）
+spear get-comm-top --data netstat_perf.data
+# 输出: 进程组分析（含CV/Monopoly指标）
+# 自动记录到timeline: get-comm-top
+
+spear get-hotspots --comm app_worker --data netstat_perf.data
+# 输出: 热点函数
+# 自动记录到timeline: get-hotspots
+
+# 3. 手动添加issue
+spear trace add --id ISS-001 --desc "app_worker 高内核态" \
+  --hint "find-callers --target spinlock_wait --comm app_worker"
+
+# 4. 继续分析...
 ```
 
 ---
@@ -610,11 +745,48 @@ class LiveDoc:
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | 1.0 | 2026-02-28 | 初始设计 |
+| 2.0 | 2026-03-03 | 适配三层架构 |
+| | | - 新增timeline字段，记录命令层级 |
+| | | - 新增layer字段（composite/analysis） |
+| | | - 明确Trace边界：Composite记录，Analysis内部调用不记录 |
+| | | - 新增source_command字段标记issue来源 |
+
+## 9. 三层架构Trace规范
+
+### 9.1 记录规则
+
+| 场景 | 是否记录 | 示例 |
+|------|----------|------|
+| 用户执行Composite命令 | ✅ 记录 | `sys-audit`, `bottleneck-trace` |
+| 用户执行Analysis命令 | ✅ 记录 | `get-comm-top`, `get-hotspots` |
+| Composite内部调用Analysis | ❌ 不记录 | `facade.analyze_comm_top()` |
+| Analysis内部调用Core | ❌ 不记录 | `engine.get_comm_cpu_util()` |
+
+### 9.2 问题来源标记
+
+issue的`source_command`字段标记触发该issue的命令：
+
+```json
+{
+  "issues": [
+    {
+      "id": "ISS-001",
+      "desc": "app_worker 核心独占率 0.92",
+      "source_command": "sys-audit"
+    }
+  ]
+}
+```
+
+这有助于追溯：
+- 该issue是通过哪个composite命令发现的
+- 诊断路径的完整性
 
 ---
 
-## 9. 参考文档
+## 10. 参考文档
 
 - [设计意图文档](./design-rationale-trace-v1.md)
+- [三层架构设计](./design-three-tier-architecture.md)
 - [SKILL.md](../SKILL.md)
 - [workflow.md](../references/workflow.md)

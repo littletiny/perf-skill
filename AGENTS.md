@@ -64,9 +64,9 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 │   ├── agents.py          # Agent 实现（Diagnose/Audit/Recheck）
 │   └── cli.py             # 命令行接口
 ├── references/            # 参考资料
-│   ├── workflow.md        # 分析流程指南（7个Phase）
+│   ├── methodology.md     # 分析方法论（三层架构驱动）
+│   ├── workflow-patterns.md # 典型分析模式（附录形式）
 │   ├── tools.md           # 工具命令参考
-│   ├── heuristics.md      # 启发式规则手册
 │   ├── templates.md       # 文档模板
 │   ├── data-format.md     # 数据格式说明
 │   └── EVOLUTION.md       # 项目演进历史
@@ -180,34 +180,48 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 | 内容类型 | 应放在 | 不应放在 |
 |----------|--------|----------|
 | 文档模板 | `references/templates.md` | SKILL.md 附录 |
-| 分析流程 | `references/workflow.md` | SKILL.md 标准工作流 |
+| 分析方法论 | `references/methodology.md` | SKILL.md 标准工作流 |
+| 分析模式 | `references/workflow-patterns.md` | SKILL.md 场景详解 |
 | 工具命令 | `references/tools.md` | SKILL.md 工具清单 |
-| 启发式规则 | `references/heuristics.md` | SKILL.md 核心原则 |
 | 数据格式 | `references/data-format.md` | SKILL.md 正文 |
 
 引用格式示例：
 ```markdown
-📗 **分析流程指南**: `references/workflow.md` - 标准工作流程
+📗 **分析方法论**: `references/methodology.md` - 三层架构驱动的完整方法论
 ```
 
 ---
 
 ## 子命令清单
 
-| 子命令 | 用途 | 所在文件 |
-|--------|------|----------|
-| `check-cpu-bottleneck` | 检查资源限制和单核饱和 | `scripts/perf_toolkit/analysis/bottleneck.py` |
-| `get-hotspots` | 识别热点函数 | `scripts/perf_toolkit/analysis/hotspots.py` |
-| `cluster-symbols` | 按专家规则聚类符号 | `scripts/perf_toolkit/analysis/clusters.py` |
-| `find-callers` | 热点溯源，调用链分析 | `scripts/perf_toolkit/analysis/trace.py` |
-| `detect-anomalies` | 检测时序异常 | `scripts/perf_toolkit/analysis/anomalies.py` |
-| `show-cpu-usage` | 查看 CPU 利用率 | `scripts/perf_toolkit/analysis/cpu_usage.py` |
-| `get-process-top` | 进程 CPU 排行 | `scripts/perf_toolkit/analysis/process_top.py` |
-| `get-comm-top` | 按进程组统计 CPU | `scripts/perf_toolkit/analysis/comm_top.py` |
-| `cluster-comm` | 按进程名聚类 | `scripts/perf_toolkit/analysis/comm_clusters.py` |
-| `cluster-paths` | 按调用路径聚类 | `scripts/perf_toolkit/analysis/path_clusters.py` |
-| `count-process-variety` | 检测进程风暴 | `scripts/perf_toolkit/analysis/process_variety.py` |
-| `analyze-core-distribution` | 核心级负载分布分析 | `scripts/perf_toolkit/analysis/core_distribution.py` |
+### 核心分析工具（6个）
+
+| 子命令 | 层级 | 用途 | 所在文件 |
+|--------|------|------|----------|
+| `analyze-core-distribution` | 系统级 | 核心负载分析（整合原check-cpu-bottleneck） | `scripts/perf_toolkit/analysis/core_distribution.py` |
+| `detect-anomalies` | 时间级 | 检测时序异常 | `scripts/perf_toolkit/analysis/anomalies.py` |
+| `get-comm-top` | 实体级 | 进程组分析（增强版，整合原get-process-top + cluster-comm + count-process-variety） | `scripts/perf_toolkit/analysis/comm_top.py` |
+| `get-hotspots` | 函数级 | 识别热点函数 | `scripts/perf_toolkit/analysis/hotspots.py` |
+| `find-callers` | 关系级 | 热点溯源，调用链分析 | `scripts/perf_toolkit/analysis/trace.py` |
+| `cluster-paths` | 模式级 | 调用路径聚类（整合原cluster-symbols） | `scripts/perf_toolkit/analysis/path_clusters.py` |
+
+### 组合诊断工具（2个）
+
+| 子命令 | 链式触发 | 用途 | 所在文件 |
+|--------|----------|------|----------|
+| `sys-audit` | anomalies→core-dist→comm-top | 系统全景扫描，自动降噪 | `scripts/perf_toolkit/composite/sys_audit.py` |
+| `bottleneck-trace` | comm-top→hotspots→paths | 瓶颈深度追踪 | `scripts/perf_toolkit/composite/bottleneck_trace.py` |
+
+### 工具整合说明
+
+| 原工具 | 整合到 | 新能力 |
+|--------|--------|--------|
+| `check-cpu-bottleneck` | `analyze-core-distribution` | 单核饱和检测 |
+| `show-cpu-usage` | `analyze-core-distribution` | CPU利用率展示 |
+| `get-process-top` | `get-comm-top` | CV方差识别离群PID |
+| `cluster-comm` | `get-comm-top` | 进程组聚合 |
+| `count-process-variety` | `get-comm-top` | Spawn Rate检测 |
+| `cluster-symbols` | `cluster-paths` | 语义聚类 |
 
 ---
 
