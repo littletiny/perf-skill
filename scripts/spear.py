@@ -51,7 +51,8 @@ from perf_toolkit.analysis.comm_top import cmd_get_comm_top
 # Import trace commands (v2.0: auto add, manual complete)
 from perf_toolkit.core.trace import (
     cmd_doc_init, cmd_doc_add, cmd_doc_complete, cmd_doc_timeline,
-    cmd_doc_issues, cmd_doc_finalize, cmd_doc_export, cmd_doc_reopen
+    cmd_doc_issues, cmd_doc_finalize, cmd_doc_export, cmd_doc_reopen,
+    cmd_doc_audit
 )
 
 
@@ -171,9 +172,10 @@ Use '<command> --help' for detailed help on each subcommand."""
                     help="Automatically trace top N hotspot functions")
     p4.add_argument("--top-n", "--limit", type=int, default=10,
                     help="Number of top results to display (default: 10)")
-    p4.add_argument("--min-cpu", type=float, default=3.0, metavar="PERCENT",
-                    help="Minimum CPU utilization %% to display a hotspot (default: 3.0%%). "
-                         "Hotspots below this threshold are hidden but counted.")
+    p4.add_argument("--min-ratio", type=float, default=0.5, metavar="PERCENT",
+                    dest="min_ratio",
+                    help="Minimum ratio %% of total samples to display a caller (default: 0.5%%). "
+                         "Callers below this threshold are hidden but counted.")
     p4.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p4.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p4.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
@@ -369,6 +371,15 @@ Use '<command> --help' for detailed help on each subcommand."""
     doc_export.add_argument("--format", choices=['markdown', 'json'], default='markdown', help="Export format")
     doc_export.add_argument("--output", help="Output file path (default: stdout)")
 
+    # doc audit
+    doc_audit = doc_subparsers.add_parser('audit', help="Audit resolved issues for quality")
+    doc_audit.add_argument("--phase", choices=['all', 'structural', 'timeline', 'depth'], default='all', help="Audit phase to run")
+    doc_audit.add_argument("--format", choices=['text', 'json'], default='text', help="Output format")
+    doc_audit.add_argument("--output", help="Output file path (default: stdout)")
+    doc_audit.add_argument("--no-fail", action="store_true", help="Don't exit with error code on failure")
+    doc_audit.add_argument('--risk-config', metavar='PATH', help='Risk display config file (JSON)')
+    doc_audit.add_argument('--risk-style', choices=['default', 'ci', 'compact'], help='Risk style preset')
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -388,7 +399,8 @@ Use '<command> --help' for detailed help on each subcommand."""
             "complete": cmd_doc_complete,
             "reopen": cmd_doc_reopen,
             "finalize": cmd_doc_finalize,
-            "export": cmd_doc_export
+            "export": cmd_doc_export,
+            "audit": cmd_doc_audit
         }
         doc_commands[args.doc_command](args)
         return

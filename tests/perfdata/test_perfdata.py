@@ -69,7 +69,8 @@ class TestEnv:
     def __init__(self, output_file=None):
         self.tmpdir = None
         self.orig_dir = None
-        self.output_file = output_file
+        # 将输出文件转换为绝对路径，避免在切换工作目录后找不到文件
+        self.output_file = Path(output_file).resolve() if output_file else None
 
     def __enter__(self):
         self.tmpdir = Path(tempfile.mkdtemp(prefix="perfdata_test_"))
@@ -243,24 +244,27 @@ def test_tool_analyze_core_distribution(env, data_file):
 def test_find_callers(env, data_file):
     """测试: find-callers（针对第一个热点）"""
     # 先获取热点
-    result = env.run_spear("get-hotspots", "--sort-by", "self", "--top-n", "1", data_file=data_file)
+    result = env.run_spear("get-hotspots", "--sort-by", "self", "--top-n", "5", data_file=data_file)
 
-    # 解析第一个函数名
+    # 解析第一个函数名（格式: #1 funcname self% inclusive%）
+    symbol = None
     for line in result.stdout.splitlines():
-        if line.startswith("#"):
-            continue
-        parts = line.split()
-        if len(parts) >= 1:
-            symbol = parts[0]
-            # 尝试查找调用者
-            caller_result = env.run_spear(
-                "find-callers", "--target", symbol,
-                "--min-ratio", "1.0",
-                data_file=data_file,
-                check=False
-            )
-            # find-callers 可能找不到，但不影响测试
-            break
+        # 匹配类似 "#1 cpuidle_idle_call 88.00% 88.00%" 的行
+        if line.startswith("#") and not line.startswith("# ") and not line.startswith("#,"):
+            parts = line.split()
+            if len(parts) >= 2:
+                symbol = parts[1]  # 函数名是第二个字段
+                break
+    
+    if symbol:
+        # 尝试查找调用者
+        caller_result = env.run_spear(
+            "find-callers", "--target", symbol,
+            "--min-ratio", "1.0",
+            data_file=data_file,
+            check=False
+        )
+        # find-callers 可能找不到，但不影响测试
 
 
 # ═════════════════════════════════════════════════════════════════════════════
