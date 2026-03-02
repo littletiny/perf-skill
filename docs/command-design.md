@@ -1083,5 +1083,5 @@ spear cluster-paths --pid 8888
 
 - 📗 **分析流程指南**: `references/workflow.md`
 - 📘 **工具命令参考**: `references/tools.md`
-- 📙 **启发式规则**: `references/heuristics.md`
+- 📙 **分析方法论**: `references/methodology.md`
 - 📕 **典型模式**: `references/workflow-patterns.md`

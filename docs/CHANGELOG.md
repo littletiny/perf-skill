@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.36] - 2026-03-03
+
+### Added
+- 新增 `references/methodology.md` 分析方法论文档（三层架构驱动）
+- 新增"强制单根因"认知陷阱章节
+- 新增"待验证假设"章节（突发限流、负载变化、链路抖动）
+
+### Changed
+- 重构 `references/workflow-patterns.md` 为附录形式，指向 methodology.md
+- 更新 `SKILL.md`、`AGENTS.md`、`tools.md`、`templates.md` 文档引用
+- 三候选假说扩充为代码/架构/环境三个维度，每维度3条可验证假说
+
+### Removed
+- 删除 `references/workflow-legacy.md`（使用已删除工具名）
+- 删除 `references/workflow-core.md`（被 methodology.md 替代）
+- 删除 `references/heuristics.md`（内容整合进 methodology.md）
+
+**Changed files**: `version`, `references/methodology.md`, `references/workflow-patterns.md`, `references/tools.md`, `references/templates.md`, `SKILL.md`, `AGENTS.md`
+
+---
+
 ## [2.35] - 2026-03-03
 
 ### Added
