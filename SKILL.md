@@ -1,14 +1,23 @@
 ---
-name: SPEAR-perf-hunter
+name: SHECR-perf-hunter
 description: |
-  **SHECR**: **S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning.
+  **S.H.E.C.R** methodology:
+  S=Systematic(三层架构) | H=Hypothesis(三假设) | E=Evidence(证据) | C=Controlled(受控收敛) | R=Reasoning(推理)
   X0=critical | X1=major | XA=action
   Use when analyzing CPU bottlenecks, high latency, resource contention.
 ---
 
 # SHECR 性能诊断
 
-> **S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning
+```
+┌─────────────────────────────────────────────────────────────┐
+│  S - Systematic    │ 三层架构驱动，系统级→时间级→实体级→函数级→模式级  │
+│  H - Hypothesis    │ 三假设准则，延迟收敛（≥3条竞争性假设并行验证）     │
+│  E - Evidence      │ 证据优先，数据说话，拒绝主观臆断                  │
+│  C - Controlled    │ 受控收敛，<X0>追踪到根因前禁止过早下结论          │
+│  R - Reasoning     │ 逻辑推理，因果追踪，第一推动力分析                │
+└─────────────────────────────────────────────────────────────┘
+```
 
 通过"领域知识驱动的假设验证"实现根因定位。
 
@@ -68,73 +77,95 @@ shecr status
 
 ---
 
-## 🎯 核心原则
+## 🎯 核心原则（SHECR 五原则）
 
-### 1. 三候选准则（强制执行）
+### S - Systematic（系统性）
+**三层架构驱动诊断**：
 
-**任何分析必须同时维护 ≥3 条竞争性假设**，延迟收敛：
+| 层级 | 工具 | 关注点 |
+|------|------|--------|
+| 系统级 | `analyze-core-distribution` | 整体资源分布、单核饱和 |
+| 时间级 | `detect-anomalies` | 时序异常、突发变化 |
+| 实体级 | `get-comm-top` | 进程组、聚合分析 |
+| 函数级 | `get-hotspots`, `find-callers` | 热点函数、调用关系 |
+| 模式级 | `cluster-paths` | 调用模式、业务语义 |
 
-| 维度 | 示例假设 |
-|------|---------|
-| 代码 | 热点函数算法复杂度高 |
-| 架构 | 全局锁导致串行化 |
-| 环境 | Cgroup CPU 限制 |
+### H - Hypothesis（假设驱动）
+**三候选准则（强制执行）**：任何分析必须同时维护 ≥3 条竞争性假设，延迟收敛
 
-### 2. 驱动力分析
+| 维度 | 示例假设 | 验证方式 |
+|------|---------|---------|
+| 代码 | 热点函数算法复杂度高 | `get-hotspots` + 代码审查 |
+| 架构 | 全局锁导致串行化 | `find-callers` 溯源锁竞争 |
+| 环境 | Cgroup CPU 限制 | `analyze-core-distribution` |
 
-识别性能问题的第一推动力：
-- **请求流量驱动**: Workload 增加
-- **系统资源驱动**: 内核瓶颈、资源争抢
-- **内部机制驱动**: GC、定时任务、缓存刷新
+### E - Evidence（证据驱动）
+**数据说话，拒绝主观臆断**：
 
-### 3. 关键检查点
+| 证据类型 | 获取方式 | 可信度要求 |
+|---------|---------|-----------|
+| 热点证据 | `get-hotspots` | self% ≥ 5% 或 inclusive% ≥ 10% |
+| 调用链证据 | `find-callers` | 完整的 caller → callee 链条 |
+| 时序证据 | `detect-anomalies` | 时间窗口内突变 ≥ 2σ |
 
-| 信号 | 必须动作 | 工具 |
-|------|---------|------|
-| 调度函数高 | 溯源：主动休眠 vs 被动抢占 | `find-callers --target schedule` |
-| 负载不均衡 | 分析：不能并行 vs 不想并行 | `analyze-core-distribution` |
-| 锁函数出现 | 评估：锁粒度和竞争范围 | `find-callers --target <lock>` |
+### C - Controlled（受控收敛）
+**禁止过早下结论**：
+
+- `<X0>` 标记的阻塞级问题必须追踪到根因才能收敛
+- 多轮诊断中保持对已识别 `<X0>` 的关注
+- 审计轮检查：所有 `<X0>` 是否都已追踪到根因
+
+### R - Reasoning（逻辑推理）
+**因果追踪，识别第一推动力**：
+
+| 驱动力类型 | 识别方法 | 典型表现 |
+|-----------|---------|---------|
+| 请求流量驱动 | Workload 监控 | 吞吐量与延迟同步上升 |
+| 系统资源驱动 | 内核态占比、锁竞争 | `__lock_*` 或 `schedule` 高频 |
+| 内部机制驱动 | 时序模式分析 | 周期性抖动、GC 规律出现 |
 
 ---
 
-## 📝 文档规范（⚠️ 强制执行）
+## 📝 文档规范（SHECR 强制执行）
 
-### 双文档体系
+基于 **SHECR** 五原则的双文档体系：
 
-| 文档 | 格式 | 用途 | 创建方式 |
-|------|------|------|---------|
-| **诊断报告** | `debug/*.md` | 主文档：问题演进、假设追踪、审计记录 | 手动基于 templates.md |
-| **状态追踪** | Trace | 辅助：待办问题列表 | `trace init` 自动生成 |
+| 原则 | 文档 | 格式 | 用途 |
+|------|------|------|------|
+| **S**ystematic | 诊断报告 | `debug/*.md` | 系统级→模式级的完整分析 |
+| **H**ypothesis | 诊断报告 | `debug/*.md` | 问题演进表、假设追踪 |
+| **E**vidence | 诊断报告 | `debug/*.md` | 证据链记录 |
+| **C**ontrolled | Trace | `.shecr.json` | 待办状态、审计标记 |
+| **R**easoning | 诊断报告 | `debug/*.md` | 根因分析、第一推动力 |
 
 **关键规则**：
-1. `Trace` **不能替代** `debug/*.md`
-2. 所有证据、推理、结论必须写入 `debug/*.md`
-3. `trace add/complete` 只是状态标记，分析内容要在 markdown 中详细记录
+1. `Trace` **不能替代** `debug/*.md`（E/R 必须在 markdown 中详细记录）
+2. 所有证据、推理、结论必须写入 `debug/*.md`（对应 E/R）
+3. `trace add/complete` 只是状态标记（对应 C），分析内容要在 markdown 中详细记录
 
-### 诊断流程
+### SHECR 诊断流程
 
 ```bash
-# 1. 初始化诊断文档
+# S - Systematic: 初始化诊断环境
 shecr trace init --data perf.data
 
-# 2. 执行分析，自动/手动记录 issues
-shecr get-comm-top
-shecr cluster-paths --comm netstat
-...
+# H - Hypothesis: 执行分析，维护 ≥3 条假设
+shecr sys-audit           # 系统级假设验证
+shecr bottleneck-trace    # 深度假设追踪
 
-# 3. 查看待处理 issues
+# E - Evidence: 自动/手动记录 issues（基于证据）
+shecr trace add --desc "<X0> 锁竞争证据..." --level critical
+
+# C - Controlled: 查看待处理 issues，控制收敛
 shecr trace issues
 
-# 4. 完成分析，标记 resolved（result 必须详细）
-shecr trace complete --id ISS-001 --result "根因: xxx - 详见 debug/analysis.md"
+# R - Reasoning: 完成分析，标记根因追踪完成
+shecr trace complete --id ISS-001 --result "根因: ..."
 
-# 5. 确认所有 issues 已解决
+# C - Controlled: 确认所有 <X0> 已解决
 shecr trace issues --status open
 
-# 6. finalize 结束诊断
-shecr trace finalize
-
-# 7. 导出报告
+# 导出最终报告
 shecr trace export --format markdown --output report.md
 ```
 
@@ -180,14 +211,25 @@ shecr bottleneck-trace --comm <瓶颈进程名>
 
 ## 🎯 诊断关注点（SHECR Attention Flags）
 
-基于 **SHECR** 方法论的注意力引导机制。分析过程中请**优先关注**以下标记的内容：
+基于 **SHECR** 方法论的注意力引导机制：
 
-| 标记 | 含义 | 处理要求 |
-|------|------|----------|
-| `<X0>` | 阻塞级关键线索（SHECR-Critical） | 必须立即处理，追踪到根因前禁止收敛 |
-| `<X1>` | 重要线索（SHECR-Major） | 应在当前阶段处理 |
-| `<X2>` | 提示信息（SHECR-Minor） | 值得关注，但非紧急 |
-| `<XA>` | 操作建议（SHECR-Action） | 具体的下一步操作 |
+```
+┌────────────────────────────────────────────────────────────┐
+│  X0  →  Critical（阻塞级）  │  对应 H/C：必须追踪到根因才收敛   │
+│  X1  →  Major（重要级）     │  对应 S：应在当前阶段处理         │
+│  X2  →  Minor（提示级）     │  对应 R：辅助推理线索             │
+│  XA  →  Action（操作建议）  │  对应 E：基于证据的具体行动       │
+└────────────────────────────────────────────────────────────┘
+```
+
+### 标记含义
+
+| 标记 | 全称 | 处理要求 | 对应 SHECR |
+|------|------|----------|-----------|
+| `<X0>` | eXtreme Critical | 必须立即处理，追踪到根因前禁止收敛 | **H**ypothesis + **C**ontrolled |
+| `<X1>` | eXtreme Major | 应在当前阶段处理 | **S**ystematic |
+| `<X2>` | eXtreme Minor | 值得关注，但非紧急 | **R**easoning |
+| `<XA>` | eXtreme Action | 具体的下一步操作 | **E**vidence-driven |
 
 ### 常见关注点
 
@@ -203,12 +245,15 @@ shecr bottleneck-trace --comm <瓶颈进程名>
 <XA> 执行 bottleneck-trace --comm <name> 深度追踪
 ```
 
-### 使用规则（SHECR 核心准则）
+### 使用规则（对应 SHECR 五原则）
 
-1. **`<X0>` 立即处理**（Systematic）- 不要等待其他信息
-2. **多轮保持关注**（Controlled）- 已识别的 `<X0>` 不要遗忘
-3. **`<X0>` 追踪到根因**（Hypothesis）- 否则禁止收敛
-4. **`<XA>` 直接执行**（Evidence-driven）- 基于证据行动
+| 规则 | SHECR 原则 | 说明 |
+|------|-----------|------|
+| **`<X0>` 立即处理** | **S**ystematic | 按三层架构系统排查，不遗漏 |
+| **`<X0>` 追踪到根因** | **H**ypothesis | 满足三候选准则才收敛 |
+| **`<XA>` 直接执行** | **E**vidence-driven | 每个行动都有数据支撑 |
+| **多轮保持关注** | **C**ontrolled | 已识别的 `<X0>` 不要遗忘 |
+| **因果追踪** | **R**easoning | 从现象到根因的逻辑链条 |
 
 ---
 
