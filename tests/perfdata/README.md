@@ -43,11 +43,8 @@ python3 tests/perfdata/test_perfdata.py -d perf_format
 | 工具 | 说明 |
 |------|------|
 | `check-cpu-bottleneck` | 检查资源限制和单核饱和 |
-| `show-cpu-usage` | CPU 利用率概览 |
-| `get-process-top` | 进程 CPU 排行 |
 | `get-comm-top` | 进程组 CPU 排行 |
 | `count-process-variety` | 进程风暴检测 |
-| `cluster-comm` | 进程名聚类分析 |
 | `get-hotspots` | 热点函数排名（self/inclusive） |
 | `cluster-symbols` | 语义聚类分析 |
 | `cluster-paths` | 调用路径聚类 |
@@ -56,7 +53,6 @@ python3 tests/perfdata/test_perfdata.py -d perf_format
 | `detect-anomalies` | 时序异常检测 |
 | `sys-audit` | 系统审计（Composite） |
 | `bottleneck-trace` | 瓶颈追踪（Composite） |
-| `storm-trace` | 风暴追踪（Composite） |
 
 ## 数据格式说明
 

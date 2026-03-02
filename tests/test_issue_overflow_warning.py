@@ -106,7 +106,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
 
         # Now run another command to trigger the overflow warning
         result = self._run_spear([
-            "show-cpu-usage",
+            "analyze-core-distribution",
             "--data", str(self.test_data)
         ])
 
@@ -137,13 +137,13 @@ class TestIssueOverflowWarning(unittest.TestCase):
 
         # Run show-cpu-usage (should not trigger warning with only 1 issue)
         result = self._run_spear([
-            "show-cpu-usage",
+            "analyze-core-distribution",
             "--data", str(self.test_data)
         ])
 
         self.assertEqual(result.returncode, 0)
 
-        # After show-cpu-usage, we might have 2 issues (1 manual + 1 auto)
+        # After analyze-core-distribution, we might have 2 issues (1 manual + 1 auto)
         # So this test might not pass in current state - let's just verify logic
         # The important thing is that warning threshold is >=2
 
@@ -273,7 +273,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
 
         # Run another command to trigger warning
         result = self._run_spear([
-            "show-cpu-usage",
+            "analyze-core-distribution",
             "--data", str(self.test_data)
         ])
 

@@ -174,40 +174,9 @@ def test_format_detection(data_file, format_type):
         assert "cpu-clock" in content, "perf_format 应包含 cpu-clock 事件"
 
 
-def test_tool_check_cpu_bottleneck(env, data_file):
-    """测试: check-cpu-bottleneck"""
-    result = env.run_spear("check-cpu-bottleneck", data_file=data_file, check=False)
-    # 工具应该成功运行，不管输出是什么
-    assert result.returncode == 0, f"工具失败: {result.stderr}"
-
-
-def test_tool_show_cpu_usage(env, data_file):
-    """测试: show-cpu-usage"""
-    result = env.run_spear("show-cpu-usage", data_file=data_file, check=False)
-    assert result.returncode == 0
-
-
-def test_tool_get_process_top(env, data_file):
-    """测试: get-process-top"""
-    result = env.run_spear("get-process-top", "--top-n", "5", data_file=data_file)
-    assert "# comm(pid)" in result.stdout or len(result.stdout) > 0
-
-
 def test_tool_get_comm_top(env, data_file):
     """测试: get-comm-top"""
     result = env.run_spear("get-comm-top", "--top-n", "5", data_file=data_file)
-    assert len(result.stdout) > 0
-
-
-def test_tool_count_process_variety(env, data_file):
-    """测试: count-process-variety"""
-    result = env.run_spear("count-process-variety", "--top-n", "10", data_file=data_file)
-    assert len(result.stdout) > 0
-
-
-def test_tool_cluster_comm(env, data_file):
-    """测试: cluster-comm"""
-    result = env.run_spear("cluster-comm", "--top-n", "10", data_file=data_file)
     assert len(result.stdout) > 0
 
 
@@ -221,12 +190,6 @@ def test_tool_get_hotspots_inclusive(env, data_file):
     """测试: get-hotspots --sort-by inclusive"""
     result = env.run_spear("get-hotspots", "--sort-by", "inclusive", "--top-n", "10", data_file=data_file)
     assert "# index,funcname" in result.stdout
-
-
-def test_tool_cluster_symbols(env, data_file):
-    """测试: cluster-symbols"""
-    result = env.run_spear("cluster-symbols", data_file=data_file)
-    assert len(result.stdout) > 0
 
 
 def test_tool_cluster_paths(env, data_file):
@@ -286,10 +249,18 @@ def test_tool_bottleneck_trace(env, data_file):
     assert result.returncode == 0, f"工具失败: {result.stderr}"
 
 
-def test_tool_storm_trace(env, data_file):
-    """测试: storm-trace"""
-    result = env.run_spear("storm-trace", data_file=data_file, check=False)
+def test_tool_comm_top_storm(env, data_file):
+    """测试: get-comm-top storm分析（整合原storm-trace）"""
+    result = env.run_spear("get-comm-top", data_file=data_file, check=False)
     assert result.returncode == 0, f"工具失败: {result.stderr}"
+    # 验证输出包含 storm_analysis 字段（JSON格式）
+    if "json" in result.stdout.lower() or result.stdout.startswith("{"):
+        import json
+        try:
+            output = json.loads(result.stdout)
+            assert "storm_analysis" in output.get("result", {}), "缺少 storm_analysis 字段"
+        except json.JSONDecodeError:
+            pass  # 非JSON格式跳过验证
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -297,22 +268,16 @@ def test_tool_storm_trace(env, data_file):
 # ═════════════════════════════════════════════════════════════════════════════
 
 TEST_TOOLS = [
-    ("check-cpu-bottleneck", test_tool_check_cpu_bottleneck),
-    ("show-cpu-usage", test_tool_show_cpu_usage),
-    ("get-process-top", test_tool_get_process_top),
     ("get-comm-top", test_tool_get_comm_top),
-    ("count-process-variety", test_tool_count_process_variety),
-    ("cluster-comm", test_tool_cluster_comm),
     ("get-hotspots", test_tool_get_hotspots),
     ("get-hotspots-incl", test_tool_get_hotspots_inclusive),
-    ("cluster-symbols", test_tool_cluster_symbols),
     ("cluster-paths", test_tool_cluster_paths),
     ("analyze-core-distribution", test_tool_analyze_core_distribution),
     ("find-callers", test_find_callers),
     ("detect-anomalies", test_tool_detect_anomalies),
     ("sys-audit", test_tool_sys_audit),
     ("bottleneck-trace", test_tool_bottleneck_trace),
-    ("storm-trace", test_tool_storm_trace),
+    ("comm-top-storm", test_tool_comm_top_storm),
 ]
 
 

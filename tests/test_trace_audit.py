@@ -74,7 +74,7 @@ class TestTraceAudit:
             }
             
             timeline = [
-                {'seq': 1, 'command': 'show-cpu-usage'},
+                {'seq': 1, 'command': 'analyze-core-distribution'},
                 {'seq': 2, 'command': 'cluster-symbols --comm netstat'}
             ]
             
@@ -121,7 +121,7 @@ class TestTraceAudit:
         }
         
         timeline = [
-            {'seq': 1, 'command': 'show-cpu-usage'}
+            {'seq': 1, 'command': 'analyze-core-distribution'}
         ]
         
         audit_result = _audit_issue(issue, timeline, 'timeline')
