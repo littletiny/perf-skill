@@ -420,7 +420,7 @@ class PathClusterItem:
 class ProcessVarietyItem:
     """进程多样性数据项 - 用于 count-process-variety"""
     comm: str
-    unique_pids: int
+    pids_per_min: int
     cpu_util: str
     behavior: str
 

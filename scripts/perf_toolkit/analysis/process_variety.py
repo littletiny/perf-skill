@@ -73,10 +73,14 @@ def cmd_count_process_variety(builder, engine, args, samples):
         # Calculate cpu_util percentage
         cpu_util = (total_comm_weight / duration * 100) if duration > 0 else 0
 
+        # Calculate pids per minute (int)
+        duration_minutes = duration / 60 if duration > 0 else 0
+        pids_per_min = int(pid_count / duration_minutes) if duration_minutes > 0 else 0
+
         # Create V2 data item
         variety_results.append(ProcessVarietyItem(
             comm=comm,
-            unique_pids=pid_count,
+            pids_per_min=pids_per_min,
             cpu_util=f"{cpu_util:.2f}%",
             behavior=behavior
         ))

@@ -142,8 +142,8 @@ DISPLAY_PRESETS: Dict[str, Dict[str, Any]] = {
     "process_variety": {
         "template_type": "key_value",
         "list_field": "process_variety",
-        "header": "# PROCESS_STORM: comm,pids,cpu_util",
-        "display_fields": ["comm", "unique_pids", "cpu_util"],
+        "header": "# PROCESS_STORM: comm,pids_per_min,cpu_util",
+        "display_fields": ["comm", "pids_per_min", "cpu_util"],
         "empty_message": "No process variety data",
         "total_field": "total_processes",
         "shown_field": None,

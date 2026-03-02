@@ -536,8 +536,7 @@ spear count-process-variety \
 | 字段 | 说明 |
 |------|------|
 | `comm` | 进程名 |
-| `unique_pids` | 唯一 PID 总数 |
-| `pids_per_min` | 每分钟进程数（避免时长差异导致的误读） |
+| `pids_per_min` | 每分钟进程数（去重后的 PID 速率） |
 | `cpu_util` | CPU 利用率 |
 | `behavior` | 行为模式: process_storm/normal |
 
