@@ -25,6 +25,7 @@ venv/
 ENV/
 env/
 .venv/
+**/debug/*.md
 
 # IDE
 .idea/
@@ -48,3 +49,4 @@ htmlcov/
 
 # Project specific
 **/.spear.json
+**/.spear.env
