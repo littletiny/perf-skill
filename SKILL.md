@@ -30,17 +30,6 @@ spear find-callers --target pthread_mutex_lock
 spear status
 ```
 
-### 传统方式（备用）
-
-```bash
-# 1. 创建诊断文档（强制执行）
-mkdir -p debug
-# 使用 references/templates.md 创建 debug/[问题描述].md
-
-# 2. 初始化状态追踪
-spear trace init --data <perf.data>
-```
-
 ---
 
 ## 🔍 典型场景速查
