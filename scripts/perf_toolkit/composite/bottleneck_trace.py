@@ -222,7 +222,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
         risks.append(RiskItem(
             level="warning",
             message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",
-            hint=f"cluster-symbols --comm {comm}",
+            hint=f"cluster-paths --comm {comm}",
             patterns=["HIGH_KERNEL"],
             pending_targets=[comm]
         ))
