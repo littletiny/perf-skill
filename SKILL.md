@@ -2,7 +2,7 @@
 name: SHECR-perf-hunter
 description: |
   SHECR: **S**ystematic **H**ypothesis **E**vidence **C**ontrolled **R**easoning performance diagnostic tools
-  X0=critical | X1=major | XA=action
+  X0=critical | X1=major | X2=Minor | XA=action
 ---
 
 # SHECR 性能诊断
@@ -162,6 +162,8 @@ shecr trace complete --id ISS-001 --result "根因: ..."
 
 # C - Controlled: 确认所有 <X0> 已解决
 shecr trace issues --status open
+
+shecr trace finalize
 
 # 导出最终报告
 shecr trace export --format markdown --output report.md
