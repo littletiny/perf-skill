@@ -155,7 +155,7 @@ def cmd_apply_cluster(builder, engine, args, samples):
         risk = create_risk_info(
             level="warning",
             message=f"锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈",
-            hint="[必须] 添加到 Trace: spear trace add --desc '锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈' --hint 'find-callers --target pthread_mutex_lock'",
+            hint=f"[必须] 添加到 Trace: spear trace add --desc '锁竞争占比 {lock_contention_ratio:.2f}%，可能存在瓶颈' --hint 'find-callers --target {top_lock_func}'",
             patterns=["LOCK_CONTENTION"]
         )
     else:
