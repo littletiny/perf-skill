@@ -200,7 +200,7 @@ output.add_risk(
     "检测到进程风暴",
     "[必须] 添加到 Live Document: doc add --id <ISS-XXX> "
     "--desc '检测到进程风暴' --risk 'critical' "
-    "--hint '对每个进程运行: cluster-comm --comm <comm>'",
+    "--hint '对每个进程运行: cluster-symbols --comm <comm>'",
     patterns=["PROCESS_STORM"],
     targets=storm_comms  # 必须处理的目标列表
 )

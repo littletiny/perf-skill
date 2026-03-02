@@ -377,7 +377,7 @@ EVENT_IRQ_OFF, EVENT_SCHEDULER, EVENT_MEM_RECLAIM, EVENT_LOCK_CONTENTION, EVENT_
 | 版本 | 核心新增 | 工作流 |
 |-----|---------|--------|
 | **v1** | 基础工具集 | `check-cpu-bottleneck → get-hotspots → find-callers --target <func>` |
-| **v2** | 进程视角 (`cluster-comm`, `--comm`) | `check-cpu-bottleneck → get-process-top → cluster-comm → get-hotspots` |
+| **v2** | 进程视角 (`cluster-symbols`, `--comm`) | `check-cpu-bottleneck → get-process-top → cluster-symbols --comm <name> → get-hotspots` |
 | **v3** | 路径视角 (`cluster-paths`, `--auto-target`) | `check-cpu-bottleneck → get-process-top → cluster-paths → find-callers --auto-target` |
 
 ---

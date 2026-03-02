@@ -91,5 +91,5 @@ sh 409 35.91%
 
 ## 关联命令
 
-- `cluster-comm --comm <name>`: 对进程名进行详细分析
+- `cluster-symbols --comm <name>`: 对进程名进行详细分析
 - `get-comm-top`: 查看进程组 CPU 排行

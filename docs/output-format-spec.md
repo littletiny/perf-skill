@@ -727,7 +727,7 @@ class RiskMixin:
   "_risk": {
     "level": "critical",
     "message": "检测到 3 个进程风暴（短生命周期进程）",
-    "hint": "**必须立即执行**: 对每个进程名运行 'cluster-comm --comm <comm>' 进行详细分析",
+    "hint": "**必须立即执行**: 对每个进程名运行 'cluster-symbols --comm <comm>' 进行详细分析",
     "patterns": ["PROCESS_STORM"],
     "pending_targets": ["worker", "task"],
     "action_required": true

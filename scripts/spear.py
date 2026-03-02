@@ -124,7 +124,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p2.add_argument("--sort-by", choices=['inclusive', 'self'], default='inclusive',
                     help="Sort by 'inclusive' (total time in call chain) or 'self' (time in function only)")
     p2.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p2.add_argument("--top-n", type=int, default=10, help="Number of top hotspots to display (default: 10)")
+    p2.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top hotspots to display (default: 10)")
     p2.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p2.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
     p2.add_argument("--pid", type=int, help="Filter by process ID")
@@ -149,7 +149,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p3.add_argument("--no-include-experts", action="store_true",
                     help="Exclude built-in expert rules")
     p3.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p3.add_argument("--top-n", type=int, default=10, help="Number of top clusters to display (default: 10)")
+    p3.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top clusters to display (default: 10)")
     p3.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p3.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
     p3.add_argument("--pid", type=int, help="Filter by process ID")
@@ -169,7 +169,7 @@ Use '<command> --help' for detailed help on each subcommand."""
                          "If not provided, use --auto-target to trace top hotspots automatically")
     p4.add_argument("--auto-target", action="store_true",
                     help="Automatically trace top N hotspot functions")
-    p4.add_argument("--top-n", type=int, default=10,
+    p4.add_argument("--top-n", "--limit", type=int, default=10,
                     help="Number of top results to display (default: 10)")
     p4.add_argument("--min-cpu", type=float, default=3.0, metavar="PERCENT",
                     help="Minimum CPU utilization %% to display a hotspot (default: 3.0%%). "
@@ -200,7 +200,7 @@ Use '<command> --help' for detailed help on each subcommand."""
                          "below this threshold are excluded from anomaly detection. "
                          "Range: 0.0-1.0 (default: 0.3 = 30%%)")
     p5.add_argument("--cpu-id", type=int, help="Analyze specific CPU only")
-    p5.add_argument("--top-n", type=int, default=10, help="Top N anomalies to report")
+    p5.add_argument("--top-n", "--limit", type=int, default=10, help="Top N anomalies to report")
     p5.add_argument("--export-mode", action="store_true",
                     help="Export all window data instead of detecting anomalies")
     p5.add_argument("--export-samples", action="store_true",
@@ -228,7 +228,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p9.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
                          "Default: 19. Ignored for SPEAR format.")
-    p9.add_argument("--top-n", type=int, default=10, help="Number of top processes to display (default: 10)")
+    p9.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top processes to display (default: 10)")
     p9.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p9.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p9.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
@@ -240,7 +240,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p10.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
                          "Default: 19. Ignored for SPEAR format.")
-    p10.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
+    p10.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p10.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p10.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p10.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
@@ -256,7 +256,7 @@ Use '<command> --help' for detailed help on each subcommand."""
                      help="Minimum common prefix depth to form a cluster (default: 2)")
     p11.add_argument("--min-samples", type=int, default=5,
                      help="Minimum samples to form a cluster (default: 5)")
-    p11.add_argument("--top-n", type=int, default=10,
+    p11.add_argument("--top-n", "--limit", type=int, default=10,
                      help="Number of top clusters to display (default: 10)")
     p11.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p11.add_argument("--pid", type=int, help="Filter by process ID")
@@ -272,7 +272,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p12.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
                          "Default: 19. Ignored for SPEAR format.")
-    p12.add_argument("--top-n", type=int, default=20,
+    p12.add_argument("--top-n", "--limit", type=int, default=20,
                      help="Number of top process names to display (default: 20)")
     p12.add_argument("--storm-pid-threshold", type=int, default=50, metavar="N",
                      help="PID count threshold for process storm detection. A storm is detected when "
@@ -299,7 +299,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p13.add_argument("--pid", type=int, help="Filter by process ID")
     p13.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p13.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-    p13.add_argument("--top-n", type=int, default=10, help="Number of top saturated cores to display (default: 10)")
+    p13.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top saturated cores to display (default: 10)")
     p13.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p13.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
@@ -310,7 +310,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
                          "Default: 19. Ignored for SPEAR format.")
-    p14.add_argument("--top-n", type=int, default=10, help="Number of top comm groups to display (default: 10)")
+    p14.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p14.add_argument("--sort-by-density", action="store_true",
                      help="Sort by density index (CPU per process) instead of aggregate CPU")
     p14.add_argument("--cpu-id", type=int, help="Filter by CPU ID")

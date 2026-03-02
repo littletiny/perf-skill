@@ -90,7 +90,7 @@ def cmd_count_process_variety(builder, engine, args, samples):
         risk = create_risk_info(
             level="critical",
             message=f"检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）",
-            hint=f"[必须] 添加到 Trace: spear trace add --desc '检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）' --hint '对每个进程名运行 cluster-comm --comm <comm> 进行详细分析'",
+            hint=f"[必须] 添加到 Trace: spear trace add --desc '检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）' --hint '对每个进程名运行 cluster-symbols --comm <comm> 进行详细分析'",
             patterns=["PROCESS_STORM"],
             pending_targets=storm_comms
         )
