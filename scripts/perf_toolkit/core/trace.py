@@ -153,7 +153,50 @@ class Trace:
         }
         self.data['timeline'].append(record)
         self.save()
+        
+        # 无脑输出所有 open issues
+        self._print_open_issues()
+        
         return seq
+    
+    def _print_open_issues(self):
+        """无脑输出所有 open issues（用于命令开始时提示）"""
+        open_issues = self.get_open_issues()
+        if not open_issues:
+            return
+        
+        # 按级别分组
+        critical_issues = [i for i in open_issues if i.get('level') == 'critical']
+        warning_issues = [i for i in open_issues if i.get('level') == 'warning']
+        info_issues = [i for i in open_issues if i.get('level') not in ['critical', 'warning']]
+        
+        # 输出 header
+        print(f"\n[!] 存在 {len(open_issues)} 个未处理问题，分析前请先 review:")
+        print("-" * 65)
+        
+        # 按级别输出
+        for issue in critical_issues + warning_issues + info_issues:
+            level = issue.get('level', 'warning').upper()
+            issue_id = issue.get('id', '')
+            desc = issue.get('desc', '')
+            hint = issue.get('hint', '')
+            
+            # 根据级别选择颜色（如果支持）
+            color = ''
+            reset = ''
+            if level == 'CRITICAL':
+                color = '\033[91m'  # 红色
+                reset = '\033[0m'
+            elif level == 'WARNING':
+                color = '\033[93m'  # 黄色
+                reset = '\033[0m'
+            
+            print(f"{color}[{level}] {issue_id}: {desc}{reset}")
+            if hint:
+                print(f"    → Hint: {hint}")
+        
+        print("-" * 65)
+        print(f"执行 'spear trace issues' 查看详情，或 'spear trace complete --id <ID> --result <结果>' 解决\n")
 
     def add(self, desc: str, risk: str = "", hint: str = "", level: str = "warning") -> str:
         """
@@ -233,6 +276,42 @@ class Trace:
                 "result": result
             })
             self.save()
+
+    def reopen(self, issue_id: str, reason: str = ""):
+        """
+        重新打开已解决的 issue
+
+        Args:
+            issue_id: Issue ID (如 ISS-001)
+            reason: 重新打开的原因
+        """
+        if issue_id not in self.data['issues']:
+            # 尝试模糊匹配
+            issue_id = self._fuzzy_find_issue(issue_id) or issue_id
+
+        if issue_id in self.data['issues']:
+            issue = self.data['issues'][issue_id]
+            
+            # 只有 resolved 的 issue 才能 reopen
+            if issue['status'] != 'resolved':
+                raise ValueError(f"Issue {issue_id} is not resolved (status: {issue['status']})")
+            
+            issue['status'] = 'open'
+            issue['resolved_at'] = None
+            issue['resolved_by_seq'] = None
+            issue['result'] = None
+            issue['reopened_at'] = self._now()
+            issue['reopen_reason'] = reason
+
+            self._add_finding_to_current({
+                "type": "issue_reopened",
+                "issue_id": issue_id,
+                "reason": reason
+            })
+            self.save()
+            return issue_id
+        
+        raise ValueError(f"Issue not found: {issue_id}")
 
     def record_info(self, message: str):
         """记录一般信息"""
@@ -663,6 +742,23 @@ def cmd_doc_complete(args):
             print(f"\n→ {len(open_issues)} issues remaining")
         else:
             print("\n[ALL DONE] No more issues")
+    except ValueError as e:
+        print(f"[ERROR] {e}")
+
+
+def cmd_doc_reopen(args):
+    """重新打开已解决的 issue"""
+    doc = Trace()
+
+    try:
+        issue_id = doc.reopen(args.id, getattr(args, 'reason', ''))
+        print(f"[REOPENED] {issue_id}")
+        if args.reason:
+            print(f"→ Reason: {args.reason}")
+
+        # 显示当前 open issues
+        open_issues = doc.get_open_issues()
+        print(f"\n→ {len(open_issues)} issues now open")
     except ValueError as e:
         print(f"[ERROR] {e}")
 

@@ -51,7 +51,7 @@ from perf_toolkit.analysis.comm_top import cmd_get_comm_top
 # Import trace commands (v2.0: auto add, manual complete)
 from perf_toolkit.core.trace import (
     cmd_doc_init, cmd_doc_add, cmd_doc_complete, cmd_doc_timeline,
-    cmd_doc_issues, cmd_doc_finalize, cmd_doc_export
+    cmd_doc_issues, cmd_doc_finalize, cmd_doc_export, cmd_doc_reopen
 )
 
 
@@ -351,6 +351,11 @@ Use '<command> --help' for detailed help on each subcommand."""
     doc_complete.add_argument("--id", required=True, help="Issue identifier")
     doc_complete.add_argument("--result", required=True, help="Analysis result and conclusion")
 
+    # doc reopen
+    doc_reopen = doc_subparsers.add_parser('reopen', help="Reopen a resolved issue")
+    doc_reopen.add_argument("--id", required=True, help="Issue identifier")
+    doc_reopen.add_argument("--reason", default="", help="Reason for reopening")
+
     # doc finalize
     doc_finalize = doc_subparsers.add_parser('finalize', help="Final audit before generating report")
     doc_finalize.add_argument("--accept-risk", help="Reason for accepting remaining risks")
@@ -380,6 +385,7 @@ Use '<command> --help' for detailed help on each subcommand."""
             "timeline": cmd_doc_timeline,
             "issues": cmd_doc_issues,
             "complete": cmd_doc_complete,
+            "reopen": cmd_doc_reopen,
             "finalize": cmd_doc_finalize,
             "export": cmd_doc_export
         }
