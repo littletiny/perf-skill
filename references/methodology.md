@@ -93,7 +93,6 @@ spear bottleneck-trace --comm <瓶颈进程名>
 **使用原则**：
 - 不确定从何入手 → 从 Composite 层开始
 - 有明确目标 → 直接使用 Analysis 层工具
-- 需要原始数据 → 使用 Core 层接口（开发扩展时）
 
 ---
 
