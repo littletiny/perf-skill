@@ -51,5 +51,8 @@ htmlcov/
 *.txt
 
 # Project specific
+**/.shecr.json
+**/.shecr_env
 **/.spear.json
 **/.spear.env
+output.txt
