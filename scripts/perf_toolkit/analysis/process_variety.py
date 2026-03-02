@@ -87,10 +87,12 @@ def cmd_count_process_variety(builder, engine, args, samples):
 
     # Create risk info
     if storm_comms:
+        # 生成简化的 cluster-symbols 命令提示
+        cluster_commands = "; ".join([f"cluster-symbols --comm {comm}" for comm in storm_comms])
         risk = create_risk_info(
             level="critical",
             message=f"检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）",
-            hint=f"[必须] 添加到 Trace: spear trace add --desc '检测到 {len(storm_comms)} 个进程风暴（短生命周期进程）' --hint '对每个进程名运行 cluster-symbols --comm <comm> 进行详细分析'",
+            hint=f"必须对每个进程运行: {cluster_commands}",
             patterns=["PROCESS_STORM"],
             pending_targets=storm_comms
         )

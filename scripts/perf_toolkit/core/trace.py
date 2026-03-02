@@ -265,10 +265,24 @@ class Trace:
 
         if issue_id in self.data['issues']:
             issue = self.data['issues'][issue_id]
-            issue['status'] = 'resolved'
+            
+            # 初始化 results 列表（如果不存在）
+            if 'results' not in issue:
+                issue['results'] = []
+            
+            # 追加新结果到列表
+            result_entry = {
+                "result": result,
+                "resolved_at": self._now(),
+                "resolved_by_seq": self._current_seq
+            }
+            issue['results'].append(result_entry)
+            
+            # 同时更新单字段 result（兼容性）
             issue['result'] = result
-            issue['resolved_at'] = self._now()
-            issue['resolved_by_seq'] = self._current_seq
+            issue['status'] = 'resolved'
+            issue['resolved_at'] = result_entry['resolved_at']
+            issue['resolved_by_seq'] = result_entry['resolved_by_seq']
 
             self._add_finding_to_current({
                 "type": "issue_resolved",
@@ -302,7 +316,8 @@ class Trace:
                 "reason": reason,
                 "previous_result": issue.get('result'),
                 "previous_resolved_at": issue.get('resolved_at'),
-                "previous_resolved_by_seq": issue.get('resolved_by_seq')
+                "previous_resolved_by_seq": issue.get('resolved_by_seq'),
+                "previous_results": issue.get('results', [])  # 保存完整的 results 列表
             }
             
             if 'reopen_history' not in issue:
@@ -488,7 +503,7 @@ class Trace:
         desc = issue.get('desc', '')
         status = issue.get('status', 'open')
         hint = issue.get('hint', '')
-        result = issue.get('result', '')
+        results = issue.get('results', [])
         reopen_history = issue.get('reopen_history', [])
 
         # 应用颜色
@@ -507,26 +522,35 @@ class Trace:
 
         lines = [line]
 
-        # Hint / Result / Reopen history
+        # Hint
         if status != 'resolved' and hint and cfg.show.get('hint', True):
             tpl = cfg.templates.get('hint', '→ {hint}')
             lines.append(tpl.format(hint=hint))
         
-        # 显示 result（如果存在）- 包括 reopened 的 issue
-        if result and cfg.show.get('result', True):
-            if reopen_history:
-                tpl = cfg.templates.get('result_reopened', '→ [PREVIOUS] {result}')
-            else:
-                tpl = cfg.templates.get('result', '→ {result}')
-            lines.append(tpl.format(result=result))
+        # 显示所有 results（列表格式）
+        if results and cfg.show.get('result', True):
+            for i, result_entry in enumerate(results, 1):
+                result_text = result_entry.get('result', '')
+                if len(results) > 1:
+                    # 多个结果时显示序号
+                    lines.append(f"→ [RESOLVED #{i}] {result_text}")
+                else:
+                    # 单个结果时简化显示
+                    lines.append(f"→ {result_text}")
         
-        # 显示 reopen 历史
+        # 显示 reopen 历史（包含之前的 results）
         if reopen_history and cfg.show.get('reopen_history', True):
             for i, record in enumerate(reopen_history, 1):
-                prev_result = record.get('previous_result', '')
                 lines.append(f"→ [REOPEN #{i}] {record.get('reason', 'No reason')}")
-                if prev_result:
-                    lines.append(f"    Previous result: {prev_result}")
+                # 显示该次 reopen 前的所有 results
+                prev_results = record.get('previous_results', [])
+                if prev_results:
+                    for j, prev_result in enumerate(prev_results, 1):
+                        result_text = prev_result.get('result', '')
+                        if len(prev_results) > 1:
+                            lines.append(f"    [#{j}] {result_text}")
+                        else:
+                            lines.append(f"    → {result_text}")
 
         return '\n'.join(lines)
 
@@ -666,6 +690,16 @@ class Trace:
                 lines.append(f"- 级别: {issue['level']}")
                 if issue.get('hint'):
                     lines.append(f"- 建议: `{issue['hint']}`")
+                # 显示历史 results（如果有 reopen 历史）
+                reopen_history = issue.get('reopen_history', [])
+                if reopen_history:
+                    lines.append("- 历史记录:")
+                    for i, record in enumerate(reopen_history, 1):
+                        prev_results = record.get('previous_results', [])
+                        if prev_results:
+                            for prev_result in prev_results:
+                                result_text = prev_result.get('result', '')
+                                lines.append(f"  - 之前的结论: {result_text}")
             lines.append("")
 
         # 已解决问题
@@ -674,7 +708,25 @@ class Trace:
             lines.append("## ✅ 已解决问题")
             for issue in resolved_issues:
                 lines.append(f"\n### {issue['id']}: {issue['desc']}")
-                lines.append(f"- 结果: {issue.get('result', 'N/A')}")
+                results = issue.get('results', [])
+                reopen_history = issue.get('reopen_history', [])
+                
+                if len(results) == 1 and not reopen_history:
+                    # 简单情况：只解决过一次
+                    lines.append(f"- 结果: {results[0].get('result', 'N/A')}")
+                else:
+                    # 复杂情况：多次解决或有过 reopen
+                    lines.append("- 解决记录:")
+                    for i, result_entry in enumerate(results, 1):
+                        result_text = result_entry.get('result', '')
+                        lines.append(f"  {i}. {result_text}")
+                    
+                    # 显示 reopen 历史
+                    if reopen_history:
+                        lines.append("- 重新打开记录:")
+                        for i, record in enumerate(reopen_history, 1):
+                            reason = record.get('reason', 'No reason')
+                            lines.append(f"  - 第{i}次 reopen: {reason}")
             lines.append("")
 
         return '\n'.join(lines)
