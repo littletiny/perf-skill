@@ -382,7 +382,9 @@ class TestTraceFormatting(unittest.TestCase):
         self.assertIn('[RESOLVED]', output)
         self.assertIn('[ISS-002]', output)
         self.assertIn('[CRITICAL]', output)
-        self.assertIn('→ Fixed by restart', output)
+        # 新时间线格式: [创建] desc → [解决] result
+        self.assertIn('[创建] Resolved issue', output)
+        self.assertIn('[解决] Fixed by restart', output)
 
         print("  ✓ Resolved issue formatting works")
 

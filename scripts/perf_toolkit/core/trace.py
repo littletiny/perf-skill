@@ -160,43 +160,43 @@ class Trace:
         return seq
     
     def _print_open_issues(self):
-        """无脑输出所有 open issues（用于命令开始时提示）"""
+        """输出 issue overflow warning（当 open_issues >= 2 时）"""
         open_issues = self.get_open_issues()
-        if not open_issues:
+        # 触发条件: open_issues >= 2
+        if len(open_issues) < 2:
             return
         
-        # 按级别分组
-        critical_issues = [i for i in open_issues if i.get('level') == 'critical']
-        warning_issues = [i for i in open_issues if i.get('level') == 'warning']
-        info_issues = [i for i in open_issues if i.get('level') not in ['critical', 'warning']]
+        # 分类统计
+        categories = self._categorize_issues(open_issues)
+        category_str = ", ".join([f"{cat}x{count}" for cat, count in categories.items()]) if categories else "未知类型"
         
-        # 输出 header
-        print(f"\n[!] 存在 {len(open_issues)} 个未处理问题，分析前请先 review:")
-        print("-" * 65)
+        # 固定警告文案
+        warning = "⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状"
         
-        # 按级别输出
-        for issue in critical_issues + warning_issues + info_issues:
-            level = issue.get('level', 'warning').upper()
-            issue_id = issue.get('id', '')
-            desc = issue.get('desc', '')
-            hint = issue.get('hint', '')
+        # 输出格式: [!] {总数}问题未闭环: {分类统计} | {警告文案} | 现在执行: trace issues
+        print(f"[!] {len(open_issues)}问题未闭环: {category_str} | {warning} | 现在执行: trace issues")
+        print()  # 空行分割
+    
+    def _categorize_issues(self, issues) -> dict:
+        """对 issues 进行分类统计"""
+        categories = {
+            "内核异常": 0,
+            "锁竞争": 0,
+            "进程风暴": 0,
+        }
+        
+        for issue in issues:
+            desc = issue.get('desc', '').lower()
             
-            # 根据级别选择颜色（如果支持）
-            color = ''
-            reset = ''
-            if level == 'CRITICAL':
-                color = '\033[91m'  # 红色
-                reset = '\033[0m'
-            elif level == 'WARNING':
-                color = '\033[93m'  # 黄色
-                reset = '\033[0m'
-            
-            print(f"{color}[{level}] {issue_id}: {desc}{reset}")
-            if hint:
-                print(f"    → Hint: {hint}")
+            if '内核' in desc or 'kernel' in desc:
+                categories["内核异常"] += 1
+            elif '锁竞争' in desc or 'lock_contention' in desc:
+                categories["锁竞争"] += 1
+            elif '进程风暴' in desc or 'process_storm' in desc:
+                categories["进程风暴"] += 1
         
-        print("-" * 65)
-        print(f"执行 'spear trace issues' 查看详情，或 'spear trace complete --id <ID> --result <结果>' 解决\n")
+        # 过滤掉数量为0的分类
+        return {k: v for k, v in categories.items() if v > 0}
 
     def add(self, desc: str, risk: str = "", hint: str = "", level: str = "warning") -> str:
         """
@@ -311,13 +311,14 @@ class Trace:
                 raise ValueError(f"Issue {issue_id} is not resolved (status: {issue['status']})")
             
             # 记录 reopen 历史（保留之前的解决信息）
+            import copy
             reopen_record = {
                 "reopened_at": self._now(),
                 "reason": reason,
                 "previous_result": issue.get('result'),
                 "previous_resolved_at": issue.get('resolved_at'),
                 "previous_resolved_by_seq": issue.get('resolved_by_seq'),
-                "previous_results": issue.get('results', [])  # 保存完整的 results 列表
+                "previous_results": copy.deepcopy(issue.get('results', []))  # 深拷贝 results 列表
             }
             
             if 'reopen_history' not in issue:
@@ -495,7 +496,7 @@ class Trace:
     # =====================================================================
 
     def format_issue(self, issue: Dict, cfg: RiskDisplayConfig = None) -> str:
-        """格式化单个 issue"""
+        """格式化单个 issue（时间线格式，原因-结果配对）"""
         cfg = self._get_config(cfg)
 
         issue_id = issue.get('id', '')
@@ -527,30 +528,46 @@ class Trace:
             tpl = cfg.templates.get('hint', '→ {hint}')
             lines.append(tpl.format(hint=hint))
         
-        # 显示所有 results（列表格式）
-        if results and cfg.show.get('result', True):
-            for i, result_entry in enumerate(results, 1):
+        # 时间线：原因 → 结果 配对展示
+        if cfg.show.get('result', True):
+            # 计算有多少个 reopen，就有多少对 原因→结果
+            # reopen_history[i] 对应 results[i]（第 i 次 reopen 后的解决）
+            # desc 对应 results[0]（创建 issue 后的第一次解决）
+            
+            for i, result_entry in enumerate(results):
                 result_text = result_entry.get('result', '')
-                if len(results) > 1:
-                    # 多个结果时显示序号
-                    lines.append(f"→ [RESOLVED #{i}] {result_text}")
+                
+                if i == 0:
+                    # 第一对：创建 issue 的原因 → 第一次解决结果
+                    cause = desc
+                    prefix = "[创建]"
                 else:
-                    # 单个结果时简化显示
-                    lines.append(f"→ {result_text}")
+                    # 后续：reopen 原因 → 解决结果
+                    # reopen_history[i-1] 是第 i 次 reopen 的记录
+                    if i - 1 < len(reopen_history):
+                        cause = reopen_history[i - 1].get('reason', '')
+                    else:
+                        cause = ""
+                    prefix = "[重开]"
+                
+                if cause:
+                    lines.append(f"{prefix} {cause} → [解决] {result_text}")
+                else:
+                    lines.append(f"[解决] {result_text}")
+            
+            # 如果当前是 open 状态，显示最后一次 reopen（还没有对应的解决）
+            if status == 'open' and reopen_history:
+                # reopen 次数 = len(reopen_history)
+                # complete 次数 = len(results)
+                # 如果 reopen 次数 >= complete 次数，说明最后一次 reopen 还没解决
+                if len(reopen_history) >= len(results):
+                    last_reopen = reopen_history[-1]
+                    last_reason = last_reopen.get('reason', '')
+                    lines.append(f"[重开] {last_reason} → [待解决]")
         
-        # 显示 reopen 历史（包含之前的 results）
-        if reopen_history and cfg.show.get('reopen_history', True):
-            for i, record in enumerate(reopen_history, 1):
-                lines.append(f"→ [REOPEN #{i}] {record.get('reason', 'No reason')}")
-                # 显示该次 reopen 前的所有 results
-                prev_results = record.get('previous_results', [])
-                if prev_results:
-                    for j, prev_result in enumerate(prev_results, 1):
-                        result_text = prev_result.get('result', '')
-                        if len(prev_results) > 1:
-                            lines.append(f"    [#{j}] {result_text}")
-                        else:
-                            lines.append(f"    → {result_text}")
+        # 兼容旧数据：只有 result 字符串没有 results 列表
+        if not results and issue.get('result') and cfg.show.get('result', True):
+            lines.append(f"[创建] {desc} → [解决] {issue['result']}")
 
         return '\n'.join(lines)
 
@@ -935,3 +952,265 @@ def cmd_doc_export(args):
         print(f"[EXPORTED] {output}")
     else:
         print(content)
+
+
+# =============================================================================
+# 审计功能
+# =============================================================================
+
+def cmd_doc_audit(args):
+    """
+    审计 resolved issues 的分析质量
+    
+    检查项：
+    1. 结构完整性：result 非空、非敷衍
+    2. Timeline 关联：有分析命令支撑
+    3. 分析深度：result 包含因果推导
+    """
+    cfg = _load_risk_config_from_args(args)
+    doc = Trace(config=cfg)
+    
+    phase = getattr(args, 'phase', 'all')
+    output = getattr(args, 'output', None)
+    
+    # 获取所有 resolved issues
+    resolved_issues = doc.get_resolved_issues()
+    
+    if not resolved_issues:
+        print("[AUDIT] No resolved issues to audit")
+        return
+    
+    # 执行审计检查
+    audit_results = []
+    failed_count = 0
+    warning_count = 0
+    passed_count = 0
+    
+    for issue in resolved_issues:
+        result = _audit_issue(issue, doc.data.get('timeline', []), phase)
+        audit_results.append(result)
+        
+        if result['status'] == 'failed':
+            failed_count += 1
+        elif result['status'] == 'warning':
+            warning_count += 1
+        else:
+            passed_count += 1
+    
+    # 生成报告
+    report = {
+        "audit_time": datetime.utcnow().isoformat() + "Z",
+        "summary": {
+            "total_issues": len(resolved_issues),
+            "passed": passed_count,
+            "failed": failed_count,
+            "warnings": warning_count
+        },
+        "issues": audit_results
+    }
+    
+    # 输出格式
+    fmt = getattr(args, 'format', 'text')
+    
+    if fmt == 'json':
+        content = json.dumps(report, indent=2, ensure_ascii=False)
+        if output:
+            with open(output, 'w') as f:
+                f.write(content)
+            print(f"[AUDIT REPORT SAVED] {output}")
+        else:
+            print(content)
+    else:
+        _print_audit_report(report, cfg, output)
+    
+    # 如果有失败项，返回非零退出码
+    if failed_count > 0 and not getattr(args, 'no_fail', False):
+        import sys
+        sys.exit(1)
+
+
+def _audit_issue(issue: Dict, timeline: List[Dict], phase: str) -> Dict:
+    """审计单个 issue"""
+    issue_id = issue.get('id', 'unknown')
+    result_text = issue.get('result', '') or ''
+    created_seq = issue.get('created_by_seq')
+    resolved_seq = issue.get('resolved_by_seq')
+    created_at = issue.get('created_at', '')
+    resolved_at = issue.get('resolved_at', '')
+    
+    checks = {}
+    failures = []
+    warnings = []
+    
+    # Phase 1: 结构完整性
+    if phase in ('all', 'structural'):
+        # Check has_result
+        if not result_text or result_text.strip() == '':
+            checks['has_result'] = False
+            failures.append("Empty result")
+        else:
+            checks['has_result'] = True
+        
+        # Check敷衍标记
+        perfunctory_markers = ['ok', 'done', 'fixed', 'yes', 'no', 'ok.', 'done.', 'fixed.']
+        if result_text.strip().lower() in perfunctory_markers:
+            checks['substantive_result'] = False
+            failures.append(f"Perfunctory result: '{result_text}'")
+        else:
+            checks['substantive_result'] = True
+    
+    # Phase 2: Timeline 关联
+    if phase in ('all', 'timeline'):
+        # Check 分析时间间隔
+        if created_at and resolved_at:
+            try:
+                created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                resolved_dt = datetime.fromisoformat(resolved_at.replace('Z', '+00:00'))
+                duration = (resolved_dt - created_dt).total_seconds()
+                checks['analysis_duration_seconds'] = duration
+                
+                if duration < 30:  # 30秒内完成 = 可疑
+                    checks['sufficient_analysis_time'] = False
+                    warnings.append(f"Analysis time too short: {duration:.1f}s")
+                else:
+                    checks['sufficient_analysis_time'] = True
+            except:
+                checks['sufficient_analysis_time'] = None
+        
+        # Check timeline 支撑
+        if created_seq and timeline:
+            # 查找 created_seq 之后的命令
+            analysis_commands = []
+            for record in timeline:
+                if record.get('seq', 0) > created_seq:
+                    # 排除 trace 自身的命令
+                    cmd = record.get('command', '')
+                    if not cmd.startswith('trace '):
+                        analysis_commands.append(cmd)
+            
+            if analysis_commands:
+                checks['has_timeline_support'] = True
+                checks['analysis_commands_count'] = len(analysis_commands)
+            else:
+                checks['has_timeline_support'] = False
+                if resolved_seq is None:
+                    failures.append("No analysis commands found (resolved_by_seq is null)")
+                else:
+                    warnings.append("No analysis commands in timeline")
+        else:
+            checks['has_timeline_support'] = None
+    
+    # Phase 3: 分析深度（启发式检查）
+    if phase in ('all', 'depth'):
+        # Check 是否包含文档引用
+        has_doc_ref = 'debug/' in result_text or '.md' in result_text
+        checks['has_document_reference'] = has_doc_ref
+        
+        # Check 是否包含因果词
+        causal_words = ['根因', '原因', '导致', '因为', 'caused by', 'root cause', 
+                       '排除', 'verified', 'confirmed', 'identified']
+        has_causal = any(word in result_text.lower() for word in causal_words)
+        checks['has_causal_analysis'] = has_causal
+        
+        if not has_causal and len(result_text) < 50:
+            warnings.append("Result lacks causal analysis")
+    
+    # 确定最终状态
+    if failures:
+        status = 'failed'
+    elif warnings:
+        status = 'warning'
+    else:
+        status = 'passed'
+    
+    return {
+        "id": issue_id,
+        "desc": issue.get('desc', ''),
+        "status": status,
+        "checks": checks,
+        "failures": failures,
+        "warnings": warnings,
+        "action_required": "Reopen and add analysis" if status == 'failed' else None
+    }
+
+
+def _print_audit_report(report: Dict, cfg: RiskDisplayConfig, output_path: str = None):
+    """打印审计报告（文本格式）"""
+    lines = []
+    
+    # Header
+    lines.append("=" * 65)
+    lines.append("AUDIT REPORT")
+    lines.append("=" * 65)
+    lines.append(f"Audit Time: {report['audit_time']}")
+    lines.append("")
+    
+    # Summary
+    summary = report['summary']
+    lines.append("SUMMARY")
+    lines.append("-" * 65)
+    lines.append(f"Total Issues: {summary['total_issues']}")
+    lines.append(f"  ✅ Passed:   {summary['passed']}")
+    lines.append(f"  ⚠️  Warnings: {summary['warnings']}")
+    lines.append(f"  ❌ Failed:   {summary['failed']}")
+    lines.append(f"Pass Rate: {summary['passed']/summary['total_issues']*100:.1f}%")
+    lines.append("")
+    
+    # Failed Issues
+    failed_issues = [i for i in report['issues'] if i['status'] == 'failed']
+    if failed_issues:
+        lines.append("FAILED ISSUES (Action Required)")
+        lines.append("-" * 65)
+        for issue in failed_issues:
+            color = cfg.colors.get('critical', '')
+            reset = cfg.colors.get('reset', '')
+            lines.append(f"{color}[FAIL] {issue['id']}: {issue['desc']}{reset}")
+            for failure in issue['failures']:
+                lines.append(f"  └─ {failure}")
+            if issue['action_required']:
+                lines.append(f"  → Action: {issue['action_required']}")
+            lines.append("")
+    
+    # Warning Issues
+    warning_issues = [i for i in report['issues'] if i['status'] == 'warning']
+    if warning_issues:
+        lines.append("WARNINGS (Recommended to Improve)")
+        lines.append("-" * 65)
+        for issue in warning_issues:
+            color = cfg.colors.get('warning', '')
+            reset = cfg.colors.get('reset', '')
+            lines.append(f"{color}[WARN] {issue['id']}: {issue['desc']}{reset}")
+            for warning in issue['warnings']:
+                lines.append(f"  └─ {warning}")
+            lines.append("")
+    
+    # Passed Issues
+    passed_issues = [i for i in report['issues'] if i['status'] == 'passed']
+    if passed_issues:
+        lines.append("PASSED ISSUES")
+        lines.append("-" * 65)
+        for issue in passed_issues:
+            lines.append(f"[PASS] {issue['id']}: {issue['desc']}")
+        lines.append("")
+    
+    # Footer
+    lines.append("=" * 65)
+    if failed_issues:
+        lines.append("AUDIT FAILED - Fix issues before finalize")
+        lines.append("Command: spear trace reopen --all --reason 'audit failed'")
+    elif warning_issues:
+        lines.append("AUDIT PASSED with warnings")
+    else:
+        lines.append("AUDIT PASSED - All issues meet quality standards")
+    lines.append("=" * 65)
+    
+    content = '\n'.join(lines)
+    
+    if output_path:
+        with open(output_path, 'w') as f:
+            f.write(content)
+        print(f"[AUDIT REPORT SAVED] {output_path}")
+    else:
+        print(content)
+    
+    return content
