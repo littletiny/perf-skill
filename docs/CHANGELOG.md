@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.37] - 2026-03-03
+
+### Changed
+- 大幅精简 `references/tools.md`（657行 → 190行），删除冗余参数表格
+- 简化所有工具示例，删除 `--data` 参数（`spear init` 已配置）
+- 明确所有特有参数含义（如 `--threshold` (单核饱和度阈值)）
+- 优化 `references/methodology.md` 诊断流程检查清单
+- 三候选假说改为抽象维度描述（代码/架构/环境）
+- 强调"冰山一角"效应：Top1 问题不一定是全部
+
+### Removed
+- 删除 `references/workflow-patterns.md`（内容已合并至 methodology.md）
+- 删除 `SKILL.md` 质量审计章节（移至独立文档 `docs/audit-process.md`）
+- 删除 methodology.md "确认目标范围与工具参数一致"无意义检查项
+
+**Changed files**: `version`, `references/tools.md`, `references/methodology.md`, `SKILL.md`, `AGENTS.md`, `.gitignore`
+
+---
+
 ## [2.36] - 2026-03-03
 
 ### Added
