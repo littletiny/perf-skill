@@ -41,217 +41,56 @@ spear bottleneck-trace --comm <name>
 
 ## 系统级工具
 
+## 工具详情
+
 ### analyze-core-distribution
 
-核心级负载分布分析。检测单核饱和、中断不均、负载分布情况。
+核心级负载分布分析。检测单核饱和、负载不均衡。
 
 ```bash
-spear analyze-core-distribution \
-  --data <perf.script.txt> \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--top-n <N>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
+spear analyze-core-distribution --data <file> [options]
 ```
 
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--pid` | int | - | 仅分析指定进程 |
-| `--comm` | string | - | 按进程名过滤 |
-| `--comm-regex` | string | - | 按进程名正则匹配 |
-| `--top-n` | int | 10 | 显示饱和核心数 |
-| `--cpu-limit` | string | - | CPU limit检测（如 `0.5c`） |
-| `--threshold` | float | 80% | 单核饱和检测阈值 |
-
-**输出字段**:
-| 字段 | 说明 |
-|------|------|
-| `imbalance_level` | 不均衡等级: LOW/MEDIUM/HIGH/CRITICAL |
-| `max_utilization_pct` | 最高核心利用率 |
-| `min_utilization_pct` | 最低核心利用率 |
-| `saturated_cores` | 饱和核心列表 |
-| `patterns` | 检测到的模式数组 |
-
-**检测模式**:
-| 模式 | 说明 |
-|------|------|
-| `SINGLE_CORE_SATURATION` | 单核满载，其他核心空闲 |
-| `WIDE_DISTRIBUTION_LOW_UTIL` | 广泛分布但利用率低 |
-| `IRQ_IMBALANCE` | 中断分布不均 |
+**特有参数**: `--threshold`, `--cpu-limit`  
+**检测模式**: `SINGLE_CORE_SATURATION`, `WIDE_DISTRIBUTION_LOW_UTIL`, `IRQ_IMBALANCE`
 
 ---
 
 ### detect-anomalies
 
-时序异常检测与窗口定位。
+时序异常检测。识别 CPU 利用率突变点。
 
 ```bash
-spear detect-anomalies \
-  --data <perf.script.txt> \
-  [--window-size <sec>] \
-  [--spike-threshold <ratio>] \
-  [--min-utilization <ratio>] \
-  [--cpu-id <ID>] \
-  [--top-n <N>]
+spear detect-anomalies --data <file> [options]
 ```
 
-**检测类型**:
-| 类型 | 说明 |
-|------|------|
-| `SPIKE` | 利用率突增 |
-| `DROP` | 利用率突降 |
-| `LEVEL_SHIFT` | 水平迁移 |
-| `BURST` | 短时爆发 |
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--window-size` | float | 1.0 | 滑动窗口大小（秒） |
-| `--spike-threshold` | float | 0.5 | 变化倍数阈值 |
-| `--min-utilization` | float | 0.3 | 最小利用率阈值 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--top-n` | int | 10 | 显示的异常数 |
-| `--export-mode` | flag | - | 导出所有窗口数据 |
-| `--export-samples` | flag | - | 包含详细样本数据 |
-| `--detect-in-export` | flag | - | 导出模式也检测异常 |
+**特有参数**: `--window-size`, `--spike-threshold`, `--min-utilization`  
+**检测类型**: `SPIKE`, `DROP`, `LEVEL_SHIFT`, `BURST`
 
 ---
-
-### analyze-core-distribution
-
-核心级负载分布与均衡性分析。
-
-```bash
-spear analyze-core-distribution \
-  --data <perf.script.txt> \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--top-n <N>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--pid` | int | - | 仅分析指定进程 |
-| `--comm` | string | - | 按进程名过滤 |
-| `--comm-regex` | string | - | 按进程名正则匹配 |
-| `--top-n` | int | 10 | 显示饱和核心数 |
-
-**输出字段**:
-| 字段 | 说明 |
-|------|------|
-| `imbalance_level` | 不均衡等级: LOW/MEDIUM/HIGH/CRITICAL |
-| `max_utilization_pct` | 最高核心利用率 |
-| `min_utilization_pct` | 最低核心利用率 |
-| `patterns` | 检测到的模式数组 |
-
-**检测模式**:
-| 模式 | 说明 |
-|------|------|
-| `SINGLE_CORE_SATURATION` | 单核满载，其他核心空闲 |
-| `WIDE_DISTRIBUTION_LOW_UTIL` | 广泛分布但利用率低 |
-
----
-
-## 进程分析工具
 
 ### get-comm-top
 
-进程组资源分析。按进程名分组统计，识别离群进程和进程风暴。
+进程组资源分析。识别离群进程和进程风暴。
 
 ```bash
-spear get-comm-top \
-  --data <perf.script.txt> \
-  [--top-n <N>] \
-  [--show-all] \
-  [--comm <name>]
+spear get-comm-top --data <file> [options]
 ```
 
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--top-n` | int | 10 | 显示进程组数（已过滤噪音） |
-| `--show-all` | flag | - | 显示所有组（包括被折叠的背景组） |
-| `--comm` | string | - | 过滤指定进程名 |
-| `--cv-threshold` | float | 1.0 | CV异常阈值 |
-| `--monopoly-threshold` | float | 0.8 | 核心独占率阈值 |
-| `--spawn-threshold` | float | 10.0 | 进程风暴阈值（个/秒） |
-
-**输出字段**:
-| 字段 | 说明 |
-|------|------|
-| `comm` | 进程名 |
-| `total_cpu` | 聚合 CPU 利用率 |
-| `count` | 进程数量 |
-| `cv` | 变异系数（组内离散程度） |
-| `monopoly` | 核心独占率（0-1） |
-| `spawn_rate` | 进程产生速率（个/秒） |
-| `impact_score` | 危害指数（排序依据） |
-| `diagnosis` | 诊断标签: HEALTHY/UNBALANCED/BOTTLENECK/STORM |
-| `outlier_pid` | 离群PID（CV异常时） |
-
-**诊断标签说明**:
-| 标签 | 条件 | 含义 |
-|------|------|------|
-| `HEALTHY` | CV低 + Monopoly低 | 负载均衡，正常 |
-| `UNBALANCED` | CV高 | 组内进程负载不均，存在离群 |
-| `BOTTLENECK` | Monopoly高 | 单点瓶颈，独占核心 |
-| `STORM` | Spawn Rate高 | 短生命周期进程风暴 |
+**特有参数**: `--show-all`, `--cv-threshold`, `--monopoly-threshold`, `--spawn-threshold`  
+**诊断标签**: `HEALTHY`, `UNBALANCED`, `BOTTLENECK`, `STORM`
 
 ---
 
-## 热点分析工具
-
 ### get-hotspots
 
-识别热点函数。
+热点函数识别。
 
 ```bash
-spear get-hotspots \
-  --data <perf.script.txt> \
-  [--sort-by inclusive|self] \
-  [--top-n <N>] \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
+spear get-hotspots --data <file> [options]
 ```
 
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--sort-by` | string | inclusive | 排序方式: inclusive/self |
-| `--top-n` | int | 10 | 显示热点数 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--pid` | int | - | 过滤指定进程 |
-| `--comm` | string | - | 过滤指定进程名 |
-| `--comm-regex` | string | - | 按进程名正则匹配 |
-
-**排序方式**:
-| 方式 | 说明 |
-|------|------|
-| `inclusive` | 包含子调用时间，反映整体影响 |
-| `self` | 仅自身执行时间，反映直接消耗 |
-
-**输出字段**:
-| 字段 | 说明 |
-|------|------|
-| `symbol` | 函数名 |
-| `self_pct` | 自身消耗百分比 |
-| `inclusive_pct` | 包含子调用百分比 |
-| `core_sec` | core/s 值 |
+**特有参数**: `--sort-by` (inclusive/self)
 
 ---
 
@@ -260,82 +99,25 @@ spear get-hotspots \
 热点函数溯源。
 
 ```bash
-# 指定 target 模式
-spear find-callers \
-  --data <perf.script.txt> \
-  --target <function> \
-  [--min-ratio <pct>] \
-  [--top-n <N>] \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-
-# 自动模式
-spear find-callers \
-  --data <perf.script.txt> \
-  --auto-target \
-  [--min-ratio <pct>] \
-  [--top-n <N>] \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
+spear find-callers --data <file> --target <function> [options]
+# 或
+spear find-callers --data <file> --auto-target [options]
 ```
 
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--target` | string | - | 目标函数名（与 --auto-target 互斥） |
-| `--auto-target` | flag | - | 自动追踪热点 |
-| `--top-n` | int | 10 | 显示结果数 |
-| `--min-ratio` | float | 0.5 | 最小占比阈值（%），低于此值的调用者被隐藏 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--pid` | int | - | 过滤指定进程 |
-| `--comm` | string | - | 过滤指定进程名 |
-| `--comm-regex` | string | - | 按进程名正则匹配 |
-
-**常用 target 函数**:
-| 函数 | 用途 |
-|------|------|
-| `schedule` | 分析调度原因 |
-| `nanosleep` | 分析主动休眠 |
-| `pthread_mutex_lock` | 分析锁竞争 |
-| `epoll_wait` | 分析 IO 等待 |
-| `futex_wait` | 分析用户态锁 |
+**特有参数**: `--target`, `--auto-target`, `--min-ratio`  
+**常用 target**: `schedule`, `pthread_mutex_lock`, `epoll_wait`, `nanosleep`
 
 ---
 
 ### cluster-paths
 
-调用路径聚类，识别共同前缀模式。
+调用路径聚类。
 
 ```bash
-spear cluster-paths \
-  --data <perf.script.txt> \
-  [--min-depth <N>] \
-  [--min-samples <N>] \
-  [--top-n <N>] \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
+spear cluster-paths --data <file> [options]
 ```
 
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--min-depth` | int | 2 | 最小调用深度 |
-| `--min-samples` | int | 5 | 最小样本数 |
-| `--top-n` | int | 10 | 显示路径数 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--pid` | int | - | 过滤指定进程 |
-| `--comm` | string | - | 过滤指定进程名 |
-| `--comm-regex` | string | - | 按进程名正则匹配 |
+**特有参数**: `--min-depth`, `--min-samples`
 
 ---
 
@@ -343,122 +125,42 @@ spear cluster-paths \
 
 ### sys-audit
 
-系统全景扫描，自动识别真瓶颈。
+系统全景扫描。
 
 ```bash
-spear sys-audit \
-  --data <perf.script.txt> \
-  [--top-n <N>] \
-  [--show-all] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
+spear sys-audit --data <file> [options]
 ```
 
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--top-n` | int | 10 | 显示关键进程组数 |
-| `--show-all` | flag | - | 显示所有组（包括折叠的背景组） |
-
-**输出结构**:
-```
-[系统审计报告]
-1. 异常发现
-   系统CPU在10:05突变+80%，Core #7单核饱和
-
-2. 关键进程（按Impact Score排序）
-   COMM           CPU%   Count   Monopoly   Diagnosis
-   app_worker     12%    10      0.92!!     BOTTLENECK  ← 真凶
-   lsof           400%   2000    0.05       HIGH_VOLUME ← 背景
-
-3. 背景噪音（已折叠）
-   24个组 | 总CPU: 15% | 状态: Quiet
-
-4. 建议操作
-   [CRITICAL] app_worker独占Core #7，建议执行: bottleneck-trace --comm app_worker
-```
+**特有参数**: `--show-all`
 
 ---
 
 ### bottleneck-trace
 
-深度分析瓶颈进程。适用于 `sys-audit` 发现的高Monopoly进程，或手动指定目标。
+深度分析瓶颈进程。
 
 ```bash
-spear bottleneck-trace \
-  --data <perf.script.txt> \
-  [--comm <name>] \
-  [--pid <PID>] \
-  [--auto-detect] \
-  [--top-n <N>]
+spear bottleneck-trace --data <file> --comm <name> [options]
+# 或
+spear bottleneck-trace --data <file> --pid <PID> [options]
+# 或
+spear bottleneck-trace --data <file> --auto-detect
 ```
 
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--comm` | string | - | 目标进程名（与--auto-detect互斥） |
-| `--pid` | int | - | 目标PID |
-| `--auto-detect` | flag | - | 自动检测系统中的瓶颈进程 |
-| `--top-n` | int | 10 | 显示热点数 |
+**特有参数**: `--comm`, `--pid`, `--auto-detect`
 
 ---
 
 ## Trace 命令
 
-### trace add
+问题追踪：记录诊断过程中的发现和结论。
 
-添加问题记录（自动生成 ID）。
-
-```bash
-spear trace add \
-  --desc "问题描述" \
-  [--level critical|warning|info] \
-  [--hint "建议操作"]
-```
-
-**输出**: `✓ 已添加问题: ISS-001`
-
----
-
-### trace complete
-
-标记问题完成。
-
-```bash
-spear trace complete \
-  --id ISS-001 \
-  --result "分析结果"
-```
-
----
-
-### trace issues
-
-列出所有问题。
-
-```bash
-spear trace issues [--status open|resolved|all]
-```
-
----
-
-
-
-### trace finalize
-
-结束诊断，准备生成报告。
-
-检查是否还有 open issues。如有，可选择继续分析或接受风险后结束。**与 audit 完全独立**，不依赖审计结果。
-
-```bash
-# 结束诊断（所有 issues 已解决）
-spear trace finalize
-
-# 如有未处理 issues，但决定接受风险
-spear trace finalize --accept-risk "与当前问题无关，可后续处理"
-```
-
-其他：`trace timeline` 查看时间线，`trace export` 导出报告。
+| 命令 | 用途 | 示例 |
+|------|------|------|
+| `trace add` | 添加问题 | `spear trace add --desc "CPU异常" --level critical` |
+| `trace complete` | 标记完成 | `spear trace complete --id ISS-001 --result "根因: ..."` |
+| `trace issues` | 查看问题列表 | `spear trace issues [--status open\|resolved]` |
+| `trace finalize` | 结束诊断 | `spear trace finalize [--accept-risk "..."]` |
 
 ---
 
@@ -480,7 +182,7 @@ spear trace finalize --accept-risk "与当前问题无关，可后续处理"
 - `--start-time`/`--end-time`: 支持 ISO 8601、Unix 时间戳、日期格式
 - `--comm`: 支持逗号分隔多值，如 `--comm nginx,php-fpm`
 
-
+完整参数请使用 `spear <command> --help` 查看。
 
 ## 参考文档
 
