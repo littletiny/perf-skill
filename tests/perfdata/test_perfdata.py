@@ -267,6 +267,31 @@ def test_find_callers(env, data_file):
         # find-callers 可能找不到，但不影响测试
 
 
+def test_tool_detect_anomalies(env, data_file):
+    """测试: detect-anomalies"""
+    result = env.run_spear("detect-anomalies", data_file=data_file, check=False)
+    # 工具应该成功运行
+    assert result.returncode == 0 or result.returncode == 1, f"工具异常退出: {result.stderr}"
+
+
+def test_tool_sys_audit(env, data_file):
+    """测试: sys-audit"""
+    result = env.run_spear("sys-audit", data_file=data_file, check=False)
+    assert result.returncode == 0, f"工具失败: {result.stderr}"
+
+
+def test_tool_bottleneck_trace(env, data_file):
+    """测试: bottleneck-trace"""
+    result = env.run_spear("bottleneck-trace", data_file=data_file, check=False)
+    assert result.returncode == 0, f"工具失败: {result.stderr}"
+
+
+def test_tool_storm_trace(env, data_file):
+    """测试: storm-trace"""
+    result = env.run_spear("storm-trace", data_file=data_file, check=False)
+    assert result.returncode == 0, f"工具失败: {result.stderr}"
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # 测试套件
 # ═════════════════════════════════════════════════════════════════════════════
@@ -284,6 +309,10 @@ TEST_TOOLS = [
     ("cluster-paths", test_tool_cluster_paths),
     ("analyze-core-distribution", test_tool_analyze_core_distribution),
     ("find-callers", test_find_callers),
+    ("detect-anomalies", test_tool_detect_anomalies),
+    ("sys-audit", test_tool_sys_audit),
+    ("bottleneck-trace", test_tool_bottleneck_trace),
+    ("storm-trace", test_tool_storm_trace),
 ]
 
 

@@ -1,0 +1,24 @@
+# SPEAR Audit Pipeline
+
+name: "ns_spear_audit"
+agent_default: "kimi"
+
+stages:
+  - name: auditer
+    prompt: "prompts/auditer.md"
+    vars:
+      trace_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/.spear.json"
+      data_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/case.data"
+      raw_report: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/debug/mysql-performance-analysis.md"
+      input: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/input.txt"
+      output: "outputs/01_auditer/report.md"
+
+  - name: rediagnose
+    prompt: "prompts/rediagnose.md"
+    vars:
+      audit_report: "${auditer.output}"
+      input: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/input.txt"
+      raw_report: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/debug/mysql-performance-analysis.md"
+      trace_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/.spear.json"
+      data_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/case.data"
+      output: "outputs/02_rediagnose/report.md"

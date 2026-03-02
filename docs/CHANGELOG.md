@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.35] - 2026-03-03
+
+### Added
+- 新增三层架构设计文档 `docs/design-three-tier-architecture.md`
+- 新增团队分工文档 `docs/team-division-three-tier.md`
+- 新增工具链整合设计文档 `docs/design-rationale-consolidated-toolchain.md`
+- 新增命令设计文档 `docs/commands-three-tier.md`
+- 新增分析层实现总结 `docs/analysis-implementation-summary.md`
+- 新增三层架构分析层设计文档 `docs/analysis-layer-design.md`
+- perfdata测试新增4个工具的测试：detect-anomalies、sys-audit、bottleneck-trace、storm-trace
+
+### Fixed
+- 修复 `storm_trace.py` 中生命周期数据访问方式（从字典改为对象属性）
+
+### Changed
+- 更新 `tests/perfdata/README.md` 添加新工具说明
+
+**Changed files**: `version`, `docs/design-three-tier-architecture.md`, `docs/team-division-three-tier.md`, `docs/design-rationale-consolidated-toolchain.md`, `docs/commands-three-tier.md`, `docs/analysis-implementation-summary.md`, `docs/analysis-layer-design.md`, `scripts/perf_toolkit/composite/storm_trace.py`, `tests/perfdata/README.md`, `tests/perfdata/test_perfdata.py`
+
+---
+
 ## [2.34] - 2026-03-03
 
 ### Added

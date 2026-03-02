@@ -1,0 +1,11 @@
+# Agent CLI 配置
+# 变量: ${prompt} - 渲染后的prompt文件路径
+
+agents:
+  kimi:
+    cmd: "kimi"
+    args: "--print --yolo --final-message-only -p '请执行以下指令文件中的任务: ${prompt}'"
+  
+  debug:
+    cmd: "cat"
+    args: "${prompt}"

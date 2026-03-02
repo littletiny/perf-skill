@@ -139,6 +139,7 @@ class CallerInfo:
     symbol: str
     call_count: int
     total_weight: float
+    call_ratio: float = 0.0
 
 
 @dataclass

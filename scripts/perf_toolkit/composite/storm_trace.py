@@ -241,9 +241,9 @@ def _analyze_lifecycle(facade: AnalysisFacade, samples, comm: str) -> LifecycleR
     # 获取生命周期信息
     lifecycle_raw = facade._engine.get_process_lifecycle(samples, comm)
     
-    spawn_events = lifecycle_raw.get("spawn_events", [])
-    exit_events = lifecycle_raw.get("exit_events", [])
-    spawn_rate = lifecycle_raw.get("spawn_rate", 0.0)
+    spawn_events = lifecycle_raw.spawn_events
+    exit_events = lifecycle_raw.exit_events
+    spawn_rate = lifecycle_raw.spawn_rate
     
     # 分析创建热点（哪些函数在创建进程）
     creator_symbols: dict[str, int] = defaultdict(int)
@@ -259,8 +259,8 @@ def _analyze_lifecycle(facade: AnalysisFacade, samples, comm: str) -> LifecycleR
     ]
     
     # 分析生命周期特征
-    lifecycle_stats = lifecycle_raw.get("lifecycle_stats", {})
-    short_lived = lifecycle_stats.get("short_lived_count", 0)
+    lifecycle_stats = lifecycle_raw.lifecycle_stats
+    short_lived = getattr(lifecycle_stats, 'short_lived_count', 0)
     leaked = len(spawn_events) - len(exit_events)
     if leaked < 0:
         leaked = 0

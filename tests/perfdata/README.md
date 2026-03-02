@@ -53,6 +53,10 @@ python3 tests/perfdata/test_perfdata.py -d perf_format
 | `cluster-paths` | 调用路径聚类 |
 | `analyze-core-distribution` | 核心负载分布分析 |
 | `find-callers` | 热点函数溯源 |
+| `detect-anomalies` | 时序异常检测 |
+| `sys-audit` | 系统审计（Composite） |
+| `bottleneck-trace` | 瓶颈追踪（Composite） |
+| `storm-trace` | 风暴追踪（Composite） |
 
 ## 数据格式说明
 
