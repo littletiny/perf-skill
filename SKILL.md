@@ -60,7 +60,7 @@ spear trace init --data <perf.data>
 | 单核满载其他空闲 | `analyze-core-distribution` | [模式 D](./references/workflow-patterns.md#模式-d-负载不均衡) |
 | kernel 开销高 | `cluster-symbols` | [模式 E](./references/workflow-patterns.md#模式-e-高内核态分析) |
 
-**工具路径**: `$SKILL_DIR/scripts/spear.py`
+**工具路径**: `scripts/spear`
 
 ---
 

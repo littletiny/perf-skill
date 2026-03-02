@@ -12,7 +12,7 @@
 
 ```bash
 # 1. 初始化（配置数据路径，只需一次）
-$SKILL_DIR/scripts/spear init --data-path <perf.data> [--freq <hz>]
+scripts/spear init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化
 spear get-hotspots --comm myapp
@@ -532,17 +532,20 @@ spear count-process-variety \
 
 **注意**：本工具用于分析"进程多样性"，不支持 `--pid` 过滤（单个 PID 不存在"多样性"）。
 
+**输出字段**:
+| 字段 | 说明 |
+|------|------|
+| `comm` | 进程名 |
+| `unique_pids` | 唯一 PID 总数 |
+| `pids_per_min` | 每分钟进程数（避免时长差异导致的误读） |
+| `cpu_util` | CPU 利用率 |
+| `behavior` | 行为模式: process_storm/normal |
+
 **检测模式**:
 | 模式 | 条件 | 说明 |
 |------|------|------|
 | `PROCESS_STORM` | PID 数≥10 且 samples_per_pid≤2 且短进程比例>50% | 大量短生命周期进程 |
 | `LONG_RUNNING` | 单 PID 主导 | 长运行进程，非风暴场景 |
-
-**检测模式**:
-| 模式 | 条件 |
-|------|------|
-| `PROCESS_STORM` | samples_per_pid ≤ 阈值 且 short_lived_ratio > 50% |
-| `LONG_RUNNING` | 单进程主导 |
 
 ---
 
