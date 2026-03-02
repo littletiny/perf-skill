@@ -361,14 +361,14 @@ class AnomalyItem:
 ├─ 第二层：场景模式层
 │   └─ workflow-patterns.md - 5 种典型分析模式
 │
-├─ 第三层：核心流程层
-│   └─ workflow-core.md - 7 Phase 分析流程
+├─ 第三层：方法论层
+│   └─ methodology.md - 三层架构驱动的分析方法论
 │
 ├─ 第四层：参考层
 │   └─ tools.md - 纯命令参考
 │
 └─ 第五层：规则层
-    ├─ heuristics.md - 启发式规则
+    ├─ methodology.md - 包含启发式规则
     ├─ templates.md - 文档模板
     └─ data-format.md - 数据格式
 ```

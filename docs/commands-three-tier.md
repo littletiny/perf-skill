@@ -85,10 +85,42 @@ Analysis 层实现具体诊断逻辑，通过 **Facade 模式** 提供双接口�
 | `detect_anomalies()` | `detect-anomalies` | 时序异常检测 |
 | `analyze_callers()` | `find-callers` | 调用链溯源 |
 | `cluster_paths()` | `cluster-paths` | 调用路径聚类 |
+| `cluster_symbols()` | `cluster-symbols` | 符号语义聚类 |
+| `count_process_variety()` | `count-process-variety` | 进程多样性分析 |
 
 ### CLI 命令详解
 
 #### 环境评估工具
+
+##### check-cpu-bottleneck
+
+检查资源限制和单核饱和。
+
+```bash
+spear check-cpu-bottleneck \
+  --data <perf.script.txt> \
+  [--cpu-limit <cores>] \
+  [--threshold <pct>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
+```
+
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--cpu-limit` | float | 0 | CPU 限制（核数），如 `0.1c`, `2c` |
+| `--threshold` | float | 80 | 单核饱和检测阈值（%） |
+
+**检测事件**:
+| 事件 | 优先级 | 说明 |
+|------|--------|------|
+| `CPU_LIMIT_SATURATION` | 1 | CPU 限制接近饱和 |
+| `HIGH_SYS_CORES` | 2 | 单核 sys 利用率过高 |
+| `SINGLE_CORE_SATURATION` | 3 | 单核满载（串行化瓶颈） |
+| `HIGH_CORES` | 4 | 多核高负载 |
+| `HEALTHY` | 5 | 健康状态 |
+
+---
 
 ##### detect-anomalies
 
@@ -167,7 +199,10 @@ spear get-comm-top \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--sort-by-density] \
-  [--comm <name>]
+  [--cpu-id <ID>] \
+  [--comm-regex <pattern>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **增强版指标**:
@@ -246,7 +281,7 @@ spear get-hotspots \
 spear find-callers \
   --data <perf.script.txt> \
   --target <function> \
-  [--min-cpu <pct>] \
+  [--min-ratio <pct>] \
   [--top-n <N>] \
   [--cpu-id <ID>] \
   [--pid <PID>] \
@@ -254,13 +289,6 @@ spear find-callers \
   [--comm-regex <pattern>] \
   [--start-time <ts>] \
   [--end-time <ts>]
-
-# 自动模式
-spear find-callers \
-  --data <perf.script.txt> \
-  --auto-target \
-  [--min-cpu <pct>] \
-  [--top-n <N>]
 ```
 
 **常用 target 函数**:
@@ -406,6 +434,7 @@ Composite 层通过编排多个 Analysis 工具，生成综合诊断报告。内
 spear sys-audit \
   --data <perf.script.txt> \
   [--top-n <N>] \
+  [--cpu-id <ID>] \
   [--start-time <ts>] \
   [--end-time <ts>]
 ```
@@ -463,8 +492,10 @@ spear sys-audit \
 spear bottleneck-trace \
   --data <perf.script.txt> \
   [--comm <name>] \
-  [--auto-detect] \
-  [--top-n <N>]
+  [--top-n <N>] \
+  [--cpu-id <ID>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **编排逻辑**:
@@ -477,8 +508,8 @@ spear bottleneck-trace \
 # 场景 1: 已知瓶颈进程
 spear bottleneck-trace --comm netstat
 
-# 场景 2: 自动检测瓶颈
-spear bottleneck-trace --auto-detect
+# 场景 2: 自动检测瓶颈（不指定 --comm）
+spear bottleneck-trace --data <perf.script.txt>
 ```
 
 ---
@@ -491,7 +522,9 @@ spear bottleneck-trace --auto-detect
 spear storm-trace \
   --data <perf.script.txt> \
   [--comm <name>] \
-  [--storm-threshold <N>]
+  [--cpu-id <ID>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
 ```
 
 **编排逻辑**:
@@ -522,6 +555,7 @@ spear trace init --data <perf.data>
 spear trace add \
   --desc "问题描述" \
   [--level critical|warning|info] \
+  [--risk "不处理的风险"] \
   [--hint "建议操作"]
 ```
 
@@ -537,6 +571,21 @@ spear trace add \
 spear trace complete \
   --id ISS-001 \
   --result "分析结果"
+```
+
+---
+
+### trace reopen
+
+重新打开已解决的问题。
+
+```bash
+spear trace reopen \
+  --id ISS-001 \
+  [--reason "重新打开原因"]
+
+# 重新打开所有已解决的问题
+spear trace reopen --all
 ```
 
 ---
@@ -633,6 +682,7 @@ spear trace timeline [--format text|json]
 
 | 工具 | `--data` | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start/end-time` |
 |------|:--------:|:----------:|:-------:|:--------:|:--------------:|:------------------:|
+| `check-cpu-bottleneck` | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | `detect-anomalies` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
 | `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `get-comm-top` | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
@@ -641,9 +691,9 @@ spear trace timeline [--format text|json]
 | `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `cluster-symbols` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `count-process-variety` | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `sys-audit` | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `bottleneck-trace` | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| `storm-trace` | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| `sys-audit` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| `bottleneck-trace` | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
+| `storm-trace` | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
 
 ---
 
@@ -738,5 +788,5 @@ spear trace issues
 - 📗 **三层架构设计**: `design-three-tier-architecture.md` - 架构详细说明
 - 📘 **分析模式**: `references/workflow-patterns.md` - 5 种典型场景分析路径
 - 📙 **核心流程**: `references/workflow.md` - 7 Phase 分析流程
-- 📕 **启发式规则**: `references/heuristics.md` - 五大认知闭包
+- 📕 **分析方法论**: `references/methodology.md` - 三层架构驱动的完整方法论
 - 📋 **文档模板**: `references/templates.md` - 诊断报告格式

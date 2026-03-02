@@ -1,7 +1,10 @@
 # 三层架构设计文档：Core - Analysis - Composite
 
 > 创建时间: 2026-03-02  
+> 更新日期: 2026-03-03
 > 设计目标: 解决工具冗余、trace污染、职责边界不清问题
+> 
+> **本次更新**: 整合命令瘦身结论（12个工具 → 6个核心工具 + 3个组合命令）
 
 ---
 
@@ -35,11 +38,44 @@
 
 **存在的问题**:
 
-1. **职责边界模糊**: analysis工具通过`@command`装饰器直接与trace耦合，composite命令调用analysis时会产生双重trace记录
-2. **缺乏分层接口**: composite命令需要调用analysis工具，但只能通过模拟CLI调用或重复实现逻辑
-3. **trace污染**: 当composite命令调用多个analysis工具时，每个子调用都会被记录到timeline，导致诊断流程混乱
+1. **工具冗余**: 12个工具存在功能重叠，如`check-cpu-bottleneck`/`show-cpu-usage`/`analyze-core-distribution`都在看CPU利用率
+2. **数字噪音**: `get-process-top`输出成百上千个PID，高Count低CPU的进程淹没真正的问题
+3. **职责边界模糊**: analysis工具通过`@command`装饰器直接与trace耦合，composite命令调用analysis时会产生双重trace记录
+4. **缺乏分层接口**: composite命令需要调用analysis工具，但只能通过模拟CLI调用或重复实现逻辑
+5. **trace污染**: 当composite命令调用多个analysis工具时，每个子调用都会被记录到timeline，导致诊断流程混乱
 
-### 1.2 具体场景
+### 1.2 命令瘦身结论
+
+基于1.md中的深入讨论，将工具集从**12个精简为6个核心工具 + 3个组合命令**：
+
+| 原工具 | 处理方式 | 说明 |
+|--------|----------|------|
+| `check-cpu-bottleneck` | 合并 → `analyze-core-distribution` | 单核饱和检测整合进核心分布分析 |
+| `show-cpu-usage` | 合并 → `analyze-core-distribution` | 基础CPU利用率展示整合 |
+| `get-process-top` | 合并 → `get-comm-top` | 通过CV/Monopoly实现单进程定位 |
+| `cluster-comm` | 合并 → `get-comm-top` | 进程组聚合能力内置 |
+| `count-process-variety` | 合并 → `get-comm-top` | 作为Spawn Rate指标 |
+| `cluster-symbols` | 可选合并 → `cluster-paths` | 语义聚类整合到路径聚类 |
+
+**保留的6个核心工具**：
+
+| 层级 | 工具 | 职责 |
+|------|------|------|
+| 系统级 | `analyze-core-distribution` | 核心热力图、单核饱和、中断不均 |
+| 时间级 | `detect-anomalies` | 趋势突变检测 |
+| 实体级 | `get-comm-top` (增强版) | 聚合 + 离群检测(CV) + 进程风暴(Spawn Rate) |
+| 函数级 | `get-hotspots` | 热点函数识别 |
+| 关系级 | `find-callers` | 调用链溯源 |
+| 模式级 | `cluster-paths` | 业务逻辑路径聚类 |
+
+**新增3个组合命令**（解决"高噪音掩盖真问题"）：
+
+| 组合命令 | 链式触发 | 用途 |
+|----------|----------|------|
+| `sys-audit` | anomalies → core-dist → comm-top | 系统全景扫描，自动降噪 |
+| `bottleneck-trace` | comm-top → hotspots → cluster-paths | 瓶颈深度追踪 |
+
+### 1.3 具体场景
 
 ```python
 # 问题场景：sys-audit 组合命令
@@ -85,8 +121,29 @@ def cmd_sys_audit(builder, engine, args, samples):
 │  2. 接口封装：下层能力通过Facade模式暴露                        │
 │  3. Trace边界：Composite层统一记录，Analysis内部调用不记录       │
 │  4. 数据流动：Core → Analysis → Composite（单向）              │
+│  5. 自动降噪：高Count+低CPU的进程组默认折叠                     │
+│  6. 异常优先：输出按危害指数排序，非绝对CPU值                   │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### 2.3 关键指标设计
+
+为解决"A（高Count亮眼数字）掩盖B（真瓶颈）"问题，引入以下核心指标：
+
+| 指标 | 名称 | 用途 | 阈值建议 |
+|------|------|------|----------|
+| **CV** | 变异系数 (Coefficient of Variation) | 识别组内离群进程 | CV > 1.0 为异常 |
+| **Monopoly** | 核心独占率 | 识别单核瓶颈 | Monopoly > 0.8 为高危 |
+| **Spawn Rate** | 进程产生速率 | 检测短生命周期风暴 | > 10/s 为风暴 |
+| **Impact Score** | 危害指数 | 综合排序依据 | 按此值降序排列 |
+
+**Impact Score计算公式**：
+```
+Impact = (CPU% × 0.3) + (CV × 40) + (Monopoly × 50) + (Mutation_Rate × 30)
+```
+
+- 高Count低CPU的进程：Impact得分低，自动折叠
+- 低Count高Monopoly的进程：Impact得分高，强制置顶
 
 ---
 
@@ -100,11 +157,11 @@ def cmd_sys_audit(builder, engine, args, samples):
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ composite/                                              ││
 │  │   ├── sys_audit.py      (sys-audit 命令)               ││
-│  │   ├── bottleneck_trace.py (bottleneck-trace 命令)      ││
-│  │   └── storm_trace.py    (storm-trace 命令)             ││
+│  │   └── bottleneck_trace.py (bottleneck-trace 命令)      ││
 │  └─────────────────────────────────────────────────────────┘│
 │  职责: 编排多个analysis工具，生成综合诊断报告                   │
 │  Trace: 记录顶层命令，不记录内部analysis调用                   │
+│  核心能力: 自动降噪、危害排序、A/B分离（解决亮眼数字掩盖问题）   │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼ 调用 Analysis Facade（不触发Trace）
@@ -169,11 +226,16 @@ class AnalysisFacade:
                          top_n: int = 10,
                          enable_trace: bool = False) -> Dict:
         """
-        分析进程组CPU排行（内部接口）
+        分析进程组CPU排行（内部接口 - 增强版）
+        
+        整合能力:
+        - 原 get-process-top: 通过CV/Monopoly识别单进程异常
+        - 原 cluster-comm: 按进程名聚合
+        - 原 count-process-variety: 通过Spawn Rate检测进程风暴
         
         Args:
             samples: 样本数据（由core.engine提供）
-            top_n: 返回前N个
+            top_n: 返回前N个（已过滤掉背景噪音）
             enable_trace: 是否记录到trace（Composite调用时应为False）
         
         Returns:
@@ -228,10 +290,14 @@ class CommTopAnalyzer:
     """
     CommTop分析器 - 纯逻辑实现，不处理CLI和Trace
     
+    整合原 get-process-top + cluster-comm + count-process-variety 能力
+    
     设计原则:
     1. 只依赖core.engine获取数据
     2. 不直接操作trace
-    3. 返回原始dict，由上层决定如何包装
+    3. 自动降噪：折叠高Count+低CPU的"平庸"组
+    4. 智能排序：按Impact Score而非单纯CPU%
+    5. 返回原始dict，由上层决定如何包装
     """
     
     def __init__(self, engine: PerfExpertEngine):
@@ -239,15 +305,16 @@ class CommTopAnalyzer:
     
     def analyze(self, samples: List[Dict], top_n: int = 10) -> Dict:
         """
-        核心分析逻辑（内部接口）
+        核心分析逻辑（内部接口 - 增强版）
         
         Returns:
             {
-                "groups": [...],      # 进程组列表
-                "cv_analysis": {...}, # 变异系数分析
-                "monopoly_scores": {...}, # 独占率分析
-                "spawn_rates": {...}, # 产生速率分析
-                "recommendations": [...] # 诊断建议
+                "groups": [...],          # 进程组列表（已过滤噪音）
+                "cv_analysis": {...},     # 变异系数分析
+                "monopoly_scores": {...}, # 核心独占率分析
+                "spawn_rates": {...},     # 进程产生速率分析
+                "folded_groups": [...],   # 被折叠的"平庸"组
+                "recommendations": [...]  # 诊断建议
             }
         """
         # 1. 从engine获取数据
@@ -256,11 +323,18 @@ class CommTopAnalyzer:
         # 2. 计算增强指标（CV、Monopoly、SpawnRate）
         analysis_result = self._calculate_metrics(comm_util, samples)
         
-        # 3. 生成诊断建议
-        recommendations = self._generate_recommendations(analysis_result)
+        # 3. 自动降噪：分离"关键组"和"背景组"
+        critical_groups, folded_groups = self._noise_reduction(analysis_result)
+        
+        # 4. 按Impact Score排序
+        critical_groups.sort(key=lambda x: x["impact_score"], reverse=True)
+        
+        # 5. 生成诊断建议
+        recommendations = self._generate_recommendations(critical_groups)
         
         return {
-            "groups": analysis_result["groups"],
+            "groups": critical_groups[:top_n],
+            "folded_groups": folded_groups,
             "cv_analysis": analysis_result["cv_map"],
             "monopoly_scores": analysis_result["monopoly_map"],
             "spawn_rates": analysis_result["spawn_rate_map"],
@@ -268,12 +342,37 @@ class CommTopAnalyzer:
         }
     
     def _calculate_metrics(self, comm_util: Dict, samples: List[Dict]) -> Dict:
-        """计算CV、Monopoly、SpawnRate等增强指标"""
+        """
+        计算CV、Monopoly、SpawnRate等增强指标
+        
+        CV (变异系数): 识别组内离群进程
+        Monopoly (核心独占率): 识别单核瓶颈
+        Spawn Rate: 检测短生命周期风暴
+        """
         # ... 实现逻辑 ...
         pass
     
-    def _generate_recommendations(self, analysis: Dict) -> List[str]:
-        """基于分析结果生成建议"""
+    def _noise_reduction(self, analysis: Dict) -> Tuple[List[Dict], List[Dict]]:
+        """
+        自动降噪：分离关键组和背景组
+        
+        折叠条件:
+        1. Count > 100 且 Total_CPU < 5% （高Count低CPU）
+        2. CV < 0.1 且 Monopoly < 0.1 （分布均匀无离群）
+        """
+        # ... 实现逻辑 ...
+        pass
+    
+    def _generate_recommendations(self, groups: List[Dict]) -> List[Dict]:
+        """
+        基于分析结果生成建议
+        
+        识别类型:
+        - BOTTLENECK: 高Monopoly单点瓶颈
+        - UNBALANCED: 高CV组内离群
+        - STORM: 高Spawn Rate进程风暴
+        - HEALTHY: 正常负载
+        """
         # ... 实现逻辑 ...
         pass
 
@@ -434,6 +533,8 @@ class PerfExpertEngine:
         """
         获取进程生命周期信息
         
+        用于计算Spawn Rate（进程产生速率），检测短生命周期风暴
+        
         Returns:
             {
                 "spawn_events": List[Dict],  # 进程创建事件
@@ -472,7 +573,12 @@ class AnalysisFacade:
                          samples: List[Dict],
                          top_n: int = 10) -> Dict:
         """
-        进程组CPU分析（增强版）
+        进程组CPU分析（增强版 - 三合一）
+        
+        整合原 get-process-top + cluster-comm + count-process-variety 能力：
+        - 纵向聚合：按进程名分组（原cluster-comm）
+        - 横向离群：CV方差分析识别异常PID（原get-process-top）
+        - 时间动态：Spawn Rate检测进程风暴（原count-process-variety）
         
         Returns:
             {
@@ -484,9 +590,14 @@ class AnalysisFacade:
                     "monopoly": float,        # 核心独占率
                     "spawn_rate": float,      # 产生速率
                     "outlier_pid": Optional[int],
+                    "impact_score": float,    # 危害指数
                     "diagnosis": str          # HEALTHY/UNBALANCED/BOTTLENECK/STORM
                 }],
-                "folded_count": int,          # 被折叠的组数
+                "folded_groups": [{          # 被折叠的"平庸"组
+                    "comm": str,
+                    "reason": str             # "low_cpu_high_count" | "uniform_distribution"
+                }],
+                "folded_count": int,
                 "total_groups": int
             }
         """
@@ -756,51 +867,124 @@ Trace记录:
 
 ---
 
-## 6. 实施计划
+## 6. Composite命令详细设计
+
+### 6.1 sys-audit（系统审计）
+
+**目标**: 快速扫描系统全景，自动识别"真瓶颈"vs"背景噪音"
+
+**链式触发**: `detect-anomalies` → `analyze-core-distribution` → `get-comm-top`
+
+**输出示例**:
+```
+[系统审计报告]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 异常发现
+   系统CPU在10:05突变+80%，Core #7单核饱和
+
+2. 嫌疑人排序（按Impact Score）
+   ┌─────────────┬────────┬───────┬───────────┬─────────────┐
+   │ COMM        │ CPU%   │ Count │ Monopoly  │ Diagnosis   │
+   ├─────────────┼────────┼───────┼───────────┼─────────────┤
+   │ app_worker  │ 12%    │ 10    │ 0.92!!    │ BOTTLENECK  │ ← 真凶B
+   │ lsof        │ 400%   │ 2000  │ 0.05      │ HIGH_VOLUME │ ← 亮眼A
+   └─────────────┴────────┴───────┴───────────┴─────────────┘
+
+3. 背景噪音（已折叠）
+   24个组（含log-agent x 2000）| 总CPU: 15% | 状态: Quiet
+
+4. 建议操作
+   [CRITICAL] app_worker独占Core #7，建议执行: bottleneck-trace --comm app_worker
+```
+
+### 6.2 bottleneck-trace（瓶颈追踪）
+
+**目标**: 深度分析被识别出的瓶颈进程
+
+**链式触发**: `get-comm-top` → `get-hotspots` → `cluster-paths`
+
+**自动触发条件**: 
+- `sys-audit`中发现Monopoly > 0.8的进程
+- 用户手动指定`--comm`参数
+
+**输出示例**:
+```
+[瓶颈追踪报告: app_worker]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. 进程画像
+   COMM: app_worker | PID: 5829 | Core: #7 | CPU: 98%
+
+2. 热点函数（Top 5）
+   ┌─────────────────────┬────────┬─────────────┐
+   │ Symbol              │ CPU%   │ ResourceTag │
+   ├─────────────────────┼────────┼─────────────┤
+   │ spinlock_wait       │ 85%    │ LOCK_CONT   │
+   │ memory_reclaim      │ 10%    │ MEMORY      │
+   └─────────────────────┴────────┴─────────────┘
+
+3. 调用路径聚类
+   业务模块: Database_Query → Lock_Contention
+   根因: 高频查询触发锁竞争
+
+4. 建议操作
+   [优化建议] 检查数据库查询逻辑，减少全局锁持有时间
+```
+
+
+
+## 7. 实施计划
 
 ### Phase 1: Core层完善（1周）
 
 - [ ] 收拢所有数据解析逻辑到`core/engine.py`
-- [ ] 新增`get_process_lifecycle()`接口
+- [ ] 新增`get_process_lifecycle()`接口（支持Spawn Rate计算）
 - [ ] 新增`get_call_graph()`接口
+- [ ] 删除/合并旧接口：`get_pid_cpu_util()`整合进`get_comm_cpu_util()`
 - [ ] 确保analysis层无法直接访问原始数据文件
 
 ### Phase 2: Analysis层重构（2周）
 
 - [ ] 创建`analysis/facade.py`，定义`AnalysisFacade`类
 - [ ] 重构现有analysis工具，提取纯逻辑到`XXXAnalyzer`类
-  - [ ] `comm_top.py` → `CommTopAnalyzer`
+  - [ ] `comm_top.py` → `CommTopAnalyzer`（整合get-process-top + cluster-comm + count-process-variety）
   - [ ] `hotspots.py` → `HotspotsAnalyzer`
-  - [ ] `core_distribution.py` → `CoreDistAnalyzer`
+  - [ ] `core_distribution.py` → `CoreDistAnalyzer`（整合check-cpu-bottleneck + show-cpu-usage）
   - [ ] `anomalies.py` → `AnomaliesAnalyzer`
+  - [ ] `clusters.py` → 合并到`path_clusters.py`或独立保留
+- [ ] 删除冗余工具文件
 - [ ] CLI命令改为调用`Analyzer`并处理输出/Trace
 - [ ] 确保所有数据访问通过`engine`接口
 
 ### Phase 3: Composite层实现（1周）
 
 - [ ] 创建`composite/`目录
-- [ ] 实现`composite/sys_audit.py`
-- [ ] 实现`composite/bottleneck_trace.py`
-- [ ] 实现`composite/storm_trace.py`
+- [ ] 实现`composite/sys_audit.py`（自动降噪 + 危害排序）
+- [ ] 实现`composite/bottleneck_trace.py`（Monopoly驱动深度分析）
+
 - [ ] 注册composite命令到CLI
+- [ ] 实现自动触发逻辑（sys-audit发现异常自动建议后续命令）
 
 ### Phase 4: Enhanced get-comm-top（1周）
 
-- [ ] 在`CommTopAnalyzer`中实现CV计算
-- [ ] 实现Monopoly计算
-- [ ] 实现SpawnRate计算
-- [ ] 实现危害指数评分
-- [ ] 实现自动降噪逻辑
+- [ ] 在`CommTopAnalyzer`中实现CV计算（变异系数）
+- [ ] 实现Monopoly计算（核心独占率）
+- [ ] 实现SpawnRate计算（进程产生速率）
+- [ ] 实现Impact Score危害指数评分
+- [ ] 实现自动降噪逻辑（折叠高Count+低CPU组）
+- [ ] 实现智能排序（按Impact Score而非CPU%）
 
 ### Phase 5: 测试与文档（1周）
 
 - [ ] 编写单元测试（各层独立测试）
 - [ ] 集成测试（验证Trace边界）
+- [ ] 降噪逻辑测试（验证高Count低CPU组被正确折叠）
+- [ ] Impact Score排序测试（验证B优先于A）
 - [ ] 更新SKILL.md和references/tools.md
+- [ ] 更新AGENTS.md中的工具清单
 
 ---
 
-## 7. 关键代码变更示例
+## 8. 关键代码变更示例
 
 ### 7.1 Analysis层重构示例
 
@@ -936,36 +1120,47 @@ def cmd_sys_audit(builder, engine, args, samples):
 
 
 def _synthesize(anomalies, core_dist, comm_top) -> Dict:
-    """综合分析结果，识别真正瓶颈"""
-    # 按Monopoly和CV排序，而非单纯CPU%
+    """
+    综合分析结果，识别真正瓶颈
+    
+    核心逻辑（解决A掩盖B问题）：
+    1. 按Impact Score排序，非单纯CPU%
+    2. 高Monopoly进程强制置顶（即使CPU总量低）
+    3. 高CV组标识为UNBALANCED
+    4. 高Spawn Rate组标识为STORM
+    """
     candidates = []
     for group in comm_top["groups"]:
+        # Impact Score综合计算
         impact_score = (
             group["total_cpu"] * 0.3 +
             group["cv"] * 40 +
-            group["monopoly"] * 50
+            group["monopoly"] * 50 +
+            group.get("mutation_rate", 0) * 30
         )
         candidates.append({
             **group,
             "impact_score": impact_score
         })
     
+    # 按危害指数降序排列
     candidates.sort(key=lambda x: x["impact_score"], reverse=True)
     
+    # 分类输出
     primary = candidates[0] if candidates else None
     secondary = candidates[1:3] if len(candidates) > 1 else []
     
     return {
-        "primary_suspect": primary,
-        "secondary_loads": secondary,
-        "background_noise": comm_top["folded_groups"],
+        "primary_suspect": primary,           # 主要嫌疑人（真瓶颈B）
+        "secondary_loads": secondary,         # 次要负载（高Count的A）
+        "background_noise": comm_top["folded_groups"],  # 折叠的背景噪音
         "root_cause_chain": _build_cause_chain(primary, anomalies, core_dist)
     }
 ```
 
 ---
 
-## 8. 验证与测试
+## 9. 验证与测试
 
 ### 8.1 测试策略
 
@@ -1016,28 +1211,44 @@ def test_cli_records_to_timeline():
 
 ---
 
-## 9. 总结
+## 10. 总结
 
-### 9.1 关键设计点回顾
+### 10.1 关键设计点回顾
 
-1. **三层架构**: Core（数据）→ Analysis（分析）→ Composite（编排）
-2. **Facade模式**: Analysis层通过Facade暴露内部接口，供Composite调用
-3. **双接口设计**: 每个analysis工具提供CLI接口（记录Trace）和内部接口（不记录）
-4. **数据边界**: 所有数据解析必须在Core层完成，Analysis层禁止自行解析
+1. **工具瘦身**: 12个工具 → 6个核心工具 + 3个组合命令
+   - `get-comm-top`整合原get-process-top + cluster-comm + count-process-variety
+   - `analyze-core-distribution`整合原check-cpu-bottleneck + show-cpu-usage
+   
+2. **三层架构**: Core（数据）→ Analysis（分析）→ Composite（编排）
 
-### 9.2 收益
+3. **Facade模式**: Analysis层通过Facade暴露内部接口，供Composite调用
+
+4. **双接口设计**: 每个analysis工具提供CLI接口（记录Trace）和内部接口（不记录）
+
+5. **数据边界**: 所有数据解析必须在Core层完成，Analysis层禁止自行解析
+
+6. **自动降噪**: 通过CV/Monopoly/Impact Score识别并折叠背景噪音
+
+7. **危害排序**: 按Impact Score排序，解决"A（亮眼数字）掩盖B（真瓶颈）"问题
+
+### 10.2 收益
 
 | 收益 | 说明 |
 |------|------|
+| **工具精简** | 从12个工具精简为9个（6核心+3组合），消除冗余 |
+| **降噪能力** | 自动折叠高Count低CPU的背景进程，聚焦真问题 |
+| **智能排序** | Impact Score算法确保真瓶颈优先展示 |
 | **职责清晰** | 每层只关注自己的核心职责 |
 | **可测试** | 每层可独立Mock和测试 |
 | **Trace干净** | Composite调用不污染诊断记录 |
 | **可扩展** | 新增组合命令无需修改底层工具 |
 
-### 9.3 风险与缓解
+### 10.3 风险与缓解
 
 | 风险 | 缓解措施 |
 |------|----------|
-| 重构范围大 | 分Phase实施，保持CLI兼容 |
+| 重构范围大 | 分Phase实施，保持CLI兼容；先实现新功能再删除旧工具 |
+| 降噪误判 | 提供`--show-all`参数强制展示所有组；可配置降噪阈值 |
+| 算法调参 | CV/Monopoly/Impact权重提供配置文件调整 |
 | 性能开销 | Facade延迟初始化analyzer |
-| 学习成本 | 完善文档和示例代码 |
+| 学习成本 | 完善文档和示例代码；提供迁移指南 |
