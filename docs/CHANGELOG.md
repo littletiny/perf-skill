@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.34] - 2026-03-03
+
+### Added
+- Core 层新增 `get_pid_cpu_util()` 方法，支持按 PID 聚合 CPU 利用率（合并相同 PID 的不同 comm）
+- Core 层新增 `PidCPUInfo` 数据类
+- Analysis Facade 新增 `analyze_callers()` 方法，支持调用链溯源分析（内部接口，不触发 Trace）
+- 生命周期分析增强：记录进程首次出现时的调用栈，用于溯源分析
+
+### Fixed
+- Composite `sys_audit` 修复参数名错误：`threshold` → `spike_threshold`
+
+**Changed files**: `scripts/perf_toolkit/core/engine.py`, `scripts/perf_toolkit/core/engine_types.py`, `scripts/perf_toolkit/analysis/facade.py`, `scripts/perf_toolkit/composite/sys_audit.py`, `version`
+
+---
+
 ## [2.33] - 2026-03-02
 
 ### Added
