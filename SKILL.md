@@ -23,7 +23,7 @@ scripts/spear init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化（自动注入 --data）
 spear get-hotspots --comm myapp
-spear check-cpu-bottleneck
+spear analyze-core-distribution
 spear find-callers --target pthread_mutex_lock
 
 # 3. 查看配置状态
@@ -39,11 +39,6 @@ mkdir -p debug
 
 # 2. 初始化状态追踪
 spear trace init --data <perf.data>
-
-# 3. 提出三候选假说（在诊断文档中记录）
-# - 假说 A: 代码维度（热点函数、算法复杂度）
-# - 假说 B: 架构维度（锁竞争、线程池配置）
-# - 假说 C: 环境维度（资源限制、内核瓶颈）
 ```
 
 ---
@@ -53,15 +48,13 @@ spear trace init --data <perf.data>
 | 如果你看到... | 立即执行 | 完整路径 |
 |--------------|---------|---------|
 | 不知道从何入手 | `sys-audit` | 自动扫描全景，识别真瓶颈 |
-| 某 PID CPU 异常高 | `bottleneck-trace --comm <name>` | [模式 A](./references/workflow-patterns.md#模式-a-单进程-cpu-高) |
-| 整个系统都很慢 | `sys-audit` | [模式 B](./references/workflow-patterns.md#模式-b-系统整体缓慢) |
-| 大量进程频繁创建 | `get-comm-top`（查看Spawn Rate） | [模式 C](./references/workflow-patterns.md#模式-c-进程风暴) |
-| 单核满载其他空闲 | `analyze-core-distribution` | [模式 D](./references/workflow-patterns.md#模式-d-负载不均衡) |
-| kernel 开销高 | `cluster-paths` | [模式 E](./references/workflow-patterns.md#模式-e-高内核态分析) |
+| 某 PID CPU 异常高 | `bottleneck-trace --comm <name>` | [模式 A](./references/methodology.md#模式-a单进程-cpu-高) |
+| 整个系统都很慢 | `sys-audit` | [模式 B](./references/methodology.md#模式-b系统整体缓慢) |
+| 大量进程频繁创建 | `get-comm-top`（查看Spawn Rate） | [模式 C](./references/methodology.md#模式-c进程风暴) |
+| 单核满载其他空闲 | `analyze-core-distribution` | [模式 D](./references/methodology.md#模式-d负载不均衡) |
+| kernel 开销高 | `cluster-paths` | [模式 E](./references/methodology.md#模式-e高内核态分析) |
 | 某进程组CPU高 | `get-comm-top` | 查看CV/Monopoly指标 |
 | 突发性能下降 | `detect-anomalies` | 定位异常时刻 |
-
-**工具路径**: `scripts/spear`
 
 ---
 
@@ -74,7 +67,7 @@ spear trace init --data <perf.data>
 ├─ 第二层：分析方法论 [methodology.md](./references/methodology.md)
 │   └─ 三层架构驱动的完整方法论（决策树、指标解读、陷阱对策）
 │
-├─ 第三层：分析模式 [workflow-patterns.md](./references/workflow-patterns.md)
+├─ 第三层：典型分析模式 [methodology.md](./references/methodology.md#附录-a典型分析模式)
 │   └─ 5 种典型场景的速查路径
 │
 └─ 第四层：工具参考 [tools.md](./references/tools.md)
@@ -102,21 +95,7 @@ spear trace init --data <perf.data>
 - **系统资源驱动**: 内核瓶颈、资源争抢
 - **内部机制驱动**: GC、定时任务、缓存刷新
 
-### 3. V 型对称模型
-
-```
-      宏观确认（Top-down）
-           ↓
-    资源定界 → 异常识别 → 搜索空间收敛
-           ↓
-    热点溯源（Bottom-up）
-           ↓
-    负载语义 → 领域建模 → 根因定位
-           ↓
-      因果验证（交汇点）
-```
-
-### 4. 关键检查点
+### 3. 关键检查点
 
 | 信号 | 必须动作 | 工具 |
 |------|---------|------|
@@ -148,7 +127,7 @@ spear trace init --data perf.data
 
 # 2. 执行分析，自动/手动记录 issues
 spear get-comm-top
-spear cluster-symbols --comm netstat
+spear cluster-paths --comm netstat
 ...
 
 # 3. 查看待处理 issues
@@ -169,27 +148,6 @@ spear trace export --format markdown --output report.md
 
 ---
 
-### 质量审计（独立事后流程）
-
-诊断完成后，独立审计员可进行事后质量检查：
-
-```bash
-# 审计员运行（诊断完成后）
-spear trace audit
-
-# 查看审计报告
-spear trace audit --format json
-```
-
-**说明**：
-- Audit 是 **事后独立流程**，不阻塞诊断
-- 审计员是 **独立人员**（Tech Lead / QA / 架构师）
-- Audit 结果用于 **质量反馈** 和 **团队学习**
-- 发现问题 **不 reopen**，而是反馈给工程师改进
-- 详见 `docs/audit-process.md`
-
----
-
 ## 🛠️ 核心工具速查
 
 ### 6个原子工具
@@ -203,20 +161,15 @@ spear trace audit --format json
 | `find-callers` | 关系级 | 热点溯源 | `--target <func>` |
 | `cluster-paths` | 模式级 | 调用路径聚类 | 业务逻辑定位 |
 
-### 3个组合命令
+### 2个综合诊断入口
 
-| 工具 | 链式触发 | 用途 | 典型场景 |
-|------|----------|------|---------|
-| `sys-audit` | anomalies→core-dist→comm-top | 系统全景扫描 | **推荐作为入口** |
-| `bottleneck-trace` | comm-top→hotspots→paths | 瓶颈深度追踪 | 单点性能问题 |
-
-### 快速开始推荐
+不知道从何入手？两个都来一轮：
 
 ```bash
-# 第一步：系统全景扫描（自动降噪 + 危害排序）
+# 第一轮：系统全景扫描（自动降噪 + 危害排序）
 spear sys-audit
 
-# 第二步：根据建议执行深度分析
+# 第二轮：深度追踪瓶颈进程（根据第一轮输出选择）
 spear bottleneck-trace --comm <瓶颈进程名>
 ```
 
@@ -236,6 +189,6 @@ spear bottleneck-trace --comm <瓶颈进程名>
 ## 📖 完整参考
 
 - 📗 **分析方法论**: [methodology.md](./references/methodology.md) - 三层架构驱动的完整方法论
-- 📘 **典型分析模式**: [workflow-patterns.md](./references/workflow-patterns.md) - 5 种场景的速查路径
+- 📘 **典型分析模式**: [methodology.md](./references/methodology.md#附录-a典型分析模式) - 5 种场景的速查路径
 - 📙 **工具命令参考**: [tools.md](./references/tools.md) - 详细命令、参数
 - 📋 **文档模板**: [templates.md](./references/templates.md) - 诊断报告格式

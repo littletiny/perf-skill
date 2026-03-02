@@ -65,7 +65,6 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 │   └── cli.py             # 命令行接口
 ├── references/            # 参考资料
 │   ├── methodology.md     # 分析方法论（三层架构驱动）
-│   ├── workflow-patterns.md # 典型分析模式（附录形式）
 │   ├── tools.md           # 工具命令参考
 │   ├── templates.md       # 文档模板
 │   ├── data-format.md     # 数据格式说明
@@ -181,7 +180,7 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 |----------|--------|----------|
 | 文档模板 | `references/templates.md` | SKILL.md 附录 |
 | 分析方法论 | `references/methodology.md` | SKILL.md 标准工作流 |
-| 分析模式 | `references/workflow-patterns.md` | SKILL.md 场景详解 |
+| 分析模式 | `references/methodology.md#附录-a典型分析模式` | SKILL.md 场景详解 |
 | 工具命令 | `references/tools.md` | SKILL.md 工具清单 |
 | 数据格式 | `references/data-format.md` | SKILL.md 正文 |
 

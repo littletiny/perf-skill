@@ -1,8 +1,6 @@
 # Perf Expert 工具命令参考
 
-> 纯命令参考手册。分析策略和方法论请查阅 [methodology.md](./methodology.md) 和 [workflow-patterns.md](./workflow-patterns.md)。
->
-> **版本更新**: 工具集已精简（12个 → 6个核心 + 3个组合），详见 [design-three-tier-architecture.md](../docs/design-three-tier-architecture.md)
+> 纯命令参考手册。分析策略和方法论请查阅 [methodology.md](./methodology.md)。
 
 ---
 
@@ -18,7 +16,7 @@ scripts/spear init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化
 spear get-hotspots --comm myapp
-spear check-cpu-bottleneck --cpu-limit 0.5c
+spear analyze-core-distribution
 spear find-callers --target pthread_mutex_lock
 
 # 3. 查看当前配置
@@ -53,23 +51,12 @@ spear <subcommand> [options]
 | `find-callers` | 关系级 | 热点函数溯源 | 调用链分析 |
 | `cluster-paths` | 模式级 | 调用路径聚类 | 业务逻辑定位 |
 
-### 组合诊断工具（3个）
+### 2个综合诊断入口
 
-| 工具 | 链式触发 | 用途 | 典型场景 |
-|------|----------|------|---------|
-| `sys-audit` | anomalies → core-dist → comm-top | 系统全景扫描 | 快速定位真瓶颈 |
-| `bottleneck-trace` | comm-top → hotspots → cluster-paths | 瓶颈深度追踪 | 单点性能问题 |
-
-### 已合并/删除的工具
-
-| 原工具 | 合并到 | 说明 |
-|--------|--------|------|
-| `check-cpu-bottleneck` | `analyze-core-distribution` | 单核饱和检测已整合 |
-| `show-cpu-usage` | `analyze-core-distribution` | CPU利用率展示已整合 |
-| `get-process-top` | `get-comm-top` | 通过CV/Monopoly实现单进程定位 |
-| `cluster-comm` | `get-comm-top` | 进程组聚类已整合 |
-| `count-process-variety` | `get-comm-top` | 作为Spawn Rate指标 |
-| `cluster-symbols` | `cluster-paths` | 语义聚类已整合 |
+| 工具 | 用途 | 典型场景 |
+|------|------|---------|
+| `sys-audit` | 系统全景扫描 | 快速定位真瓶颈 |
+| `bottleneck-trace` | 瓶颈深度追踪 | 单点性能问题 |
 
 ---
 
@@ -77,9 +64,7 @@ spear <subcommand> [options]
 
 ### analyze-core-distribution
 
-核心级负载分布分析（整合原 `check-cpu-bottleneck` 能力）。
-
-检测单核饱和、中断不均、负载分布情况。
+核心级负载分布分析。检测单核饱和、中断不均、负载分布情况。
 
 ```bash
 spear analyze-core-distribution \
@@ -203,13 +188,7 @@ spear analyze-core-distribution \
 
 ### get-comm-top
 
-进程组资源分析（增强版 - 三合一工具）。
-
-整合原 `get-process-top` + `cluster-comm` + `count-process-variety` 能力：
-- **聚合视图**: 按进程名分组统计
-- **离群检测**: CV变异系数识别异常PID
-- **风暴检测**: Spawn Rate检测短生命周期进程
-- **自动降噪**: 折叠高Count低CPU的背景组
+进程组资源分析。按进程名分组统计，识别离群进程和进程风暴。
 
 ```bash
 spear get-comm-top \
@@ -249,11 +228,6 @@ spear get-comm-top \
 | `UNBALANCED` | CV高 | 组内进程负载不均，存在离群 |
 | `BOTTLENECK` | Monopoly高 | 单点瓶颈，独占核心 |
 | `STORM` | Spawn Rate高 | 短生命周期进程风暴 |
-
-**自动降噪逻辑**:
-以下组会被自动折叠（除非使用 `--show-all`）：
-- Count > 100 且 Total_CPU < 5%
-- CV < 0.1 且 Monopoly < 0.1（分布均匀无离群）
 
 ---
 
@@ -390,14 +364,7 @@ spear cluster-paths \
 
 ### sys-audit
 
-系统审计 - 自动扫描全景并识别真瓶颈（解决"亮眼数字掩盖真问题"）。
-
-**链式触发**: `detect-anomalies` → `analyze-core-distribution` → `get-comm-top`
-
-**核心能力**:
-- 自动降噪：折叠高Count低CPU的背景进程
-- 危害排序：按Impact Score排序，非单纯CPU%
-- A/B分离：区分"背景负载(A)"和"真瓶颈(B)"
+系统全景扫描，自动识别真瓶颈。
 
 ```bash
 spear sys-audit \
@@ -436,11 +403,7 @@ spear sys-audit \
 
 ### bottleneck-trace
 
-瓶颈追踪 - 深度分析被识别出的瓶颈进程。
-
-**链式触发**: `get-comm-top` → `get-hotspots` → `cluster-paths`
-
-**适用场景**: `sys-audit`发现高Monopoly进程，或手动指定目标进程
+深度分析瓶颈进程。适用于 `sys-audit` 发现的高Monopoly进程，或手动指定目标。
 
 ```bash
 spear bottleneck-trace \
@@ -514,48 +477,7 @@ spear trace issues [--status open|resolved|all]
 
 ---
 
-### trace audit
 
-**事后独立审计**：验证已完成诊断的 issues 分析质量。
-
-审计员（Tech Lead / QA / 架构师）在诊断完成后独立运行，用于质量检查和团队学习。**不阻塞诊断流程**，发现问题不 reopen，而是反馈给工程师改进。
-
-**审计检查项**：
-- 结构完整性：result 非空、非敷衍（如 "ok", "done"）
-- Timeline 关联：有分析命令支撑，无 analysis gap
-- 分析深度：包含因果推导或文档引用
-
-```bash
-# 完整审计（诊断完成后运行）
-spear trace audit
-
-# 指定审计阶段
-spear trace audit --phase structural  # 只检查结构
-spear trace audit --phase timeline    # 只检查 timeline 关联
-spear trace audit --phase depth       # 只检查分析深度
-
-# JSON 输出（便于集成到质量平台）
-spear trace audit --format json --output audit-report.json
-```
-
-**使用场景**：
-```bash
-# 场景 1: 定期质量审计
-cd /path/to/completed/diagnosis
-spear trace audit
-
-# 场景 2: Code Review 时检查
-# Reviewer 查看诊断质量
-spear trace audit --format json | jq '.summary'
-
-# 场景 3: 事后复盘
-# 问题复现时检查历史诊断是否充分
-spear trace audit --phase depth
-```
-
-**参考文档**：`docs/audit-process.md` - 完整审计流程指南
-
----
 
 ### trace finalize
 
@@ -639,19 +561,9 @@ spear trace timeline [--format text|json]
 | `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ |
 | `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ |
 
-**已删除工具的替代方案**:
 
-| 原工具 | 替代方案 | 示例 |
-|--------|----------|------|
-| `check-cpu-bottleneck` | `analyze-core-distribution` | `spear analyze-core-distribution --cpu-limit 0.5c` |
-| `get-process-top` | `get-comm-top`（增强版） | `spear get-comm-top`（自动显示离群PID） |
-| `count-process-variety` | `get-comm-top` | `spear get-comm-top`（查看Spawn Rate列） |
-| `cluster-symbols` | `cluster-paths` | `spear cluster-paths` |
-
----
 
 ## 参考文档
 
-- 📗 **分析方法论**: [methodology.md](./methodology.md) - 三层架构驱动的完整方法论
-- 📘 **典型分析模式**: [workflow-patterns.md](./workflow-patterns.md) - 5 种场景的速查路径
+- 📗 **分析方法论**: [methodology.md](./methodology.md) - 完整方法论
 - 📋 **文档模板**: [templates.md](./templates.md) - 诊断报告格式

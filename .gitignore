@@ -47,6 +47,9 @@ htmlcov/
 # Logs
 *.log
 
+# Output files
+*.txt
+
 # Project specific
 **/.spear.json
 **/.spear.env
