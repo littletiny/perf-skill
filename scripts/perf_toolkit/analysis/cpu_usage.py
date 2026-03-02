@@ -46,12 +46,12 @@ def cmd_show_cpu_usage(builder, engine, args, samples):
     core_util = engine.get_core_cpu_util(samples)
     high_sys_cores = []
 
-    for cpu_id, info in sorted(core_util.items(), key=lambda x: x[1]['kernel_pct'], reverse=True):
-        if info['kernel_pct'] > 70:
+    for cpu_id, info in sorted(core_util.items(), key=lambda x: x[1].kernel_pct, reverse=True):
+        if info.kernel_pct > 70:
             high_sys_cores.append(CoreItem(
                 cpu_id=cpu_id,
-                total_cpu_util=f"{info['total_pct']:.2f}%",
-                kernel_cpu_util=f"{info['kernel_pct']:.2f}%"
+                total_cpu_util=f"{info.total_pct:.2f}%",
+                kernel_cpu_util=f"{info.kernel_pct:.2f}%"
             ))
 
     # Build risk info
@@ -64,11 +64,11 @@ def cmd_show_cpu_usage(builder, engine, args, samples):
             hint=f"[必须] 添加到 Trace: spear trace add --desc '检测到 {len(high_sys_cores)} 个核心 sys 利用率 >70%' --hint '分析内核热点: cluster-symbols'",
             patterns=["HIGH_SYS_CORES"]
         )
-    elif util_stats['kernel_pct'] > 50:
+    elif util_stats.kernel_pct > 50:
         risk = create_risk_info(
             level="warning",
-            message=f"内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高",
-            hint=f"[必须] 添加到 Trace: spear trace add --desc '内核态 CPU 使用率 {util_stats['kernel_pct']:.2f}% 异常高' --hint '分析内核热点: cluster-symbols'",
+            message=f"内核态 CPU 使用率 {util_stats.kernel_pct:.2f}% 异常高",
+            hint=f"[必须] 添加到 Trace: spear trace add --desc '内核态 CPU 使用率 {util_stats.kernel_pct:.2f}% 异常高' --hint '分析内核热点: cluster-symbols'",
             patterns=["HIGH_KERNEL_USAGE"]
         )
     else:
@@ -78,9 +78,9 @@ def cmd_show_cpu_usage(builder, engine, args, samples):
     data = CPUUsageData(
         target=target_desc,
         cpu_utilization=CPUUtilizationBreakdown(
-            total_pct=format_percent(util_stats['total_pct']),
-            user_pct=format_percent(util_stats['user_pct']),
-            kernel_pct=format_percent(util_stats['kernel_pct'])
+            total_pct=format_percent(util_stats.total_pct),
+            user_pct=format_percent(util_stats.user_pct),
+            kernel_pct=format_percent(util_stats.kernel_pct)
         )
     )
 

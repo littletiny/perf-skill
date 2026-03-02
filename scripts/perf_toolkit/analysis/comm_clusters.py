@@ -25,12 +25,12 @@ def cmd_cluster_comm(builder, engine, args, samples):
     # Build results using unified data model (same as comm_top)
     items = []
     for comm, info in comm_util.items():
-        unique_pids = info['pid_count']
-        cpu_util = info['total_pct']
+        unique_pids = info.pid_count
+        cpu_util = info.total_pct
 
         # 计算 kernel 占比
-        if info['total_pct'] > 0:
-            kernel_ratio = (info['kernel_pct'] / info['total_pct']) * 100
+        if info.total_pct > 0:
+            kernel_ratio = (info.kernel_pct / info.total_pct) * 100
         else:
             kernel_ratio = 0
 

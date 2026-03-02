@@ -16,6 +16,11 @@ PerfExpert Core Module
 
 from .engine import PerfExpertEngine
 from .symbol import Symbol, SymbolStack
+from .engine_types import (
+    UserKernelStats, CPUUtilization, ProcessCPUInfo, CommCPUInfo,
+    CoreCPUInfo, SymbolCPUInfo, ProcessLifecycle, LifecycleEvent,
+    LifecycleStats, CallerInfo, CallEdge, CallGraph
+)
 from .reliability import assess_sample_reliability, format_percentage_with_ci
 from .format_utils import (
     format_timestamp, format_time_range, format_duration,
@@ -51,6 +56,10 @@ __all__ = [
     'PerfExpertEngine',
     'Symbol',
     'SymbolStack',
+    # Engine Types
+    'UserKernelStats', 'CPUUtilization', 'ProcessCPUInfo', 'CommCPUInfo',
+    'CoreCPUInfo', 'SymbolCPUInfo', 'ProcessLifecycle', 'LifecycleEvent',
+    'LifecycleStats', 'CallerInfo', 'CallEdge', 'CallGraph',
     'assess_sample_reliability',
     'format_percentage_with_ci',
     'format_timestamp',

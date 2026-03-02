@@ -484,7 +484,8 @@ class OutputBuilder:
             self.end_command()
 
     def print_json(self, data: Dict):
-        """打印 JSON 数据（兼容 V1）"""
+        """打印字典数据（兼容 V1，内部直接使用 dict，仅在输出时转 JSON）"""
+        # 注意：这里只在最终输出时使用 JSON，内部处理均使用 Dict
         import json
         print(json.dumps(data, indent=2, ensure_ascii=False))
 
@@ -499,17 +500,24 @@ class OutputBuilder:
 
 def create_risk_info(level: str, message: str = "", hint: str = "",
                      patterns: List[str] = None,
-                     pending_targets: List[str] = None) -> RiskInfo:
+                     pending_targets: List[str] = None,
+                     action_required: bool = None) -> RiskInfo:
     """
     快速创建 RiskInfo
 
     兼容旧版 RiskMixin 的使用方式
+    
+    Args:
+        action_required: 可选，如果为 None 则根据 level 自动计算
     """
+    if action_required is None:
+        action_required = level in ["critical", "warning"]
+    
     return RiskInfo(
         level=level,
         message=message,
         hint=hint,
         patterns=patterns or [],
         pending_targets=pending_targets or [],
-        action_required=level in ["critical", "warning"]
+        action_required=action_required
     )

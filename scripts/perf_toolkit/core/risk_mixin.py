@@ -73,6 +73,18 @@ class RiskMixin:
             "action_required": top["level"] in ["critical", "warning"]
         }
 
+    def get_all_risks(self) -> List[Dict]:
+        """
+        Get all recorded risks.
+
+        Returns:
+            List of risk dicts, each with action_required flag
+        """
+        return [
+            {**risk, "action_required": risk["level"] in ["critical", "warning"]}
+            for risk in self.risks
+        ]
+
     def format_output(self, data: Dict) -> Dict:
         """
         Add _risk field to output data.

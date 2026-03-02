@@ -15,7 +15,13 @@ import json
 import re
 from datetime import datetime, timezone
 from collections import defaultdict
+from typing import Dict, List, Optional, Set
 from .symbol import Symbol, SymbolStack
+from .engine_types import (
+    UserKernelStats, CPUUtilization, ProcessCPUInfo, CommCPUInfo,
+    CoreCPUInfo, SymbolCPUInfo, ProcessLifecycle, LifecycleEvent,
+    LifecycleStats, CallerInfo, CallEdge, CallGraph
+)
 
 
 def parse_time_string(time_str):
@@ -509,7 +515,7 @@ class PerfExpertEngine:
             count += 1
         return total, count
 
-    def get_user_kernel_core_per_sec(self, samples=None):
+    def get_user_kernel_core_per_sec(self, samples=None) -> UserKernelStats:
         """
         Calculate user and kernel CPU utilization separately from samples.
 
@@ -518,13 +524,7 @@ class PerfExpertEngine:
         - 否则计入 user
 
         Returns:
-            dict: {
-                'user_core_sec': user mode CPU time,
-                'kernel_core_sec': kernel mode CPU time,
-                'total_core_sec': total CPU time,
-                'user_records': number of user mode records,
-                'kernel_records': number of kernel mode records
-            }
+            UserKernelStats: 用户态/内核态 CPU 统计
         """
         if samples is None:
             samples = self.samples
@@ -546,13 +546,13 @@ class PerfExpertEngine:
                 user_core_sec += core_val
                 user_records += 1
 
-        return {
-            'user_core_sec': user_core_sec,
-            'kernel_core_sec': kernel_core_sec,
-            'total_core_sec': user_core_sec + kernel_core_sec,
-            'user_records': user_records,
-            'kernel_records': kernel_records
-        }
+        return UserKernelStats(
+            user_core_sec=user_core_sec,
+            kernel_core_sec=kernel_core_sec,
+            total_core_sec=user_core_sec + kernel_core_sec,
+            user_records=user_records,
+            kernel_records=kernel_records
+        )
 
     def get_sample_weight(self, sample):
         """
@@ -607,7 +607,7 @@ class PerfExpertEngine:
         return symbol.endswith('_[k]') or any(symbol.startswith(p) or p in symbol
                                                for p in ['_raw_', '__', 'do_', 'sys_', 'vfs_'])
 
-    def get_cpu_utilization(self, samples=None):
+    def get_cpu_utilization(self, samples=None) -> CPUUtilization:
         """
         Calculate overall CPU utilization percentage from samples.
 
@@ -618,42 +618,22 @@ class PerfExpertEngine:
         Formula: (total_core_seconds / duration) * 100
 
         Returns:
-            dict: {
-                'total_pct': total CPU utilization %,
-                'user_pct': user mode %,
-                'kernel_pct': kernel mode %,
-                'total_core_seconds': total core-seconds consumed,
-                'user_core_seconds': user core-seconds,
-                'kernel_core_seconds': kernel core-seconds,
-                'duration': duration in seconds,
-                'user_records': number of user mode records,
-                'kernel_records': number of kernel mode records
-            }
+            CPUUtilization: CPU 利用率结构
         """
         if samples is None:
             samples = self.samples
 
         if not samples:
-            return {
-                'total_pct': 0.0,
-                'user_pct': 0.0,
-                'kernel_pct': 0.0,
-                'total_core_seconds': 0.0,
-                'user_core_seconds': 0.0,
-                'kernel_core_seconds': 0.0,
-                'duration': 0.0,
-                'user_records': 0,
-                'kernel_records': 0
-            }
+            return CPUUtilization()
 
         duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
 
         # 使用新的方法获取准确的 user/kernel 分解
         uk_stats = self.get_user_kernel_core_per_sec(samples)
 
-        total_core_sec = uk_stats['total_core_sec']
-        user_core_sec = uk_stats['user_core_sec']
-        kernel_core_sec = uk_stats['kernel_core_sec']
+        total_core_sec = uk_stats.total_core_sec
+        user_core_sec = uk_stats.user_core_sec
+        kernel_core_sec = uk_stats.kernel_core_sec
 
         if duration > 0:
             total_pct = (total_core_sec / duration) * 100
@@ -662,17 +642,17 @@ class PerfExpertEngine:
         else:
             total_pct = user_pct = kernel_pct = 0.0
 
-        return {
-            'total_pct': round(total_pct, 2),
-            'user_pct': round(user_pct, 2),
-            'kernel_pct': round(kernel_pct, 2),
-            'total_core_seconds': round(total_core_sec, 4),
-            'user_core_seconds': round(user_core_sec, 4),
-            'kernel_core_seconds': round(kernel_core_sec, 4),
-            'duration': round(duration, 2),
-            'user_records': uk_stats['user_records'],
-            'kernel_records': uk_stats['kernel_records']
-        }
+        return CPUUtilization(
+            total_pct=round(total_pct, 2),
+            user_pct=round(user_pct, 2),
+            kernel_pct=round(kernel_pct, 2),
+            total_core_seconds=round(total_core_sec, 4),
+            user_core_seconds=round(user_core_sec, 4),
+            kernel_core_seconds=round(kernel_core_sec, 4),
+            duration=round(duration, 2),
+            user_records=uk_stats.user_records,
+            kernel_records=uk_stats.kernel_records
+        )
 
     def get_duration(self, samples=None):
         """
@@ -690,12 +670,12 @@ class PerfExpertEngine:
             return 0.0
         return samples[-1]['ts'] - samples[0]['ts']
 
-    def get_process_cpu_util(self, samples=None):
+    def get_process_cpu_util(self, samples=None) -> Dict[tuple, ProcessCPUInfo]:
         """
         按进程聚合 CPU 利用率。
 
         Returns:
-            dict: {(comm, pid): {'total_pct': float, 'user_pct': float, 'kernel_pct': float}}
+            Dict[(comm, pid), ProcessCPUInfo]: 进程 CPU 信息映射
         """
         if samples is None:
             samples = self.samples
@@ -718,24 +698,24 @@ class PerfExpertEngine:
             else:
                 stats[key]['user'] += weight
 
-        # 转换为百分比
+        # 转换为数据结构
         result = {}
         for key, val in stats.items():
-            result[key] = {
-                'comm': key[0],
-                'pid': key[1],
-                'total_pct': (val['total'] / duration) * 100,
-                'user_pct': (val['user'] / duration) * 100,
-                'kernel_pct': (val['kernel'] / duration) * 100,
-            }
+            result[key] = ProcessCPUInfo(
+                comm=key[0],
+                pid=key[1],
+                total_pct=(val['total'] / duration) * 100,
+                user_pct=(val['user'] / duration) * 100,
+                kernel_pct=(val['kernel'] / duration) * 100
+            )
         return result
 
-    def get_comm_cpu_util(self, samples=None):
+    def get_comm_cpu_util(self, samples=None) -> Dict[str, CommCPUInfo]:
         """
         按进程名(comm)聚合 CPU 利用率。
 
         Returns:
-            dict: {comm: {'total_pct': float, 'user_pct': float, 'kernel_pct': float, 'pids': set}}
+            Dict[str, CommCPUInfo]: 进程组 CPU 信息映射
         """
         if samples is None:
             samples = self.samples
@@ -759,33 +739,39 @@ class PerfExpertEngine:
             else:
                 stats[comm]['user'] += weight
 
-        # 转换为百分比
+        # 转换为数据结构
         result = {}
         for comm, val in stats.items():
-            result[comm] = {
-                'comm': comm,
-                'total_pct': (val['total'] / duration) * 100,
-                'user_pct': (val['user'] / duration) * 100,
-                'kernel_pct': (val['kernel'] / duration) * 100,
-                'pid_count': len(val['pids']),
-                'pids': val['pids'],
-            }
+            result[comm] = CommCPUInfo(
+                comm=comm,
+                total_pct=(val['total'] / duration) * 100,
+                user_pct=(val['user'] / duration) * 100,
+                kernel_pct=(val['kernel'] / duration) * 100,
+                pid_count=len(val['pids']),
+                pids=val['pids']
+            )
         return result
 
-    def get_symbol_cpu_util(self, samples=None):
+    def get_symbol_cpu_util(self, samples=None, comm: Optional[str] = None, pid: Optional[int] = None) -> SymbolCPUInfo:
         """
         按符号聚合 CPU 利用率（self 和 inclusive）。
 
+        Args:
+            samples: 样本列表，默认使用 engine.samples
+            comm: 可选，按进程名过滤
+            pid: 可选，按 PID 过滤
+
         Returns:
-            dict: {
-                'self': {symbol: pct},      # self 时间占比（相对于 total self）
-                'inclusive': {symbol: pct},  # inclusive 时间占比（相对于 total self）
-                'core_sec': {symbol: core_sec},  # 原始权重值
-                'total_core_sec': float,     # 总权重（用于计算百分比）
-            }
+            SymbolCPUInfo: 符号级 CPU 信息
         """
         if samples is None:
             samples = self.samples
+
+        # 应用过滤条件
+        if comm:
+            samples = [s for s in samples if s['comm'] == comm]
+        if pid:
+            samples = [s for s in samples if int(s['pid']) == pid]
 
         from collections import defaultdict
         self_core_sec = defaultdict(float)
@@ -818,20 +804,20 @@ class PerfExpertEngine:
             self_pct[sym] = (self_core_sec[sym] / total_self_core_sec * 100) if total_self_core_sec > 0 else 0
             incl_pct[sym] = (incl_core_sec[sym] / total_self_core_sec * 100) if total_self_core_sec > 0 else 0
 
-        return {
-            'self': self_pct,
-            'inclusive': incl_pct,
-            'core_sec': dict(incl_core_sec),
-            'self_core_sec': dict(self_core_sec),
-            'total_core_sec': total_self_core_sec,
-        }
+        return SymbolCPUInfo(
+            self_pct=self_pct,
+            inclusive_pct=incl_pct,
+            core_sec=dict(incl_core_sec),
+            self_core_sec=dict(self_core_sec),
+            total_core_sec=total_self_core_sec
+        )
 
-    def get_core_cpu_util(self, samples=None):
+    def get_core_cpu_util(self, samples=None) -> Dict[int, CoreCPUInfo]:
         """
         按 CPU 核心聚合利用率。
 
         Returns:
-            dict: {cpu_id: {'total_pct': float, 'kernel_pct': float}}
+            Dict[int, CoreCPUInfo]: 核心 CPU 信息映射
         """
         if samples is None:
             samples = self.samples
@@ -854,12 +840,227 @@ class PerfExpertEngine:
             if stack and stack.is_leaf_kernel:
                 stats[cpu_id]['kernel'] += weight
 
-        # 转换为百分比
+        # 转换为数据结构
         result = {}
         for cpu_id, val in stats.items():
-            result[cpu_id] = {
-                'cpu_id': cpu_id,
-                'total_pct': (val['total'] / duration) * 100,
-                'kernel_pct': (val['kernel'] / duration) * 100,
-            }
+            total_pct = (val['total'] / duration) * 100
+            kernel_pct = (val['kernel'] / duration) * 100
+            result[cpu_id] = CoreCPUInfo(
+                cpu_id=cpu_id,
+                total_pct=total_pct,
+                kernel_pct=kernel_pct,
+                user_pct=total_pct - kernel_pct
+            )
         return result
+
+    # =============================================================================
+    # Week 1 New Interfaces - Three Tier Architecture
+    # =============================================================================
+
+    def get_process_lifecycle(self, samples=None, comm=None) -> ProcessLifecycle:
+        """
+        获取进程生命周期信息。
+
+        Args:
+            samples: 样本列表，默认使用 engine.samples
+            comm: 可选，指定进程名过滤
+
+        Returns:
+            ProcessLifecycle: 进程生命周期信息
+        """
+        if samples is None:
+            samples = self.samples
+
+        # 按 comm 过滤
+        if comm:
+            samples = [s for s in samples if s['comm'] == comm]
+
+        if not samples:
+            return ProcessLifecycle()
+
+        # 按时间排序
+        sorted_samples = sorted(samples, key=lambda s: s['ts'])
+        duration = self.get_duration(sorted_samples)
+
+        # 追踪每个 PID 的出现和消失
+        pid_first_seen = {}
+        pid_last_seen = {}
+        pid_comm = {}
+
+        for s in sorted_samples:
+            pid = s['pid']
+            ts = s['ts']
+            pid_comm[pid] = s['comm']
+
+            if pid not in pid_first_seen:
+                pid_first_seen[pid] = ts
+            pid_last_seen[pid] = ts
+
+        # 生成 spawn/exit 事件
+        spawn_events = [
+            LifecycleEvent(
+                pid=pid,
+                comm=pid_comm[pid],
+                timestamp=first_ts,
+                type="spawn"
+            )
+            for pid, first_ts in pid_first_seen.items()
+        ]
+
+        exit_events = [
+            LifecycleEvent(
+                pid=pid,
+                comm=pid_comm[pid],
+                timestamp=last_ts,
+                type="exit"
+            )
+            for pid, last_ts in pid_last_seen.items()
+        ]
+
+        # 计算 spawn_rate（基于时间窗口内的不同PID数量）
+        spawn_rate = len(pid_first_seen) / duration if duration > 0 else 0.0
+
+        # 按时间排序事件
+        spawn_events.sort(key=lambda e: e.timestamp)
+        exit_events.sort(key=lambda e: e.timestamp)
+
+        # 统计信息
+        lifecycle_stats = LifecycleStats(
+            total_unique_pids=len(pid_first_seen),
+            duration_sec=duration,
+            avg_lifetime_sec=duration / len(pid_first_seen) if pid_first_seen else 0.0
+        )
+
+        return ProcessLifecycle(
+            spawn_events=spawn_events,
+            exit_events=exit_events,
+            spawn_rate=spawn_rate,
+            lifecycle_stats=lifecycle_stats
+        )
+
+    def get_pid_cpu_distribution(self, samples=None, comm=None) -> Dict[int, float]:
+        """
+        获取指定 comm 下各 PID 的 CPU 分布。
+
+        Args:
+            samples: 样本列表，默认使用 engine.samples
+            comm: 进程名，用于过滤样本
+
+        Returns:
+            {pid: cpu_percent, ...} 用于计算 CV 和 Monopoly
+        """
+        if samples is None:
+            samples = self.samples
+
+        # 按 comm 过滤
+        if comm:
+            samples = [s for s in samples if s['comm'] == comm]
+
+        if not samples:
+            return {}
+
+        duration = self.get_duration(samples)
+        if duration <= 0:
+            return {}
+
+        # 按 PID 聚合 CPU 时间
+        from collections import defaultdict
+        pid_cpu_time = defaultdict(float)
+
+        for s in samples:
+            pid = int(s['pid'])
+            weight = self.get_sample_weight(s)
+            pid_cpu_time[pid] += weight
+
+        # 转换为百分比
+        result = {}
+        for pid, cpu_time in pid_cpu_time.items():
+            result[pid] = (cpu_time / duration) * 100
+
+        return result
+
+    def get_call_graph(self, samples=None, target_symbol=None, comm=None) -> CallGraph:
+        """
+        获取调用图。
+
+        Args:
+            samples: 样本列表，默认使用 engine.samples
+            target_symbol: 目标符号名，用于过滤包含该符号的调用链
+            comm: 可选，指定进程名过滤
+
+        Returns:
+            CallGraph: 调用图数据结构
+        """
+        if samples is None:
+            samples = self.samples
+
+        # 按 comm 过滤
+        if comm:
+            samples = [s for s in samples if s['comm'] == comm]
+
+        if not samples:
+            return CallGraph()
+
+        from collections import defaultdict
+
+        # 统计调用关系
+        caller_counts = defaultdict(int)
+        caller_weight = defaultdict(float)
+        path_counts = defaultdict(int)
+
+        for s in samples:
+            stack = s.get('stack')
+            if not stack or len(stack) == 0:
+                continue
+
+            weight = self.get_sample_weight(s)
+            normalized_names = stack.get_normalized_names()
+
+            # 如果指定了目标符号，只处理包含该符号的调用链
+            if target_symbol and target_symbol not in normalized_names:
+                continue
+
+            # 记录调用路径
+            path_key = " -> ".join(normalized_names[:5])  # 最多5层
+            path_counts[path_key] += 1
+
+            # 记录调用关系（每个符号调用栈中它下面的符号）
+            for i in range(len(normalized_names) - 1):
+                caller = normalized_names[i + 1]
+                callee = normalized_names[i]
+                caller_counts[(caller, callee)] += 1
+                caller_weight[(caller, callee)] += weight
+
+        # 生成调用者列表
+        callers = []
+        seen_callers = set()
+        for (caller, callee), count in caller_counts.items():
+            if caller not in seen_callers:
+                seen_callers.add(caller)
+                callers.append(CallerInfo(
+                    symbol=caller,
+                    call_count=sum(c for (c, cal) in caller_counts.items() if c == caller),
+                    total_weight=sum(w for (c, cal), w in caller_weight.items() if c == caller)
+                ))
+
+        # 按调用次数排序
+        callers.sort(key=lambda x: x.call_count, reverse=True)
+
+        # 生成调用图（邻接表形式）
+        call_graph = defaultdict(list)
+        for (caller, callee), count in caller_counts.items():
+            call_graph[caller].append(CallEdge(
+                callee=callee,
+                count=count,
+                weight=caller_weight[(caller, callee)]
+            ))
+
+        # 热点路径（出现频率最高的调用链）
+        hot_paths = sorted(path_counts.items(), key=lambda x: x[1], reverse=True)
+        hot_paths = [path for path, count in hot_paths[:10]]  # 前10条
+
+        return CallGraph(
+            callers=callers[:20],  # 最多返回20个调用者
+            call_graph=dict(call_graph),
+            hot_paths=hot_paths
+        )

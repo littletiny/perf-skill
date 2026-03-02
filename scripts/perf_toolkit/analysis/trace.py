@@ -109,7 +109,7 @@ def cmd_find_callers_auto(builder, engine, args, samples):
     min_cpu = getattr(args, 'min_cpu', 3.0)
     filtered_hotspots = []
     hidden_hotspots = []
-    for name, self_pct in symbol_util['self'].items():
+    for name, self_pct in symbol_util.self_pct.items():
         if self_pct >= min_cpu:
             filtered_hotspots.append((name, self_pct))
         else:

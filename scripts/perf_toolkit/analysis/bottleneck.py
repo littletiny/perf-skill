@@ -56,8 +56,8 @@ def cmd_check_bottleneck(builder, engine, args, samples):
     max_usage_pct = 0
 
     for cpu_id, info in core_util.items():
-        total_pct = info['total_pct']
-        sys_pct = info['kernel_pct']
+        total_pct = info.total_pct
+        sys_pct = info.kernel_pct
 
         # 记录最高负载核心
         if total_pct > max_usage_pct:

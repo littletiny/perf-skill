@@ -25,10 +25,10 @@ def cmd_get_process_top(builder, engine, args, samples):
     # Build ProcessItem list
     items = [
         ProcessItem.from_cpu_util(
-            info['comm'],
-            info['pid'],
-            info['total_pct'],
-            info['kernel_pct']
+            info.comm,
+            info.pid,
+            info.total_pct,
+            info.kernel_pct
         )
         for info in proc_util.values()
     ]
