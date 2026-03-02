@@ -1,10 +1,8 @@
 ---
 name: SHECR-perf-hunter
 description: |
-  **S.H.E.C.R** methodology:
-  S=Systematic(三层架构) | H=Hypothesis(三假设) | E=Evidence(证据) | C=Controlled(受控收敛) | R=Reasoning(推理)
+  SHECR: **S**ystematic **H**ypothesis **E**vidence **C**ontrolled **R**easoning performance diagnostic tools
   X0=critical | X1=major | XA=action
-  Use when analyzing CPU bottlenecks, high latency, resource contention.
 ---
 
 # SHECR 性能诊断
