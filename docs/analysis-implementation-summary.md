@@ -136,7 +136,7 @@ result = facade.analyze_hotspots(samples, comm="nginx", top_n=20)
 ✓ test_rules_loading.py             通过
 ✓ test_external_rules_integration.py 通过
 ✓ test_perfdata.py                  通过
-✓ test_spear_wrap.py                通过
+✓ test_shecr_wrap.py                通过
 
 总计: 6/6 通过
 ```
@@ -263,7 +263,7 @@ python3 -c "from scripts.perf_toolkit.analysis import AnalysisFacade; print('✓
 python3 -c "from scripts.perf_toolkit.analysis.models import Risk, CommGroup; print('✓ OK')"
 
 # 验证 CLI 命令
-spear get-comm-top --help
+shecr get-comm-top --help
 ```
 
 ---

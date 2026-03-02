@@ -53,7 +53,7 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
     # Calculate average CPU utilization from sample weights
     if total_weight is not None:
         avg_cpu_utilization = (total_weight / duration) * 100
-        utilization_source = "spear"
+        utilization_source = "shecr"
     else:
         avg_cpu_utilization = 0.0
         utilization_source = "unknown"

@@ -2,9 +2,9 @@
 
 ## 1. 方法论概述
 
-### 1.1 SPEAR 核心原则
+### 1.1 SHECR 核心原则
 
-SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning) 是系统化的 Linux 性能诊断方法论：
+SHECR (**S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning) 是系统化的 Linux 性能诊断方法论：
 
 | 原则 | 说明 |
 |------|------|
@@ -150,10 +150,10 @@ def get_filtered_samples(..., comm=None, comm_regex=None):
 **使用示例**：
 ```bash
 # 分析所有 nginx 进程的总消耗
-spear cluster-comm --data perf.txt
+shecr cluster-comm --data perf.txt
 
 # 分析多个相关进程
-spear show-cpu-usage --comm nginx,php-fpm
+shecr show-cpu-usage --comm nginx,php-fpm
 ```
 
 ---
@@ -432,7 +432,7 @@ check-cpu-bottleneck → get-process-top → cluster-paths → find-callers --au
 
 ## 7. 方法论验证
 
-通过本轮演化，SPEAR 方法论的各项原则得到验证：
+通过本轮演化，SHECR 方法论的各项原则得到验证：
 
 | 原则 | 验证点 |
 |------|--------|

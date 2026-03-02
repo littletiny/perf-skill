@@ -59,7 +59,7 @@
 
 ```bash
 # 任何返回 action_required=true 的 tool 输出，必须执行：
-spear trace add --desc "<_risk.message>" \
+shecr trace add --desc "<_risk.message>" \
   --risk "<_risk.level>" --hint "<_risk.hint>"
 ```
 

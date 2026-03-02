@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-perf-hunter 是基于 SPEAR (**S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning) 方法论的性能诊断工具集，用于分析 Linux 性能数据，适用于 Cgroup 约束、低频采样（19Hz）或复杂多线程环境。
+perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning）方法论的性能诊断工具集，用于分析 Linux 性能数据，适用于 Cgroup 约束、低频采样（19Hz）或复杂多线程环境。
 
 ---
 
@@ -49,6 +49,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 │   ├── agent-pipeline-usage.md               # Agent 流水线使用指南
 │   ├── audit-process.md                      # 审计流程 - 项目审计员验证 issues 分析质量指南
 │   ├── command-design.md                     # 诊断命令设计文档 - 功能矩阵与场景选择决策
+│   ├── design-attention-steering.md          # Attention Steering 设计 - 基于 Flag 的诊断关注点引导机制
 │   ├── design-rationale-consolidated-toolchain.md  # 工具链整合设计 - 从12个到6个核心工具的精简与增强
 │   ├── design-rationale-trace-v1.md          # Trace v1.0 设计意图 - 基于 netstat 案例的问题追踪机制
 │   ├── design-rationale-trace-v2.md          # Trace v2.0 演进设计 - 从手动记录到全自动 Tracing
@@ -70,7 +71,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 │   ├── data-format.md     # 数据格式说明
 │   └── EVOLUTION.md       # 项目演进历史
 ├── scripts/
-│   ├── spear.py           # 主入口 CLI
+│   ├── shecr.py           # 主入口 CLI
 │   └── perf_toolkit/      # 核心工具包
 │       ├── core/          # 基础库
 │       │   ├── engine.py           # 核心引擎（PerfExpertEngine）
@@ -144,7 +145,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 | Risk 配置测试 | `tests/risk/` | `tests/risk/test_risk_display_config.py` |
 | Rules 加载测试 | `tests/clusters/` | `tests/clusters/test_rules_loading.py` |
 | 数据格式测试 | `tests/perfdata/` | `tests/perfdata/test_perfdata.py` |
-| CLI 测试 | `tests/spear_wrap/` | `tests/spear_wrap/test_spear_wrap.py` |
+| CLI 测试 | `tests/shecr_wrap/` | `tests/shecr_wrap/test_shecr_wrap.py` |
 | 场景测试 | `tests/scenario/<name>/` | `tests/scenario/netstat/` |
 
 **测试数据**: `tests/perfdata/new_format/case_test.data`
@@ -157,7 +158,7 @@ python3 tests/risk/test_risk_display_config.py
 python3 tests/clusters/test_rules_loading.py
 python3 tests/clusters/test_external_rules_integration.py
 python3 tests/perfdata/test_perfdata.py
-python3 tests/spear_wrap/test_spear_wrap.py
+python3 tests/shecr_wrap/test_shecr_wrap.py
 ```
 
 **统一测试入口**：使用 `tests/run_tests.py` 运行所有自动化测试
@@ -221,6 +222,27 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 | `cluster-comm` | `get-comm-top` | 进程组聚合 |
 | `count-process-variety` | `get-comm-top` | Spawn Rate检测 |
 | `cluster-symbols` | `cluster-paths` | 语义聚类 |
+
+---
+
+### Attention Steering (SHECR 核心机制)
+
+本项目基于 **SHECR** 方法论使用 Attention Steering 机制防止诊断过程中的"信息权重衰减"：
+
+| 缩写 | 原则 | 机制体现 |
+|------|------|----------|
+| **S** | Systematic | 三层架构（Core/Analysis/Composite） |
+| **H** | Hypothesis | `<X0>` 必须追踪到根因才能收敛（延迟收敛）|
+| **E** | Evidence-driven | `<XA>` 基于证据的行动建议 |
+| **C** | Controlled | 多轮 Pipeline 控制收敛节奏 |
+| **R** | Reasoning | 因果关系追踪与逻辑推理 |
+
+- **定义位置**: `SKILL.md` 的 `SHECR Attention Flags` 章节
+- **加载方式**: Skill 触发后自动进入 System Prompt
+- **匹配机制**: Tool 输出的 `_risk.patterns` 字段触发 Flag 匹配
+- **开发要求**: 新增工具时，如检测到关键线索，应在 `patterns` 中标记对应 Flag
+
+详见设计文档: `docs/design-attention-steering.md`
 
 ---
 

@@ -69,7 +69,7 @@ def cmd_trace_attribution(builder, engine, args, samples):
         risk = create_risk_info(
             level="warning",
             message=f"目标函数 '{target}' 几乎无 CPU 活动",
-            hint=f"[必须] 添加到 Trace: spear trace add --desc '目标函数 {target} 几乎无 CPU 活动' --hint '检查目标函数名称是否正确'",
+            hint=f"[必须] 添加到 Trace: shecr trace add --desc '目标函数 {target} 几乎无 CPU 活动' --hint '检查目标函数名称是否正确'",
             patterns=["LOW_TARGET_ACTIVITY"]
         )
     else:

@@ -148,12 +148,12 @@ get-comm-top 发现 4 个高内核态进程:
 
 ```bash
 # 结构化记录问题
-spear trace add --id ISS-001 --desc "netstat 高内核态 94.7%"
-spear trace add --id ISS-002 --desc "containerd-shim 高内核态 89.9%"
+shecr trace add --id ISS-001 --desc "netstat 高内核态 94.7%"
+shecr trace add --id ISS-002 --desc "containerd-shim 高内核态 89.9%"
 
 # 强制审计
-spear trace list        # 查看待办
-spear trace finalize    # 最终审计（pending 不为空时阻止生成报告）
+shecr trace list        # 查看待办
+shecr trace finalize    # 最终审计（pending 不为空时阻止生成报告）
 ```
 
 **经验教训**

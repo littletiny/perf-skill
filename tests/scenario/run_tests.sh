@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Test runner script for SPEAR perf-hunter testcases
+# Test runner script for SHECR perf-hunter testcases
 # 使用 kimi CLI 一次性完成分析和对比
 #
 
@@ -8,13 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RESULT_FILE="$SCRIPT_DIR/result.md"
 
 echo "========================================"
-echo "SPEAR Perf-Hunter Test Runner"
+echo "SHECR Perf-Hunter Test Runner"
 echo "========================================"
 echo ""
 
 # 初始化 result.md
 cat > "$RESULT_FILE" << 'EOF'
-# SPEAR Perf-Hunter Test Results
+# SHECR Perf-Hunter Test Results
 
 | Test Case | Result | Analysis |
 |-----------|--------|----------|
@@ -68,7 +68,7 @@ $(cat "$input_file")
 
 请完成以下任务：
 
-1. **分析阶段**: 使用 SPEAR skill 分析上述性能数据
+1. **分析阶段**: 使用 SHECR skill 分析上述性能数据
    - 识别应用类型和异常信号
    - 构建竞争性假设
    - 验证假设并得出根因结论

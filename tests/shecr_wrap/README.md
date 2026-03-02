@@ -1,27 +1,27 @@
-# spear_wrap 测试文档
+# shecr_wrap 测试文档
 
 ## 概述
 
-本文档描述 `spear_wrap.py` 的回归测试套件，用于验证多数据文件管理、变量跟随逻辑等核心功能。
+本文档描述 `shecr_wrap.py` 的回归测试套件，用于验证多数据文件管理、变量跟随逻辑等核心功能。
 
 ## 测试文件
 
 | 文件 | 说明 |
 |------|------|
-| `test_spear_wrap.py` | 回归测试套件（纯 Python 标准库实现） |
+| `test_shecr_wrap.py` | 回归测试套件（纯 Python 标准库实现） |
 | `README.md` | 本文件 |
 
 ## 运行测试
 
 ```bash
 # 运行所有测试
-python3 tests/test_spear_wrap.py
+python3 tests/test_shecr_wrap.py
 
 # 详细输出
-python3 tests/test_spear_wrap.py -v
+python3 tests/test_shecr_wrap.py -v
 
 # 失败时立即停止
-python3 tests/test_spear_wrap.py -f
+python3 tests/test_shecr_wrap.py -f
 ```
 
 ## 测试覆盖范围
@@ -30,7 +30,7 @@ python3 tests/test_spear_wrap.py -f
 
 | 测试用例 | 描述 | 验证点 |
 |---------|------|--------|
-| `test_load_save_env` | 配置加载和保存 | `.spear_env` JSON 格式正确读写 |
+| `test_load_save_env` | 配置加载和保存 | `.shecr_env` JSON 格式正确读写 |
 | `test_migrate_old_env` | 旧格式迁移 | KEY=VALUE 格式自动迁移到 JSON |
 
 ### 2. 多数据文件管理
@@ -62,19 +62,19 @@ python3 tests/test_spear_wrap.py -f
 
 ## 数据结构验证
 
-### .spear_env 格式
+### .shecr_env 格式
 
 ```json
 {
   "profiles": {
     "/path/to/data1.data": {
       "init_time": "2026-03-02T10:00:00",
-      "script_path": "/path/spear.py",
+      "script_path": "/path/shecr.py",
       "freq": null
     },
     "/path/to/data2.data": {
       "init_time": "2026-03-02T10:01:00",
-      "script_path": "/path/spear.py",
+      "script_path": "/path/shecr.py",
       "freq": "99"
     }
   },
@@ -82,7 +82,7 @@ python3 tests/test_spear_wrap.py -f
 }
 ```
 
-### .spear.json 格式
+### .shecr.json 格式
 
 ```json
 {
@@ -109,21 +109,21 @@ python3 tests/test_spear_wrap.py -f
 # data2: freq="99"
 
 # 默认 data1 -> 无 --freq
-spear get-hotspots --data data1 --top-n 10
+shecr get-hotspots --data data1 --top-n 10
 
 # 切换到 data2 -> 有 --freq
-spear use data2
-spear get-hotspots --data data2 --freq 99 --top-n 10
+shecr use data2
+shecr get-hotspots --data data2 --freq 99 --top-n 10
 
-# SPEAR_DATA 覆盖到 data1 -> 无 --freq
-SPEAR_DATA=data1 spear get-hotspots --top-n 10
+# SHECR_DATA 覆盖到 data1 -> 无 --freq
+SHECR_DATA=data1 shecr get-hotspots --top-n 10
 ```
 
 ### 2. 配置优先级
 
 ```
-1. SPEAR_DATA 环境变量（最高）
-2. .spear_env 中的 default
+1. SHECR_DATA 环境变量（最高）
+2. .shecr_env 中的 default
 3. 未配置（报错）
 ```
 
@@ -133,8 +133,8 @@ SPEAR_DATA=data1 spear get-hotspots --top-n 10
 # trace 子命令不添加 --data 和 --freq
 # 无论当前 profile 的 freq 是什么
 
-spear trace timeline       # 正确
-spear trace --data x --freq 99 timeline  # 错误，trace 不需要这些
+shecr trace timeline       # 正确
+shecr trace --data x --freq 99 timeline  # 错误，trace 不需要这些
 ```
 
 ## 回归测试场景
@@ -143,15 +143,15 @@ spear trace --data x --freq 99 timeline  # 错误，trace 不需要这些
 
 ```bash
 # 1. 初始化第一个数据文件
-spear init --data-path ./perf1.data
-# 验证: .spear_env 创建，default=perf1，trace 创建
+shecr init --data-path ./perf1.data
+# 验证: .shecr_env 创建，default=perf1，trace 创建
 
 # 2. 初始化第二个（带 freq）
-spear init --data-path ./perf2.data --freq 99
+shecr init --data-path ./perf2.data --freq 99
 # 验证: default=perf2，profiles 包含两个，profiles_used 包含两个
 
 # 3. 重复 init 第一个（修改 freq）
-spear init --data-path ./perf1.data --freq 199
+shecr init --data-path ./perf1.data --freq 199
 # 验证: perf1 的 freq 更新，profile 数量仍为 2
 ```
 
@@ -159,16 +159,16 @@ spear init --data-path ./perf1.data --freq 199
 
 ```bash
 # 1. 列出所有
-spear list
+shecr list
 # 验证: 显示所有 profile，标记当前 default
 
 # 2. 切换
-spear use ./perf1.data
-spear status
+shecr use ./perf1.data
+shecr status
 # 验证: default 已切换，status 显示正确
 
 # 3. 通过索引切换
-spear use 2
+shecr use 2
 # 验证: 切换到第二个 profile
 ```
 
@@ -176,17 +176,17 @@ spear use 2
 
 ```bash
 # 1. 无 freq 的 profile
-spear use 1
-spear get-hotspots --top-n 10
+shecr use 1
+shecr get-hotspots --top-n 10
 # 验证: 命令不包含 --freq
 
 # 2. 有 freq 的 profile
-spear use 2
-spear get-hotspots --top-n 10
+shecr use 2
+shecr get-hotspots --top-n 10
 # 验证: 命令包含 --freq 99
 
-# 3. SPEAR_DATA 覆盖
-SPEAR_DATA=./perf1.data spear get-hotspots --top-n 10
+# 3. SHECR_DATA 覆盖
+SHECR_DATA=./perf1.data shecr get-hotspots --top-n 10
 # 验证: 使用 perf1 的配置（无 freq）
 ```
 
@@ -194,7 +194,7 @@ SPEAR_DATA=./perf1.data spear get-hotspots --top-n 10
 
 ### Q: 测试失败怎么办？
 
-1. 检查是否修改了 `spear_wrap.py` 的核心逻辑
+1. 检查是否修改了 `shecr_wrap.py` 的核心逻辑
 2. 使用 `-v` 查看详细输出
 3. 使用 `-f` 在第一个失败处停止，便于调试
 
@@ -216,7 +216,7 @@ def test_new_feature():
 
 否。所有测试使用纯 Python 标准库，不依赖：
 - pytest/unittest 等测试框架
-- 真实的 spear.py 执行
+- 真实的 shecr.py 执行
 - 真实的 perf 数据文件
 
 测试使用模拟数据和临时目录，完全自包含。

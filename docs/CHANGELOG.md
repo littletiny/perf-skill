@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1] - 2026-03-03
+
+### Changed
+- **CLI 命令从 `spear` 重命名为 `shecr`**
+  - 脚本文件: `scripts/spear.py` → `scripts/shecr.py`
+  - 包装脚本: `scripts/spear` → `scripts/shecr`
+  - 包装脚本: `scripts/spear_wrap.py` → `scripts/shecr_wrap.py`
+  - 配置文件: `.spear.json` → `.shecr.json`
+  - 环境文件: `.spear_env` → `.shecr_env`
+  - 测试目录: `tests/spear_wrap/` → `tests/shecr_wrap/`
+- **更新所有文档引用**：所有 `spear` 命令示例更新为 `shecr`
+- **保持兼容性**：功能保持不变，仅命令名变更
+
+**Changed files**: `scripts/shecr.py`, `scripts/shecr`, `scripts/shecr_wrap.py`, `.shecr.json`, `pipeline/.shecr.json`, `tests/shecr_wrap/`, `tests/scenario/ns/.shecr.json`, `tests/scenario/ns/.shecr_env`, `SKILL.md`, `AGENTS.md`, `references/tools.md`, `references/methodology.md`, `docs/CHANGELOG.md`
+
+---
+
+## [3.0] - 2026-03-03
+
+### Changed (Methodology Upgrade)
+- **方法论升级为 SHECR**：Systematic Hypothesis Evidence-driven Controlled Reasoning
+  - S - Systematic（系统性，三层架构）
+  - H - Hypothesis（三假设，延迟收敛）
+  - E - Evidence-driven（证据驱动）
+  - C - Controlled（受控收敛）
+  - R - Reasoning（逻辑推理）
+- **引入 Attention Steering 机制**：`<X0>` `<X1>` `<XA>` 优先级标签
+- **更新 SKILL.md description**：首字母强调格式，11 个核心 steering tokens
+- **更新所有相关文档**：SKILL.md、AGENTS.md、design-attention-steering.md
+
+**Changed files**: `SKILL.md`, `AGENTS.md`, `docs/design-attention-steering.md`, `version`
+
+---
+
 ## [2.37] - 2026-03-03
 
 ### Changed

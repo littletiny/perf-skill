@@ -1,6 +1,0 @@
-#!/bin/bash
-# spear - perf-hunter 包装脚本入口
-# 实际实现已迁移到 spear_wrap.py
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python3 "${SCRIPT_DIR}/spear_wrap.py" "$@"

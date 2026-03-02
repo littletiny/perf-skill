@@ -101,7 +101,7 @@ swapper 0 [000] 460661.461601: 250000 cpu-clock:ppp:
 ```python
 # 添加新测试工具
 def test_tool_xxx(env, data_file):
-    result = env.run_spear("xxx", data_file=data_file)
+    result = env.run_shecr("xxx", data_file=data_file)
     assert "expected" in result.stdout
 
 # 注册到 TEST_TOOLS
@@ -110,7 +110,7 @@ TEST_TOOLS.append(("xxx", test_tool_xxx))
 
 ## 故障排查
 
-### 找不到 spear 脚本
+### 找不到 shecr 脚本
 
 ```bash
 export SKILL_DIR=/path/to/perf-hunter

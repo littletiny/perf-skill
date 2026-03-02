@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Perf Expert Diagnostic Toolkit - Analyze Linux performance data using SPEAR methodology
+Perf Expert Diagnostic Toolkit - Analyze Linux performance data using SHECR methodology
 
 This is the main entry point for the perf toolkit. It has been refactored into a modular structure:
 
@@ -60,29 +60,29 @@ class HelpOnErrorParser(argparse.ArgumentParser):
 
 def main():
     parser = HelpOnErrorParser(
-        description="SPEAR Diagnostic Toolkit",
+        description="SHECR Diagnostic Toolkit",
         epilog="""Usage Examples:
   # Analyze hotspots in a specific process
-  spear get-hotspots --data perf.data.txt --comm myapp --top-n 20
+  shecr get-hotspots --data perf.data.txt --comm myapp --top-n 20
 
   # Analyze core distribution (includes single-core saturation detection)
-  spear analyze-core-distribution --data perf.data.txt --cpu-limit 0.5c
+  shecr analyze-core-distribution --data perf.data.txt --cpu-limit 0.5c
 
   # Find callers of a specific function
-  spear find-callers --data perf.data.txt --target pthread_mutex_lock
+  shecr find-callers --data perf.data.txt --target pthread_mutex_lock
 
   # Detect anomalies in a time window
-  spear detect-anomalies --data perf.data.txt --window-size 1.0
+  shecr detect-anomalies --data perf.data.txt --window-size 1.0
 
   # System audit - comprehensive analysis with auto noise reduction
-  spear sys-audit --data perf.data.txt
+  shecr sys-audit --data perf.data.txt
   
   # Bottleneck trace - deep analysis of bottleneck processes
-  spear bottleneck-trace --data perf.data.txt --comm myapp
+  shecr bottleneck-trace --data perf.data.txt --comm myapp
 
 Input Data Format:
   Supports two formats:
-  1. SPEAR format: perf script output processed with CPU utilization values
+  1. SHECR format: perf script output processed with CPU utilization values
   2. Raw perf format: standard perf script output (requires --freq parameter)
 
   Generate raw perf data with:
@@ -102,7 +102,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p2.add_argument("--data", required=True, help="Path to perf script output file")
     p2.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
+                         "Default: 19. Ignored for SHECR format.")
     p2.add_argument("--sort-by", choices=['inclusive', 'self'], default='inclusive',
                     help="Sort by 'inclusive' (total time in call chain) or 'self' (time in function only)")
     p2.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
@@ -119,7 +119,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p4.add_argument("--data", required=True, help="Path to perf script output file")
     p4.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
+                         "Default: 19. Ignored for SHECR format.")
     p4.add_argument("--target", metavar="FUNC",
                     help="Target function name to trace. Examples: 'pthread_mutex_lock', "
                          "'sched_yield', 'malloc'. Use with --min-ratio to filter significant callers. "
@@ -145,7 +145,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p5.add_argument("--data", required=True, help="Path to perf script output file")
     p5.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
+                         "Default: 19. Ignored for SHECR format.")
     p5.add_argument("--window-size", type=float, default=1.0, metavar="SECONDS",
                     help="Time window size in seconds for sliding window analysis. Smaller windows "
                          "detect rapid changes but may produce more noise. (default: 1.0)")
@@ -174,7 +174,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p11.add_argument("--data", required=True, help="Path to perf script output file")
     p11.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
+                         "Default: 19. Ignored for SHECR format.")
     p11.add_argument("--min-depth", type=int, default=2,
                      help="Minimum common prefix depth to form a cluster (default: 2)")
     p11.add_argument("--min-samples", type=int, default=5,
@@ -194,7 +194,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p13.add_argument("--data", required=True, help="Path to perf script output file")
     p13.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
+                         "Default: 19. Ignored for SHECR format.")
     p13.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p13.add_argument("--pid", type=int, help="Filter by process ID")
     p13.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
@@ -209,7 +209,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14.add_argument("--data", required=True, help="Path to perf script output file")
     p14.add_argument("--freq", type=int, default=19, metavar="HZ",
                     help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
+                         "Default: 19. Ignored for SHECR format.")
     p14.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top comm groups to display (default: 10)")
     p14.add_argument("--sort-by-density", action="store_true",
                      help="Sort by density index (CPU per process) instead of aggregate CPU")
@@ -228,7 +228,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p_comp1.add_argument("--data", required=True, help="Path to perf script output file")
     p_comp1.add_argument("--freq", type=int, default=19, metavar="HZ",
                         help="Sampling frequency in Hz for raw perf format. "
-                             "Default: 19. Ignored for SPEAR format.")
+                             "Default: 19. Ignored for SHECR format.")
     p_comp1.add_argument("--top-n", "--limit", type=int, default=20, 
                         help="Number of top process groups to analyze (default: 20)")
     p_comp1.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
@@ -241,7 +241,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p_comp2.add_argument("--data", required=True, help="Path to perf script output file")
     p_comp2.add_argument("--freq", type=int, default=19, metavar="HZ",
                         help="Sampling frequency in Hz for raw perf format. "
-                             "Default: 19. Ignored for SPEAR format.")
+                             "Default: 19. Ignored for SHECR format.")
     p_comp2.add_argument("--comm", type=str, help="Target process name (auto-detect if not specified)")
     p_comp2.add_argument("--top-n", "--limit", type=int, default=10,
                         help="Number of top hotspots to analyze (default: 10)")
@@ -258,7 +258,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     # doc init
     doc_init = doc_subparsers.add_parser('init', help="Initialize a new diagnosis document")
     doc_init.add_argument("--data", required=True, help="Path to perf data file")
-    doc_init.add_argument("--path", default=".spear.json", help="Document storage path (default: .spear.json)")
+    doc_init.add_argument("--path", default=".shecr.json", help="Document storage path (default: .shecr.json)")
 
     # doc add (自动生成 ID)
     doc_add = doc_subparsers.add_parser('add', help="Add a new issue to the document (auto-generate ID)")

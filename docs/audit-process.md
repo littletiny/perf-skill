@@ -1,4 +1,4 @@
-# SPEAR Trace 审计流程
+# SHECR Trace 审计流程
 
 > 项目审计员指南：独立验证 issues 分析质量
 > 版本: 2.1
@@ -47,27 +47,27 @@
 
 ```bash
 # 1. 初始化诊断文档
-spear trace init --data perf.data
+shecr trace init --data perf.data
 
 # 2. 执行分析，自动/手动记录 issues
-spear get-comm-top
-spear cluster-symbols --comm netstat
+shecr get-comm-top
+shecr cluster-symbols --comm netstat
 ...
 
 # 3. 查看待处理 issues
-spear trace issues
+shecr trace issues
 
 # 4. 完成分析，标记 resolved（必须提供详细 result）
-spear trace complete --id ISS-001 --result "根因: netstat(2633/min)进程风暴 - 详见 debug/analysis.md"
+shecr trace complete --id ISS-001 --result "根因: netstat(2633/min)进程风暴 - 详见 debug/analysis.md"
 
 # 5. 确认所有 issues 已解决
-spear trace issues --status open
+shecr trace issues --status open
 
 # 6. finalize 结束诊断（完全独立，不依赖 audit）
-spear trace finalize
+shecr trace finalize
 
 # 7. 导出报告
-spear trace export --format markdown --output report.md
+shecr trace export --format markdown --output report.md
 ```
 
 ### 2.2 诊断工程师职责
@@ -98,10 +98,10 @@ spear trace export --format markdown --output report.md
 cd /path/to/completed/diagnosis
 
 # 2. 运行审计
-spear trace audit
+shecr trace audit
 
 # 3. 查看详细报告（JSON 格式便于处理）
-spear trace audit --format json --output audit-report.json
+shecr trace audit --format json --output audit-report.json
 
 # 4. 生成审计反馈
 # 审计员根据结果给团队反馈
@@ -127,10 +127,10 @@ spear trace audit --format json --output audit-report.json
 
 ```bash
 # 获取所有 resolved issues
-spear trace issues --status resolved
+shecr trace issues --status resolved
 
 # 获取完整 timeline
-spear trace timeline
+shecr trace timeline
 ```
 
 **检查项**：
@@ -237,19 +237,19 @@ grep -E "^## (假设|证据|结论|根因)" debug/*.md
 
 ```bash
 # 完整审计（所有阶段）
-spear trace audit
+shecr trace audit
 
 # 只检查结构完整性
-spear trace audit --phase structural
+shecr trace audit --phase structural
 
 # 只检查 timeline 关联
-spear trace audit --phase timeline
+shecr trace audit --phase timeline
 
 # 只检查分析深度
-spear trace audit --phase depth
+shecr trace audit --phase depth
 
 # JSON 输出（便于集成到质量平台）
-spear trace audit --format json --output audit-report.json
+shecr trace audit --format json --output audit-report.json
 ```
 
 ### 5.2 审计输出
@@ -381,7 +381,7 @@ AUDIT COMPLETED - See report above
 - 诊断时间: 2026-03-01
 - 审计时间: 2026-03-02T14:30:00Z
 - 审计员: [name]
-- 诊断文档: [path/.spear.json]
+- 诊断文档: [path/.shecr.json]
 
 ## 摘要
 - 总 Issues: N
@@ -420,19 +420,19 @@ AUDIT COMPLETED - See report above
 
 ```bash
 # 场景 1: 只有诊断，无审计
-spear trace complete --id ISS-001 --result "..."
-spear trace finalize
+shecr trace complete --id ISS-001 --result "..."
+shecr trace finalize
 # 诊断完成，结束
 
 # 场景 2: 诊断 + 事后审计
-spear trace complete --id ISS-001 --result "..."
-spear trace finalize
+shecr trace complete --id ISS-001 --result "..."
+shecr trace finalize
 # ... 过了一段时间 ...
-spear trace audit  # 审计员独立执行
+shecr trace audit  # 审计员独立执行
 
 # 场景 3: 只有审计（检查历史诊断）
 # 拿到历史诊断文档
-spear trace audit
+shecr trace audit
 ```
 
 ### 9.3 关键区别

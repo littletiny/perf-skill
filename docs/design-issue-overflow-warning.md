@@ -9,7 +9,7 @@
 
 ### 1.1 问题
 
-当 `spear trace` 自动记录多个 issues 后，用户可能**未意识到**还有大量未处理的问题，直接生成结论，导致：
+当 `shecr trace` 自动记录多个 issues 后，用户可能**未意识到**还有大量未处理的问题，直接生成结论，导致：
 - 诊断覆盖不全
 - 遗漏关键异常
 - 结论被质疑
@@ -39,7 +39,7 @@ if open_issues >= 2 and command not in ['trace', 'init']:
 **示例输出：**
 
 ```
-$ spear cluster-symbols --comm netstat
+$ shecr cluster-symbols --comm netstat
 [!] 7问题未闭环: 内核异常x5, 锁竞争x2, 进程风暴x1 | ⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状 | 现在执行: trace issues
 
 ═══════════════════════════════════════════════════════════════════
@@ -87,7 +87,7 @@ def print_issue_overflow_warning(self):
     print(f"[!] {len(open_issues)}问题未闭环: {category_str} | {warning} | 现在执行: trace issues")
 ```
 
-**文件 2: `scripts/spear.py`**
+**文件 2: `scripts/shecr.py`**
 
 在分析命令执行前调用：
 
@@ -113,12 +113,12 @@ if args.command in commands:
 
 ### 3.2 性能考虑
 
-- 只读取 `.spear.json` 文件，不涉及数据解析
+- 只读取 `.shecr.json` 文件，不涉及数据解析
 - 不影响主命令执行性能
 
 ### 3.3 兼容性
 
-- 无 `.spear.json` 时不输出（`Trace` 自动处理）
+- 无 `.shecr.json` 时不输出（`Trace` 自动处理）
 - 少于 2 个 issues 时不输出
 
 ---
@@ -144,7 +144,7 @@ if args.command in commands:
 ### 5.1 有 7 个 pending issues
 
 ```bash
-$ spear cluster-symbols --comm netstat --data tests/scenario/netstat/case.data
+$ shecr cluster-symbols --comm netstat --data tests/scenario/netstat/case.data
 [!] 7问题未闭环: 内核异常x5, 锁竞争x2, 进程风暴x1 | ⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状 | 现在执行: trace issues
 
 ═══════════════════════════════════════════════════════════════════
@@ -155,7 +155,7 @@ EVENT: LOCK_CONTENTION 38.36%
 ### 5.2 只有 1 个 pending issue
 
 ```bash
-$ spear cluster-symbols --comm netstat --data case.data
+$ shecr cluster-symbols --comm netstat --data case.data
 # 无提示（< 2 不触发）
 
 ═══════════════════════════════════════════════════════════════════
@@ -166,7 +166,7 @@ EVENT: LOCK_CONTENTION 38.36%
 ### 5.3 trace 命令不触发
 
 ```bash
-$ spear trace issues
+$ shecr trace issues
 # 无提示
 
 ⚠️  OPEN ISSUES (待处理)

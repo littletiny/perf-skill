@@ -1,14 +1,14 @@
-# SPEAR 性能分析方法论
+# SHECR 性能分析方法论
 
-> **S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning
+> **S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning
 >
-> 基于三层架构（Core - Analysis - Composite）的性能诊断方法论。
+> 基于三层架构（Core - Analysis - Composite）的系统性性能诊断方法论。
 
 ---
 
 ## 1. 分析入口决策树
 
-从症状到工具的直达路径：
+SHECR 分析入口：从症状到工具的直达路径：
 
 ```
 symptom                          → 推荐入口命令
@@ -28,10 +28,10 @@ symptom                          → 推荐入口命令
 
 ```bash
 # 第一轮：系统全景扫描
-spear sys-audit
+shecr sys-audit
 
 # 第二轮：深度追踪瓶颈进程（根据第一轮输出选择）
-spear bottleneck-trace --comm <瓶颈进程名>
+shecr bottleneck-trace --comm <瓶颈进程名>
 ```
 
 ---
@@ -131,8 +131,8 @@ app_worker      12%     10       ← 平庸...
 
 **对策**：
 - 强制执行"三候选假说"（见第 5 节）
-- 每 2-3 个工具后执行 `spear trace issues` 检查待办问题
-- 生成报告前执行 `spear trace finalize` 确认完整性
+- 每 2-3 个工具后执行 `shecr trace issues` 检查待办问题
+- 生成报告前执行 `shecr trace finalize` 确认完整性
 
 ### 4.4 陷阱：忽视样本可靠性
 
@@ -224,14 +224,14 @@ app_worker      12%     10       ← 平庸...
 
 ```bash
 # Step 1: 看组内分布（是否单点瓶颈）
-spear get-comm-top --comm <name>
+shecr get-comm-top --comm <name>
 # 关注: Monopoly/CV，判断是单点慢还是整体慢
 
 # Step 2: 整体深度追踪
-spear bottleneck-trace --comm <name>
+shecr bottleneck-trace --comm <name>
 
 # Step 3: 对比具体 PID（确认个体情况）
-spear get-hotspots --pid <pid>
+shecr get-hotspots --pid <pid>
 # 对比：与整体结果是否一致，还是个体特有热点
 ```
 
@@ -241,7 +241,7 @@ spear get-hotspots --pid <pid>
 
 ```bash
 # Step 1: 系统全景扫描
-spear sys-audit
+shecr sys-audit
 
 # Step 2: 根据输出选择方向
 # - 发现 Monopoly 高危 → bottleneck-trace
@@ -255,14 +255,14 @@ spear sys-audit
 
 ```bash
 # Step 1: 检测风暴
-spear get-comm-top
+shecr get-comm-top
 # 关注: Spawn Rate 列，>10/s 为风暴
 
 # Step 2: 溯源父进程
-spear find-callers --target fork --comm <storm-comm>
+shecr find-callers --target fork --comm <storm-comm>
 
 # Step 3: 分析触发源
-spear cluster-paths --comm <storm-comm>
+shecr cluster-paths --comm <storm-comm>
 ```
 
 ### 模式 D：负载不均衡
@@ -271,14 +271,14 @@ spear cluster-paths --comm <storm-comm>
 
 ```bash
 # Step 1: 确认单核瓶颈
-spear analyze-core-distribution --comm <name>
+shecr analyze-core-distribution --comm <name>
 
 # Step 2: 分析原因
 # sleeping 多 → 主动休眠问题
 # active 多 → 锁竞争问题
 
 # Step 3: 定向溯源
-spear find-callers --target <调度函数或锁函数> --comm <name>
+shecr find-callers --target <调度函数或锁函数> --comm <name>
 ```
 
 ### 模式 E：高内核态分析
@@ -287,15 +287,15 @@ spear find-callers --target <调度函数或锁函数> --comm <name>
 
 ```bash
 # Step 1: 内核热点识别
-spear get-hotspots --comm <name>
+shecr get-hotspots --comm <name>
 # 关注: 内核空间热点函数
 
 # Step 2: 语义聚类
-spear cluster-paths --comm <name>
+shecr cluster-paths --comm <name>
 # 关注: Scheduling/Lock/Memory 相关模式
 
 # Step 3: 溯源
-spear find-callers --target <内核热点函数> --comm <name>
+shecr find-callers --target <内核热点函数> --comm <name>
 ```
 
 ---
@@ -336,19 +336,19 @@ ELSE IF (症状局限于单个进程):
 
 ### 分析前
 - [ ] 创建诊断文档（基于 templates.md）
-- [ ] 初始化 Trace：`spear trace init --data <file>`
+- [ ] 初始化 Trace：`shecr trace init --data <file>`
 - [ ] 提出 ≥3 条竞争性假说
   - **代码维度**: 算法/实现层（热点函数、调用路径）
   - **架构维度**: 并发/调度层（锁竞争、调度干扰、资源争抢）
   - **环境维度**: 系统/外部层（资源限制、依赖延迟）
 
 ### 分析中
-- [ ] 发现风险立即记录：`spear trace add --desc "..."`
+- [ ] 发现风险立即记录：`shecr trace add --desc "..."`
 - [ ] 冰山一角：Top1 问题不一定是全部，其他高 Impact 进程也要记录
 - [ ] 检查样本可靠性等级
 
 ### 分析后（生成报告前）
-- [ ] 执行 `spear trace finalize` 确认完整性
+- [ ] 执行 `shecr trace finalize` 确认完整性
 - [ ] 全局一致性检查：
   - [ ] 是否解释了所有观测到的异常？
   - [ ] 三候选假说是否都经过验证？

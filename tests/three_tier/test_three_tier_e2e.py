@@ -33,7 +33,7 @@ class TestThreeTierE2E(unittest.TestCase):
         """测试类初始化"""
         cls.temp_dir = Path(tempfile.mkdtemp())
         cls.data_file = cls.temp_dir / "test_perf.data"
-        cls.trace_file = cls.temp_dir / ".spear.json"
+        cls.trace_file = cls.temp_dir / ".shecr.json"
         
         # 创建模拟perf数据
         cls._create_mock_perf_data()
@@ -350,7 +350,7 @@ class TestE2EIntegration(unittest.TestCase):
     def test_full_diagnostic_workflow(self):
         """测试完整诊断工作流"""
         workflow_steps = [
-            "1. 用户执行: spear sys-audit --data xxx.data",
+            "1. 用户执行: shecr sys-audit --data xxx.data",
             "2. Core层加载并解析数据",
             "3. Composite层调用Analysis Facade",
             "4. Analysis层执行多个子分析",

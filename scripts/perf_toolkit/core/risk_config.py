@@ -61,8 +61,8 @@ class RiskDisplayConfig:
 
         优先级（从低到高）：
         1. 内置默认（硬编码）
-        2. ~/.config/spear/risk.json
-        3. .spear/risk.json
+        2. ~/.config/shecr/risk.json
+        3. .shecr/risk.json
         4. SPEAR_RISK_CONFIG 环境变量
         5. 显式指定路径
         """
@@ -70,8 +70,8 @@ class RiskDisplayConfig:
 
         # 搜索路径（按优先级排序）
         search_paths = [
-            Path.home() / '.config' / 'spear' / 'risk.json',
-            Path('.spear/risk.json'),
+            Path.home() / '.config' / 'shecr' / 'risk.json',
+            Path('.shecr/risk.json'),
         ]
 
         # 按顺序合并（后覆盖前）
@@ -114,7 +114,7 @@ class RiskDisplayConfig:
     def apply_mode(self, mode: str):
         """应用模式覆盖（从配置文件中查找 modes 部分）"""
         # 从已加载的配置文件中查找 modes
-        for path in [Path('.spear/risk.json'), Path.home() / '.config' / 'spear' / 'risk.json']:
+        for path in [Path('.shecr/risk.json'), Path.home() / '.config' / 'shecr' / 'risk.json']:
             if not path.exists():
                 continue
             try:

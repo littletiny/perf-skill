@@ -1,13 +1,13 @@
-# SPEAR Audit Pipeline
+# SHECR Audit Pipeline
 
-name: "ns_spear_audit"
+name: "ns_shecr_audit"
 agent_default: "kimi"
 
 stages:
   - name: auditer
     prompt: "prompts/auditer.md"
     vars:
-      trace_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/.spear.json"
+      trace_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/.shecr.json"
       data_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/case.data"
       raw_report: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/debug/mysql-performance-analysis.md"
       input: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/input.txt"
@@ -19,6 +19,6 @@ stages:
       audit_report: "${auditer.output}"
       input: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/input.txt"
       raw_report: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/debug/mysql-performance-analysis.md"
-      trace_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/.spear.json"
+      trace_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/.shecr.json"
       data_file: "/home/tiny/.config/agents/skills/perf-hunter/tests/scenario/ns/case.data"
       output: "outputs/02_rediagnose/report.md"

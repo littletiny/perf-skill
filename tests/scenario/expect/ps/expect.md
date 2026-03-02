@@ -221,17 +221,17 @@ perf record -a -g -p 2573405 -- sleep 60
 perf script -F comm,pid,cpu,time,core,sym,dso > perf.script.optimized
 
 # 验证核心分布改善
-python3 $SKILL_DIR/scripts/spear analyze-core-distribution \
+python3 $SKILL_DIR/scripts/shecr analyze-core-distribution \
     --data perf.script.optimized --pid 2573405
 # 预期: imbalance_level从CRITICAL降至LOW/MEDIUM，多核利用率均衡
 
 # 验证总CPU利用率提升
-python3 $SKILL_DIR/scripts/spear show-cpu-usage \
+python3 $SKILL_DIR/scripts/shecr show-cpu-usage \
     --data perf.script.optimized --pid 2573405
 # 预期: total_pct从145%提升到800%+(按8核并行)
 
 # 验证AdamOptimizer热点分散
-python3 $SKILL_DIR/scripts/spear get-hotspots \
+python3 $SKILL_DIR/scripts/shecr get-hotspots \
     --data perf.script.optimized --pid 2573405 --sort-by self
 # 预期: AdamOptimizer::Optimize在多个CPU核心上出现
 ```

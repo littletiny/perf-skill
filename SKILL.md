@@ -1,11 +1,14 @@
 ---
 name: SPEAR-perf-hunter
-description: Systematic Linux performance diagnosis using SPEAR methodology. Use when analyzing CPU bottlenecks, high latency, resource contention, or performance regression in Linux environments.
+description: |
+  **SHECR**: **S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning.
+  X0=critical | X1=major | XA=action
+  Use when analyzing CPU bottlenecks, high latency, resource contention.
 ---
 
-# SPEAR 性能诊断
+# SHECR 性能诊断
 
-> **S**ystematic **P**roblem **E**vidence-driven **A**nalysis & **R**easoning
+> **S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning
 
 通过"领域知识驱动的假设验证"实现根因定位。
 
@@ -19,15 +22,15 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 
 ```bash
 # 1. 使用 wrap 脚本初始化（自动配置路径）
-scripts/spear init --data-path <perf.data> [--freq <hz>]
+scripts/shecr init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化（自动注入 --data）
-spear get-hotspots --comm myapp
-spear analyze-core-distribution
-spear find-callers --target pthread_mutex_lock
+shecr get-hotspots --comm myapp
+shecr analyze-core-distribution
+shecr find-callers --target pthread_mutex_lock
 
 # 3. 查看配置状态
-spear status
+shecr status
 ```
 
 ---
@@ -112,27 +115,27 @@ spear status
 
 ```bash
 # 1. 初始化诊断文档
-spear trace init --data perf.data
+shecr trace init --data perf.data
 
 # 2. 执行分析，自动/手动记录 issues
-spear get-comm-top
-spear cluster-paths --comm netstat
+shecr get-comm-top
+shecr cluster-paths --comm netstat
 ...
 
 # 3. 查看待处理 issues
-spear trace issues
+shecr trace issues
 
 # 4. 完成分析，标记 resolved（result 必须详细）
-spear trace complete --id ISS-001 --result "根因: xxx - 详见 debug/analysis.md"
+shecr trace complete --id ISS-001 --result "根因: xxx - 详见 debug/analysis.md"
 
 # 5. 确认所有 issues 已解决
-spear trace issues --status open
+shecr trace issues --status open
 
 # 6. finalize 结束诊断
-spear trace finalize
+shecr trace finalize
 
 # 7. 导出报告
-spear trace export --format markdown --output report.md
+shecr trace export --format markdown --output report.md
 ```
 
 ---
@@ -156,10 +159,10 @@ spear trace export --format markdown --output report.md
 
 ```bash
 # 第一轮：系统全景扫描（自动降噪 + 危害排序）
-spear sys-audit
+shecr sys-audit
 
 # 第二轮：深度追踪瓶颈进程（根据第一轮输出选择）
-spear bottleneck-trace --comm <瓶颈进程名>
+shecr bottleneck-trace --comm <瓶颈进程名>
 ```
 
 ---
@@ -172,6 +175,40 @@ spear bottleneck-trace --comm <瓶颈进程名>
 | 忽视领域背景 | 只关注数值，不问是否符合应有表现 | 是否建立预期 vs 现实对比？ |
 | 参数遗漏 | `find-callers` 忘记 `--pid` | 分析目标与工具参数是否一致？ |
 | 单因思维 | 强制找单一根因 | 是否考虑多因素叠加？ |
+
+---
+
+## 🎯 诊断关注点（SHECR Attention Flags）
+
+基于 **SHECR** 方法论的注意力引导机制。分析过程中请**优先关注**以下标记的内容：
+
+| 标记 | 含义 | 处理要求 |
+|------|------|----------|
+| `<X0>` | 阻塞级关键线索（SHECR-Critical） | 必须立即处理，追踪到根因前禁止收敛 |
+| `<X1>` | 重要线索（SHECR-Major） | 应在当前阶段处理 |
+| `<X2>` | 提示信息（SHECR-Minor） | 值得关注，但非紧急 |
+| `<XA>` | 操作建议（SHECR-Action） | 具体的下一步操作 |
+
+### 常见关注点
+
+```markdown
+<X0> 锁竞争：__lock、mutex、spinlock 等符号热点
+<X0> 单核饱和：单核利用率 > 90% 且 Monopoly > 0.8  
+<X0> 高内核态：内核态占比 > 50%
+
+<X1> 进程风暴：Spawn Rate > 10/s
+<X1> 负载不均衡：CV > 1.5
+
+<XA> 执行 find-callers --target <func> 溯源热点
+<XA> 执行 bottleneck-trace --comm <name> 深度追踪
+```
+
+### 使用规则（SHECR 核心准则）
+
+1. **`<X0>` 立即处理**（Systematic）- 不要等待其他信息
+2. **多轮保持关注**（Controlled）- 已识别的 `<X0>` 不要遗忘
+3. **`<X0>` 追踪到根因**（Hypothesis）- 否则禁止收敛
+4. **`<XA>` 直接执行**（Evidence-driven）- 基于证据行动
 
 ---
 

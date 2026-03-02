@@ -1,4 +1,4 @@
-# SPEAR 多轮 Agent 流水线设计
+# SHECR 多轮 Agent 流水线设计
 
 > 设计文档：三轮诊断-审计-复查流水线架构
 > 版本: 1.0
@@ -10,7 +10,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        SPEAR Agent Pipeline v1.0                         │
+│                        SHECR Agent Pipeline v1.0                         │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐             │
@@ -19,11 +19,11 @@
 │  │  (Diagnose)  │     │  (Audit)     │     │  (Recheck)   │             │
 │  └──────┬───────┘     └──────┬───────┘     └──────┬───────┘             │
 │         │                    │                    │                     │
-│    输入: perf.data      输入: .spear.json    输入: audit_report.json    │
+│    输入: perf.data      输入: .shecr.json    输入: audit_report.json    │
 │         + 症状描述           + timeline           + gaps_found          │
 │                              + issues             + original_data       │
 │         ↓                    ↓                    ↓                     │
-│    输出: .spear.json    输出: audit_report    输出: final_report        │
+│    输出: .shecr.json    输出: audit_report    输出: final_report        │
 │         + debug/*.md         (通过/失败/建议)      + 确认/修正结论        │
 │                                                                          │
 │  ═══════════════════════════════════════════════════════════════════    │
@@ -43,7 +43,7 @@
 │                          Shared Context                                │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
 │  │  context/   │  │  context/   │  │  context/   │  │  context/   │   │
-│  │  perf.data  │  │  .spear.json│  │  audit_rpt  │  │  final_rpt  │   │
+│  │  perf.data  │  │  .shecr.json│  │  audit_rpt  │  │  final_rpt  │   │
 │  │  (原始数据)  │  │  (trace记录)│  │  (审计报告)  │  │  (最终报告)  │   │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘   │
 │         ↑               ↑               ↑               ↑              │
@@ -65,7 +65,7 @@
 
 ### 2.2 各轮数据格式
 
-#### Round 1 输出: `.spear.json`
+#### Round 1 输出: `.shecr.json`
 
 ```json
 {
@@ -258,7 +258,7 @@
 
 ### 3.1 Round 1: 诊断 Agent (DiagnoseAgent)
 
-**角色描述**: 执行 SPEAR 诊断流程，记录完整 trace
+**角色描述**: 执行 SHECR 诊断流程，记录完整 trace
 
 **输入**:
 ```json
@@ -270,18 +270,18 @@
 ```
 
 **执行流程**:
-1. 初始化 trace: `spear trace init --data perf.data`
-2. 执行标准 SPEAR 诊断流程（7 Phase）
+1. 初始化 trace: `shecr trace init --data perf.data`
+2. 执行标准 SHECR 诊断流程（7 Phase）
 3. 自动记录每个命令执行到 timeline
 4. 对每个 issue 进行分析和 complete
 5. 生成 debug/*.md 诊断文档
 
-**输出**: `.spear.json` + `debug/*.md`
+**输出**: `.shecr.json` + `debug/*.md`
 
 **系统 Prompt 核心**:
 ```
-你是一个 SPEAR 性能诊断专家。你的任务是：
-1. 严格遵循 SPEAR 7 Phase 诊断流程
+你是一个 SHECR 性能诊断专家。你的任务是：
+1. 严格遵循 SHECR 7 Phase 诊断流程
 2. 每执行一个诊断命令，确保 trace 自动记录
 3. 对每个发现的 issue，必须提供详细的分析结果
 4. 在 debug/*.md 中维护三候选假设追踪表
@@ -302,7 +302,7 @@
 **输入**:
 ```json
 {
-  "spear_json": ".spear.json",
+  "shecr_json": ".shecr.json",
   "debug_dir": "debug/",
   "audit_config": {
     "phases": ["structural", "timeline", "depth", "documentation"],
@@ -312,7 +312,7 @@
 ```
 
 **执行流程**:
-1. 读取 `.spear.json` 解析 timeline 和 issues
+1. 读取 `.shecr.json` 解析 timeline 和 issues
 2. 执行四阶段检查（见下方）
 3. 对每个 issue 生成审计结果
 4. 识别 gaps 并生成改进建议
@@ -331,7 +331,7 @@
 
 **系统 Prompt 核心**:
 ```
-你是一个独立的 SPEAR 诊断审计员。你的任务是：
+你是一个独立的 SHECR 诊断审计员。你的任务是：
 1. 客观验证第一轮诊断的质量
 2. 检查结构完整性、timeline 关联、分析深度、文档一致性
 3. 识别任何敷衍或不完整的分析
@@ -354,7 +354,7 @@
 ```json
 {
   "audit_report": "audit_report.json",
-  "spear_json": ".spear.json",
+  "shecr_json": ".shecr.json",
   "perf_data": "path/to/perf.data",
   "gaps": [
     {"type": "missing_hypotheses", "issue_id": "ISS-002"},
@@ -366,16 +366,16 @@
 **执行流程**:
 1. 读取 audit_report 识别 failed/warning issues
 2. 针对每个 gap 补充分析
-3. 更新 `.spear.json` 中的 issue result
+3. 更新 `.shecr.json` 中的 issue result
 4. 更新 debug/*.md 诊断文档
 5. 验证所有问题是否已充分解决
 6. 生成 final_report.json
 
-**输出**: 更新后的 `.spear.json` + `final_report.json`
+**输出**: 更新后的 `.shecr.json` + `final_report.json`
 
 **系统 Prompt 核心**:
 ```
-你是一个 SPEAR 诊断复查专家。你的任务是：
+你是一个 SHECR 诊断复查专家。你的任务是：
 1. 根据审计报告中的 gaps 补充分析
 2. 对标记为 failed 的 issue 进行深度增强
 3. 验证三候选假设是否完整
@@ -490,7 +490,7 @@ class PipelineContext:
 
 
 class PipelineController:
-    """SPEAR Agent Pipeline 控制器"""
+    """SHECR Agent Pipeline 控制器"""
     
     def __init__(self, config: PipelineConfig = None):
         self.config = config or PipelineConfig()
@@ -516,7 +516,7 @@ class PipelineController:
             work_dir=self.context.work_dir
         )
         
-        self.context.artifacts['round1_spear_json'] = result['spear_json']
+        self.context.artifacts['round1_shecr_json'] = result['shecr_json']
         self.context.artifacts['round1_debug_dir'] = result['debug_dir']
         
         return result
@@ -525,11 +525,11 @@ class PipelineController:
         """执行第二轮审计"""
         self.context.status = PipelineStatus.ROUND2_AUDITING
         
-        spear_json = self.context.artifacts['round1_spear_json']
+        shecr_json = self.context.artifacts['round1_shecr_json']
         debug_dir = self.context.artifacts['round1_debug_dir']
         
         result = agent.run(
-            spear_json=spear_json,
+            shecr_json=shecr_json,
             debug_dir=debug_dir
         )
         
@@ -545,7 +545,7 @@ class PipelineController:
         
         result = agent.run(
             audit_report=self.context.artifacts['audit_report'],
-            spear_json=self.context.artifacts['round1_spear_json'],
+            shecr_json=self.context.artifacts['round1_shecr_json'],
             perf_data=self.context.perf_data,
             work_dir=self.context.work_dir
         )
@@ -653,25 +653,25 @@ print(f"最终报告: {result['artifacts'].get('final_report')}")
 
 ```bash
 # 运行完整流水线
-spear pipeline run \
+shecr pipeline run \
   --data perf.data \
   --symptom "系统响应慢" \
   --work-dir ./case_001 \
   --max-rounds 2
 
 # 只运行诊断轮
-spear pipeline diagnose \
+shecr pipeline diagnose \
   --data perf.data \
   --symptom "CPU高" \
   --output ./case_001
 
 # 只运行审计轮（基于已有诊断）
-spear pipeline audit \
-  --spear-json ./case_001/.spear.json \
+shecr pipeline audit \
+  --shecr-json ./case_001/.shecr.json \
   --output ./case_001/audit_report.json
 
 # 运行复查轮（基于审计结果）
-spear pipeline recheck \
+shecr pipeline recheck \
   --audit-report ./case_001/audit_report.json \
   --output ./case_001/final_report.json
 ```
@@ -680,18 +680,18 @@ spear pipeline recheck \
 
 ## 6. 与其他组件的集成
 
-### 6.1 与现有 spear trace 集成
+### 6.1 与现有 shecr trace 集成
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    现有 SPEAR Trace                         │
+│                    现有 SHECR Trace                         │
 │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
 │  │  init   │  │  add    │  │ complete│  │ finalize│        │
 │  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
 │       └─────────────┴─────────────┴─────────────┘           │
 │                     ↓                                       │
 │              ┌─────────────┐                                │
-│              │ .spear.json │                                │
+│              │ .shecr.json │                                │
 │              └─────────────┘                                │
 └─────────────────────────────────────────────────────────────┘
                               ↑
@@ -712,24 +712,24 @@ spear pipeline recheck \
 class DiagnoseAgent:
     def run(self, perf_data: str, symptom: str, work_dir: str):
         # 1. 初始化
-        self.run_spear_command(f"trace init --data {perf_data}")
+        self.run_shecr_command(f"trace init --data {perf_data}")
         
         # 2. 执行诊断命令（自动记录到 trace）
-        self.run_spear_command("get-comm-top")
-        self.run_spear_command("check-cpu-bottleneck")
+        self.run_shecr_command("get-comm-top")
+        self.run_shecr_command("check-cpu-bottleneck")
         
         # 3. 查看 open issues
-        issues = self.run_spear_command("trace issues --status open --format json")
+        issues = self.run_shecr_command("trace issues --status open --format json")
         
         # 4. 分析每个 issue 并 complete
         for issue in issues['pending']:
             self.analyze_issue(issue)
-            self.run_spear_command(f"trace complete --id {issue['id']} --result '{result}'")
+            self.run_shecr_command(f"trace complete --id {issue['id']} --result '{result}'")
         
         # 5. 生成 debug/*.md
         self.generate_debug_doc()
         
-        return {'spear_json': f'{work_dir}/.spear.json'}
+        return {'shecr_json': f'{work_dir}/.shecr.json'}
 ```
 
 ---
@@ -762,5 +762,5 @@ class DiagnoseAgent:
 - [audit-process.md](./audit-process.md) - 审计流程详细规范
 - [design-rationale-trace-v2.md](./design-rationale-trace-v2.md) - Trace v2.0 设计
 - [trace-interface.md](./trace-interface.md) - Trace CLI 接口
-- [../SKILL.md](../SKILL.md) - SPEAR 方法论
+- [../SKILL.md](../SKILL.md) - SHECR 方法论
 - [../references/workflow.md](../references/workflow.md) - 7 Phase 分析流程

@@ -15,7 +15,7 @@
 ```
 当前架构（问题版本）:
 ┌─────────────────────────────────────────────────────────────┐
-│  CLI Layer (spear.py)                                       │
+│  CLI Layer (shecr.py)                                       │
 └──────────────────────┬──────────────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────────────┐
@@ -798,7 +798,7 @@ class BottleneckTraceAnalyzer(CompositeAnalyzer):
 ### 5.1 正常CLI调用（记录Trace）
 
 ```
-用户执行: spear get-comm-top --data xxx.data
+用户执行: shecr get-comm-top --data xxx.data
 
 数据流:
 ┌─────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────┐
@@ -828,7 +828,7 @@ Trace记录:
 ### 5.2 Composite调用（不记录子Trace）
 
 ```
-用户执行: spear sys-audit --data xxx.data
+用户执行: shecr sys-audit --data xxx.data
 
 数据流:
 ┌─────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────────┐
@@ -1183,7 +1183,7 @@ def test_composite_does_not_pollute_timeline():
     run_command("sys-audit --data test.data")
     
     # 2. 读取 trace 文件
-    trace = load_trace(".spear.json")
+    trace = load_trace(".shecr.json")
     
     # 3. 验证只记录了顶层命令
     assert len(trace["timeline"]) == 1
@@ -1202,7 +1202,7 @@ def test_cli_records_to_timeline():
     run_command("get-comm-top --data test.data")
     
     # 2. 读取 trace 文件
-    trace = load_trace(".spear.json")
+    trace = load_trace(".shecr.json")
     
     # 3. 验证记录了该命令
     assert len(trace["timeline"]) == 1

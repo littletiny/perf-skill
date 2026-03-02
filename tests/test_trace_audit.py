@@ -23,7 +23,7 @@ class TestTraceAudit:
     def setup_test_doc(self):
         """Create a temporary test document"""
         tmpdir = tempfile.mkdtemp()
-        doc_path = os.path.join(tmpdir, ".spear.json")
+        doc_path = os.path.join(tmpdir, ".shecr.json")
         return tmpdir, doc_path
     
     def test_audit_perfunctory_result(self):

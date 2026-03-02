@@ -617,7 +617,7 @@ class CommTopAnalyzer(BaseAnalyzer):
 | sys-audit命令 | `composite/sys_audit.py` | 能正确编排多个analysis工具 |
 | bottleneck-trace命令 | `composite/bottleneck_trace.py` | 能自动识别瓶颈并深度分析 |
 | storm-trace命令 | `composite/storm_trace.py` | 能追溯进程风暴来源 |
-| CLI注册 | `scripts/spear.py` | 新命令可用 |
+| CLI注册 | `scripts/shecr.py` | 新命令可用 |
 
 **sys-audit实现示例**:
 
@@ -739,7 +739,7 @@ def _auto_filter(self, groups: List[CommGroup]) -> Tuple[List[CommGroup], List[C
 | sys-audit实现 | 8h | 最复杂的组合逻辑 |
 | bottleneck-trace实现 | 6h | 自动识别+深度分析 |
 | storm-trace实现 | 4h | 相对简单 |
-| CLI注册 | 2h | spear.py修改 |
+| CLI注册 | 2h | shecr.py修改 |
 | Enhanced功能 | 8h | CV/Monopoly/降噪/评分 |
 | 集成测试 | 8h | 端到端测试 |
 | 文档更新 | 6h | SKILL.md, tools.md |

@@ -15,8 +15,8 @@
 [Analysis 工具]
     ↓ 输出 Risk
     ↓ 自动捕获 (_auto_record_risk_from_output)
-[Trace 存储] ← 原始数据 (level/message/hint) → .spear.json
-    ↓ 展示 (spear trace issues/timeline)
+[Trace 存储] ← 原始数据 (level/message/hint) → .shecr.json
+    ↓ 展示 (shecr trace issues/timeline)
 [终端输出] ← 使用 RiskDisplayConfig 格式化
 ```
 
@@ -24,8 +24,8 @@
 
 1. 命令行参数 `--risk-config PATH`
 2. 环境变量 `SPEAR_RISK_CONFIG`
-3. 当前目录 `.spear/risk.json`
-4. 用户目录 `~/.config/spear/risk.json`
+3. 当前目录 `.shecr/risk.json`
+4. 用户目录 `~/.config/shecr/risk.json`
 5. **内置默认配置**（代码中硬编码）
 
 ---
@@ -92,7 +92,7 @@ config/risk-default.json
 
 安装时复制到用户目录：
 ```
-~/.config/spear/risk.json
+~/.config/shecr/risk.json
 ```
 
 ### 加载优先级
@@ -103,12 +103,12 @@ def load_config():
     config = load_builtin_default()
 
     # 2. 用户默认（如果存在）
-    if exists("~/.config/spear/risk.json"):
-        merge(config, load("~/.config/spear/risk.json"))
+    if exists("~/.config/shecr/risk.json"):
+        merge(config, load("~/.config/shecr/risk.json"))
 
     # 3. 项目本地（如果存在）
-    if exists(".spear/risk.json"):
-        merge(config, load(".spear/risk.json"))
+    if exists(".shecr/risk.json"):
+        merge(config, load(".shecr/risk.json"))
 
     # 4. 环境变量指定
     if env_path := getenv("SPEAR_RISK_CONFIG"):
@@ -125,7 +125,7 @@ def load_config():
 
 ```json
 {
-  "_comment": "Default risk display configuration for SPEAR",
+  "_comment": "Default risk display configuration for SHECR",
   "risk": {
     "colors": {
       "critical": "\u001b[91m",
@@ -229,8 +229,8 @@ class RiskDisplayConfig:
 
         优先级（从低到高）：
         1. 内置默认
-        2. ~/.config/spear/risk.json
-        3. .spear/risk.json
+        2. ~/.config/shecr/risk.json
+        3. .shecr/risk.json
         4. SPEAR_RISK_CONFIG 环境变量
         5. 显式指定路径
         """
@@ -238,8 +238,8 @@ class RiskDisplayConfig:
 
         # 搜索路径（按优先级排序）
         search_paths = [
-            Path.home() / '.config' / 'spear' / 'risk.json',
-            Path('.spear/risk.json'),
+            Path.home() / '.config' / 'shecr' / 'risk.json',
+            Path('.shecr/risk.json'),
         ]
 
         # 按顺序合并（后覆盖前）
@@ -282,7 +282,7 @@ class RiskDisplayConfig:
     def apply_mode(self, mode: str):
         """应用模式覆盖（从配置文件中查找 modes 部分）"""
         # 从已加载的配置文件中查找 modes
-        for path in [Path('.spear/risk.json'), Path.home() / '.config' / 'spear' / 'risk.json']:
+        for path in [Path('.shecr/risk.json'), Path.home() / '.config' / 'shecr' / 'risk.json']:
             if not path.exists():
                 continue
             try:
@@ -514,7 +514,7 @@ def cmd_doc_issues(args):
     print(doc.format_issue_list(issues, status_filter, cfg))
 
     if status_filter in ['all', 'open'] and doc.get_open_issues():
-        print(f"Usage: spear trace complete --id ISS-001 --result '分析结果'")
+        print(f"Usage: shecr trace complete --id ISS-001 --result '分析结果'")
 
 
 def cmd_doc_timeline(args):
@@ -524,7 +524,7 @@ def cmd_doc_timeline(args):
     print(doc.format_timeline(cfg))
 ```
 
-### 5. CLI 参数 (spear.py)
+### 5. CLI 参数 (shecr.py)
 
 ```python
 # 为 trace 子命令添加 Risk 参数
@@ -552,7 +552,7 @@ scripts/perf_toolkit/core/
 ├── risk_config.py          # 配置加载器（JSON 格式）
 └── trace.py                # Trace 类（使用配置格式化）
 
-scripts/spear.py            # CLI 参数
+scripts/shecr.py            # CLI 参数
 ```
 
 ---
@@ -562,7 +562,7 @@ scripts/spear.py            # CLI 参数
 ### 默认输出（无配置文件）
 
 ```bash
-spear trace issues
+shecr trace issues
 ```
 
 ```
@@ -578,7 +578,7 @@ spear trace issues
 ### CI 模式
 
 ```bash
-spear trace issues --risk-style ci
+shecr trace issues --risk-style ci
 ```
 
 ```
@@ -591,7 +591,7 @@ spear trace issues --risk-style ci
 ### 简洁模式
 
 ```bash
-spear trace issues --risk-style compact
+shecr trace issues --risk-style compact
 ```
 
 ```

@@ -424,11 +424,11 @@ Level 3-4: 组件/代码层 ─┘ (Bottom-Up 验证)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # 维度1: 系统资源 (L2 预检查)
-spear check-cpu-bottleneck --data perf.data &
-spear show-cpu-usage --data perf.data &
+shecr check-cpu-bottleneck --data perf.data &
+shecr show-cpu-usage --data perf.data &
 
 # 维度2: 时序特征 (L0 分析)
-spear detect-anomalies --data perf.data &
+shecr detect-anomalies --data perf.data &
 
 # 维度3: 负载特征 (L1 分析 - 需外部数据)
 # TODO: 需要补充负载分析工具
@@ -441,14 +441,14 @@ wait
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # 维度1: 利用率分解
-spear show-cpu-usage --data perf.data &
+shecr show-cpu-usage --data perf.data &
 
 # 维度2: 核心分布 (均衡性)
-spear analyze-core-distribution --data perf.data &
+shecr analyze-core-distribution --data perf.data &
 
 # 维度3: 进程归属
-spear get-process-top --data perf.data &
-spear get-comm-top --data perf.data &
+shecr get-process-top --data perf.data &
+shecr get-comm-top --data perf.data &
 
 wait
 # → CP-2-1: 确定 CPU 瓶颈模式
@@ -458,13 +458,13 @@ wait
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # 维度1: 语义聚类 (机制识别)
-spear cluster-symbols --data perf.data &
+shecr cluster-symbols --data perf.data &
 
 # 维度2: 进程行为
-spear cluster-comm --data perf.data &
+shecr cluster-comm --data perf.data &
 
 # 维度3: 进程风暴检查
-spear count-process-variety --data perf.data &
+shecr count-process-variety --data perf.data &
 
 wait
 # → CP-3-1: 确定组件级瓶颈类型
@@ -474,19 +474,19 @@ wait
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # 维度1: 热点识别
-spear get-hotspots --data perf.data --top-n 20 &
+shecr get-hotspots --data perf.data --top-n 20 &
 
 # 维度2: 调用路径
-spear cluster-paths --data perf.data --min-depth 3 &
+shecr cluster-paths --data perf.data --min-depth 3 &
 
 wait
 
 # 维度3: 针对热点溯源 (基于 Top-Down 假设)
 # 如果 CP-3-1 确认是锁竞争:
-spear find-callers --target pthread_mutex_lock &
+shecr find-callers --target pthread_mutex_lock &
 
 # 如果 CP-3-1 确认是调度问题:
-spear find-callers --target schedule &
+shecr find-callers --target schedule &
 
 wait
 # → CP-4-1: 假设-证据交汇，确认根因

@@ -1,5 +1,5 @@
 {
-  "_comment": "Default risk display configuration for SPEAR - 无图标、无缩进、极简设计",
+  "_comment": "Default risk display configuration for SHECR - 无图标、无缩进、极简设计",
   "risk": {
     "colors": {
       "critical": "\u001b[91m",

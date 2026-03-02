@@ -31,7 +31,7 @@ TEST_FILES = [
     # 数据格式测试
     "tests/perfdata/test_perfdata.py",
     # CLI 回归测试
-    "tests/spear_wrap/test_spear_wrap.py",
+    "tests/shecr_wrap/test_shecr_wrap.py",
 ]
 
 

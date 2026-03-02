@@ -30,7 +30,7 @@ class TestTraceBoundary(unittest.TestCase):
     def setUp(self):
         """测试前置"""
         self.temp_dir = Path(tempfile.mkdtemp())
-        self.trace_file = self.temp_dir / ".spear.json"
+        self.trace_file = self.temp_dir / ".shecr.json"
         
         # 创建初始trace文件
         initial_data = {
@@ -58,7 +58,7 @@ class TestTraceBoundary(unittest.TestCase):
 class TestCLITracesToTimeline(TestTraceBoundary):
     """CLI调用触发Trace记录测试"""
     
-    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.spear.json')
+    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.shecr.json')
     def test_single_cli_command_records_to_timeline(self):
         """测试单个CLI命令记录到timeline"""
         try:
@@ -80,7 +80,7 @@ class TestCLITracesToTimeline(TestTraceBoundary):
         except Exception as e:
             self.skipTest(f"Trace测试失败: {e}")
     
-    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.spear.json')
+    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.shecr.json')
     def test_risk_creates_issue(self):
         """测试record_risk创建issue"""
         try:
@@ -104,7 +104,7 @@ class TestCLITracesToTimeline(TestTraceBoundary):
 class TestCompositeDoesNotPolluteTimeline(TestTraceBoundary):
     """Composite调用不污染Timeline测试"""
     
-    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.spear.json')
+    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.shecr.json')
     def test_composite_records_only_top_level(self):
         """测试Composite只记录顶层命令"""
         try:
@@ -137,7 +137,7 @@ class TestCompositeDoesNotPolluteTimeline(TestTraceBoundary):
         except Exception as e:
             self.skipTest(f"Trace测试失败: {e}")
     
-    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.spear.json')
+    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.shecr.json')
     def test_composite_aggregates_risks_before_recording(self):
         """测试Composite聚合risk后才记录"""
         try:
@@ -272,7 +272,7 @@ class TestTraceOutputBuilderIntegration(TestTraceBoundary):
 class TestTraceIsolationBetweenCommands(TestTraceBoundary):
     """命令间Trace隔离测试"""
     
-    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.spear.json')
+    @patch('perf_toolkit.core.trace.Trace.DEFAULT_PATH', '.shecr.json')
     def test_sequential_commands_create_sequential_timeline(self):
         """测试顺序命令创建顺序timeline"""
         try:

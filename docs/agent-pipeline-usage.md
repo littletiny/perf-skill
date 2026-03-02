@@ -1,6 +1,6 @@
 # Agent Pipeline 使用指南
 
-> SPEAR 多轮流水线使用示例
+> SHECR 多轮流水线使用示例
 > 版本: 1.0
 
 ---
@@ -25,7 +25,7 @@ python -m pipeline.cli run \
 **输出结构**：
 ```
 case_001/
-├── .spear.json              # Round 1: 诊断 trace 记录
+├── .shecr.json              # Round 1: 诊断 trace 记录
 ├── debug/
 │   └── diagnosis_analysis.md # 诊断文档
 ├── audit_report.json         # Round 2: 审计报告
@@ -57,7 +57,7 @@ Running diagnosis...
 Diagnosis completed!
   Issues found: 3
   Resolved: 3
-  Spear JSON: ./mysql_case/.spear.json
+  Spear JSON: ./mysql_case/.shecr.json
   Debug dir: ./mysql_case/debug
 ```
 
@@ -65,14 +65,14 @@ Diagnosis completed!
 
 ```bash
 python -m pipeline.cli audit \
-  --spear-json ./mysql_case/.spear.json \
+  --shecr-json ./mysql_case/.shecr.json \
   --strict
 ```
 
 **输出示例**：
 ```
 Running audit...
-  Spear JSON: ./mysql_case/.spear.json
+  Spear JSON: ./mysql_case/.shecr.json
 
 Audit completed!
   Status: failed
@@ -187,7 +187,7 @@ class MyDiagnoseAgent(DiagnoseAgent):
         findings = super()._execute_diagnosis(perf_data, symptom)
         
         # 添加自定义分析
-        custom_result = self.run_spear_command(
+        custom_result = self.run_shecr_command(
             f"detect-anomalies --data {perf_data} --format json"
         )
         if custom_result:
@@ -297,15 +297,15 @@ Artifacts:
 
 ---
 
-## 5. 与 SPEAR 工具集成
+## 5. 与 SHECR 工具集成
 
-### 5.1 现有 SPEAR 项目升级
+### 5.1 现有 SHECR 项目升级
 
-如果你的项目已经有 SPEAR trace 记录，可以直接进行审计：
+如果你的项目已经有 SHECR trace 记录，可以直接进行审计：
 
 ```bash
-# 已有 .spear.json，直接审计
-python -m pipeline.cli audit --spear-json ./.spear.json --strict
+# 已有 .shecr.json，直接审计
+python -m pipeline.cli audit --shecr-json ./.shecr.json --strict
 ```
 
 ### 5.2 扩展现有 Agent
@@ -355,13 +355,13 @@ controller.run(
 **处理**：
 ```python
 # 检查未完成的 issues
-issues = controller.run_spear_command("trace issues --status open --format json")
+issues = controller.run_shecr_command("trace issues --status open --format json")
 print(f"Open issues: {issues}")
 
 # 手动补充分析
 for issue in issues['pending']:
     # 执行额外分析...
-    controller.run_spear_command(
+    controller.run_shecr_command(
         f'trace complete --id {issue["id"]} --result "补充分析结果"'
     )
 ```
@@ -411,7 +411,7 @@ print(f"Second audit: {second_audit['overall_status']}")
 projects/
 ├── case_001_mysql_slow/      # 每个 case 独立目录
 │   ├── perf.data
-│   ├── .spear.json
+│   ├── .shecr.json
 │   ├── debug/
 │   ├── audit_report.json
 │   └── final_report.json
@@ -422,8 +422,8 @@ projects/
 ### 7.2 CI/CD 集成
 
 ```yaml
-# .github/workflows/spear-pipeline.yml
-name: SPEAR Diagnosis
+# .github/workflows/shecr-pipeline.yml
+name: SHECR Diagnosis
 
 on:
   workflow_dispatch:
@@ -441,7 +441,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - name: Run SPEAR Pipeline
+      - name: Run SHECR Pipeline
         run: |
           python -m pipeline.cli run \
             --data ${{ github.event.inputs.perf_data }} \
@@ -452,7 +452,7 @@ jobs:
       - name: Upload Reports
         uses: actions/upload-artifact@v3
         with:
-          name: spear-reports
+          name: shecr-reports
           path: ./output/*.json
 ```
 
@@ -496,4 +496,4 @@ if __name__ == '__main__':
 
 - [agent-pipeline-design.md](./agent-pipeline-design.md) - 架构设计文档
 - [audit-process.md](./audit-process.md) - 审计流程规范
-- [../SKILL.md](../SKILL.md) - SPEAR 方法论
+- [../SKILL.md](../SKILL.md) - SHECR 方法论

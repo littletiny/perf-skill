@@ -148,11 +148,11 @@ class TestRiskDisplayConfig(unittest.TestCase):
         """Test: Mode application (ci/compact)"""
         print("\n[Test 05] Mode application")
 
-        # Create config with modes in current directory (.spear/risk.json)
+        # Create config with modes in current directory (.shecr/risk.json)
         # so apply_mode can find it
-        spear_dir = Path(self.temp_dir) / ".spear"
-        spear_dir.mkdir(exist_ok=True)
-        config_path = spear_dir / "risk.json"
+        shecr_dir = Path(self.temp_dir) / ".shecr"
+        shecr_dir.mkdir(exist_ok=True)
+        config_path = shecr_dir / "risk.json"
 
         config_content = {
             "risk": {
@@ -185,7 +185,7 @@ class TestRiskDisplayConfig(unittest.TestCase):
         os.chdir(self.temp_dir)
 
         try:
-            # Load from .spear/risk.json
+            # Load from .shecr/risk.json
             config = RiskDisplayConfig.load()
             config.apply_mode('ci')
 

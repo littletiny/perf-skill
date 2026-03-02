@@ -1,11 +1,11 @@
-# SPEAR 性能诊断文档模板
+# SHECR 性能诊断文档模板
 
 创建新的性能诊断文档时，复制以下内容作为起始模板。
 
 ---
 
 ````markdown
-# SPEAR 诊断报告: [简短的问题描述]
+# SHECR 诊断报告: [简短的问题描述]
 
 - **状态**: [进行中 / 已定位 / 已验证 / 已关闭]
 - **数据文件**: `[perf.script路径]` ([时长])
@@ -36,7 +36,7 @@
 
 ## 二、竞争性假设追踪
 
-SPEAR 要求保持**竞争性假设**，并行追踪多条路径直至证伪。
+**SHECR-H**（Hypothesis）要求保持**竞争性假设**，并行追踪多条路径直至证伪。
 
 | 假设路径 | 机制评估 | 预期指纹 | 验证结果 | 状态 |
 |---------|---------|---------|---------|------|
@@ -150,11 +150,11 @@ perf record -a -g -- sleep [时长]
 perf script -F comm,pid,cpu,time,core,sym,dso > perf.script.fixed
 
 # 验证指标1是否恢复
-spear [工具1]
+shecr [工具1]
 # 预期: [预期结果]
 
 # 验证指标2是否恢复
-spear [工具2]
+shecr [工具2]
 # 预期: [预期结果]
 ```
 
@@ -170,7 +170,7 @@ spear [工具2]
 
 ### 参考文档
 
-- [methodology.md](references/methodology.md): SPEAR 分析方法论（三层架构驱动）
+- [methodology.md](references/methodology.md): SHECR 分析方法论（三层架构驱动）
 - [tools.md](references/tools.md): 工具命令详细说明
 - [data-format.md](references/data-format.md): perf script 格式说明
 

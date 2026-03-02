@@ -133,7 +133,7 @@ class TestCompositeCommands(unittest.TestCase):
     def setUp(self):
         """测试前置"""
         self.temp_dir = tempfile.mkdtemp()
-        self.trace_file = Path(self.temp_dir) / ".spear.json"
+        self.trace_file = Path(self.temp_dir) / ".shecr.json"
     
     def tearDown(self):
         """测试后置"""

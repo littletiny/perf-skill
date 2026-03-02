@@ -23,7 +23,7 @@ from pathlib import Path
 # 测试目录
 TEST_DIR = Path(__file__).parent
 REPO_ROOT = TEST_DIR.parent.parent
-SPEAR = REPO_ROOT / "scripts" / "spear"
+SPEAR = REPO_ROOT / "scripts" / "shecr"
 
 
 class Colors:
@@ -82,8 +82,8 @@ class TestEnv:
         os.chdir(self.orig_dir)
         shutil.rmtree(self.tmpdir, ignore_errors=True)
 
-    def run_spear(self, *args, data_file=None, check=True):
-        """运行 spear 命令"""
+    def run_shecr(self, *args, data_file=None, check=True):
+        """运行 shecr 命令"""
         # SPEAR 是 bash 脚本，需要用 bash 执行
         cmd = ["bash", str(SPEAR)]
 
@@ -105,7 +105,7 @@ class TestEnv:
         if self.output_file:
             with open(self.output_file, 'a', encoding='utf-8') as f:
                 f.write(f"{'='*60}\n")
-                f.write(f"Command: spear {' '.join(args)}\n")
+                f.write(f"Command: shecr {' '.join(args)}\n")
                 f.write(f"Data file: {data_file}\n")
                 f.write(f"Return code: {result.returncode}\n")
                 f.write(f"{'-'*60}\n")
@@ -125,7 +125,7 @@ class TestEnv:
 
     def init_data(self, data_file):
         """初始化数据文件"""
-        self.run_spear("init", "--data-path", str(data_file))
+        self.run_shecr("init", "--data-path", str(data_file))
 
 
 def get_data_info(data_file):
@@ -176,38 +176,38 @@ def test_format_detection(data_file, format_type):
 
 def test_tool_get_comm_top(env, data_file):
     """测试: get-comm-top"""
-    result = env.run_spear("get-comm-top", "--top-n", "5", data_file=data_file)
+    result = env.run_shecr("get-comm-top", "--top-n", "5", data_file=data_file)
     assert len(result.stdout) > 0
 
 
 def test_tool_get_hotspots(env, data_file):
     """测试: get-hotspots"""
-    result = env.run_spear("get-hotspots", "--sort-by", "self", "--top-n", "10", data_file=data_file)
+    result = env.run_shecr("get-hotspots", "--sort-by", "self", "--top-n", "10", data_file=data_file)
     assert "# index,funcname" in result.stdout
 
 
 def test_tool_get_hotspots_inclusive(env, data_file):
     """测试: get-hotspots --sort-by inclusive"""
-    result = env.run_spear("get-hotspots", "--sort-by", "inclusive", "--top-n", "10", data_file=data_file)
+    result = env.run_shecr("get-hotspots", "--sort-by", "inclusive", "--top-n", "10", data_file=data_file)
     assert "# index,funcname" in result.stdout
 
 
 def test_tool_cluster_paths(env, data_file):
     """测试: cluster-paths"""
-    result = env.run_spear("cluster-paths", "--min-depth", "3", "--top-n", "5", data_file=data_file)
+    result = env.run_shecr("cluster-paths", "--min-depth", "3", "--top-n", "5", data_file=data_file)
     assert len(result.stdout) > 0
 
 
 def test_tool_analyze_core_distribution(env, data_file):
     """测试: analyze-core-distribution"""
-    result = env.run_spear("analyze-core-distribution", data_file=data_file)
+    result = env.run_shecr("analyze-core-distribution", data_file=data_file)
     assert len(result.stdout) > 0
 
 
 def test_find_callers(env, data_file):
     """测试: find-callers（针对第一个热点）"""
     # 先获取热点
-    result = env.run_spear("get-hotspots", "--sort-by", "self", "--top-n", "5", data_file=data_file)
+    result = env.run_shecr("get-hotspots", "--sort-by", "self", "--top-n", "5", data_file=data_file)
 
     # 解析第一个函数名（格式: #1 funcname self% inclusive%）
     symbol = None
@@ -221,7 +221,7 @@ def test_find_callers(env, data_file):
     
     if symbol:
         # 尝试查找调用者
-        caller_result = env.run_spear(
+        caller_result = env.run_shecr(
             "find-callers", "--target", symbol,
             "--min-ratio", "1.0",
             data_file=data_file,
@@ -232,26 +232,26 @@ def test_find_callers(env, data_file):
 
 def test_tool_detect_anomalies(env, data_file):
     """测试: detect-anomalies"""
-    result = env.run_spear("detect-anomalies", data_file=data_file, check=False)
+    result = env.run_shecr("detect-anomalies", data_file=data_file, check=False)
     # 工具应该成功运行
     assert result.returncode == 0 or result.returncode == 1, f"工具异常退出: {result.stderr}"
 
 
 def test_tool_sys_audit(env, data_file):
     """测试: sys-audit"""
-    result = env.run_spear("sys-audit", data_file=data_file, check=False)
+    result = env.run_shecr("sys-audit", data_file=data_file, check=False)
     assert result.returncode == 0, f"工具失败: {result.stderr}"
 
 
 def test_tool_bottleneck_trace(env, data_file):
     """测试: bottleneck-trace"""
-    result = env.run_spear("bottleneck-trace", data_file=data_file, check=False)
+    result = env.run_shecr("bottleneck-trace", data_file=data_file, check=False)
     assert result.returncode == 0, f"工具失败: {result.stderr}"
 
 
 def test_tool_comm_top_storm(env, data_file):
     """测试: get-comm-top storm分析（整合原storm-trace）"""
-    result = env.run_spear("get-comm-top", data_file=data_file, check=False)
+    result = env.run_shecr("get-comm-top", data_file=data_file, check=False)
     assert result.returncode == 0, f"工具失败: {result.stderr}"
     # 验证输出包含 storm_analysis 字段（JSON格式）
     if "json" in result.stdout.lower() or result.stdout.startswith("{"):
@@ -327,7 +327,7 @@ def run_tests(data_dirs=None, verbose=False, fail_fast=False, output_file=None):
     print(f"perfdata 回归测试套件")
     print(f"{Colors.BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Colors.RESET}")
     print(f"数据目录: {TEST_DIR}")
-    print(f"spear: {SPEAR}")
+    print(f"shecr: {SPEAR}")
 
     # 确定要测试的格式
     if data_dirs is None:

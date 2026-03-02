@@ -267,7 +267,7 @@ class OutputBuilder:
         risk_output.add_risk(
             "warning",
             "未找到样本数据",
-            "[必须] 添加到 Trace: spear trace add --desc '未找到样本数据' --hint '检查过滤条件'",
+            "[必须] 添加到 Trace: shecr trace add --desc '未找到样本数据' --hint '检查过滤条件'",
             patterns=["NO_SAMPLES"]
         )
 
@@ -309,7 +309,7 @@ class OutputBuilder:
                 risk_output.add_risk(
                     "critical",
                     "数据质量不足！分析结果完全不可信",
-                    "[必须] 添加到 Trace: spear trace add --desc '数据质量不足！分析结果完全不可信' --hint '使用更长的采样时间重新采集数据'",
+                    "[必须] 添加到 Trace: shecr trace add --desc '数据质量不足！分析结果完全不可信' --hint '使用更长的采样时间重新采集数据'",
                     patterns=["CRITICAL_DATA_QUALITY"]
                 )
 

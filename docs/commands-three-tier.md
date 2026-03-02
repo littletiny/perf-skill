@@ -97,7 +97,7 @@ Analysis 层实现具体诊断逻辑，通过 **Facade 模式** 提供双接口�
 检查资源限制和单核饱和。
 
 ```bash
-spear check-cpu-bottleneck \
+shecr check-cpu-bottleneck \
   --data <perf.script.txt> \
   [--cpu-limit <cores>] \
   [--threshold <pct>] \
@@ -127,7 +127,7 @@ spear check-cpu-bottleneck \
 时序异常检测与窗口定位。
 
 ```bash
-spear detect-anomalies \
+shecr detect-anomalies \
   --data <perf.script.txt> \
   [--window-size <sec>] \
   [--spike-threshold <ratio>] \
@@ -161,7 +161,7 @@ spear detect-anomalies \
 核心级负载分布与均衡性分析。
 
 ```bash
-spear analyze-core-distribution \
+shecr analyze-core-distribution \
   --data <perf.script.txt> \
   [--cpu-id <ID>] \
   [--pid <PID>] \
@@ -195,7 +195,7 @@ spear analyze-core-distribution \
 识别高消耗进程组（增强版，支持 CV/Monopoly/SpawnRate 指标）。
 
 ```bash
-spear get-comm-top \
+shecr get-comm-top \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--sort-by-density] \
@@ -243,7 +243,7 @@ spear get-comm-top \
 识别热点函数。
 
 ```bash
-spear get-hotspots \
+shecr get-hotspots \
   --data <perf.script.txt> \
   [--sort-by inclusive|self] \
   [--top-n <N>] \
@@ -278,7 +278,7 @@ spear get-hotspots \
 
 ```bash
 # 指定 target 模式
-spear find-callers \
+shecr find-callers \
   --data <perf.script.txt> \
   --target <function> \
   [--min-ratio <pct>] \
@@ -307,7 +307,7 @@ spear find-callers \
 调用路径聚类，识别共同前缀模式。
 
 ```bash
-spear cluster-paths \
+shecr cluster-paths \
   --data <perf.script.txt> \
   [--min-depth <N>] \
   [--min-samples <N>] \
@@ -334,7 +334,7 @@ spear cluster-paths \
 按专家规则语义聚类。
 
 ```bash
-spear cluster-symbols \
+shecr cluster-symbols \
   --data <perf.script.txt> \
   [--no-include-experts] \
   [--custom-rules <json>] \
@@ -363,10 +363,10 @@ spear cluster-symbols \
 **外部规则文件** (`--rules-file`):
 ```bash
 # 使用外部规则文件
-spear cluster-symbols --data perf.data --rules-file my_rules.json --no-include-experts
+shecr cluster-symbols --data perf.data --rules-file my_rules.json --no-include-experts
 
 # 扩展内置规则
-spear cluster-symbols --data perf.data --rules-file extra_rules.json
+shecr cluster-symbols --data perf.data --rules-file extra_rules.json
 ```
 
 规则文件格式（JSON）：
@@ -387,7 +387,7 @@ spear cluster-symbols --data perf.data --rules-file extra_rules.json
 检测进程风暴/短生命周期进程。
 
 ```bash
-spear count-process-variety \
+shecr count-process-variety \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--storm-pid-threshold <N>] \
@@ -431,7 +431,7 @@ Composite 层通过编排多个 Analysis 工具，生成综合诊断报告。内
 系统审计组合命令，解决"A 掩盖 B"问题。
 
 ```bash
-spear sys-audit \
+shecr sys-audit \
   --data <perf.script.txt> \
   [--top-n <N>] \
   [--cpu-id <ID>] \
@@ -489,7 +489,7 @@ spear sys-audit \
 瓶颈追踪分析，深度定位性能瓶颈。
 
 ```bash
-spear bottleneck-trace \
+shecr bottleneck-trace \
   --data <perf.script.txt> \
   [--comm <name>] \
   [--top-n <N>] \
@@ -506,10 +506,10 @@ spear bottleneck-trace \
 **使用场景**:
 ```bash
 # 场景 1: 已知瓶颈进程
-spear bottleneck-trace --comm netstat
+shecr bottleneck-trace --comm netstat
 
 # 场景 2: 自动检测瓶颈（不指定 --comm）
-spear bottleneck-trace --data <perf.script.txt>
+shecr bottleneck-trace --data <perf.script.txt>
 ```
 
 ---
@@ -519,7 +519,7 @@ spear bottleneck-trace --data <perf.script.txt>
 进程风暴追踪，分析短生命周期进程问题。
 
 ```bash
-spear storm-trace \
+shecr storm-trace \
   --data <perf.script.txt> \
   [--comm <name>] \
   [--cpu-id <ID>] \
@@ -542,7 +542,7 @@ Trace 系统用于记录诊断过程，所有 Analysis CLI 命令自动记录到
 初始化诊断追踪文档。
 
 ```bash
-spear trace init --data <perf.data>
+shecr trace init --data <perf.data>
 ```
 
 ---
@@ -552,7 +552,7 @@ spear trace init --data <perf.data>
 添加问题记录（自动生成 ID）。
 
 ```bash
-spear trace add \
+shecr trace add \
   --desc "问题描述" \
   [--level critical|warning|info] \
   [--risk "不处理的风险"] \
@@ -568,7 +568,7 @@ spear trace add \
 标记问题完成。
 
 ```bash
-spear trace complete \
+shecr trace complete \
   --id ISS-001 \
   --result "分析结果"
 ```
@@ -580,12 +580,12 @@ spear trace complete \
 重新打开已解决的问题。
 
 ```bash
-spear trace reopen \
+shecr trace reopen \
   --id ISS-001 \
   [--reason "重新打开原因"]
 
 # 重新打开所有已解决的问题
-spear trace reopen --all
+shecr trace reopen --all
 ```
 
 ---
@@ -595,7 +595,7 @@ spear trace reopen --all
 列出所有问题。
 
 ```bash
-spear trace issues [--status open|resolved|all]
+shecr trace issues [--status open|resolved|all]
 ```
 
 ---
@@ -606,15 +606,15 @@ spear trace issues [--status open|resolved|all]
 
 ```bash
 # 完整审计
-spear trace audit
+shecr trace audit
 
 # 指定阶段
-spear trace audit --phase structural
-spear trace audit --phase timeline
-spear trace audit --phase depth
+shecr trace audit --phase structural
+shecr trace audit --phase timeline
+shecr trace audit --phase depth
 
 # JSON 输出
-spear trace audit --format json --output audit-report.json
+shecr trace audit --format json --output audit-report.json
 ```
 
 ---
@@ -624,8 +624,8 @@ spear trace audit --format json --output audit-report.json
 结束诊断。
 
 ```bash
-spear trace finalize
-spear trace finalize --accept-risk "与当前问题无关"
+shecr trace finalize
+shecr trace finalize --accept-risk "与当前问题无关"
 ```
 
 ---
@@ -635,7 +635,7 @@ spear trace finalize --accept-risk "与当前问题无关"
 导出报告。
 
 ```bash
-spear trace export \
+shecr trace export \
   [--format markdown|json] \
   [--output <path>]
 ```
@@ -647,7 +647,7 @@ spear trace export \
 查看诊断时间线。
 
 ```bash
-spear trace timeline [--format text|json]
+shecr trace timeline [--format text|json]
 ```
 
 ---
@@ -702,7 +702,7 @@ spear trace timeline [--format text|json]
 ### CLI 调用（记录 Trace）
 
 ```
-用户: spear get-comm-top --data xxx.data
+用户: shecr get-comm-top --data xxx.data
 
 ┌─────────┐     ┌──────────────┐     ┌─────────────┐     ┌──────────┐
 │ CLI 层  │────▶│ @command     │────▶│ CLI Wrapper │────▶│ Analyzer │
@@ -721,7 +721,7 @@ Trace 记录:
 ### Composite 调用（不记录子 Trace）
 
 ```
-用户: spear sys-audit --data xxx.data
+用户: shecr sys-audit --data xxx.data
 
 ┌─────────┐     ┌──────────────┐     ┌─────────────┐     ┌─────────────┐
 │ CLI 层  │────▶│ @command     │────▶│ cmd_sys_    │────▶│ Analysis    │
@@ -760,25 +760,25 @@ Trace 记录:
 
 ```bash
 # 1. 初始化（配置数据路径，只需一次）
-scripts/spear init --data-path <perf.data> [--freq <hz>]
+scripts/shecr init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化
-spear get-hotspots --comm myapp
-spear find-callers --target pthread_mutex_lock
+shecr get-hotspots --comm myapp
+shecr find-callers --target pthread_mutex_lock
 ```
 
 ### 典型分析路径
 
 ```bash
 # 1. 系统审计（推荐）
-spear sys-audit
+shecr sys-audit
 
 # 3. 如发现瓶颈，深度追踪
-spear bottleneck-trace --comm <target>
+shecr bottleneck-trace --comm <target>
 
 # 4. 查看诊断记录
-spear trace timeline
-spear trace issues
+shecr trace timeline
+shecr trace issues
 ```
 
 ---

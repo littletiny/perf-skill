@@ -8,11 +8,11 @@
 
 ```bash
 # 初始化（只需一次）
-scripts/spear init --data-path <perf.data>
+scripts/shecr init --data-path <perf.data>
 
 # 两个综合诊断入口
-spear sys-audit
-spear bottleneck-trace --comm <name>
+shecr sys-audit
+shecr bottleneck-trace --comm <name>
 ```
 
 ---
@@ -48,7 +48,7 @@ spear bottleneck-trace --comm <name>
 核心级负载分布分析。检测单核饱和、负载不均衡。
 
 ```bash
-spear analyze-core-distribution [options]
+shecr analyze-core-distribution [options]
 ```
 
 **特有参数**: `--threshold` (单核饱和度阈值), `--cpu-limit` (Cgroup limit检测)  
@@ -61,7 +61,7 @@ spear analyze-core-distribution [options]
 时序异常检测。识别 CPU 利用率突变点。
 
 ```bash
-spear detect-anomalies [options]
+shecr detect-anomalies [options]
 ```
 
 **特有参数**: `--window-size` (滑动窗口秒数), `--spike-threshold` (变化倍数), `--min-utilization` (最小利用率)  
@@ -74,7 +74,7 @@ spear detect-anomalies [options]
 进程组资源分析。识别离群进程和进程风暴。
 
 ```bash
-spear get-comm-top [options]
+shecr get-comm-top [options]
 ```
 
 **特有参数**: `--show-all` (显示全部), `--cv-threshold` (CV异常阈值), `--monopoly-threshold` (核心独占阈值), `--spawn-threshold` (风暴检测阈值)  
@@ -87,7 +87,7 @@ spear get-comm-top [options]
 热点函数识别。
 
 ```bash
-spear get-hotspots [options]
+shecr get-hotspots [options]
 ```
 
 **特有参数**: `--sort-by` (inclusive/self)
@@ -99,9 +99,9 @@ spear get-hotspots [options]
 热点函数溯源。
 
 ```bash
-spear find-callers --target <function> [options]
+shecr find-callers --target <function> [options]
 # 或
-spear find-callers --auto-target [options]
+shecr find-callers --auto-target [options]
 ```
 
 **特有参数**: `--target` (目标函数), `--auto-target` (自动追踪), `--min-ratio` (最小占比%)  
@@ -114,7 +114,7 @@ spear find-callers --auto-target [options]
 调用路径聚类。
 
 ```bash
-spear cluster-paths [options]
+shecr cluster-paths [options]
 ```
 
 **特有参数**: `--min-depth`, `--min-samples`
@@ -128,7 +128,7 @@ spear cluster-paths [options]
 系统全景扫描。
 
 ```bash
-spear sys-audit [options]
+shecr sys-audit [options]
 ```
 
 **特有参数**: `--show-all`
@@ -140,11 +140,11 @@ spear sys-audit [options]
 深度分析瓶颈进程。
 
 ```bash
-spear bottleneck-trace --comm <name> [options]
+shecr bottleneck-trace --comm <name> [options]
 # 或
-spear bottleneck-trace --pid <PID> [options]
+shecr bottleneck-trace --pid <PID> [options]
 # 或
-spear bottleneck-trace --auto-detect
+shecr bottleneck-trace --auto-detect
 ```
 
 **特有参数**: `--comm`, `--pid`, `--auto-detect`
@@ -157,10 +157,10 @@ spear bottleneck-trace --auto-detect
 
 | 命令 | 用途 | 示例 |
 |------|------|------|
-| `trace add` | 添加问题 | `spear trace add --desc "CPU异常" --level critical` |
-| `trace complete` | 标记完成 | `spear trace complete --id ISS-001 --result "根因: ..."` |
-| `trace issues` | 查看问题列表 | `spear trace issues [--status open\|resolved]` |
-| `trace finalize` | 结束诊断 | `spear trace finalize [--accept-risk "..."]` |
+| `trace add` | 添加问题 | `shecr trace add --desc "CPU异常" --level critical` |
+| `trace complete` | 标记完成 | `shecr trace complete --id ISS-001 --result "根因: ..."` |
+| `trace issues` | 查看问题列表 | `shecr trace issues [--status open\|resolved]` |
+| `trace finalize` | 结束诊断 | `shecr trace finalize [--accept-risk "..."]` |
 
 ---
 
@@ -180,7 +180,7 @@ spear bottleneck-trace --auto-detect
 **说明**:
 - 所有工具支持 `--start-time`/`--end-time` 时间过滤（ISO 8601、Unix 时间戳、日期格式）
 - `--comm`: 支持逗号分隔多值，如 `--comm nginx,php-fpm`
-- 完整参数请使用 `spear <command> --help` 查看
+- 完整参数请使用 `shecr <command> --help` 查看
 
 ## 参考文档
 

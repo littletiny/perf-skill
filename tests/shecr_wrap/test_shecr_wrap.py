@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-spear_wrap 回归测试套件
+shecr_wrap 回归测试套件
 
 测试范围:
-- 环境配置管理 (.spear_env)
+- 环境配置管理 (.shecr_env)
 - 多数据文件管理 (init/use/list)
 - 变量跟随逻辑 (freq 跟随 data)
 - 全局 trace 管理
 - 命令构建逻辑
 
 用法:
-    python3 tests/test_spear_wrap.py        # 运行所有测试
-    python3 tests/test_spear_wrap.py -v     # 详细输出
-    python3 tests/test_spear_wrap.py -f     # 失败时停止
+    python3 tests/test_shecr_wrap.py        # 运行所有测试
+    python3 tests/test_shecr_wrap.py -v     # 详细输出
+    python3 tests/test_shecr_wrap.py -f     # 失败时停止
 """
 
 import os
@@ -26,7 +26,7 @@ from pathlib import Path
 # 添加 scripts 目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
-import spear_wrap as sw
+import shecr_wrap as sw
 
 
 class Colors:
@@ -76,22 +76,22 @@ class TestEnv:
         self.orig_global_trace = sw.GLOBAL_TRACE
 
     def __enter__(self):
-        self.tmpdir = tempfile.mkdtemp(prefix="spear_test_")
+        self.tmpdir = tempfile.mkdtemp(prefix="shecr_test_")
         self.orig_dir = os.getcwd()
         os.chdir(self.tmpdir)
 
-        # 创建模拟的 spear.py
+        # 创建模拟的 shecr.py
         (Path(self.tmpdir) / "scripts").mkdir()
-        (Path(self.tmpdir) / "scripts" / "spear.py").write_text("#!/usr/bin/env python3\nprint('mock')")
+        (Path(self.tmpdir) / "scripts" / "shecr.py").write_text("#!/usr/bin/env python3\nprint('mock')")
         (Path(self.tmpdir) / "version").write_text("2.30")
 
         # 创建测试数据文件
         (Path(self.tmpdir) / "data1.data").write_text("mock data 1")
         (Path(self.tmpdir) / "data2.data").write_text("mock data 2")
 
-        # 更新 spear_wrap 的全局路径
-        sw.ENV_FILE = ".spear_env"
-        sw.GLOBAL_TRACE = ".spear.json"
+        # 更新 shecr_wrap 的全局路径
+        sw.ENV_FILE = ".shecr_env"
+        sw.GLOBAL_TRACE = ".shecr.json"
 
         return self
 
@@ -119,7 +119,7 @@ def test_load_save_env():
         # 保存配置
         env = {
             "profiles": {
-                "/path/to/data": {"freq": "99", "script_path": "/path/spear.py"}
+                "/path/to/data": {"freq": "99", "script_path": "/path/shecr.py"}
             },
             "default": "/path/to/data"
         }
@@ -138,8 +138,8 @@ def test_migrate_old_env():
         data1 = te.data_path("data1.data")
 
         # 创建旧格式 env 文件（使用存在的数据文件路径）
-        old_content = f"""# spear config
-SPEAR_SCRIPT_PATH=/path/spear.py
+        old_content = f"""# old spear config
+SPEAR_SCRIPT_PATH=/path/shecr.py
 SPEAR_DATA_PATH={data1}
 SPEAR_FREQ=99
 """
@@ -343,7 +343,7 @@ def test_cmd_build_no_freq():
         freq = profile.get("freq") if profile else None
 
         # 模拟 cmd_exec 的命令构建逻辑
-        cmd = ["spear.py", "get-hotspots", "--data", dp]
+        cmd = ["shecr.py", "get-hotspots", "--data", dp]
         if freq and "--freq" not in ["--top-n", "10"]:
             cmd.extend(["--freq", str(freq)])
 
@@ -366,7 +366,7 @@ def test_cmd_build_with_freq():
         dp, profile = sw.get_active_config(env)
         freq = profile.get("freq") if profile else None
 
-        cmd = ["spear.py", "get-hotspots", "--data", dp]
+        cmd = ["shecr.py", "get-hotspots", "--data", dp]
         if freq and "--freq" not in ["--top-n", "10"]:
             cmd.extend(["--freq", str(freq)])
 
@@ -387,7 +387,7 @@ def test_cmd_build_trace_no_freq():
         sw.cmd_init(Args())
 
         # trace 子命令不应添加 --data 和 --freq
-        cmd = ["spear.py", "trace", "timeline"]
+        cmd = ["shecr.py", "trace", "timeline"]
 
         assert "--data" not in cmd, "trace 不应有 --data"
         assert "--freq" not in cmd, "trace 不应有 --freq"
@@ -594,7 +594,7 @@ def run_tests(verbose=False, fail_fast=False):
     result = TestResult()
 
     print(f"{Colors.BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Colors.RESET}")
-    print(f"spear_wrap 回归测试套件")
+    print(f"shecr_wrap 回归测试套件")
     print(f"{Colors.BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━{Colors.RESET}\n")
 
     for test in TEST_CASES:
@@ -620,7 +620,7 @@ def run_tests(verbose=False, fail_fast=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="spear_wrap 回归测试")
+    parser = argparse.ArgumentParser(description="shecr_wrap 回归测试")
     parser.add_argument("-v", "--verbose", action="store_true", help="详细输出")
     parser.add_argument("-f", "--fail-fast", action="store_true", help="失败时停止")
     args = parser.parse_args()

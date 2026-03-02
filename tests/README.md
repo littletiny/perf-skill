@@ -35,9 +35,9 @@ tests/
 ├── scenario/                        # 场景测试（人工验证用）
 │   ├── netstat/                     # netstat 进程风暴场景
 │   └── ps/                          # ps 进程分析场景
-└── spear_wrap/                      # spear_wrap CLI 回归测试
+└── shecr_wrap/                      # shecr_wrap CLI 回归测试
     ├── README.md
-    └── test_spear_wrap.py
+    └── test_shecr_wrap.py
 ```
 
 ---
@@ -77,13 +77,13 @@ cluster-symbols 的 rules 文件加载与集成测试。
 |------|------|----------|
 | `perfdata/` | 数据格式兼容性测试 | `python3 tests/perfdata/test_perfdata.py` |
 
-### 5. CLI 回归测试 (`spear_wrap/`)
+### 5. CLI 回归测试 (`shecr_wrap/`)
 
-测试 spear CLI 各子命令的功能。
+测试 shecr CLI 各子命令的功能。
 
 | 目录 | 用途 | 运行方式 |
 |------|------|----------|
-| `spear_wrap/` | CLI 回归测试 | `python3 tests/spear_wrap/test_spear_wrap.py` |
+| `shecr_wrap/` | CLI 回归测试 | `python3 tests/shecr_wrap/test_shecr_wrap.py` |
 
 ### 6. 场景测试 (`scenario/`)
 
@@ -144,9 +144,9 @@ python3 tests/perfdata/test_perfdata.py -d perf_format
 ### CLI 回归测试
 
 ```bash
-python3 tests/spear_wrap/test_spear_wrap.py
-python3 tests/spear_wrap/test_spear_wrap.py -v
-python3 tests/spear_wrap/test_spear_wrap.py -f
+python3 tests/shecr_wrap/test_shecr_wrap.py
+python3 tests/shecr_wrap/test_shecr_wrap.py -v
+python3 tests/shecr_wrap/test_shecr_wrap.py -f
 ```
 
 ### 场景测试
@@ -209,6 +209,6 @@ if __name__ == "__main__":
 | risk/test_display_config | 13 | ✅ 通过 |
 | clusters/test_rules_loading | 9 | ✅ 通过 |
 | clusters/test_external_rules_integration | 12 | ✅ 通过 |
-| spear_wrap | 14 | ✅ 通过 |
+| shecr_wrap | 14 | ✅ 通过 |
 | perfdata (new_format) | 14 | ✅ 通过 |
 | perfdata (perf_format) | 14 | ✅ 通过 |

@@ -13,7 +13,7 @@
 
 ### 1.1 目的
 
-定义 `spear trace` 工具的命令行接口、数据格式和集成方式。
+定义 `shecr trace` 工具的命令行接口、数据格式和集成方式。
 
 ### 1.2 设计原则
 
@@ -32,7 +32,7 @@
 ### 2.1 文件路径
 
 ```
-.spear.json  # 当前工作目录
+.shecr.json  # 当前工作目录
 或
 ~/.perf-diagnosis/<data-file-basename>.json  # 全局存储
 ```
@@ -71,7 +71,7 @@
 ### 2.3 Trace边界说明（三层架构）
 
 ```
-用户执行: spear sys-audit --data perf.data
+用户执行: shecr sys-audit --data perf.data
 
 记录行为:
 ┌─────────────────────────────────────────────────────────┐
@@ -86,7 +86,7 @@
    detect-anomalies  core-distribution   get-comm-top
    （不记录）         （不记录）          （不记录）
 
-用户执行: spear get-comm-top --data perf.data
+用户执行: shecr get-comm-top --data perf.data
 
 记录行为:
 ┌─────────────────────────────────────────────────────────┐
@@ -186,12 +186,12 @@
 ### 3.1 命令总览
 
 ```bash
-spear trace init                    # 初始化文档
-spear trace add [options]           # 添加问题
-spear trace complete [options]      # 标记完成
-spear trace list [options]          # 列出所有问题
-spear trace finalize [options]      # 最终审计
-spear trace export [options]        # 导出为其他格式
+shecr trace init                    # 初始化文档
+shecr trace add [options]           # 添加问题
+shecr trace complete [options]      # 标记完成
+shecr trace list [options]          # 列出所有问题
+shecr trace finalize [options]      # 最终审计
+shecr trace export [options]        # 导出为其他格式
 ```
 
 ### 3.2 init - 初始化文档
@@ -200,24 +200,24 @@ spear trace export [options]        # 导出为其他格式
 
 **用法**:
 ```bash
-spear trace init --data <data-file> [--path <doc-path>]
+shecr trace init --data <data-file> [--path <doc-path>]
 ```
 
 **参数**:
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | --data | string | 是 | perf 数据文件路径 |
-| --path | string | 否 | 文档存储路径，默认 .spear.json |
+| --path | string | 否 | 文档存储路径，默认 .shecr.json |
 
 **输出**:
 ```
-✓ 创建诊断文档: .spear.json
+✓ 创建诊断文档: .shecr.json
   数据文件: netstat_perf.data
 ```
 
 **示例**:
 ```bash
-spear trace init --data netstat_perf.data
+shecr trace init --data netstat_perf.data
 ```
 
 ---
@@ -228,7 +228,7 @@ spear trace init --data netstat_perf.data
 
 **用法**:
 ```bash
-spear trace add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
+shecr trace add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
 ```
 
 **参数**:
@@ -248,7 +248,7 @@ spear trace add --id <id> --desc <desc> [--risk <risk>] [--hint <hint>]
 
 **示例**:
 ```bash
-spear trace add --id ISS-002 \
+shecr trace add --id ISS-002 \
   --desc "containerd-shim 高内核态 89.9%" \
   --risk "可能比 netstat 更严重，单进程影响大" \
   --hint "bottleneck-trace --comm containerd-shim"
@@ -262,7 +262,7 @@ spear trace add --id ISS-002 \
 
 **用法**:
 ```bash
-spear trace complete --id <id> --result <result>
+shecr trace complete --id <id> --result <result>
 ```
 
 **参数**:
@@ -279,7 +279,7 @@ spear trace complete --id <id> --result <result>
 
 **示例**:
 ```bash
-spear trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
+shecr trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争"
 ```
 
 ---
@@ -290,7 +290,7 @@ spear trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%, /proc/net/tc
 
 **用法**:
 ```bash
-spear trace list [--format <format>] [--status <status>]
+shecr trace list [--format <format>] [--status <status>]
 ```
 
 **参数**:
@@ -345,9 +345,9 @@ ISS-002  containerd-shim 高内核态 89.9%
 
 **示例**:
 ```bash
-spear trace list                    # 默认 text 格式
-spear trace list --format json      # JSON 格式
-spear trace list --status pending   # 只显示待处理
+shecr trace list                    # 默认 text 格式
+shecr trace list --format json      # JSON 格式
+shecr trace list --status pending   # 只显示待处理
 ```
 
 ---
@@ -358,7 +358,7 @@ spear trace list --status pending   # 只显示待处理
 
 **用法**:
 ```bash
-spear trace finalize [--accept-risk <reason>] [--format <format>]
+shecr trace finalize [--accept-risk <reason>] [--format <format>]
 ```
 
 **参数**:
@@ -397,7 +397,7 @@ ISS-002  containerd-shim 高内核态 89.9%
     必须提供理由（使用 --accept-risk）
 
 [C] 标记为无需处理
-    执行: spear trace complete --id ISS-002 --result "wontfix: <理由>"
+    执行: shecr trace complete --id ISS-002 --result "wontfix: <理由>"
 
 ═══════════════════════════════════════════════════════════════════
 ERROR: 存在未处理问题，无法直接生成报告
@@ -423,8 +423,8 @@ ERROR: 存在未处理问题，无法直接生成报告
 
 **示例**:
 ```bash
-spear trace finalize                                    # 交互式选择
-spear trace finalize --accept-risk "与当前问题无关"      # 接受风险
+shecr trace finalize                                    # 交互式选择
+shecr trace finalize --accept-risk "与当前问题无关"      # 接受风险
 ```
 
 ---
@@ -435,7 +435,7 @@ spear trace finalize --accept-risk "与当前问题无关"      # 接受风险
 
 **用法**:
 ```bash
-spear trace export [--format <format>] [--output <path>]
+shecr trace export [--format <format>] [--output <path>]
 ```
 
 **参数**:
@@ -446,12 +446,12 @@ spear trace export [--format <format>] [--output <path>]
 
 **示例**:
 ```bash
-spear trace export --format markdown --output report.md
+shecr trace export --format markdown --output report.md
 ```
 
 ---
 
-## 4. 集成到 spear（三层架构）
+## 4. 集成到 shecr（三层架构）
 
 ### 4.1 自动记录机制
 
@@ -518,12 +518,12 @@ def cmd_sys_audit(builder, engine, args, samples):
 ### 4.2 集成命令
 
 ```bash
-# 通过 spear 调用
-spear trace init --data <file>
-spear trace add --desc <desc> [--hint <hint>]
-spear trace complete --id <id> --result <result>
-spear trace issues [--status open|resolved|all]
-spear trace finalize
+# 通过 shecr 调用
+shecr trace init --data <file>
+shecr trace add --desc <desc> [--hint <hint>]
+shecr trace complete --id <id> --result <result>
+shecr trace issues [--status open|resolved|all]
+shecr trace finalize
 ```
 
 ---
@@ -534,10 +534,10 @@ spear trace finalize
 
 ```bash
 # 1. 初始化
-spear trace init --data netstat_perf.data
+shecr trace init --data netstat_perf.data
 
 # 2. 系统全景扫描（自动降噪 + 危害排序）
-spear sys-audit --data netstat_perf.data
+shecr sys-audit --data netstat_perf.data
 # 输出: 
 #   - 主要瓶颈: app_worker (Monopoly 0.92)
 #   - 次要负载: lsof (Count 2000, 但分布均匀)
@@ -545,26 +545,26 @@ spear sys-audit --data netstat_perf.data
 #   - 自动添加issues: ISS-001 (BOTTLENECK), ISS-002 (STORM)
 
 # 3. 检查待办
-spear trace list
+shecr trace list
 # 输出: 2 pending (ISS-001, ISS-002)
 
 # 4. 深度分析主要瓶颈
-spear bottleneck-trace --comm app_worker --data netstat_perf.data
+shecr bottleneck-trace --comm app_worker --data netstat_perf.data
 # 输出: spinlock_wait 85% - 数据库查询触发锁竞争
 # 自动记录到timeline: bottleneck-trace
-spear trace complete --id ISS-001 --result "spinlock_wait 85% - 数据库查询触发锁竞争"
+shecr trace complete --id ISS-001 --result "spinlock_wait 85% - 数据库查询触发锁竞争"
 
 # 5. 分析进程风暴源头
-spear find-callers --target do_fork --comm lsof --data netstat_perf.data
+shecr find-callers --target do_fork --comm lsof --data netstat_perf.data
 # 输出: 所有lsof追溯到app_worker调用的system()函数
-spear trace complete --id ISS-002 --result "lsof风暴由app_worker超时处理逻辑触发"
+shecr trace complete --id ISS-002 --result "lsof风暴由app_worker超时处理逻辑触发"
 
 # 6. 最终审计
-spear trace finalize
+shecr trace finalize
 # 输出: ✅ 所有问题已处理
 
 # 7. 导出报告
-spear trace export --format markdown --output diagnosis-report.md
+shecr trace export --format markdown --output diagnosis-report.md
 ```
 
 ### 5.2 传统方式（单工具调用）
@@ -573,19 +573,19 @@ spear trace export --format markdown --output diagnosis-report.md
 
 ```bash
 # 1. 初始化
-spear trace init --data netstat_perf.data
+shecr trace init --data netstat_perf.data
 
 # 2. 使用单个analysis工具（会自动记录到timeline）
-spear get-comm-top --data netstat_perf.data
+shecr get-comm-top --data netstat_perf.data
 # 输出: 进程组分析（含CV/Monopoly指标）
 # 自动记录到timeline: get-comm-top
 
-spear get-hotspots --comm app_worker --data netstat_perf.data
+shecr get-hotspots --comm app_worker --data netstat_perf.data
 # 输出: 热点函数
 # 自动记录到timeline: get-hotspots
 
 # 3. 手动添加issue
-spear trace add --id ISS-001 --desc "app_worker 高内核态" \
+shecr trace add --id ISS-001 --desc "app_worker 高内核态" \
   --hint "find-callers --target spinlock_wait --comm app_worker"
 
 # 4. 继续分析...
@@ -599,7 +599,7 @@ spear trace add --id ISS-001 --desc "app_worker 高内核态" \
 
 | 错误 | 原因 | 处理 |
 |------|------|------|
-| Document not found | 未执行 init | 提示执行 spear trace init |
+| Document not found | 未执行 init | 提示执行 shecr trace init |
 | Duplicate issue ID | ID 已存在 | 提示使用新的 ID |
 | Issue not found | complete 时 ID 不存在 | 提示检查 ID |
 | Cannot converge | finalize 时有 pending | 强制要求处理或提供理由 |
@@ -610,7 +610,7 @@ spear trace add --id ISS-001 --desc "app_worker 高内核态" \
 ERROR: Document not found
 
 请先初始化诊断文档:
-  spear trace init --data <perf-data-file>
+  shecr trace init --data <perf-data-file>
 ```
 
 ```
@@ -620,7 +620,7 @@ ERROR: Duplicate issue ID 'ISS-001'
   ISS-001: netstat 高内核态 94.7% (pending)
 
 请使用新的 ID:
-  spear trace add --id ISS-004 ...
+  shecr trace add --id ISS-004 ...
 ```
 
 ---
@@ -641,7 +641,7 @@ from typing import List, Dict, Optional
 class LiveDoc:
     """Trace for tracking diagnostic issues"""
 
-    DEFAULT_PATH = ".spear.json"
+    DEFAULT_PATH = ".shecr.json"
 
     def __init__(self, path: Optional[str] = None):
         self.path = path or self._find_doc()

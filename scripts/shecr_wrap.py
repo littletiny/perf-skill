@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spear_wrap - perf-hunter 包装脚本
+shecr_wrap - perf-hunter 包装脚本
 
 支持多数据文件管理，全局 timeline 跟踪诊断过程
 """
@@ -13,8 +13,8 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-ENV_FILE = ".spear_env"
-GLOBAL_TRACE = ".spear.json"
+ENV_FILE = ".shecr_env"
+GLOBAL_TRACE = ".shecr.json"
 
 
 def get_script_dir() -> Path:
@@ -23,8 +23,8 @@ def get_script_dir() -> Path:
 
 
 def get_default_script_path() -> Path:
-    """获取默认 spear.py 路径"""
-    return get_script_dir() / "spear.py"
+    """获取默认 shecr.py 路径"""
+    return get_script_dir() / "shecr.py"
 
 
 def load_env() -> dict:
@@ -163,7 +163,7 @@ def cmd_use(args):
                 break
         else:
             print(f"Error: 数据文件未配置: {data_path}")
-            print("请先运行: spear init --data-path", data_path)
+            print("请先运行: shecr init --data-path", data_path)
             sys.exit(1)
 
     env["default"] = data_path_str
@@ -186,7 +186,7 @@ def cmd_list():
 
     if not env["profiles"]:
         print("未配置任何数据文件")
-        print("请运行: spear init --data-path <path>")
+        print("请运行: shecr init --data-path <path>")
         return
 
     # 读取全局 trace，获取使用统计
@@ -219,21 +219,21 @@ def cmd_list():
 
     print("图例: ▶ 当前默认  ✓ 已在 trace 中使用")
     print()
-    print("提示: 使用 'spear use <path|index>' 切换默认数据文件")
+    print("提示: 使用 'shecr use <path|index>' 切换默认数据文件")
 
 
 def cmd_status():
     """显示状态"""
     env = load_env()
 
-    print("=== spear (perf-hunter) 环境配置 ===")
+    print("=== shecr (perf-hunter) 环境配置 ===")
     print()
     print(f"配置文件: {Path.cwd() / ENV_FILE}")
     print(f"Trace 文件: {Path.cwd() / GLOBAL_TRACE}")
     print()
 
     if not env["profiles"]:
-        print("未初始化。请运行: spear init --data-path <path>")
+        print("未初始化。请运行: shecr init --data-path <path>")
         return
 
     default_path = env.get("default")
@@ -273,7 +273,7 @@ def cmd_status():
     if default_path:
         print("▶ 当前默认数据文件")
     print()
-    print("提示: 使用 'spear use <path>' 切换默认数据文件")
+    print("提示: 使用 'shecr use <path>' 切换默认数据文件")
 
 
 def get_active_config(env: dict) -> tuple:
@@ -299,7 +299,7 @@ def cmd_exec(subcommand: str, args: list):
                 print("Error: 未配置数据文件路径")
                 print()
                 print("请运行以下命令初始化:")
-                print("  spear init --data-path <path_to_perf.data.txt>")
+                print("  shecr init --data-path <path_to_perf.data.txt>")
                 sys.exit(1)
 
         # 确定脚本路径（优先从 profile 读取）
@@ -313,7 +313,7 @@ def cmd_exec(subcommand: str, args: list):
             sys.exit(1)
 
         # 构建命令
-        # trace 命令格式: spear.py trace <subcommand> [options]
+        # trace 命令格式: shecr.py trace <subcommand> [options]
         # --risk-config 需要在子命令之后
         cmd = ["python3", str(script_path), "trace"]
 
@@ -339,7 +339,7 @@ def cmd_exec(subcommand: str, args: list):
         print("Error: 未配置数据文件路径")
         print()
         print("请运行以下命令初始化:")
-        print("  spear init --data-path <path_to_perf.data.txt>")
+        print("  shecr init --data-path <path_to_perf.data.txt>")
         sys.exit(1)
 
     # 确定脚本路径
@@ -350,7 +350,7 @@ def cmd_exec(subcommand: str, args: list):
 
     if not script_path.exists():
         print(f"Error: 脚本不存在: {script_path}")
-        print("请检查配置或重新运行 spear init")
+        print("请检查配置或重新运行 shecr init")
         sys.exit(1)
 
     # 确定频率
@@ -378,7 +378,7 @@ def cmd_exec(subcommand: str, args: list):
 
 def show_help():
     """显示帮助信息"""
-    help_text = """usage: spear <command> [options]
+    help_text = """usage: shecr <command> [options]
 
 perf-hunter 包装脚本 - 多数据文件全局跟踪
 
@@ -414,25 +414,25 @@ Trace 管理命令:
 
 用法示例:
   # 添加第一个数据文件（自动设为默认）
-  spear init --data-path ./perf.data.txt
+  shecr init --data-path ./perf.data.txt
 
   # 添加第二个数据文件（用于同一问题的对比分析）
-  spear init --data-path ./perf2.data.txt --freq 99
+  shecr init --data-path ./perf2.data.txt --freq 99
 
   # 查看已配置的数据文件列表
-  spear list
+  shecr list
 
   # 查看完整诊断 timeline（包含所有数据文件的分析）
-  spear trace timeline
+  shecr trace timeline
 
   # 切换到第二个数据文件继续分析
-  spear use ./perf2.data.txt
+  shecr use ./perf2.data.txt
 
   # 使用默认数据文件执行分析
-  spear get-hotspots --top-n 20
+  shecr get-hotspots --top-n 20
 
 设计说明:
-  - 全局 .spear.json 记录整个诊断过程的 timeline
+  - 全局 .shecr.json 记录整个诊断过程的 timeline
   - 多个数据文件的分析都汇总到同一个 timeline
   - 便于追踪跨数据文件的诊断路径和发现的问题
 """
@@ -456,11 +456,11 @@ def main():
     if command in ("-v", "--version", "version"):
         version_file = get_script_dir().parent / "version"
         version = version_file.read_text().strip() if version_file.exists() else "unknown"
-        print(f"spear (perf-hunter wrapper) version {version}")
+        print(f"shecr (perf-hunter wrapper) version {version}")
         return
 
     if command == "init":
-        parser = argparse.ArgumentParser(prog="spear init", add_help=False)
+        parser = argparse.ArgumentParser(prog="shecr init", add_help=False)
         parser.add_argument("--data-path", required=True)
         parser.add_argument("--script-path")
         parser.add_argument("--freq")
@@ -470,7 +470,7 @@ def main():
 
         args = parser.parse_args(remaining)
         if args.help:
-            print("usage: spear init --data-path <path> [--script-path <path>] [--freq <hz>] [--risk-config <path>] [--rules-file <path>]")
+            print("usage: shecr init --data-path <path> [--script-path <path>] [--freq <hz>] [--risk-config <path>] [--rules-file <path>]")
             print("\n添加新的数据文件，并设为默认")
             print("所有数据文件的分析都记录在同一个全局 timeline 中")
             print("\n选项:")
@@ -482,10 +482,10 @@ def main():
 
     if command == "use":
         if not remaining or remaining[0] in ("-h", "--help"):
-            print("usage: spear use <path|index>")
+            print("usage: shecr use <path|index>")
             print("\n切换到指定的数据文件")
             print("  path:  数据文件的完整路径或文件名")
-            print("  index: 使用 'spear list' 显示的索引号")
+            print("  index: 使用 'shecr list' 显示的索引号")
             return
 
         data_arg = remaining[0]

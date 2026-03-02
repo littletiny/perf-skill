@@ -27,7 +27,7 @@ class Trace:
     数据文件: .perf-doc.json (当前目录)
     """
 
-    DEFAULT_PATH = ".spear.json"
+    DEFAULT_PATH = ".shecr.json"
     CURRENT_VERSION = "2.0"
 
     def __init__(self, path: Optional[str] = None, config: RiskDisplayConfig = None):
@@ -819,7 +819,7 @@ def cmd_doc_issues(args):
 
     # 提示用法
     if status_filter in ['all', 'open'] and doc.get_open_issues():
-        print(f"Usage: spear trace complete --id ISS-001 --result '分析结果'")
+        print(f"Usage: shecr trace complete --id ISS-001 --result '分析结果'")
 
 
 def cmd_doc_complete(args):
@@ -917,7 +917,7 @@ def cmd_doc_finalize(args):
     else:  # blocked
         print(f"[BLOCKED] {len(result['open_issues'])} open issues remaining")
         print()
-        print("Note: This is NOT an audit. Use 'spear trace audit' for quality review.")
+        print("Note: This is NOT an audit. Use 'shecr trace audit' for quality review.")
         print()
         for issue in result['open_issues']:
             color = cfg.colors.get(issue['level'], '')
@@ -1199,7 +1199,7 @@ def _print_audit_report(report: Dict, cfg: RiskDisplayConfig, output_path: str =
     lines.append("=" * 65)
     if failed_issues:
         lines.append("AUDIT FAILED - Fix issues before finalize")
-        lines.append("Command: spear trace reopen --all --reason 'audit failed'")
+        lines.append("Command: shecr trace reopen --all --reason 'audit failed'")
     elif warning_issues:
         lines.append("AUDIT PASSED with warnings")
     else:
