@@ -6,34 +6,13 @@
 
 ## 快速使用
 
-### 方式 1: wrap 脚本（推荐）
-
-使用 `spear` wrap 脚本简化命令执行，自动注入 `--data` 参数：
-
 ```bash
-# 1. 初始化（配置数据路径，只需一次）
-scripts/spear init --data-path <perf.data> [--freq <hz>]
+# 初始化（只需一次）
+scripts/spear init --data-path <perf.data>
 
-# 2. 后续命令大幅简化
-spear get-hotspots --comm myapp
-spear analyze-core-distribution
-spear find-callers --target pthread_mutex_lock
-
-# 3. 查看当前配置
-spear status
-```
-
-**特点**:
-- 自动从 `.spear_env` 加载配置
-- 自动为子命令注入 `--data` 参数
-- 自动注入 `--freq` 参数（如配置了采样频率）
-- 支持 `SPEAR_DATA` 环境变量临时覆盖数据文件
-- **注意**: 若需修改频率，请重新运行 `spear init --freq <hz>`
-
-### 方式 2: 直接调用
-
-```bash
-spear <subcommand> [options]
+# 两个综合诊断入口
+spear sys-audit
+spear bottleneck-trace --comm <name>
 ```
 
 ---
@@ -426,20 +405,6 @@ spear bottleneck-trace \
 
 ## Trace 命令
 
-### trace init
-
-初始化诊断追踪文档。
-
-```bash
-spear trace init --data <perf.data>
-# 或
-spear trace init --data <perf.data>
-```
-
-**作用**: 创建 `.spear.json` 用于诊断过程追踪
-
----
-
 ### trace add
 
 添加问题记录（自动生成 ID）。
@@ -493,73 +458,27 @@ spear trace finalize
 spear trace finalize --accept-risk "与当前问题无关，可后续处理"
 ```
 
----
-
-### trace export
-
-导出报告。
-
-```bash
-spear trace export \
-  [--format markdown|json] \
-  [--output <path>]
-```
+其他：`trace timeline` 查看时间线，`trace export` 导出报告。
 
 ---
 
-### trace timeline
+## 参数矩阵
 
-查看诊断时间线。
+| 工具 | `--data` | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start-time` | `--end-time` |
+|------|:--------:|:----------:|:-------:|:--------:|:--------------:|:--------------:|:------------:|
+| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `detect-anomalies` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `get-comm-top` | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `sys-audit` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `bottleneck-trace` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 
-```bash
-spear trace timeline [--format text|json]
-```
-
----
-
-## 通用参数
-
-各命令支持的过滤参数如下：
-
-| 参数 | 类型 | 说明 | 示例 |
-|------|------|------|------|
-| `--data <path>` | string | perf script 文件路径（必填） | `--data perf.txt` |
-| `--start-time <time>` | string | 起始时间（含） | `2024-01-15T10:30:00` |
-| `--end-time <time>` | string | 结束时间（含） | `2024-01-15 10:30:00` |
-
-**时间格式说明**:
-
-`--start-time` 和 `--end-time` 支持多种格式：
-
-| 格式 | 示例 | 说明 |
-|------|------|------|
-| Unix 时间戳 | `1705312200` | 秒级时间戳（兼容旧版本） |
-| ISO 8601 | `2024-01-15T10:30:00` | 标准 ISO 格式 |
-| ISO 8601 带时区 | `2024-01-15T10:30:00+08:00` | 带时区信息 |
-| 常用日期时间 | `2024-01-15 10:30:00` | 空格分隔 |
-| 日期 | `2024-01-15` | 自动补全为 00:00:00 |
-
-**其他通用参数**:
-
-| 参数 | 类型 | 说明 | 示例 |
-|------|------|------|------|
-| `--cpu-id <ID>` | int | 仅分析指定 CPU | `--cpu-id 0` |
-| `--pid <PID>` | int | 仅分析指定进程 | `--pid 1234` |
-| `--comm <name>` | string | 按进程名过滤（逗号分隔多值） | `--comm nginx,php-fpm` |
-| `--comm-regex <pattern>` | string | 按进程名正则匹配 | `--comm-regex 'java.*'` |
-
-**参数支持情况速查**:
-
-| 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start/end-time` |
-|------|:----------:|:-------:|:--------:|:--------------:|:------------------:|
-| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ |
-| `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ |
+**说明**:
+- `--data`: perf script 文件路径（必填，除非用 `spear init` 初始化过）
+- `--start-time`/`--end-time`: 支持 ISO 8601、Unix 时间戳、日期格式
+- `--comm`: 支持逗号分隔多值，如 `--comm nginx,php-fpm`
 
 
 
