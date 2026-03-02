@@ -353,7 +353,8 @@ Use '<command> --help' for detailed help on each subcommand."""
 
     # doc reopen
     doc_reopen = doc_subparsers.add_parser('reopen', help="Reopen a resolved issue")
-    doc_reopen.add_argument("--id", required=True, help="Issue identifier")
+    doc_reopen.add_argument("--id", help="Issue identifier")
+    doc_reopen.add_argument("--all", action="store_true", help="Reopen all resolved issues")
     doc_reopen.add_argument("--reason", default="", help="Reason for reopening")
 
     # doc finalize

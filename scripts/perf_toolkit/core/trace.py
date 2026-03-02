@@ -296,12 +296,24 @@ class Trace:
             if issue['status'] != 'resolved':
                 raise ValueError(f"Issue {issue_id} is not resolved (status: {issue['status']})")
             
+            # 记录 reopen 历史（保留之前的解决信息）
+            reopen_record = {
+                "reopened_at": self._now(),
+                "reason": reason,
+                "previous_result": issue.get('result'),
+                "previous_resolved_at": issue.get('resolved_at'),
+                "previous_resolved_by_seq": issue.get('resolved_by_seq')
+            }
+            
+            if 'reopen_history' not in issue:
+                issue['reopen_history'] = []
+            issue['reopen_history'].append(reopen_record)
+            
+            # 更新状态为 open，但保留 result 等历史信息
             issue['status'] = 'open'
             issue['resolved_at'] = None
             issue['resolved_by_seq'] = None
-            issue['result'] = None
-            issue['reopened_at'] = self._now()
-            issue['reopen_reason'] = reason
+            # 注意：保留 issue['result'] 不清空，便于追溯
 
             self._add_finding_to_current({
                 "type": "issue_reopened",
@@ -477,6 +489,7 @@ class Trace:
         status = issue.get('status', 'open')
         hint = issue.get('hint', '')
         result = issue.get('result', '')
+        reopen_history = issue.get('reopen_history', [])
 
         # 应用颜色
         color = cfg.colors.get(level, '')
@@ -494,13 +507,26 @@ class Trace:
 
         lines = [line]
 
-        # Hint / Result
+        # Hint / Result / Reopen history
         if status != 'resolved' and hint and cfg.show.get('hint', True):
             tpl = cfg.templates.get('hint', '→ {hint}')
             lines.append(tpl.format(hint=hint))
-        elif status == 'resolved' and result and cfg.show.get('result', True):
-            tpl = cfg.templates.get('result', '→ {result}')
+        
+        # 显示 result（如果存在）- 包括 reopened 的 issue
+        if result and cfg.show.get('result', True):
+            if reopen_history:
+                tpl = cfg.templates.get('result_reopened', '→ [PREVIOUS] {result}')
+            else:
+                tpl = cfg.templates.get('result', '→ {result}')
             lines.append(tpl.format(result=result))
+        
+        # 显示 reopen 历史
+        if reopen_history and cfg.show.get('reopen_history', True):
+            for i, record in enumerate(reopen_history, 1):
+                prev_result = record.get('previous_result', '')
+                lines.append(f"→ [REOPEN #{i}] {record.get('reason', 'No reason')}")
+                if prev_result:
+                    lines.append(f"    Previous result: {prev_result}")
 
         return '\n'.join(lines)
 
@@ -750,17 +776,46 @@ def cmd_doc_reopen(args):
     """重新打开已解决的 issue"""
     doc = Trace()
 
-    try:
-        issue_id = doc.reopen(args.id, getattr(args, 'reason', ''))
-        print(f"[REOPENED] {issue_id}")
+    # 检查参数：--id 或 --all 必须指定其一
+    if not args.id and not args.all:
+        print("[ERROR] Must specify --id or --all")
+        return
+
+    if args.all:
+        # 重新打开所有已解决的 issue
+        resolved_issues = doc.get_resolved_issues()
+        if not resolved_issues:
+            print("[INFO] No resolved issues to reopen")
+            return
+
+        reopened_count = 0
+        for issue in resolved_issues:
+            try:
+                doc.reopen(issue['id'], getattr(args, 'reason', ''))
+                reopened_count += 1
+            except ValueError as e:
+                print(f"[WARNING] Failed to reopen {issue['id']}: {e}")
+
+        print(f"[REOPENED] {reopened_count} issues")
         if args.reason:
             print(f"→ Reason: {args.reason}")
 
         # 显示当前 open issues
         open_issues = doc.get_open_issues()
         print(f"\n→ {len(open_issues)} issues now open")
-    except ValueError as e:
-        print(f"[ERROR] {e}")
+    else:
+        # 重新打开单个 issue
+        try:
+            issue_id = doc.reopen(args.id, getattr(args, 'reason', ''))
+            print(f"[REOPENED] {issue_id}")
+            if args.reason:
+                print(f"→ Reason: {args.reason}")
+
+            # 显示当前 open issues
+            open_issues = doc.get_open_issues()
+            print(f"\n→ {len(open_issues)} issues now open")
+        except ValueError as e:
+            print(f"[ERROR] {e}")
 
 
 def cmd_doc_finalize(args):
