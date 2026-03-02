@@ -10,16 +10,12 @@ This is the main entry point for the perf toolkit. It has been refactored into a
   │   ├── engine.py          - PerfExpertEngine class and parsing logic
   │   └── reliability.py     - Sample reliability assessment (no freq parameter)
   └── analysis/
-      ├── bottleneck.py      - CPU bottleneck detection
       ├── hotspots.py        - Hotspot function analysis
-      ├── clusters.py        - Symbol clustering by expert rules
       ├── trace.py           - Call attribution tracing
       ├── anomalies.py       - CPU utilization anomaly detection
-      ├── cpu_usage.py       - CPU utilization breakdown
-      ├── process_top.py     - Top processes by CPU
-      ├── comm_clusters.py   - Cluster by process name
       ├── path_clusters.py   - Cluster by call paths (Trie-based)
-      └── process_variety.py - Process storm detection
+      ├── core_distribution.py - Core-level load distribution analysis
+      └── comm_top.py        - Comm-level CPU analysis (with CV/Monopoly/SpawnRate)
 
 Key Changes in v2.0:
   - Removed --freq parameter: Reliability is now assessed directly using CPU utilization
@@ -35,23 +31,16 @@ import argparse
 from perf_toolkit.core import PerfExpertEngine
 
 # Import analysis modules
-from perf_toolkit.analysis.bottleneck import cmd_check_bottleneck, parse_cpu_quota
 from perf_toolkit.analysis.hotspots import cmd_get_hotspots
-from perf_toolkit.analysis.clusters import cmd_cluster_symbols
-from perf_toolkit.analysis.trace import cmd_trace_attribution, cmd_find_callers_auto
+from perf_toolkit.analysis.trace import cmd_trace_attribution
 from perf_toolkit.analysis.anomalies import cmd_detect_anomalies
-from perf_toolkit.analysis.cpu_usage import cmd_show_cpu_usage
-from perf_toolkit.analysis.process_top import cmd_get_process_top
-from perf_toolkit.analysis.comm_clusters import cmd_cluster_comm
 from perf_toolkit.analysis.path_clusters import cmd_cluster_paths
-from perf_toolkit.analysis.process_variety import cmd_count_process_variety
-from perf_toolkit.analysis.core_distribution import cmd_analyze_core_distribution
+from perf_toolkit.analysis.core_distribution import cmd_analyze_core_distribution, parse_cpu_quota
 from perf_toolkit.analysis.comm_top import cmd_get_comm_top
 
 # Import Composite commands
 from perf_toolkit.composite.sys_audit import cmd_sys_audit
 from perf_toolkit.composite.bottleneck_trace import cmd_bottleneck_trace
-from perf_toolkit.composite.storm_trace import cmd_storm_trace
 
 # Import trace commands (v2.0: auto add, manual complete)
 from perf_toolkit.core.trace import (
@@ -76,17 +65,20 @@ def main():
   # Analyze hotspots in a specific process
   spear get-hotspots --data perf.data.txt --comm myapp --top-n 20
 
-  # Check CPU bottleneck with cgroup limit
-  spear check-cpu-bottleneck --data perf.data.txt --cpu-limit 0.5c
+  # Analyze core distribution (includes single-core saturation detection)
+  spear analyze-core-distribution --data perf.data.txt --cpu-limit 0.5c
 
   # Find callers of a specific function
   spear find-callers --data perf.data.txt --target pthread_mutex_lock
 
   # Detect anomalies in a time window
-  spear detect-anomalies --window-size 1.0
+  spear detect-anomalies --data perf.data.txt --window-size 1.0
 
-  # Analyze core distribution for load balancing issues
-  spear analyze-core-distribution --comm myapp
+  # System audit - comprehensive analysis with auto noise reduction
+  spear sys-audit --data perf.data.txt
+  
+  # Bottleneck trace - deep analysis of bottleneck processes
+  spear bottleneck-trace --data perf.data.txt --comm myapp
 
 Input Data Format:
   Supports two formats:
@@ -104,23 +96,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     )
     subparsers = parser.add_subparsers(dest="command")
 
-    # check-cpu-bottleneck
-    p1 = subparsers.add_parser('check-cpu-bottleneck',
-                               help="Determine resource throttling and single-core saturation")
-    p1.add_argument("--data", required=True, help="Path to perf script output file")
-    p1.add_argument("--cpu-limit", type=parse_cpu_quota, default=0, dest="cpu_limit", metavar="LIMIT",
-                    help="CPU limit in cores for cgroup environments. Examples: '0.1c' (0.1 core), "
-                         "'2c' (2 cores), '0.5' (0.5 cores). Default: 0 (no limit check)")
-    p1.add_argument("--threshold", type=float, default=80, metavar="PCT",
-                    help="Threshold for single-core saturation detection (default: 80%%). "
-                         "A core is considered saturated when its CPU usage exceeds this threshold.")
-    p1.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
-    p1.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601 (2024-01-15T10:30:00), datetime (2024-01-15 10:30:00), or date only")
-    p1.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
-
-    # get-hotspots
+      # get-hotspots
     p2 = subparsers.add_parser('get-hotspots',
                                help="Extract hotspot function rankings by self/inclusive time")
     p2.add_argument("--data", required=True, help="Path to perf script output file")
@@ -136,31 +112,6 @@ Use '<command> --help' for detailed help on each subcommand."""
     p2.add_argument("--pid", type=int, help="Filter by process ID")
     p2.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
     p2.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-
-    # cluster-symbols
-    p3 = subparsers.add_parser('cluster-symbols',
-                               help="Cluster samples by expert rules (scheduling, locks, memory, IRQ, etc.)")
-    p3.add_argument("--data", required=True, help="Path to perf script output file")
-    p3.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
-    p3.add_argument("--custom-rules", metavar="RULES",
-                    help="JSON format custom rules. Example: '{\"MyPattern\": [{\"pattern\": \"my_func_.*\", "
-                         "\"weight\": 1.0}]}'. Rules are list of {pattern, weight} objects.")
-    p3.add_argument("--rules-file", metavar="PATH",
-                    help="Path to external rules file (JSON format). "
-                         "Rules from file override built-in expert rules but can be overridden by --custom-rules.")
-    p3.add_argument("--include-experts", action="store_true", default=True,
-                    help="Include built-in expert rules (default: True)")
-    p3.add_argument("--no-include-experts", action="store_true",
-                    help="Exclude built-in expert rules")
-    p3.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p3.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top clusters to display (default: 10)")
-    p3.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
-    p3.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
-    p3.add_argument("--pid", type=int, help="Filter by process ID")
-    p3.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
-    p3.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
 
     # find-callers
     p4 = subparsers.add_parser('find-callers',
@@ -217,41 +168,6 @@ Use '<command> --help' for detailed help on each subcommand."""
     p5.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p5.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
-    # show-cpu-usage
-    p8 = subparsers.add_parser('show-cpu-usage',
-                               help="Show CPU utilization for OS or specific PID (user/kernel/total)")
-    p8.add_argument("--data", required=True, help="Path to perf script output file")
-    p8.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
-    p8.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p8.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
-    p8.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
-
-    # get-process-top
-    p9 = subparsers.add_parser('get-process-top',
-                               help="Get top N processes by CPU utilization with user/kernel breakdown")
-    p9.add_argument("--data", required=True, help="Path to perf script output file")
-    p9.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
-    p9.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top processes to display (default: 10)")
-    p9.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p9.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
-    p9.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
-
-    # cluster-comm
-    p10 = subparsers.add_parser('cluster-comm',
-                                help="Cluster samples by process name (comm) to analyze process group CPU usage")
-    p10.add_argument("--data", required=True, help="Path to perf script output file")
-    p10.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
-    p10.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top comm groups to display (default: 10)")
-    p10.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p10.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
-    p10.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
-
     # cluster-paths
     p11 = subparsers.add_parser('cluster-paths',
                                 help="Cluster samples by common call path prefixes using Trie")
@@ -271,29 +187,6 @@ Use '<command> --help' for detailed help on each subcommand."""
     p11.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
     p11.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p11.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
-
-    # count-process-variety
-    p12 = subparsers.add_parser('count-process-variety',
-                                help="Count process variety to detect short-lived process storms")
-    p12.add_argument("--data", required=True, help="Path to perf script output file")
-    p12.add_argument("--freq", type=int, default=19, metavar="HZ",
-                    help="Sampling frequency in Hz for raw perf format. "
-                         "Default: 19. Ignored for SPEAR format.")
-    p12.add_argument("--top-n", "--limit", type=int, default=20,
-                     help="Number of top process names to display (default: 20)")
-    p12.add_argument("--storm-pid-threshold", type=int, default=50, metavar="N",
-                     help="PID count threshold for process storm detection. A storm is detected when "
-                          "the number of unique PIDs for a process name exceeds this threshold. "
-                          "Indicates short-lived process creation (fork-bomb style). (default: 50)")
-    p12.add_argument("--storm-ratio-threshold", type=float, default=2.0, metavar="RATIO",
-                     help="Samples per PID threshold for process storm detection. A storm is also "
-                          "detected when samples_per_pid falls below this ratio. Low values indicate "
-                          "processes with very short lifetime. (default: 2.0)")
-    p12.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p12.add_argument("--comm", type=str, help="Filter by process name (comm), supports multiple values separated by comma")
-    p12.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
-    p12.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
-    p12.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
     # analyze-core-distribution
     p13 = subparsers.add_parser('analyze-core-distribution',
@@ -356,17 +249,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     p_comp2.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive)")
     p_comp2.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive)")
     
-    # storm-trace
-    p_comp3 = subparsers.add_parser('storm-trace',
-                                    help="[Composite] Storm trace - auto identify and analyze process storms")
-    p_comp3.add_argument("--data", required=True, help="Path to perf script output file")
-    p_comp3.add_argument("--freq", type=int, default=19, metavar="HZ",
-                        help="Sampling frequency in Hz for raw perf format. "
-                             "Default: 19. Ignored for SPEAR format.")
-    p_comp3.add_argument("--comm", type=str, help="Target process name (auto-detect if not specified)")
-    p_comp3.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
-    p_comp3.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive)")
-    p_comp3.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive)")
+
 
     # trace subcommands (v2.0: tracing diagnostic process)
     doc_parser = subparsers.add_parser('trace', help="Tracing diagnostic issues and timeline")
@@ -465,23 +348,15 @@ Use '<command> --help' for detailed help on each subcommand."""
 
     # Command routing table
     commands = {
-        "check-cpu-bottleneck": cmd_check_bottleneck,
         "get-hotspots": cmd_get_hotspots,
-        "cluster-symbols": cmd_cluster_symbols,
         "find-callers": cmd_trace_attribution,
-        "find-callers-auto": cmd_find_callers_auto,
         "detect-anomalies": cmd_detect_anomalies,
-        "show-cpu-usage": cmd_show_cpu_usage,
-        "get-process-top": cmd_get_process_top,
-        "cluster-comm": cmd_cluster_comm,
         "cluster-paths": cmd_cluster_paths,
-        "count-process-variety": cmd_count_process_variety,
         "analyze-core-distribution": cmd_analyze_core_distribution,
         "get-comm-top": cmd_get_comm_top,
         # Composite commands
         "sys-audit": cmd_sys_audit,
-        "bottleneck-trace": cmd_bottleneck_trace,
-        "storm-trace": cmd_storm_trace
+        "bottleneck-trace": cmd_bottleneck_trace
     }
 
     # Execute analysis command
