@@ -10,6 +10,16 @@
 tests/
 ├── README.md                        # 本文件 - 测试目录总览
 ├── test_issue_overflow_warning.py   # Issue Overflow Warning 功能测试
+├── three_tier/                      # 三层架构集成测试
+│   ├── README.md                    # 测试说明与运行指南
+│   ├── run_all_tests.py             # 统一测试入口
+│   ├── verify_interfaces.py         # 接口快速验证脚本
+│   ├── test_core_interfaces.py      # Core层接口测试
+│   ├── test_facade_interfaces.py    # Analysis Facade接口测试
+│   ├── test_composite_commands.py   # Composite命令测试
+│   ├── test_trace_boundary.py       # Trace边界测试
+│   ├── test_risk_integration.py     # Risk集成测试
+│   └── test_three_tier_e2e.py       # 端到端测试
 ├── risk/                            # Risk 显示配置测试
 │   ├── README.md
 │   └── test_display_config.py

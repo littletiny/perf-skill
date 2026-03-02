@@ -17,7 +17,7 @@ description: Systematic Linux performance diagnosis using SPEAR methodology. Use
 
 ```bash
 # 1. 使用 wrap 脚本初始化（自动配置路径）
-$SKILL_DIR/scripts/spear init --data-path <perf.data> [--freq <hz>]
+scripts/spear init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化（自动注入 --data）
 spear get-hotspots --comm myapp
@@ -43,10 +43,6 @@ spear trace init --data <perf.data>
 # - 假说 B: 架构维度（锁竞争、线程池配置）
 # - 假说 C: 环境维度（资源限制、内核瓶颈）
 ```
-
-**环境变量**: `SKILL_DIR` = skill 根目录
-
-> 💡 **提示**: wrap 脚本 `spear` 会自动加载 `.spear_env` 配置，无需每次都写完整路径。详情见 `docs/CHANGES.md` v2.18。
 
 ---
 
