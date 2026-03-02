@@ -11,6 +11,7 @@ V3 版本（三层架构）：
 """
 
 from typing import Dict, List, Any, Optional, Tuple
+from collections import defaultdict
 from .base import BaseAnalyzer
 from .models import Risk, CommGroup
 
@@ -56,7 +57,7 @@ class CommTopAnalyzer(BaseAnalyzer):
         """
         if not samples:
             return {
-                "result": {"groups": [], "folded_count": 0, "total_groups": 0},
+                "result": {"groups": [], "folded_count": 0, "total_groups": 0, "storm_analysis": None},
                 "risks": [],
                 "metrics": {} if include_metrics else None
             }
@@ -112,11 +113,15 @@ class CommTopAnalyzer(BaseAnalyzer):
         # 4. 自动降噪：区分"值得关注"和"背景噪音"
         display_groups, folded_groups = self._auto_filter(groups)
         
+        # 5. Storm 详细分析（对所有 STORM 诊断的进程）
+        storm_analysis = self._analyze_storms(samples, groups)
+        
         result = {
             "result": {
                 "groups": [g.to_dict() for g in display_groups[:top_n]],
                 "folded_count": len(folded_groups),
-                "total_groups": len(groups)
+                "total_groups": len(groups),
+                "storm_analysis": storm_analysis
             },
             "risks": [r.to_dict() for r in risks]
         }
@@ -128,7 +133,8 @@ class CommTopAnalyzer(BaseAnalyzer):
                 "spawn_rate_map": {g.comm: g.spawn_rate for g in groups},
                 "impact_score_map": {g.comm: g.impact_score for g in groups},
                 "folded_groups": [g.to_dict() for g in folded_groups],
-                "all_groups": [g.to_dict() for g in groups]
+                "all_groups": [g.to_dict() for g in groups],
+                "storm_analysis": storm_analysis
             }
         
         return result
@@ -225,7 +231,7 @@ class CommTopAnalyzer(BaseAnalyzer):
             return self._create_risk(
                 level="warning",
                 message=f"{group.comm} 进程风暴 ({group.spawn_rate:.1f}/s)",
-                hint=f"storm-trace --comm {group.comm}",
+                hint=f"find-callers --comm {group.comm} 查看创建源头",
                 patterns=["PROCESS_STORM"],
                 pending_targets=[group.comm]
             )
@@ -269,6 +275,97 @@ class CommTopAnalyzer(BaseAnalyzer):
                 folded.append(g)
         
         return display, folded
+    
+    def _analyze_storms(self, samples: List[Dict], groups: List[CommGroup]) -> Optional[Dict]:
+        """
+        分析所有 STORM 诊断的进程组的详细信息
+        
+        Returns:
+            {
+                "storm_groups": [
+                    {
+                        "comm": str,
+                        "spawn_rate": float,
+                        "pid_count": int,
+                        "severity": str,  # CRITICAL/HIGH/MEDIUM/LOW
+                        "top_creators": [{"symbol": str, "count": int}],
+                        "short_lived_count": int,
+                        "leaked_count": int
+                    }
+                ],
+                "total_storm_comms": int,
+                "max_spawn_rate": float
+            }
+            或 None（如果没有风暴）
+        """
+        storm_groups = [g for g in groups if g.diagnosis == "STORM"]
+        
+        if not storm_groups:
+            return None
+        
+        # 按 spawn_rate 排序
+        storm_groups.sort(key=lambda x: x.spawn_rate, reverse=True)
+        
+        storm_details = []
+        max_spawn_rate = 0.0
+        
+        for group in storm_groups:
+            max_spawn_rate = max(max_spawn_rate, group.spawn_rate)
+            
+            # 严重程度分级
+            severity = "LOW"
+            if group.spawn_rate > 100:
+                severity = "CRITICAL"
+            elif group.spawn_rate > 50:
+                severity = "HIGH"
+            elif group.spawn_rate > 20:
+                severity = "MEDIUM"
+            
+            # 获取生命周期信息（创建热点分析）
+            lifecycle = self._engine.get_process_lifecycle(samples, group.comm)
+            
+            # 分析创建热点（哪些函数在创建进程）
+            creator_symbols: Dict[str, int] = defaultdict(int)
+            for event in lifecycle.spawn_events:
+                if hasattr(event, 'stack') and event.stack:
+                    stack = event.stack
+                elif isinstance(event, dict):
+                    stack = event.get("stack", [])
+                else:
+                    stack = []
+                
+                if stack:
+                    creator_symbols[stack[0]] += 1
+            
+            top_creators = [
+                {"symbol": s, "count": c}
+                for s, c in sorted(creator_symbols.items(), key=lambda x: x[1], reverse=True)[:3]
+            ]
+            
+            # 生命周期统计
+            spawn_count = len(lifecycle.spawn_events)
+            exit_count = len(lifecycle.exit_events)
+            leaked = max(0, spawn_count - exit_count)
+            
+            # 短生命周期估计（从 lifecycle_stats 获取）
+            short_lived = getattr(lifecycle.lifecycle_stats, 'short_lived_count', 0)
+            
+            storm_details.append({
+                "comm": group.comm,
+                "spawn_rate": group.spawn_rate,
+                "pid_count": group.pid_count,
+                "total_cpu": group.total_cpu,
+                "severity": severity,
+                "top_creators": top_creators,
+                "short_lived_count": short_lived,
+                "leaked_count": leaked
+            })
+        
+        return {
+            "storm_groups": storm_details,
+            "total_storm_comms": len(storm_groups),
+            "max_spawn_rate": max_spawn_rate
+        }
 
 
 # =============================================================================

@@ -40,8 +40,6 @@ __all__ = [
     'CoreDistAnalyzer',
     'AnomaliesAnalyzer',
     'PathClustersAnalyzer',
-    'SymbolClustersAnalyzer',
-    'ProcessVarietyAnalyzer',
 ]
 
 # 延迟导入 Analyzers（避免循环依赖）
@@ -61,10 +59,4 @@ def __getattr__(name):
     elif name == 'PathClustersAnalyzer':
         from .path_clusters import PathClustersAnalyzer
         return PathClustersAnalyzer
-    elif name == 'SymbolClustersAnalyzer':
-        from .clusters import SymbolClustersAnalyzer
-        return SymbolClustersAnalyzer
-    elif name == 'ProcessVarietyAnalyzer':
-        from .process_variety import ProcessVarietyAnalyzer
-        return ProcessVarietyAnalyzer
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

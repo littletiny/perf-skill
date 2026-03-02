@@ -14,6 +14,21 @@ from .base import BaseAnalyzer
 from .models import Risk, CoreStat
 
 
+def parse_cpu_quota(value: str) -> float:
+    """
+    Parse CPU quota string to float.
+    
+    Args:
+        value: CPU quota string like '0.1c', '2c', '0.5'
+        
+    Returns:
+        CPU quota as float (cores)
+    """
+    if value.endswith('c'):
+        return float(value[:-1])
+    return float(value)
+
+
 class CoreDistAnalyzer(BaseAnalyzer):
     """
     核心分布分析器

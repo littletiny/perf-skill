@@ -57,12 +57,6 @@ class AnalysisFacade:
             elif name == "path_clusters":
                 from .path_clusters import PathClustersAnalyzer
                 self._analyzers[name] = PathClustersAnalyzer(self._engine)
-            elif name == "symbol_clusters":
-                from .clusters import SymbolClustersAnalyzer
-                self._analyzers[name] = SymbolClustersAnalyzer(self._engine)
-            elif name == "process_variety":
-                from .process_variety import ProcessVarietyAnalyzer
-                self._analyzers[name] = ProcessVarietyAnalyzer(self._engine)
             else:
                 raise ValueError(f"Unknown analyzer: {name}")
         
@@ -196,78 +190,6 @@ class AnalysisFacade:
             top_n=top_n,
             comm=comm,
             pid=pid
-        )
-    
-    def cluster_symbols(self, samples: List[Dict],
-                        top_n: int = 10,
-                        include_experts: bool = True,
-                        no_include_experts: bool = False,
-                        rules_file: Optional[str] = None,
-                        custom_rules: Optional[str] = None,
-                        comm: Optional[str] = None,
-                        pid: Optional[int] = None) -> Dict:
-        """
-        符号聚类（内部接口，不触发 Trace）
-        
-        Args:
-            samples: 样本数据
-            top_n: 返回前 N 个聚类
-            include_experts: 是否包含内置专家规则
-            no_include_experts: 是否禁用内置规则
-            rules_file: 外部规则文件路径
-            custom_rules: 命令行自定义规则
-            comm: 可选，按进程名过滤
-            pid: 可选，按 PID 过滤
-            
-        Returns:
-            {
-                "result": {"clusters": [...], "lock_contention_ratio": float},
-                "risks": [...]
-            }
-        """
-        analyzer = self._get_analyzer("symbol_clusters")
-        return analyzer.analyze(
-            samples,
-            top_n=top_n,
-            include_experts=include_experts,
-            no_include_experts=no_include_experts,
-            rules_file=rules_file,
-            custom_rules=custom_rules,
-            comm=comm,
-            pid=pid
-        )
-    
-    def count_process_variety(self, samples: List[Dict],
-                              top_n: int = 20,
-                              storm_pid_threshold: int = 50,
-                              storm_cpu_threshold: float = 0.5,
-                              storm_ratio_threshold: float = 2.0,
-                              comm: Optional[str] = None) -> Dict:
-        """
-        进程多样性分析（内部接口，不触发 Trace）
-        
-        Args:
-            samples: 样本数据
-            top_n: 返回前 N 个结果
-            storm_pid_threshold: PID 数量阈值
-            storm_cpu_threshold: 单 PID CPU 阈值
-            storm_ratio_threshold: samples/PID 阈值
-            comm: 可选，按进程名过滤
-            
-        Returns:
-            {
-                "result": {"processes": [...], "storm_comms": [...]},
-                "risks": [...]
-            }
-        """
-        analyzer = self._get_analyzer("process_variety")
-        return analyzer.analyze(
-            samples,
-            top_n=top_n,
-            storm_pid_threshold=storm_pid_threshold,
-            storm_cpu_threshold=storm_cpu_threshold,
-            storm_ratio_threshold=storm_ratio_threshold,
-            comm=comm
         )
     
     def analyze_callers(self, samples: List[Dict],
