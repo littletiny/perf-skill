@@ -601,12 +601,61 @@ spear trace issues [--status open|resolved|all]
 
 ---
 
-### trace finalize
+### trace audit
 
-最终审计（生成报告前必须执行）。
+**事后独立审计**：验证已完成诊断的 issues 分析质量。
+
+审计员（Tech Lead / QA / 架构师）在诊断完成后独立运行，用于质量检查和团队学习。**不阻塞诊断流程**，发现问题不 reopen，而是反馈给工程师改进。
+
+**审计检查项**：
+- 结构完整性：result 非空、非敷衍（如 "ok", "done"）
+- Timeline 关联：有分析命令支撑，无 analysis gap
+- 分析深度：包含因果推导或文档引用
 
 ```bash
-spear trace finalize [--accept-risk "理由"]
+# 完整审计（诊断完成后运行）
+spear trace audit
+
+# 指定审计阶段
+spear trace audit --phase structural  # 只检查结构
+spear trace audit --phase timeline    # 只检查 timeline 关联
+spear trace audit --phase depth       # 只检查分析深度
+
+# JSON 输出（便于集成到质量平台）
+spear trace audit --format json --output audit-report.json
+```
+
+**使用场景**：
+```bash
+# 场景 1: 定期质量审计
+cd /path/to/completed/diagnosis
+spear trace audit
+
+# 场景 2: Code Review 时检查
+# Reviewer 查看诊断质量
+spear trace audit --format json | jq '.summary'
+
+# 场景 3: 事后复盘
+# 问题复现时检查历史诊断是否充分
+spear trace audit --phase depth
+```
+
+**参考文档**：`docs/audit-process.md` - 完整审计流程指南
+
+---
+
+### trace finalize
+
+结束诊断，准备生成报告。
+
+检查是否还有 open issues。如有，可选择继续分析或接受风险后结束。**与 audit 完全独立**，不依赖审计结果。
+
+```bash
+# 结束诊断（所有 issues 已解决）
+spear trace finalize
+
+# 如有未处理 issues，但决定接受风险
+spear trace finalize --accept-risk "与当前问题无关，可后续处理"
 ```
 
 ---

@@ -142,18 +142,53 @@ spear trace init --data <perf.data>
 2. 所有证据、推理、结论必须写入 `debug/*.md`
 3. `trace add/complete` 只是状态标记，分析内容要在 markdown 中详细记录
 
-### 强制审计流程
+### 诊断流程
 
 ```bash
-# 发现问题时记录
-spear trace add --desc "高内核态" --hint "cluster-symbols"
+# 1. 初始化诊断文档
+spear trace init --data perf.data
 
-# 每 2-3 个spearert工具后审计
+# 2. 执行分析，自动/手动记录 issues
+spear get-comm-top
+spear cluster-symbols --comm netstat
+...
+
+# 3. 查看待处理 issues
 spear trace issues
 
-# 生成报告前最终审计
+# 4. 完成分析，标记 resolved（result 必须详细）
+spear trace complete --id ISS-001 --result "根因: xxx - 详见 debug/analysis.md"
+
+# 5. 确认所有 issues 已解决
+spear trace issues --status open
+
+# 6. finalize 结束诊断
 spear trace finalize
+
+# 7. 导出报告
+spear trace export --format markdown --output report.md
 ```
+
+---
+
+### 质量审计（独立事后流程）
+
+诊断完成后，独立审计员可进行事后质量检查：
+
+```bash
+# 审计员运行（诊断完成后）
+spear trace audit
+
+# 查看审计报告
+spear trace audit --format json
+```
+
+**说明**：
+- Audit 是 **事后独立流程**，不阻塞诊断
+- 审计员是 **独立人员**（Tech Lead / QA / 架构师）
+- Audit 结果用于 **质量反馈** 和 **团队学习**
+- 发现问题 **不 reopen**，而是反馈给工程师改进
+- 详见 `docs/audit-process.md`
 
 ---
 

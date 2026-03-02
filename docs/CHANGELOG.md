@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.33] - 2026-03-02
+
+### Added
+- 新增 **多轮 Agent 流水线架构** (`pipeline/`)，实现诊断-审计-复查三轮协作
+- 新增 `PipelineController` 控制器，管理流水线生命周期和状态
+- 新增三个 Agent 实现：
+  - `DiagnoseAgent`: 执行 SPEAR 诊断流程，自动记录 trace
+  - `AuditAgent`: 四阶段审计（结构/关联/深度/文档），识别 gaps
+  - `RecheckAgent`: 根据审计结果补充分析和验证
+- 新增 Pipeline CLI (`pipeline/cli.py`)，支持 `run/diagnose/audit/recheck/status` 命令
+- 新增设计文档 `docs/agent-pipeline-design.md`，详细说明架构设计
+- 新增使用指南 `docs/agent-pipeline-usage.md`，提供完整使用示例
+- 新增示例脚本 `pipeline/example.py`，演示各种使用场景
+- 支持流水线状态保存和恢复（`save()` / `load()`）
+- 支持分步执行和完整流水线两种模式
+- 支持自定义 Agent 扩展
+
+**Changed files**: `pipeline/*`, `docs/agent-pipeline-design.md`, `docs/agent-pipeline-usage.md`, `AGENTS.md`, `version`
+
+---
+
+## [2.32] - 2026-03-02
+
+### Added
+- 新增 `spear trace audit` 命令，用于**事后独立审计**诊断质量
+- 审计流程文档 `docs/audit-process.md`，明确：
+  - Audit 是**事后独立流程**，诊断完成后才进行
+  - Audit 和 finalize **完全独立**，无交互依赖
+  - Audit 结果用于**质量反馈和学习**，不阻塞诊断
+- 支持三阶段审计：structural（结构完整性）、timeline（Timeline 关联）、depth（分析深度）
+- 自动检测敷衍 result（如 "ok", "done", "fixed"）
+- 自动检测 analysis gap（无分析命令即标记完成）
+- 自动检测过短分析时间（<30秒）
+- 新增测试 `tests/test_trace_audit.py` 验证审计功能
+
+### Changed
+- 重构 `docs/audit-process.md` 明确**完全独立的两个流程**：
+  - 诊断流程：工程师独立完成诊断并 finalize
+  - 审计流程：独立审计员事后检查，不阻塞、不 reopen
+- 更新 SKILL.md 分离诊断流程和审计流程说明
+- 更新 references/tools.md 明确 audit/finalize 的独立性
+- `finalize` 输出改为 "FINALIZE"（避免与 audit 混淆）
+- 更新 AGENTS.md 文档清单
+
+**Changed files**: `scripts/perf_toolkit/core/trace.py`, `scripts/spear.py`, `docs/audit-process.md`, `SKILL.md`, `references/tools.md`, `AGENTS.md`, `version`, `tests/test_trace_audit.py`
+
+---
+
 ## [2.31] - 2026-03-02
 
 ### Added

@@ -888,13 +888,13 @@ def cmd_doc_reopen(args):
 
 
 def cmd_doc_finalize(args):
-    """最终审计（极简格式）"""
+    """最终确认（检查 open issues，准备生成报告）"""
     cfg = _load_risk_config_from_args(args)
     doc = Trace(config=cfg)
     result = doc.finalize(getattr(args, 'accept_risk', None))
 
     print("=" * 65)
-    print("FINAL AUDIT")
+    print("FINALIZE - Ready to generate report?")
     print("=" * 65)
     print()
 
@@ -915,7 +915,9 @@ def cmd_doc_finalize(args):
         print("=" * 65)
 
     else:  # blocked
-        print(f"[BLOCKED] {len(result['open_issues'])} issues pending")
+        print(f"[BLOCKED] {len(result['open_issues'])} open issues remaining")
+        print()
+        print("Note: This is NOT an audit. Use 'spear trace audit' for quality review.")
         print()
         for issue in result['open_issues']:
             color = cfg.colors.get(issue['level'], '')
@@ -929,7 +931,7 @@ def cmd_doc_finalize(args):
             print()
         print("-" * 65)
         print("[A] Continue analysis (recommended)")
-        print("[B] Accept risk: --accept-risk 'reason'")
+        print("[B] Accept risk and finalize: --accept-risk 'reason'")
         print("=" * 65)
         import sys
         sys.exit(1)

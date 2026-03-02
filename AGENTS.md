@@ -43,14 +43,22 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 ├── AGENTS.md              # 本文件 - 开发指南
 ├── SKILL.md               # 用户入口文档
 ├── docs/                  # 设计文档（⚠️ 新增文档必须更新此处）
-│   ├── CHANGELOG.md       # 格式化的版本变更记录
-│   ├── LESSONS.md         # 设计决策与经验教训（按主题组织）
+│   ├── CHANGELOG.md                  # 格式化的版本变更记录
+│   ├── LESSONS.md                    # 设计决策与经验教训（按主题组织）
+│   ├── agent-pipeline-design.md      # Agent 流水线架构设计 - 多轮诊断-审计-复查
+│   ├── agent-pipeline-usage.md       # Agent 流水线使用指南
+│   ├── audit-process.md              # 审计流程 - 项目审计员验证 issues 分析质量指南
 │   ├── design-rationale-trace-v1.md  # Trace v1.0 设计意图 - 基于 netstat 案例的问题追踪机制
 │   ├── design-rationale-trace-v2.md  # Trace v2.0 演进设计 - 从手动记录到全自动 Tracing
 │   ├── output-format-spec.md         # 工具输出格式规范 - 统一 JSON 标准（_risk、时间格式等）
 │   ├── output-system.md              # Output System 快速参考 - 统一数据结构与代码复用
 │   ├── risk-display-customization.md # Risk 消息展示自定义设计 - 可配置的 risk 输出格式与样式
 │   └── trace-interface.md            # Trace 接口设计 - CLI 接口与技术规格
+├── pipeline/              # 多轮 Agent 流水线
+│   ├── __init__.py        # 包入口
+│   ├── controller.py      # 流水线控制器
+│   ├── agents.py          # Agent 实现（Diagnose/Audit/Recheck）
+│   └── cli.py             # 命令行接口
 ├── references/            # 参考资料
 │   ├── workflow.md        # 分析流程指南（7个Phase）
 │   ├── tools.md           # 工具命令参考

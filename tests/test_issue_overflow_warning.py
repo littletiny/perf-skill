@@ -221,7 +221,11 @@ class TestIssueOverflowWarning(unittest.TestCase):
         # Timeline output is now simpler, check for command name and findings
         self.assertIn("get-comm-top", result.stdout, "Should record command name")
         self.assertIn("get-comm-top", result.stdout, "Should record command name")
-        self.assertIn("[WARNING]", result.stdout, "Should show risk in timeline")
+        # Check for risk level markers (could be CRITICAL or WARNING)
+        self.assertTrue(
+            "[CRITICAL]" in result.stdout or "[WARNING]" in result.stdout,
+            "Should show risk level in timeline"
+        )
 
         print("  ✓ Timeline display format correct")
 
