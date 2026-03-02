@@ -269,6 +269,111 @@ class AnalysisFacade:
             storm_ratio_threshold=storm_ratio_threshold,
             comm=comm
         )
+    
+    def analyze_callers(self, samples: List[Dict],
+                        target_symbol: str,
+                        comm: Optional[str] = None,
+                        min_ratio: float = 0.5,
+                        top_n: int = 10) -> Dict:
+        """
+        调用链溯源分析（内部接口，不触发 Trace）
+        
+        Args:
+            samples: 样本数据
+            target_symbol: 目标符号名
+            comm: 可选，按进程名过滤
+            min_ratio: 最小占比阈值（百分比）
+            top_n: 返回前 N 个调用者
+            
+        Returns:
+            {
+                "result": {
+                    "target": str,
+                    "callers": [...],
+                    "total_weight": float
+                },
+                "risks": [...]
+            }
+        """
+        from ..core.engine_types import CallerInfo
+        from collections import defaultdict
+        
+        # 过滤样本
+        filtered_samples = samples
+        if comm:
+            filtered_samples = [s for s in filtered_samples if s['comm'] == comm]
+        
+        if not filtered_samples:
+            return {
+                "result": {"target": target_symbol, "callers": [], "total_weight": 0.0},
+                "risks": []
+            }
+        
+        # 获取总量用于计算比例
+        total_weight, _ = self._engine.get_total_core_per_sec(filtered_samples)
+        
+        # 溯源分析
+        attribution = defaultdict(float)
+        target_weight = 0.0
+        
+        for s in filtered_samples:
+            stack = s.get('stack')
+            if not stack:
+                continue
+            
+            weight = self._engine.get_sample_weight(s)
+            normalized_names = stack.get_normalized_names()
+            
+            if target_symbol in normalized_names:
+                target_weight += weight
+                idx = normalized_names.index(target_symbol)
+                caller_stack = normalized_names[idx+1:idx+6]
+                if caller_stack:
+                    attribution[tuple(caller_stack)] += weight
+        
+        # 构建 callers 列表
+        callers = []
+        for stack, weight_val in attribution.items():
+            ratio_total = (weight_val / total_weight * 100) if total_weight > 0 else 0
+            if ratio_total >= min_ratio:
+                callers.append(CallerInfo(
+                    symbol=" -> ".join(stack),
+                    call_count=int(weight_val * 100),  # 近似计数
+                    total_weight=weight_val,
+                    call_ratio=ratio_total
+                ))
+        
+        # 按调用次数排序
+        callers.sort(key=lambda x: x.call_count, reverse=True)
+        callers = callers[:top_n]
+        
+        # 识别 risk
+        risks = []
+        if target_weight < 0.01:
+            risks.append({
+                "level": "warning",
+                "message": f"目标函数 '{target_symbol}' 几乎无 CPU 活动",
+                "hint": "检查目标函数名称是否正确",
+                "patterns": ["LOW_TARGET_ACTIVITY"],
+                "pending_targets": []
+            })
+        
+        return {
+            "result": {
+                "target": target_symbol,
+                "callers": [
+                    {
+                        "symbol": c.symbol,
+                        "call_count": c.call_count,
+                        "call_ratio": c.call_ratio,
+                        "total_weight": c.total_weight
+                    }
+                    for c in callers
+                ],
+                "total_weight": target_weight
+            },
+            "risks": risks
+        }
 
 
 # =============================================================================

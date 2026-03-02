@@ -40,7 +40,7 @@ def cmd_sys_audit(builder, engine, args, samples):
     facade = AnalysisFacade(engine)
     
     # 1.1 异常检测
-    anomalies_raw = facade.detect_anomalies(samples, window_size=10, threshold=2.0)
+    anomalies_raw = facade.detect_anomalies(samples, window_size=10, spike_threshold=0.5)
     anomalies = AnomaliesReport.from_dict(anomalies_raw)
     
     # 1.2 核心分布分析

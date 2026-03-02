@@ -18,7 +18,7 @@ from collections import defaultdict
 from typing import Dict, List, Optional, Set
 from .symbol import Symbol, SymbolStack
 from .engine_types import (
-    UserKernelStats, CPUUtilization, ProcessCPUInfo, CommCPUInfo,
+    UserKernelStats, CPUUtilization, ProcessCPUInfo, PidCPUInfo, CommCPUInfo,
     CoreCPUInfo, SymbolCPUInfo, ProcessLifecycle, LifecycleEvent,
     LifecycleStats, CallerInfo, CallEdge, CallGraph
 )
@@ -710,6 +710,57 @@ class PerfExpertEngine:
             )
         return result
 
+    def get_pid_cpu_util(self, samples=None) -> Dict[int, PidCPUInfo]:
+        """
+        按 PID 聚合 CPU 利用率（合并相同 PID 的不同 comm）。
+
+        Args:
+            samples: 样本列表，默认使用 engine.samples
+
+        Returns:
+            Dict[int, PidCPUInfo]: PID -> CPU 信息映射
+        """
+        if samples is None:
+            samples = self.samples
+
+        duration = self.get_duration(samples)
+        if duration <= 0:
+            return {}
+
+        from collections import defaultdict
+        stats = defaultdict(lambda: {
+            'total': 0.0, 'user': 0.0, 'kernel': 0.0,
+            'comm_counts': defaultdict(int), 'sample_count': 0
+        })
+
+        for s in samples:
+            pid = int(s['pid'])
+            weight = self.get_sample_weight(s)
+            stats[pid]['total'] += weight
+            stats[pid]['comm_counts'][s['comm']] += 1
+            stats[pid]['sample_count'] += 1
+
+            stack = s.get('stack')
+            if stack and stack.is_leaf_kernel:
+                stats[pid]['kernel'] += weight
+            else:
+                stats[pid]['user'] += weight
+
+        # 转换为数据结构
+        result = {}
+        for pid, val in stats.items():
+            # 选择出现次数最多的 comm
+            comm = max(val['comm_counts'].items(), key=lambda x: x[1])[0]
+            result[pid] = PidCPUInfo(
+                pid=pid,
+                comm=comm,
+                total_pct=(val['total'] / duration) * 100,
+                user_pct=(val['user'] / duration) * 100,
+                kernel_pct=(val['kernel'] / duration) * 100,
+                sample_count=val['sample_count']
+            )
+        return result
+
     def get_comm_cpu_util(self, samples=None) -> Dict[str, CommCPUInfo]:
         """
         按进程名(comm)聚合 CPU 利用率。
@@ -882,10 +933,11 @@ class PerfExpertEngine:
         sorted_samples = sorted(samples, key=lambda s: s['ts'])
         duration = self.get_duration(sorted_samples)
 
-        # 追踪每个 PID 的出现和消失
+        # 追踪每个 PID 的出现和消失，同时记录首次出现时的调用栈
         pid_first_seen = {}
         pid_last_seen = {}
         pid_comm = {}
+        pid_first_stack = {}  # 记录首次出现时的栈
 
         for s in sorted_samples:
             pid = s['pid']
@@ -894,26 +946,34 @@ class PerfExpertEngine:
 
             if pid not in pid_first_seen:
                 pid_first_seen[pid] = ts
+                # 记录首次出现时的调用栈
+                stack = s.get('stack')
+                if stack:
+                    pid_first_stack[pid] = stack.get_normalized_names()
+                else:
+                    pid_first_stack[pid] = []
             pid_last_seen[pid] = ts
 
-        # 生成 spawn/exit 事件
+        # 生成 spawn/exit 事件（使用 dict 表示，包含 stack 信息）
         spawn_events = [
-            LifecycleEvent(
-                pid=pid,
-                comm=pid_comm[pid],
-                timestamp=first_ts,
-                type="spawn"
-            )
+            {
+                "pid": pid,
+                "comm": pid_comm[pid],
+                "timestamp": first_ts,
+                "type": "spawn",
+                "stack": pid_first_stack.get(pid, [])
+            }
             for pid, first_ts in pid_first_seen.items()
         ]
 
         exit_events = [
-            LifecycleEvent(
-                pid=pid,
-                comm=pid_comm[pid],
-                timestamp=last_ts,
-                type="exit"
-            )
+            {
+                "pid": pid,
+                "comm": pid_comm[pid],
+                "timestamp": last_ts,
+                "type": "exit",
+                "stack": []  # exit 事件通常没有栈信息
+            }
             for pid, last_ts in pid_last_seen.items()
         ]
 
@@ -921,8 +981,8 @@ class PerfExpertEngine:
         spawn_rate = len(pid_first_seen) / duration if duration > 0 else 0.0
 
         # 按时间排序事件
-        spawn_events.sort(key=lambda e: e.timestamp)
-        exit_events.sort(key=lambda e: e.timestamp)
+        spawn_events.sort(key=lambda e: e["timestamp"])
+        exit_events.sort(key=lambda e: e["timestamp"])
 
         # 统计信息
         lifecycle_stats = LifecycleStats(

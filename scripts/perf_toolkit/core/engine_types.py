@@ -59,6 +59,17 @@ class ProcessCPUInfo:
 
 
 @dataclass
+class PidCPUInfo:
+    """PID 级 CPU 信息（按 PID 聚合，合并相同 PID 的不同 comm）"""
+    pid: int
+    comm: str  # 使用出现次数最多的 comm
+    total_pct: float
+    user_pct: float
+    kernel_pct: float
+    sample_count: int = 0
+
+
+@dataclass
 class CommCPUInfo:
     """进程组 CPU 信息"""
     comm: str
