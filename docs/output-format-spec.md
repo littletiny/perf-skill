@@ -1,43 +1,37 @@
 # 工具输出格式规范
 
 > 所有分析工具的 JSON 输出必须遵循的统一规范
-> 版本: 1.0
-> 创建时间: 2026-02-28
+> 版本: 2.0
+> 更新时间: 2026-03-03
 
 ---
 
-## 1. 设计原则
+## 设计原则
 
-### 1.1 扁平优先
-- JSON 嵌套不超过 3 层
-- 优先使用字符串而非嵌套对象
-- 数组元素保持简单结构
-
-### 1.2 风险置顶
+### 风险置顶
 - 所有输出必须包含 `_risk` 字段
 - `_risk` 放在输出顶部，第一时间可见
 - 风险信息简洁明确，包含建议操作
 
-### 1.3 时间字符串化
+### 扁平结构
+- JSON 嵌套不超过 2 层
+- 优先使用简单列表而非嵌套对象
+- 列表项使用平面对象，避免多级 children 嵌套
+
+### 时间字符串化
 - 所有时间字段使用 ISO 8601 格式字符串
-- 禁止使用时间戳数字
+- 禁止使用 Unix 时间戳数字
 - 时区信息可选，但必须统一
+
+### 数值原始
+- 百分比存储为原始数字（如 0.15 表示 15%），格式化交给渲染层
+- 时间存储为时间戳或 ISO 字符串，避免自定义格式
 
 ---
 
-## 2. 字段规范
+## 字段规范
 
-### 2.1 `_risk` 字段（必须）
-
-**⚠️ 强制性规则**: 当 `_risk.action_required=true` 时，**必须**将问题添加到 Trace
-
-```bash
-# 任何返回 action_required=true 的 tool 输出，必须执行：
-spear trace add --desc "<_risk.message>" \
-  --risk "<_risk.level>" --hint "<_risk.hint>"
-```
-
-**强制执行**: 分析流程中禁止忽略 `action_required=true` 的风险提示。未添加到 Trace 的风险视为分析不完整。
+### `_risk` 字段（必须）
 
 ```json
 {
@@ -61,437 +55,221 @@ spear trace add --desc "<_risk.message>" \
 | `info` | 值得关注的信息 | 了解即可 |
 | `none` | 无风险 | 继续正常流程 |
 
-**示例**:
+**⚠️ 强制性规则**: 当 `_risk.action_required=true` 时，**必须**将问题添加到 Trace
+
+```bash
+# 任何返回 action_required=true 的 tool 输出，必须执行：
+spear trace add --desc "<_risk.message>" \
+  --risk "<_risk.level>" --hint "<_risk.hint>"
+```
+
+### `summary` 字段
+
+各命令的 summary 字段根据工具类型不同：
+
+| 工具 | Summary 字段 |
+|------|-------------|
+| `get-hotspots` | `total_hotspots`, `shown_hotspots` |
+| `get-comm-top` | `total_comm_groups`, `high_kernel_groups` |
+| `cluster-paths` | `total_clusters`, `shown_clusters`, `clustered_weight` |
+| `detect-anomalies` | `total_anomalies`, `spike_count`, `drop_count` |
+| `find-callers` | `target`, `target_cpu_util`, `total_attributions`, `shown_attributions` |
+
+### `time_range` 字段
+
+包含时间范围的命令会输出：
 
 ```json
-{
-  "_risk": {
-    "level": "warning",
-    "message": "发现 2 个高内核态进程未分析: containerd-shim, sh",
-    "hint": "执行: cluster-symbols --comm containerd-shim",
-    "patterns": ["MULTI_HIGH_KERNEL"],
-    "pending_targets": ["containerd-shim", "sh"],
-    "action_required": true
-  }
-}
-```
-
-### 2.2 时间字段规范（必须）
-
-**格式**: ISO 8601 字符串
-
-```
-2026-02-28T14:30:00+08:00  # 带时区
-2026-02-28T14:30:00Z       # UTC
-2026-02-28T14:30:00        # 本地时间（推荐）
-```
-
-**字段命名**:
-
-| 旧字段名 | 新字段名 | 示例 |
-|---------|---------|------|
-| `start` | `start_time` | `"2026-02-28T10:00:00"` |
-| `end` | `end_time` | `"2026-02-28T10:30:00"` |
-| `timestamp` | `timestamp` | `"2026-02-28T10:15:30"` |
-| `ts` | `timestamp` | `"2026-02-28T10:15:30"` |
-| `duration_sec` | `duration` | 保留数字，单位为秒 |
-
-**转换示例**:
-
-```python
-# 之前（禁止）
 {
   "time_range": {
-    "start": 1677567600.123,  # 时间戳数字
-    "end": 1677569400.456
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
+    "duration": 1800
   }
-}
-
-# 之后（规范）
-{
-  "time_range": {
-    "start_time": "2026-02-28T10:00:00",
-    "end_time": "2026-02-28T10:30:00",
-    "duration": 1800  # 秒，数字
-  }
-}
-```
-
-### 2.3 数值字段规范
-
-**百分比**: 使用字符串，带 % 符号
-
-```json
-{
-  "cpu_utilization": "45.5%",  # 字符串
-  "kernel_ratio": "89.9%"
-}
-```
-
-**时间**: 使用字符串，带单位
-
-```json
-{
-  "duration": 1800,           # 秒，数字（用于计算）
-  "duration_readable": "30m"  # 可读字符串（可选）
-}
-```
-
-**core/s 值**: 保留数字，4位小数
-
-```json
-{
-  "core_seconds": 0.0526,
-  "total_core_seconds": 123.4567
 }
 ```
 
 ---
 
-## 3. 各工具输出改造规范
+## 各工具具体输出格式
 
-### 3.1 check-cpu-bottleneck
+### 核心分析工具
 
-**当前问题**:
-- 无 `_risk` 字段
-- 时间戳数字
+#### analyze-core-distribution
 
-**改造后**:
+核心级负载分布分析。
 
+**输出结构**:
 ```json
 {
   "_risk": {
     "level": "warning",
-    "message": "单核满载，可能存在串行化瓶颈",
-    "hint": "执行: analyze-core-distribution --pid <pid>",
+    "message": "单核满载 (CPU 5)",
+    "hint": "使用 sys-audit 分析负载分布",
     "patterns": ["SINGLE_CORE_SATURATION"],
+    "pending_targets": ["cpu_5"],
     "action_required": true
   },
-  "verdict": "SINGLE_CORE_SATURATION",
+  "summary": null,
   "time_range": {
-    "start_time": "2026-02-28T10:00:00",
-    "end_time": "2026-02-28T10:30:00",
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
     "duration": 1800
   },
-  "max_core_load": {
-    "cpu_id": 5,
-    "load": "95.2%"
-  }
-}
-```
-
-### 3.2 get-comm-top
-
-**当前问题**:
-- 字段过多，嵌套深
-- 时间戳数字
-- 无 `_risk`
-
-**改造后**:
-
-```json
-{
-  "_risk": {
-    "level": "warning",
-    "message": "发现 2 个高内核态进程组未分析",
-    "hint": "建议并行分析: cluster-symbols --comm containerd-shim",
-    "patterns": ["MULTI_HIGH_KERNEL"],
-    "pending_targets": ["containerd-shim", "sh"],
-    "action_required": true
-  },
-  "summary": {
-    "total_comm_groups": 4,
-    "high_kernel_groups": 2
-  },
-  "time_range": {
-    "start_time": "2026-02-28T10:00:00",
-    "end_time": "2026-02-28T10:30:00"
-  },
-  "comm_groups": [
+  "cores": [
     {
-      "comm": "netstat",
-      "pid_count": 2623,
-      "cpu_pct": "243.87%",
-      "kernel_pct": "94.7%"
+      "cpu_id": 5,
+      "total_cpu_util": "95.20%",
+      "kernel_cpu_util": "55.30%"
     }
   ]
 }
 ```
 
-### 3.3 detect-anomalies
+**数据项字段**:
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `cpu_id` | int | CPU 核心 ID |
+| `total_cpu_util` | string | 总 CPU 利用率（带 %） |
+| `kernel_cpu_util` | string | 内核态 CPU 利用率（带 %） |
 
-**当前问题**:
-- 嵌套过深（5层）
-- 时间戳数字
-- `window` / `utilization` 嵌套对象
+---
 
-**改造后**:
+#### detect-anomalies
 
+时序异常检测。
+
+**输出结构**:
 ```json
 {
   "_risk": {
     "level": "warning",
     "message": "检测到 3 个 CPU 利用率异常尖峰",
-    "hint": "分析 spike 时段热点: get-hotspots --start-time '2026-02-28T10:15:00' --end-time '2026-02-28T10:16:00'",
+    "hint": "查看异常时间点，分析对应时间段",
     "patterns": ["CPU_SPIKE"],
     "action_required": true
   },
   "summary": {
-    "total_anomalies": 3,
-    "spike_count": 2,
-    "drop_count": 1
+    "total_anomalies": 5,
+    "spike_count": 3,
+    "drop_count": 2
   },
   "time_range": {
-    "start_time": "2026-02-28T10:00:00",
-    "end_time": "2026-02-28T10:30:00"
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
+    "duration": 1800
   },
   "anomalies": [
     {
       "type": "SPIKE",
       "cpu_id": 5,
-      "time_range": "2026-02-28T10:15:00 - 2026-02-28T10:16:00",
-      "utilization_change": "10% -> 85% -> 15%",
+      "time_range_start": "2026-03-02T10:15:00",
+      "time_range_end": "2026-03-02T10:16:00",
+      "prev_util": 0.1,
+      "curr_util": 0.85,
+      "next_util": 0.15,
       "severity": "high"
     }
   ]
 }
 ```
 
-### 3.4 analyze-core-distribution
-
-**当前问题**:
-- `cores` 数组元素复杂
-- 时间戳数字
-- `top_symbols` 嵌套
-
-**改造后**:
-
-```json
-{
-  "_risk": {
-    "level": "critical",
-    "message": "负载严重不均衡: 单核满载，其他核心空闲",
-    "hint": "检查锁竞争: cluster-symbols --comm <target>",
-    "patterns": ["SINGLE_CORE_SATURATION"],
-    "action_required": true
-  },
-  "summary": {
-    "imbalance_level": "CRITICAL",
-    "max_utilization": "95.2%",
-    "min_utilization": "2.1%",
-    "saturated_cores": 1
-  },
-  "time_range": {
-    "start_time": "2026-02-28T10:00:00",
-    "end_time": "2026-02-28T10:30:00"
-  },
-  "cores": [
-    {
-      "cpu_id": 5,
-      "utilization": "95.2%",
-      "state": "saturated"
-    }
-  ]
-}
-```
-
-### 3.5 cluster-symbols
-
-**当前问题**:
-- 相对简洁，但无 `_risk`
-- 时间戳数字
-
-**改造后**:
-
-```json
-{
-  "_risk": {
-    "level": "critical",
-    "message": "锁竞争占比 79.84%，系统严重瓶颈",
-    "hint": "溯源锁调用: find-callers --target <lock_func>",
-    "patterns": ["HIGH_LOCK_CONTENTION"],
-    "action_required": true
-  },
-  "summary": {
-    "total_core_seconds": 123.4567
-  },
-  "time_range": {
-    "start_time": "2026-02-28T10:00:00",
-    "end_time": "2026-02-28T10:30:00"
-  },
-  "clusters": [
-    {
-      "cluster": "EVENT_LOCK_CONTENTION",
-      "ratio_pct": "79.84%",
-      "core_sec": 98.7654
-    }
-  ]
-}
-```
+**数据项字段**:
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `type` | string | 异常类型: SPIKE/DROP |
+| `cpu_id` | int | CPU 核心 ID |
+| `time_range_start` | string | 异常开始时间（ISO 8601） |
+| `time_range_end` | string | 异常结束时间（ISO 8601） |
+| `prev_util` | float | 前一个窗口利用率（0-1） |
+| `curr_util` | float | 当前窗口利用率（0-1） |
+| `next_util` | float | 后一个窗口利用率（0-1） |
+| `severity` | string | 严重程度: high/medium |
 
 ---
 
-## 4. 实施清单
+#### get-comm-top
 
-### 4.1 待改造文件
-
-| 文件 | 优先级 | 主要改造点 |
-|------|--------|-----------|
-| `bottleneck.py` | P0 | 添加 `_risk`，时间字符串化 |
-| `comm_top.py` | P0 | 添加 `_risk`，简化字段，时间字符串化 |
-| `anomalies.py` | P0 | 扁平化结构，时间字符串化 |
-| `core_distribution.py` | P0 | 简化 `cores`，时间字符串化 |
-| `clusters.py` | P1 | 添加 `_risk`，时间字符串化 |
-| `hotspots.py` | P1 | 添加 `_risk`，时间字符串化 |
-| `trace.py` | P1 | 时间字符串化 |
-| `cpu_usage.py` | P1 | 时间字符串化 |
-| `process_top.py` | P1 | 时间字符串化 |
-| `process_variety.py` | P1 | 时间字符串化 |
-| `comm_clusters.py` | P2 | 时间字符串化 |
-| `path_clusters.py` | P2 | 时间字符串化 |
-| `flamegraph.py` | P2 | 时间字符串化 |
-| `callgraph.py` | P2 | 时间字符串化 |
-
-### 4.2 改造步骤
-
-1. **创建 RiskMixin 基类** (`core/risk_mixin.py`)
-2. **创建时间格式化工具** (`core/format_utils.py`)
-3. **按优先级逐个改造**:
-   - 添加 `_risk` 字段
-   - 时间戳改为字符串
-   - 简化嵌套结构
-4. **更新测试用例**
-5. **更新文档**
-
----
-
-## 5. 辅助工具
-
-### 5.1 时间格式化函数
-
-```python
-# core/format_utils.py
-from datetime import datetime
-
-def format_timestamp(ts: float) -> str:
-    """Convert timestamp to ISO 8601 string"""
-    return datetime.fromtimestamp(ts).isoformat()
-
-def format_time_range(start_ts: float, end_ts: float) -> dict:
-    """Format time range with readable string"""
-    return {
-        "start_time": format_timestamp(start_ts),
-        "end_time": format_timestamp(end_ts),
-        "duration": round(end_ts - start_ts, 2)
-    }
-
-def format_duration(seconds: float) -> str:
-    """Format duration to readable string"""
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    elif seconds < 3600:
-        return f"{seconds/60:.1f}m"
-    else:
-        return f"{seconds/3600:.1f}h"
-```
-
-### 5.2 RiskMixin 基类
-
-```python
-# core/risk_mixin.py
-
-class RiskMixin:
-    """Mixin for standardized risk hints in output"""
-
-    RISK_LEVELS = ["critical", "warning", "info", "none"]
-
-    def __init__(self):
-        self.risks = []
-
-    def add_risk(self, level: str, message: str, hint: str = "",
-                 patterns: list = None, targets: list = None):
-        """Add a risk hint"""
-        if level not in self.RISK_LEVELS:
-            level = "info"
-
-        self.risks.append({
-            "level": level,
-            "message": message,
-            "hint": hint,
-            "patterns": patterns or [],
-            "pending_targets": targets or []
-        })
-
-    def get_top_risk(self) -> dict:
-        """Get the highest level risk"""
-        priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-
-        if not self.risks:
-            return {
-                "level": "none",
-                "message": "无风险",
-                "hint": "",
-                "patterns": [],
-                "pending_targets": [],
-                "action_required": False
-            }
-
-        top = min(self.risks, key=lambda r: priority.get(r["level"], 3))
-        return {
-            **top,
-            "action_required": top["level"] in ["critical", "warning"]
-        }
-
-    def format_output(self, data: dict) -> dict:
-        """Add _risk field to output"""
-        return {
-            "_risk": self.get_top_risk(),
-            **data
-        }
-```
-
----
-
-## 6. 验证检查清单
-
-改造后的工具必须通过以下检查：
-
-- [ ] 输出包含 `_risk` 字段
-- [ ] `_risk.level` 为 critical/warning/info/none 之一
-- [ ] 所有时间戳已转换为 ISO 8601 字符串
-- [ ] JSON 嵌套不超过 3 层
-- [ ] 百分比使用字符串格式（带 %）
-- [ ] 风险消息简洁明了（一句话）
-- [ ] hint 字段包含可执行的命令建议
-
----
-
-## 7. 参考
-
-- [Trace 设计](./design-rationale-trace-v1.md)
-- [Trace 接口](./trace-interface.md)
-- [CHANGES.md](../CHANGES.md)
-
----
-
-## 4. 各工具具体输出格式
-
-### 4.1 可视化工具之外的工具输出格式
-
-#### 4.1.1 get-hotspots（热点函数排名）
+进程组分析（增强版，含 CV/Monopoly/SpawnRate）。
 
 **输出结构**:
 ```json
 {
   "_risk": {
-    "level": "warning | none",
-    "message": "热点函数 xxx 内核态占比 yy.yy%",
-    "hint": "find-callers --target xxx",
-    "patterns": ["HIGH_KERNEL_HOTSPOT"],
+    "level": "critical",
+    "message": "app_worker 单核饱和 (Monopoly=0.92)",
+    "hint": "bottleneck-trace --comm app_worker",
+    "patterns": ["SINGLE_CORE_SATURATION"],
+    "pending_targets": ["app_worker"],
     "action_required": true
   },
   "summary": {
-    "total_hotspots": 50
+    "total_comm_groups": 15,
+    "high_kernel_groups": 2
+  },
+  "time_range": {
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
+    "duration": 1800
+  },
+  "comm_groups": [
+    {
+      "comm": "app_worker",
+      "pids": 10,
+      "cpu": "12.50%",
+      "kernel": "45.20%",
+      "event": "BOTTLENECK(M=0.92)"
+    }
+  ]
+}
+```
+
+**数据项字段**:
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `comm` | string | 进程名 |
+| `pids` | int | 该进程名下的进程数量 |
+| `cpu` | string | 聚合 CPU 利用率（带 %） |
+| `kernel` | string | 内核态占比（带 %） |
+| `event` | string | 事件描述（诊断标签） |
+
+**event 取值**:
+- `BOTTLENECK(M=x.xx)` - 单点瓶颈（Monopoly 高）
+- `STORM(x.x/s)` - 进程风暴（Spawn Rate 高）
+- `UNBALANCED(CV=x.xx)` - 负载不均衡（CV 高）
+- `normal` - 正常状态
+
+**增强指标**（V3 版本，通过 `--include-metrics` 可在 Composite 层获取）:
+- `cv` (float): 变异系数，检测负载不均衡
+- `monopoly` (float): 核心独占率（0-1），识别单进程瓶颈
+- `spawn_rate` (float): 进程产生速率（个/秒），检测进程风暴
+- `impact_score` (float): 危害指数，综合排序依据
+
+---
+
+#### get-hotspots
+
+热点函数排名。
+
+**输出结构**:
+```json
+{
+  "_risk": {
+    "level": "warning",
+    "message": "热点函数 __lock_text_start 内核态占比 45.20%",
+    "hint": "find-callers --target __lock_text_start",
+    "patterns": ["HIGH_KERNEL_HOTSPOT"],
+    "pending_targets": ["__lock_text_start"],
+    "action_required": true
+  },
+  "summary": {
+    "total_hotspots": 50,
+    "shown_hotspots": 10
+  },
+  "time_range": {
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
+    "duration": 1800
   },
   "hotspots": [
     {
@@ -503,189 +281,18 @@ class RiskMixin:
 }
 ```
 
-**字段说明**:
-- `symbol`: 函数名（规范化后的名称）
-- `self`: 自消耗 CPU 占比（字符串，带 %）
-- `inclusive`: 包含调用树的 CPU 占比（字符串，带 %）
+**数据项字段**:
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `symbol` | string | 函数名（规范化后的名称） |
+| `self` | string | 自消耗 CPU 占比（带 %） |
+| `inclusive` | string | 包含调用树的 CPU 占比（带 %） |
 
 ---
 
-#### 4.1.2 get-process-top（进程 CPU 排名）
+#### find-callers
 
-**输出结构**:
-```json
-{
-  "_risk": {
-    "level": "none",
-    "message": "",
-    "hint": "",
-    "action_required": false
-  },
-  "summary": {
-    "total_processes": 50,
-    "shown_processes": 10
-  },
-  "processes": [
-    {
-      "comm": "nginx",
-      "pid": 12345,
-      "cpu_pct": "45.5%",
-      "kernel_pct": "12.3%"
-    }
-  ]
-}
-```
-
-**字段说明**:
-- `comm`: 进程名
-- `pid`: 进程 ID
-- `cpu_pct`: 总 CPU 使用率（字符串，带 %）
-- `kernel_pct`: 内核态 CPU 占比（字符串，带 %）
-
----
-
-#### 4.1.3 get-comm-top（按进程名聚合排名）
-
-**输出结构**:
-```json
-{
-  "_risk": {
-    "level": "warning",
-    "message": "发现 2 个高内核态进程组未分析",
-    "hint": "建议并行分析: cluster-symbols --comm containerd-shim",
-    "patterns": ["MULTI_HIGH_KERNEL"],
-    "pending_targets": ["containerd-shim", "sh"],
-    "action_required": true
-  },
-  "summary": {
-    "total_comm_groups": 4,
-    "high_kernel_groups": 2
-  },
-  "comm_groups": [
-    {
-      "comm": "netstat",
-      "pids": 2623,
-      "cpu": "243.87%",
-      "kernel": "94.7%",
-      "event": "MANY_SMALL_PROCESSES: 2623个进程，每个仅消耗0.09% CPU"
-    }
-  ]
-}
-```
-
-**字段说明**:
-- `comm`: 进程名
-- `pids`: 该进程名下的进程数量
-- `cpu`: 聚合 CPU 使用率（字符串，带 %）
-- `kernel`: 内核态占比（字符串，带 %）
-- `event`: 事件描述（字符串，描述检测到的模式）
-
-**event 取值**:
-- `"MANY_SMALL_PROCESSES: {n}个进程，每个仅消耗{x}% CPU"` - 大量小进程模式
-- `"HIGH_KERNEL: 内核态占比 {x}%"` - 高内核态模式
-- `"normal"` - 正常模式
-
----
-
-#### 4.1.4 cluster-symbols（专家规则聚类）
-
-**输出结构**:
-```json
-{
-  "_risk": {
-    "level": "critical",
-    "message": "锁竞争占比 79.84%，系统严重瓶颈",
-    "hint": "溯源锁调用: find-callers --target 'pthread_mutex_lock'",
-    "patterns": ["HIGH_LOCK_CONTENTION"],
-    "action_required": true
-  },
-  "summary": {
-    "clusters_found": 5
-  },
-  "clusters": [
-    {
-      "cluster": "EVENT_LOCK_CONTENTION",
-      "ratio_pct": "79.84%",
-      "core_sec": 98.7654
-    }
-  ]
-}
-```
-
-**字段说明**:
-- `cluster`: 聚类名称（如 EVENT_IRQ_OFF, EVENT_SCHEDULER 等）
-- `ratio_pct`: 该聚类占比（字符串，带 %）
-- `core_sec`: core·s 值（数字，4位小数）
-
----
-
-#### 4.1.5 cluster-comm（按进程名简单聚类）
-
-**输出结构**:
-```json
-{
-  "_risk": {
-    "level": "none",
-    "message": "",
-    "hint": "",
-    "action_required": false
-  },
-  "summary": {
-    "total_comm_groups": 10
-  },
-  "comm_groups": [
-    {
-      "comm": "nginx",
-      "unique_pids": 4,
-      "cpu_pct": "45.5%",
-      "kernel_pct": "12.3%"
-    }
-  ]
-}
-```
-
-**字段说明**:
-- `comm`: 进程名
-- `unique_pids`: 唯一 PID 数量
-- `cpu_pct`: 聚合 CPU 使用率（字符串，带 %）
-- `kernel_pct`: 内核态占比（字符串，带 %）
-
----
-
-#### 4.1.6 cluster-paths（按调用路径聚类）
-
-**输出结构**:
-```json
-{
-  "_risk": {
-    "level": "none",
-    "message": "",
-    "hint": "",
-    "action_required": false
-  },
-  "summary": {
-    "total_clusters": 15
-  },
-  "clusters": [
-    {
-      "cluster_id": "c_001",
-      "path_signature": "main→worker_loop→process_request",
-      "ratio_pct": "45.67%",
-      "core_sec": "1.2345 core·s"
-    }
-  ]
-}
-```
-
-**字段说明**:
-- `cluster_id`: 聚类 ID（如 c_001）
-- `path_signature`: 调用路径签名（→ 分隔）
-- `ratio_pct`: 占比（字符串，带 %）
-- `core_sec`: core·s 值（字符串格式）
-
----
-
-#### 4.1.7 find-callers（调用链溯源）
+调用链溯源。
 
 **输出结构**:
 ```json
@@ -699,170 +306,219 @@ class RiskMixin:
   },
   "summary": {
     "target": "pthread_mutex_lock",
-    "target_core_sec": "1.2345 core·s"
+    "target_cpu_util": "15.50%",
+    "total_attributions": 5,
+    "shown_attributions": 3
   },
   "attributions": [
     {
       "caller_stack": ["func_a", "func_b", "func_c"],
       "ratio_of_target_pct": "45.67%",
-      "core_sec": "0.5678 core·s"
+      "cpu_util": "0.00%"
     }
   ]
 }
 ```
 
-**字段说明**:
-- `target`: 目标函数名
-- `target_core_sec`: 目标函数总 core·s（字符串格式）
-- `caller_stack`: 调用链（从直接调用者到上层）
-- `ratio_of_target_pct`: 该调用链占比（字符串，带 %）
+**数据项字段**:
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `caller_stack` | list | 调用链（从直接调用者到上层） |
+| `ratio_of_target_pct` | string | 该调用链占总目标的比例（带 %） |
+| `cpu_util` | string | CPU 利用率（保留字段） |
 
 ---
 
-#### 4.1.8 count-process-variety（进程风暴检测）
+#### cluster-paths
+
+调用路径聚类。
+
+**输出结构**:
+```json
+{
+  "_risk": {
+    "level": "none",
+    "message": "",
+    "hint": "",
+    "patterns": [],
+    "pending_targets": [],
+    "action_required": false
+  },
+  "summary": {
+    "total_clusters": 15,
+    "shown_clusters": 10,
+    "clustered_weight": 85.5
+  },
+  "time_range": {
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
+    "duration": 1800
+  },
+  "path_clusters": [
+    {
+      "cluster_id": "c_001",
+      "path_signature": "main→worker_loop→process_request",
+      "weight": 45.67,
+      "total_weight": 100.0,
+      "duration": 1800
+    }
+  ]
+}
+```
+
+**数据项字段**:
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `cluster_id` | string | 聚类 ID（如 c_001） |
+| `path_signature` | string | 调用路径签名（→ 分隔） |
+| `weight` | float | 该聚类的权重（core·s） |
+| `total_weight` | float | 总权重 |
+| `duration` | float | 时间窗口（秒） |
+
+**注**: 渲染层会根据 `weight` / `total_weight` 计算百分比显示
+
+---
+
+### 组合诊断工具
+
+#### sys-audit
+
+系统全景审计（Composite 层命令）。
 
 **输出结构**:
 ```json
 {
   "_risk": {
     "level": "critical",
-    "message": "检测到 3 个进程风暴（短生命周期进程）",
-    "hint": "**必须立即执行**: 对每个进程名运行 'cluster-symbols --comm <comm>' 进行详细分析",
-    "patterns": ["PROCESS_STORM"],
-    "pending_targets": ["worker", "task"],
+    "message": "检测到 2 个关键性能问题",
+    "hint": "执行 bottleneck-trace --comm app_worker 深度分析",
+    "patterns": ["BOTTLENECK_DETECTED", "PROCESS_STORM"],
+    "pending_targets": ["app_worker", "task_worker"],
     "action_required": true
   },
-  "summary": {
-    "total_processes": 100,
-    "storm_detected": true,
-    "storm_count": 3
+  "time_range": {
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
+    "duration": 1800
   },
-  "process_variety": [
-    {
-      "comm": "worker",
-      "unique_pids": 500,
-      "total_core_sec": 12.34,
-      "cpu_per_pid": 0.025,
-      "behavior": "process_storm"
+  "diagnosis": {
+    "primary_suspect": {
+      "comm": "app_worker",
+      "total_cpu": 12.5,
+      "diagnosis": "BOTTLENECK",
+      "monopoly": 0.92
+    },
+    "secondary_loads": [
+      {"comm": "lsof", "total_cpu": 400.0, "diagnosis": "STORM"}
+    ],
+    "background_count": 24,
+    "mutation_detected": true,
+    "mutation_time": "2026-03-02T10:05:00",
+    "saturated_cores": [7],
+    "root_cause_analysis": "主要瓶颈: app_worker (BOTTLENECK); 检测到性能突变; 核心饱和: CPU 7"
+  },
+  "details": {
+    "anomalies": {
+      "anomalies_count": 3,
+      "mutation_detected": true,
+      "risks": [...]
+    },
+    "core_distribution": {
+      "core_count": 8,
+      "saturated_cores": [7],
+      "imbalance_level": "CRITICAL",
+      "risks": [...]
+    },
+    "comm_top": {
+      "groups_count": 10,
+      "folded_count": 5,
+      "total_groups": 15,
+      "risks": [...]
     }
-  ]
+  }
 }
 ```
 
-**字段说明**:
-- `comm`: 进程名
-- `unique_pids`: 唯一 PID 数量
-- `total_core_sec`: 总 core·s（数字）
-- `cpu_per_pid`: 每 PID 平均 CPU（数字）
-- `behavior`: 行为模式（`process_storm`, `short_lived_heavy`, `normal`）
+**诊断分级**:
+- `primary_suspect`: 主要嫌疑人（BOTTLENECK 诊断的进程）
+- `secondary_loads`: 次要负载（高 CPU 或 STORM/UNBALANCED 诊断）
+- `background_noise`: 背景噪音（已折叠的低优先级组）
 
 ---
 
-#### 4.1.9 show-cpu-usage（CPU 利用率）
+#### bottleneck-trace
+
+瓶颈深度追踪（Composite 层命令）。
 
 **输出结构**:
 ```json
 {
   "_risk": {
-    "level": "warning",
-    "message": "内核态 CPU 使用率 65.43% 异常高",
-    "hint": "分析内核热点: cluster-symbols",
-    "patterns": ["HIGH_KERNEL_USAGE"],
+    "level": "critical",
+    "message": "app_worker 存在明显瓶颈",
+    "hint": "查看 hotspots 和 callers 分析结果",
+    "patterns": ["BOTTLENECK_CONFIRMED"],
     "action_required": true
   },
-  "target": "PID 12345",
-  "cpu_utilization": {
-    "total_pct": "78.9%",
-    "user_pct": "23.5%",
-    "kernel_pct": "55.4%"
-  }
-}
-```
-
-**字段说明**:
-- `target`: 分析目标描述（如 "PID 12345", "comm=nginx", "System-wide"）
-- `total_pct`: 总 CPU 使用率（字符串，带 %）
-- `user_pct`: 用户态 CPU 占比（字符串，带 %）
-- `kernel_pct`: 内核态 CPU 占比（字符串，带 %）
-
----
-
-### 4.2 可视化工具输出格式
-
-#### 4.2.1 generate-flamegraph（火焰图）
-
-**输出结构**:
-```json
-{
-  "_risk": {
-    "level": "none",
-    "message": "",
-    "hint": "",
-    "action_required": false
+  "time_range": {
+    "start_time": "2026-03-02T10:00:00",
+    "end_time": "2026-03-02T10:30:00",
+    "duration": 1800
   },
-  "data": {
-    "format": "flamegraph",
-    "content": "<svg>...</svg>",
-    "content_type": "image/svg+xml"
+  "target_comm": "app_worker",
+  "bottleneck_analysis": {
+    "monopoly": 0.92,
+    "diagnosis": "BOTTLENECK",
+    "impact_score": 85.5
   },
-  "summary": {
-    "total_samples": 10000,
-    "unique_functions": 500
+  "hotspots": {
+    "top_symbol": "pthread_mutex_lock",
+    "kernel_ratio": 65.3,
+    "items": [...]
+  },
+  "callers": {
+    "target": "pthread_mutex_lock",
+    "attributions": [...]
   }
 }
 ```
 
 ---
 
-#### 4.2.2 generate-callgraph（调用图）
+## 工具输出速查表
 
-**输出结构**:
-```json
-{
-  "_risk": {
-    "level": "none",
-    "message": "",
-    "hint": "",
-    "action_required": false
-  },
-  "data": {
-    "format": "dot",
-    "content": "digraph { ... }",
-    "content_type": "text/vnd.graphviz"
-  },
-  "summary": {
-    "total_nodes": 50,
-    "total_edges": 120
-  }
-}
-```
+| 工具 | 主数据字段 | time_range | 典型 risk 场景 |
+|------|-----------|------------|---------------|
+| `analyze-core-distribution` | `cores` | ✅ | 单核饱和 |
+| `detect-anomalies` | `anomalies` | ✅ | CPU 尖峰 |
+| `get-comm-top` | `comm_groups` | ✅ | 高内核态、进程风暴 |
+| `get-hotspots` | `hotspots` | ✅ | 高内核态热点 |
+| `find-callers` | `attributions` | ❌ | 目标函数无活动 |
+| `cluster-paths` | `path_clusters` | ✅ | - |
+| `sys-audit` | `diagnosis`, `details` | ✅ | 综合瓶颈检测 |
+| `bottleneck-trace` | `bottleneck_analysis`, `hotspots`, `callers` | ✅ | 瓶颈确认 |
 
 ---
 
-## 5. 工具输出速查表
+## 验证检查清单
 
-| 工具 | 主数据字段 | 有无 time_range | 典型 risk 场景 |
-|------|-----------|----------------|--------------|
-| `get-hotspots` | `hotspots` | 无 | 高内核态热点 |
-| `get-process-top` | `processes` | 无 | - |
-| `get-comm-top` | `comm_groups` | 无 | 多进程高内核态 |
-| `cluster-symbols` | `clusters` | 无 | 高锁竞争 |
-| `cluster-comm` | `comm_groups` | 无 | - |
-| `cluster-paths` | `clusters` | 无 | - |
-| `find-callers` | `attributions` | 无 | 目标函数无活动 |
-| `count-process-variety` | `process_variety` | 无 | 进程风暴 |
-| `show-cpu-usage` | `cpu_utilization` | 无 | 高内核态使用率 |
-| `check-cpu-bottleneck` | `verdict`, `max_core_load` | **有** | 单核满载 |
-| `detect-anomalies` | `anomalies` | **有** | CPU 尖峰 |
-| `analyze-core-distribution` | `cores` | **有** | 负载不均衡 |
-| `generate-flamegraph` | `data` (SVG) | 无 | - |
-| `generate-callgraph` | `data` (DOT) | 无 | - |
+工具输出必须通过以下检查：
+
+- [ ] 输出包含 `_risk` 字段且位于最前
+- [ ] `_risk.level` 为 critical/warning/info/none 之一
+- [ ] `_risk.action_required` 在 level 为 critical/warning 时为 true
+- [ ] 时间戳使用 ISO 8601 字符串格式
+- [ ] JSON 嵌套不超过 3 层
+- [ ] 百分比在 JSON 中使用字符串格式（带 %）
+- [ ] 风险消息简洁明了（一句话）
+- [ ] `hint` 字段包含可执行的命令建议
 
 ---
 
-## 6. 版本历史
+## 版本历史
 
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
-| 1.0 | 2026-02-28 | 初始版本，定义基础规范和 5 个 P0 工具 |
+| 2.0 | 2026-03-03 | 全面更新以匹配三层架构实现，补充所有工具的字段说明 |
 | 1.1 | 2026-03-01 | 补充所有工具的具体输出格式，新增速查表 |
+| 1.0 | 2026-02-28 | 初始版本，定义基础规范 |
