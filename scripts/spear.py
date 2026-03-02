@@ -37,7 +37,7 @@ from perf_toolkit.core import PerfExpertEngine
 # Import analysis modules
 from perf_toolkit.analysis.bottleneck import cmd_check_bottleneck, parse_cpu_quota
 from perf_toolkit.analysis.hotspots import cmd_get_hotspots
-from perf_toolkit.analysis.clusters import cmd_apply_cluster
+from perf_toolkit.analysis.clusters import cmd_cluster_symbols
 from perf_toolkit.analysis.trace import cmd_trace_attribution, cmd_find_callers_auto
 from perf_toolkit.analysis.anomalies import cmd_detect_anomalies
 from perf_toolkit.analysis.cpu_usage import cmd_show_cpu_usage
@@ -47,6 +47,11 @@ from perf_toolkit.analysis.path_clusters import cmd_cluster_paths
 from perf_toolkit.analysis.process_variety import cmd_count_process_variety
 from perf_toolkit.analysis.core_distribution import cmd_analyze_core_distribution
 from perf_toolkit.analysis.comm_top import cmd_get_comm_top
+
+# Import Composite commands
+from perf_toolkit.composite.sys_audit import cmd_sys_audit
+from perf_toolkit.composite.bottleneck_trace import cmd_bottleneck_trace
+from perf_toolkit.composite.storm_trace import cmd_storm_trace
 
 # Import trace commands (v2.0: auto add, manual complete)
 from perf_toolkit.core.trace import (
@@ -320,6 +325,49 @@ Use '<command> --help' for detailed help on each subcommand."""
     p14.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive). Formats: Unix timestamp, ISO 8601, datetime, or date")
     p14.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive). Same formats as --start-time")
 
+    # =============================================================================
+    # Composite Commands (三层架构)
+    # =============================================================================
+    
+    # sys-audit
+    p_comp1 = subparsers.add_parser('sys-audit',
+                                    help="[Composite] System audit - auto orchestrate multiple analysis tools")
+    p_comp1.add_argument("--data", required=True, help="Path to perf script output file")
+    p_comp1.add_argument("--freq", type=int, default=19, metavar="HZ",
+                        help="Sampling frequency in Hz for raw perf format. "
+                             "Default: 19. Ignored for SPEAR format.")
+    p_comp1.add_argument("--top-n", "--limit", type=int, default=20, 
+                        help="Number of top process groups to analyze (default: 20)")
+    p_comp1.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
+    p_comp1.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive)")
+    p_comp1.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive)")
+    
+    # bottleneck-trace
+    p_comp2 = subparsers.add_parser('bottleneck-trace',
+                                    help="[Composite] Bottleneck trace - auto identify and deep analyze CPU bottlenecks")
+    p_comp2.add_argument("--data", required=True, help="Path to perf script output file")
+    p_comp2.add_argument("--freq", type=int, default=19, metavar="HZ",
+                        help="Sampling frequency in Hz for raw perf format. "
+                             "Default: 19. Ignored for SPEAR format.")
+    p_comp2.add_argument("--comm", type=str, help="Target process name (auto-detect if not specified)")
+    p_comp2.add_argument("--top-n", "--limit", type=int, default=10,
+                        help="Number of top hotspots to analyze (default: 10)")
+    p_comp2.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
+    p_comp2.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive)")
+    p_comp2.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive)")
+    
+    # storm-trace
+    p_comp3 = subparsers.add_parser('storm-trace',
+                                    help="[Composite] Storm trace - auto identify and analyze process storms")
+    p_comp3.add_argument("--data", required=True, help="Path to perf script output file")
+    p_comp3.add_argument("--freq", type=int, default=19, metavar="HZ",
+                        help="Sampling frequency in Hz for raw perf format. "
+                             "Default: 19. Ignored for SPEAR format.")
+    p_comp3.add_argument("--comm", type=str, help="Target process name (auto-detect if not specified)")
+    p_comp3.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
+    p_comp3.add_argument("--start-time", type=str, help="Filter samples after this time (inclusive)")
+    p_comp3.add_argument("--end-time", type=str, help="Filter samples before this time (inclusive)")
+
     # trace subcommands (v2.0: tracing diagnostic process)
     doc_parser = subparsers.add_parser('trace', help="Tracing diagnostic issues and timeline")
     doc_subparsers = doc_parser.add_subparsers(dest="doc_command")
@@ -419,7 +467,7 @@ Use '<command> --help' for detailed help on each subcommand."""
     commands = {
         "check-cpu-bottleneck": cmd_check_bottleneck,
         "get-hotspots": cmd_get_hotspots,
-        "cluster-symbols": cmd_apply_cluster,
+        "cluster-symbols": cmd_cluster_symbols,
         "find-callers": cmd_trace_attribution,
         "find-callers-auto": cmd_find_callers_auto,
         "detect-anomalies": cmd_detect_anomalies,
@@ -429,7 +477,11 @@ Use '<command> --help' for detailed help on each subcommand."""
         "cluster-paths": cmd_cluster_paths,
         "count-process-variety": cmd_count_process_variety,
         "analyze-core-distribution": cmd_analyze_core_distribution,
-        "get-comm-top": cmd_get_comm_top
+        "get-comm-top": cmd_get_comm_top,
+        # Composite commands
+        "sys-audit": cmd_sys_audit,
+        "bottleneck-trace": cmd_bottleneck_trace,
+        "storm-trace": cmd_storm_trace
     }
 
     # Execute analysis command

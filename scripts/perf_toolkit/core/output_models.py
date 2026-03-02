@@ -618,6 +618,95 @@ class CoreDistributionOutput(BaseOutput):
 
 
 # =============================================================================
+# Composite Layer Output Models
+# =============================================================================
+
+@dataclass
+class SysAuditSummary(BaseSummary):
+    """系统审计摘要"""
+    primary_suspect: str = ""
+    secondary_count: int = 0
+    mutation_detected: bool = False
+
+
+@dataclass
+class SysAuditOutput(BaseOutput):
+    """sys-audit 输出结构"""
+    diagnosis: Dict = field(default_factory=dict)
+    details: Dict = field(default_factory=dict)
+
+    def __init__(self, _risk: RiskInfo, diagnosis: Dict, details: Dict,
+                 time_range: Optional[TimeRange] = None):
+        super().__init__(_risk=_risk, summary=None, time_range=time_range)
+        self.diagnosis = diagnosis
+        self.details = details
+        self._template_config = TemplateConfig(
+            template_type="custom",
+            custom_renderer="sys_audit_renderer"
+        )
+
+
+@dataclass
+class BottleneckTraceSummary(BaseSummary):
+    """瓶颈追踪摘要"""
+    target_comm: str = ""
+    top_symbol: str = ""
+    hotspot_count: int = 0
+
+
+@dataclass
+class BottleneckTraceOutput(BaseOutput):
+    """bottleneck-trace 输出结构"""
+    target_comm: str = ""
+    bottleneck_analysis: Dict = field(default_factory=dict)
+    hotspots: Dict = field(default_factory=dict)
+    callers: Optional[Dict] = None
+
+    def __init__(self, _risk: RiskInfo, target_comm: str,
+                 bottleneck_analysis: Dict, hotspots: Dict,
+                 callers: Optional[Dict] = None, time_range: Optional[TimeRange] = None):
+        super().__init__(_risk=_risk, summary=None, time_range=time_range)
+        self.target_comm = target_comm
+        self.bottleneck_analysis = bottleneck_analysis
+        self.hotspots = hotspots
+        self.callers = callers
+        self._template_config = TemplateConfig(
+            template_type="custom",
+            custom_renderer="bottleneck_trace_renderer"
+        )
+
+
+@dataclass
+class StormTraceSummary(BaseSummary):
+    """进程风暴追踪摘要"""
+    target_comm: str = ""
+    spawn_rate: float = 0.0
+    severity: str = "NONE"
+
+
+@dataclass
+class StormTraceOutput(BaseOutput):
+    """storm-trace 输出结构"""
+    target_comm: str = ""
+    storm_analysis: Dict = field(default_factory=dict)
+    lifecycle: Dict = field(default_factory=dict)
+    callers: Optional[Dict] = None
+
+    def __init__(self, _risk: RiskInfo, target_comm: str,
+                 storm_analysis: Dict, lifecycle: Dict,
+                 callers: Optional[Dict] = None, time_range: Optional[TimeRange] = None):
+        super().__init__(_risk=_risk, summary=None, time_range=time_range)
+        self.target_comm = target_comm
+        self.storm_analysis = storm_analysis
+        self.lifecycle = lifecycle
+        self.callers = callers
+        self._template_config = TemplateConfig(
+            template_type="custom",
+            custom_renderer="storm_trace_renderer"
+        )
+
+
+# =============================================================================
 # Type Registry
 # =============================================================================
 
