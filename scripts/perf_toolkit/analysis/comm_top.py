@@ -68,12 +68,15 @@ def cmd_get_comm_top(builder, engine, args, samples):
     top_results = results[:top_n]
 
     # Build RiskInfo + Trace 自动记录
-    if len(high_kernel_groups) > 0:
-        risk_level = "warning" if len(high_kernel_groups) <= 2 else "critical"
-        cluster_commands = [f"cluster-symbols --comm {comm}" for comm in high_kernel_groups]
+    # 按照 results 的排序顺序（CPU 降序）重新排列 high_kernel_groups
+    sorted_high_kernel_groups = [item.comm for item in results if item.comm in high_kernel_groups]
+    
+    if len(sorted_high_kernel_groups) > 0:
+        risk_level = "warning" if len(sorted_high_kernel_groups) <= 2 else "critical"
+        cluster_commands = [f"cluster-symbols --comm {comm}" for comm in sorted_high_kernel_groups]
 
         # Trace v2.0 - 自动记录每个高内核态风险
-        for comm in high_kernel_groups:
+        for comm in sorted_high_kernel_groups:
             # 找到对应的 kernel_ratio
             for item in top_results:
                 if item.comm == comm:
@@ -87,10 +90,10 @@ def cmd_get_comm_top(builder, engine, args, samples):
 
         risk = create_risk_info(
             level=risk_level,
-            message=f"发现 {len(high_kernel_groups)} 个高内核态进程组(kernel%>50%)未分析",
+            message=f"发现 {len(sorted_high_kernel_groups)} 个高内核态进程组(kernel%>50%)未分析",
             hint=f"必须对每个进程运行: {'; '.join(cluster_commands)}",
             patterns=["MULTI_HIGH_KERNEL"],
-            pending_targets=high_kernel_groups
+            pending_targets=sorted_high_kernel_groups
         )
     else:
         risk = create_risk_info(level="none")
@@ -104,7 +107,7 @@ def cmd_get_comm_top(builder, engine, args, samples):
     # Build summary with truncation info
     summary = CommGroupSummary(
         total_comm_groups=len(results),
-        high_kernel_groups=len(high_kernel_groups)
+        high_kernel_groups=len(sorted_high_kernel_groups)
     )
 
     # Build output
