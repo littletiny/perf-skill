@@ -33,7 +33,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
         cls.test_dir = Path(__file__).parent
         cls.repo_root = cls.test_dir.parent
         cls.spear_script = cls.repo_root / "scripts" / "spear.py"
-        cls.test_data = cls.repo_root / "tests" / "scenario" / "netstat" / "case.data"
+        cls.test_data = cls.repo_root / "tests" / "scenario" / "ns" / "case.data"
 
         # Create temp directory for isolated tests
         cls.temp_dir = tempfile.mkdtemp(prefix="spear_test_")
@@ -289,7 +289,7 @@ class TestRiskAutoRecording(unittest.TestCase):
         cls.test_dir = Path(__file__).parent
         cls.repo_root = cls.test_dir.parent
         cls.spear_script = cls.repo_root / "scripts" / "spear.py"
-        cls.test_data = cls.repo_root / "tests" / "scenario" / "netstat" / "case.data"
+        cls.test_data = cls.repo_root / "tests" / "scenario" / "ns" / "case.data"
 
     def setUp(self):
         """Clean slate"""
