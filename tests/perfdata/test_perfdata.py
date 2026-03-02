@@ -66,9 +66,10 @@ class TestResult:
 
 class TestEnv:
     """测试环境上下文管理器"""
-    def __init__(self):
+    def __init__(self, output_file=None):
         self.tmpdir = None
         self.orig_dir = None
+        self.output_file = output_file
 
     def __enter__(self):
         self.tmpdir = Path(tempfile.mkdtemp(prefix="perfdata_test_"))
@@ -98,6 +99,23 @@ class TestEnv:
             text=True,
             env=env
         )
+
+        # 如果指定了输出文件，将命令输出写入文件
+        if self.output_file:
+            with open(self.output_file, 'a', encoding='utf-8') as f:
+                f.write(f"{'='*60}\n")
+                f.write(f"Command: spear {' '.join(args)}\n")
+                f.write(f"Data file: {data_file}\n")
+                f.write(f"Return code: {result.returncode}\n")
+                f.write(f"{'-'*60}\n")
+                f.write("STDOUT:\n")
+                f.write(result.stdout)
+                f.write("\n")
+                if result.stderr:
+                    f.write("STDERR:\n")
+                    f.write(result.stderr)
+                    f.write("\n")
+                f.write("\n")
 
         if check and result.returncode != 0:
             raise RuntimeError(f"Command failed: {' '.join(args)}\n{result.stderr}")
@@ -265,7 +283,7 @@ TEST_TOOLS = [
 ]
 
 
-def test_format(data_dir, format_type, result, verbose=False):
+def test_format(data_dir, format_type, result, verbose=False, output_file=None):
     """测试单个数据格式"""
     print(f"\n{Colors.YELLOW}▶ 测试 {data_dir} ({format_type}){Colors.RESET}")
 
@@ -292,7 +310,7 @@ def test_format(data_dir, format_type, result, verbose=False):
         print(f"  进程类型: {info['comm_count']}")
 
     # 4. 工具测试
-    with TestEnv() as env:
+    with TestEnv(output_file) as env:
         env.init_data(data_file)
 
         for tool_name, test_func in TEST_TOOLS:
@@ -303,7 +321,7 @@ def test_format(data_dir, format_type, result, verbose=False):
                 result.add_fail(f"{data_dir}/{tool_name}", str(e))
 
 
-def run_tests(data_dirs=None, verbose=False, fail_fast=False):
+def run_tests(data_dirs=None, verbose=False, fail_fast=False, output_file=None):
     """运行所有测试"""
     result = TestResult()
 
@@ -329,7 +347,7 @@ def run_tests(data_dirs=None, verbose=False, fail_fast=False):
             continue
 
         format_type = format_types[data_dir]
-        test_format(data_dir, format_type, result, verbose)
+        test_format(data_dir, format_type, result, verbose, output_file)
 
         if fail_fast and result.failed > 0:
             break
@@ -342,12 +360,20 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", help="详细输出")
     parser.add_argument("-f", "--fail-fast", action="store_true", help="失败时停止")
     parser.add_argument("-d", "--dirs", nargs="+", help="指定测试目录 (默认: new_format perf_format)")
+    parser.add_argument("-o", "--output", default="output.txt", help="将命令输出写入文件 (默认: output.txt)")
     args = parser.parse_args()
+
+    # 如果指定了输出文件，先清空文件
+    if args.output:
+        with open(args.output, 'w', encoding='utf-8') as f:
+            f.write(f"perfdata test output log\n")
+            f.write(f"{'='*60}\n\n")
 
     success = run_tests(
         data_dirs=args.dirs,
         verbose=args.verbose,
-        fail_fast=args.fail_fast
+        fail_fast=args.fail_fast,
+        output_file=args.output
     )
 
     sys.exit(0 if success else 1)
