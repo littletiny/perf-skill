@@ -48,10 +48,10 @@ spear bottleneck-trace --comm <name>
 核心级负载分布分析。检测单核饱和、负载不均衡。
 
 ```bash
-spear analyze-core-distribution --data <file> [options]
+spear analyze-core-distribution [options]
 ```
 
-**特有参数**: `--threshold`, `--cpu-limit`  
+**特有参数**: `--threshold` (单核饱和度阈值), `--cpu-limit` (Cgroup limit检测)  
 **检测模式**: `SINGLE_CORE_SATURATION`, `WIDE_DISTRIBUTION_LOW_UTIL`, `IRQ_IMBALANCE`
 
 ---
@@ -61,10 +61,10 @@ spear analyze-core-distribution --data <file> [options]
 时序异常检测。识别 CPU 利用率突变点。
 
 ```bash
-spear detect-anomalies --data <file> [options]
+spear detect-anomalies [options]
 ```
 
-**特有参数**: `--window-size`, `--spike-threshold`, `--min-utilization`  
+**特有参数**: `--window-size` (滑动窗口秒数), `--spike-threshold` (变化倍数), `--min-utilization` (最小利用率)  
 **检测类型**: `SPIKE`, `DROP`, `LEVEL_SHIFT`, `BURST`
 
 ---
@@ -74,10 +74,10 @@ spear detect-anomalies --data <file> [options]
 进程组资源分析。识别离群进程和进程风暴。
 
 ```bash
-spear get-comm-top --data <file> [options]
+spear get-comm-top [options]
 ```
 
-**特有参数**: `--show-all`, `--cv-threshold`, `--monopoly-threshold`, `--spawn-threshold`  
+**特有参数**: `--show-all` (显示全部), `--cv-threshold` (CV异常阈值), `--monopoly-threshold` (核心独占阈值), `--spawn-threshold` (风暴检测阈值)  
 **诊断标签**: `HEALTHY`, `UNBALANCED`, `BOTTLENECK`, `STORM`
 
 ---
@@ -87,7 +87,7 @@ spear get-comm-top --data <file> [options]
 热点函数识别。
 
 ```bash
-spear get-hotspots --data <file> [options]
+spear get-hotspots [options]
 ```
 
 **特有参数**: `--sort-by` (inclusive/self)
@@ -99,12 +99,12 @@ spear get-hotspots --data <file> [options]
 热点函数溯源。
 
 ```bash
-spear find-callers --data <file> --target <function> [options]
+spear find-callers --target <function> [options]
 # 或
-spear find-callers --data <file> --auto-target [options]
+spear find-callers --auto-target [options]
 ```
 
-**特有参数**: `--target`, `--auto-target`, `--min-ratio`  
+**特有参数**: `--target` (目标函数), `--auto-target` (自动追踪), `--min-ratio` (最小占比%)  
 **常用 target**: `schedule`, `pthread_mutex_lock`, `epoll_wait`, `nanosleep`
 
 ---
@@ -114,7 +114,7 @@ spear find-callers --data <file> --auto-target [options]
 调用路径聚类。
 
 ```bash
-spear cluster-paths --data <file> [options]
+spear cluster-paths [options]
 ```
 
 **特有参数**: `--min-depth`, `--min-samples`
@@ -128,7 +128,7 @@ spear cluster-paths --data <file> [options]
 系统全景扫描。
 
 ```bash
-spear sys-audit --data <file> [options]
+spear sys-audit [options]
 ```
 
 **特有参数**: `--show-all`
@@ -140,11 +140,11 @@ spear sys-audit --data <file> [options]
 深度分析瓶颈进程。
 
 ```bash
-spear bottleneck-trace --data <file> --comm <name> [options]
+spear bottleneck-trace --comm <name> [options]
 # 或
-spear bottleneck-trace --data <file> --pid <PID> [options]
+spear bottleneck-trace --pid <PID> [options]
 # 或
-spear bottleneck-trace --data <file> --auto-detect
+spear bottleneck-trace --auto-detect
 ```
 
 **特有参数**: `--comm`, `--pid`, `--auto-detect`
@@ -166,23 +166,21 @@ spear bottleneck-trace --data <file> --auto-detect
 
 ## 参数矩阵
 
-| 工具 | `--data` | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start-time` | `--end-time` |
+| 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start-time` | `--end-time` |
 |------|:--------:|:----------:|:-------:|:--------:|:--------------:|:--------------:|:------------:|
-| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `detect-anomalies` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `get-comm-top` | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `sys-audit` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `bottleneck-trace` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 
 **说明**:
-- `--data`: perf script 文件路径（必填，除非用 `spear init` 初始化过）
-- `--start-time`/`--end-time`: 支持 ISO 8601、Unix 时间戳、日期格式
+- 所有工具支持 `--start-time`/`--end-time` 时间过滤（ISO 8601、Unix 时间戳、日期格式）
 - `--comm`: 支持逗号分隔多值，如 `--comm nginx,php-fpm`
-
-完整参数请使用 `spear <command> --help` 查看。
+- 完整参数请使用 `spear <command> --help` 查看
 
 ## 参考文档
 
