@@ -314,13 +314,16 @@ class NestedTemplate(Template):
 class CustomTemplate(Template):
     """自定义模板 - 完全自定义的渲染逻辑
 
-    适用于: bottleneck, cpu_usage
+    适用于: bottleneck, cpu_usage, sys_audit, bottleneck_trace
     """
 
     def __init__(self):
         self.renderers = {
             "bottleneck": self._render_bottleneck,
             "cpu_usage": self._render_cpu_usage,
+            "sys_audit_renderer": self._render_sys_audit,
+            "bottleneck_trace_renderer": self._render_bottleneck_trace,
+            "storm_trace_renderer": self._render_storm_trace,
         }
 
     def render(self, data: Any, config: Any) -> List[str]:
@@ -380,6 +383,163 @@ class CustomTemplate(Template):
         lines.append(f"  Total: {util.get('total_pct', 'N/A')}")
         lines.append(f"  User:  {util.get('user_pct', 'N/A')}")
         lines.append(f"  Kernel: {util.get('kernel_pct', 'N/A')}")
+
+        return lines
+
+    def _render_sys_audit(self, data: Any) -> List[str]:
+        """渲染系统审计结果"""
+        data_dict = asdict(data) if is_dataclass(data) else data
+        diagnosis = data_dict.get('diagnosis', {})
+        details = data_dict.get('details', {})
+        lines = []
+
+        # 主要嫌疑人
+        primary = diagnosis.get('primary_suspect')
+        if primary:
+            lines.append(f"Primary Suspect: {primary.get('comm', 'N/A')}")
+            lines.append(f"  CPU: {primary.get('total_cpu', 0):.2f}%")
+            lines.append(f"  Diagnosis: {primary.get('diagnosis', 'N/A')}")
+            if primary.get('monopoly'):
+                lines.append(f"  Monopoly: {primary.get('monopoly'):.2f}")
+        else:
+            lines.append("Primary Suspect: None detected")
+
+        # 次要负载
+        secondary = diagnosis.get('secondary_loads', [])
+        if secondary:
+            lines.append(f"\nSecondary Loads ({len(secondary)}):")
+            for load in secondary[:3]:
+                lines.append(f"  - {load.get('comm', 'N/A')}: {load.get('total_cpu', 0):.2f}% ({load.get('diagnosis', 'N/A')})")
+
+        # 突变检测
+        if diagnosis.get('mutation_detected'):
+            lines.append(f"\nMutation Detected at: {diagnosis.get('mutation_time', 'N/A')}")
+
+        # 核心饱和
+        saturated = diagnosis.get('saturated_cores', [])
+        if saturated:
+            lines.append(f"\nSaturated Cores: {', '.join(map(str, saturated[:5]))}")
+
+        # 根因分析
+        root_cause = diagnosis.get('root_cause_analysis', '')
+        if root_cause:
+            lines.append(f"\nRoot Cause: {root_cause}")
+
+        # 详细信息摘要
+        lines.append("\n=== Analysis Details ===")
+
+        # 异常检测摘要
+        anomalies = details.get('anomalies', {})
+        if anomalies:
+            lines.append(f"Anomalies: {anomalies.get('anomalies_count', 0)} detected")
+            if anomalies.get('mutation_detected'):
+                lines.append("  - Mutation detected")
+
+        # 核心分布摘要
+        core_dist = details.get('core_distribution', {})
+        if core_dist:
+            lines.append(f"Core Distribution: {core_dist.get('core_count', 0)} cores, imbalance={core_dist.get('imbalance_level', 'N/A')}")
+
+        # CommTop 摘要
+        comm_top = details.get('comm_top', {})
+        if comm_top:
+            lines.append(f"Process Groups: {comm_top.get('groups_count', 0)} shown, {comm_top.get('folded_count', 0)} folded")
+
+        return lines
+
+    def _render_bottleneck_trace(self, data: Any) -> List[str]:
+        """渲染瓶颈追踪结果"""
+        data_dict = asdict(data) if is_dataclass(data) else data
+        lines = []
+
+        target_comm = data_dict.get('target_comm', 'N/A')
+        lines.append(f"Target Process: {target_comm}")
+        lines.append("")
+
+        # 瓶颈分析
+        bottleneck = data_dict.get('bottleneck_analysis', {})
+        if bottleneck:
+            if bottleneck.get('found'):
+                lines.append("=== Bottleneck Analysis ===")
+                lines.append(f"  Total CPU: {bottleneck.get('total_cpu', 0):.2f}%")
+                lines.append(f"  Kernel Ratio: {bottleneck.get('kernel_ratio', 0):.1f}%")
+                lines.append(f"  PID Count: {bottleneck.get('pid_count', 0)}")
+                lines.append(f"  CV: {bottleneck.get('cv', 0):.2f}")
+                lines.append(f"  Monopoly: {bottleneck.get('monopoly', 0):.2f}")
+                lines.append(f"  Diagnosis: {bottleneck.get('diagnosis', 'N/A')}")
+                lines.append(f"  Impact Score: {bottleneck.get('impact_score', 0):.2f}")
+            else:
+                lines.append("Bottleneck: Not found")
+
+        # 热点分析
+        hotspots = data_dict.get('hotspots', {})
+        if hotspots:
+            lines.append("")
+            lines.append("=== Hotspots ===")
+            top_symbol = hotspots.get('top_symbol', 'N/A')
+            lines.append(f"Top Symbol: {top_symbol}")
+            lines.append(f"Total Hotspots: {hotspots.get('total_hotspots', 0)}")
+
+            hotspot_list = hotspots.get('hotspots', [])
+            if hotspot_list:
+                lines.append("\nHotspot Details:")
+                for i, hs in enumerate(hotspot_list[:5], 1):
+                    lines.append(f"  #{i} {hs.get('symbol', 'N/A')}: {hs.get('cpu_percent', 0):.2f}%")
+
+        # 调用链溯源
+        callers = data_dict.get('callers')
+        if callers:
+            lines.append("")
+            lines.append("=== Callers ===")
+            lines.append(f"Target: {callers.get('target', 'N/A')}")
+            caller_list = callers.get('callers', [])
+            if caller_list:
+                lines.append("\nTop Callers:")
+                for i, caller in enumerate(caller_list[:3], 1):
+                    lines.append(f"  #{i} {caller.get('symbol', 'N/A')}: {caller.get('call_ratio', 0):.1f}%")
+
+        return lines
+
+    def _render_storm_trace(self, data: Any) -> List[str]:
+        """渲染进程风暴追踪结果"""
+        data_dict = asdict(data) if is_dataclass(data) else data
+        lines = []
+
+        target_comm = data_dict.get('target_comm', 'N/A')
+        lines.append(f"Target Process: {target_comm}")
+        lines.append("")
+
+        # 风暴分析
+        storm = data_dict.get('storm_analysis', {})
+        if storm:
+            lines.append("=== Storm Analysis ===")
+            lines.append(f"  Spawn Rate: {storm.get('spawn_rate', 0):.1f} procs/sec")
+            lines.append(f"  Severity: {storm.get('severity', 'N/A')}")
+            lines.append(f"  PID Count: {storm.get('pid_count', 0)}")
+            lines.append(f"  Total CPU: {storm.get('total_cpu', 0):.2f}%")
+
+        # 生命周期分析
+        lifecycle = data_dict.get('lifecycle', {})
+        if lifecycle:
+            lines.append("")
+            lines.append("=== Lifecycle Analysis ===")
+            lines.append(f"  Sample Count: {lifecycle.get('sample_count', 0)}")
+            lines.append(f"  Time Range: {lifecycle.get('time_range_sec', 0):.1f} sec")
+            unique_pids = lifecycle.get('unique_pids', [])
+            if unique_pids:
+                lines.append(f"  Unique PIDs: {len(unique_pids)}")
+
+        # 调用链溯源
+        callers = data_dict.get('callers')
+        if callers:
+            lines.append("")
+            lines.append("=== Callers ===")
+            lines.append(f"Target: {callers.get('target', 'N/A')}")
+            caller_list = callers.get('callers', [])
+            if caller_list:
+                lines.append("\nTop Callers:")
+                for i, caller in enumerate(caller_list[:3], 1):
+                    lines.append(f"  #{i} {caller.get('symbol', 'N/A')}: {caller.get('call_ratio', 0):.1f}%")
 
         return lines
 
