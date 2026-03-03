@@ -173,21 +173,18 @@ shecr bottleneck-trace --auto-detect
 
 ---
 
-## Trace 命令
+## Trace 基础命令
 
 问题追踪：记录诊断过程中的发现和结论。
 
 | 命令 | 用途 | 示例 |
 |------|------|------|
-| `trace init` | 初始化 Trace | `shecr trace init` |
 | `trace add` | 添加问题 | `shecr trace add --desc "CPU异常" --level critical` |
-| `trace timeline` | 查看时间线 | `shecr trace timeline` |
-| `trace issues` | 查看问题列表 | `shecr trace issues [--status open\|resolved]` |
-| `trace audit` | 审计问题 | `shecr trace audit --id ISS-001` |
 | `trace complete` | 标记完成 | `shecr trace complete --id ISS-001 --result "根因: ..."` |
-| `trace reopen` | 重新打开问题 | `shecr trace reopen --id ISS-001` |
+| `trace issues` | 查看问题列表 | `shecr trace issues [--status open\|resolved]` |
 | `trace finalize` | 结束诊断 | `shecr trace finalize [--accept-risk "..."]` |
-| `trace export` | 导出报告 | `shecr trace export --output report.md` |
+
+📘 **完整 Trace 命令**: [trace-external.md](./trace-external.md) - 包含 timeline、audit、reopen、export 等外部审计命令
 
 ---
 
