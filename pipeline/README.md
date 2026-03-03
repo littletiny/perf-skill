@@ -9,16 +9,16 @@
 ```
 pipeline/
 ├── pipeline.py          # 简化版 Pipeline 运行器
+├── template/            # 可复用模板（快速开始）
+│   ├── config.yaml      # 模板配置
+│   └── prompts/         # prompt 模板文件
+│       ├── step1_system.md
+│       ├── step1_input.txt
+│       ├── step2_system.md
+│       └── step2_input.txt
 ├── examples/            # 示例配置
 │   ├── config.yaml      # 完整 pipeline 配置示例
 │   └── prompts/         # prompt 模板文件
-│       ├── default_system.md
-│       ├── diagnose_system.md
-│       ├── audit_system.md
-│       ├── recheck_system.md
-│       ├── diagnose_input.txt
-│       ├── audit_input.txt
-│       └── recheck_input.txt
 └── README.md            # 本文档
 ```
 
@@ -26,58 +26,76 @@ pipeline/
 
 ## 快速开始
 
-### 1. 创建配置文件
+### 方式一：使用模板（推荐）
+
+复制模板目录，按需修改：
+
+```bash
+# 1. 复制模板
+cp -r pipeline/template my_pipeline
+
+# 2. 编辑配置文件
+vim my_pipeline/config.yaml
+
+# 3. 修改 prompt 模板
+vim my_pipeline/prompts/step1_input.txt
+vim my_pipeline/prompts/step2_input.txt
+
+# 4. 运行
+python pipeline/pipeline.py my_pipeline/config.yaml
+```
+
+### 方式二：从零创建
+
+```bash
+# 1. 创建目录结构
+mkdir -p my_pipeline/prompts
+
+# 2. 编写配置文件（参考 template/config.yaml）
+vim my_pipeline/config.yaml
+
+# 3. 编写 prompt 模板
+vim my_pipeline/prompts/task.txt
+
+# 4. 运行
+python pipeline/pipeline.py my_pipeline/config.yaml
+```
+
+---
+
+## 模板配置示例
 
 ```yaml
 # config.yaml
-pipeline: diagnose - audit - recheck
+pipeline: step1 - step2
 
 vars:
-  DATA_FILE: "/path/to/perf.data"
   WORK_DIR: "./output"
 
 agent:
-  system_prompt: "prompts/system.md"
   allowed_dirs:
     - "{{WORK_DIR}}"
   default_permissions: "read-write"
   timeout: 300
 
-diagnose:
-  agent:
-    system_prompt: "prompts/diagnose_system.md"
-    timeout: 600
+step1:
   vars:
-    ROLE: "诊断专家"
-    input.template: "prompts/diagnose.txt"
-    output.report: "{{WORK_DIR}}/diagnose/report.md"
+    ROLE: "分析师"
+    input.template: "prompts/step1_input.txt"
+    output.result: "{{WORK_DIR}}/step1_result.txt"
 
-audit:
-  agent:
-    default_permissions: "read-only"
+step2:
   vars:
-    ROLE: "审计员"
-    input.template: "prompts/audit.txt"
-    input.report: "{{diagnose.output.report}}"
-    output.report: "{{WORK_DIR}}/audit/report.md"
-
-recheck:
-  # 仅在审计失败时执行
-  when: "{{audit.status}} == 'failed'"
-  agent:
-    system_prompt: "prompts/recheck_system.md"
-  vars:
-    ROLE: "复查专家"
-    input.template: "prompts/recheck.txt"
-    input.diagnose: "{{diagnose.output.report}}"
-    input.audit: "{{audit.output.report}}"
-    output.report: "{{WORK_DIR}}/recheck/report.md"
+    ROLE: "报告员"
+    input.template: "prompts/step2_input.txt"
+    input.result: "{{step1.output.result}}"
+    output.report: "{{WORK_DIR}}/final_report.md"
 ```
 
-### 2. 运行 Pipeline
+### 运行
 
 ```bash
-python pipeline/pipeline.py examples/config.yaml
+python pipeline/pipeline.py my_pipeline/config.yaml
 ```
 
 ---
@@ -352,3 +370,46 @@ recheck:
 - 条件语法：支持比较、exists、not、and、or
 - 强制静态类型（使用 dataclass）
 - 配置文件使用 YAML 格式
+
+---
+
+## 命令行使用
+
+```bash
+# 基本用法
+python pipeline/pipeline.py <config.yaml>
+
+# 示例
+python pipeline/pipeline.py pipeline/template/config.yaml
+python pipeline/pipeline.py my_project/pipeline.yaml
+```
+
+---
+
+## 创建自定义 Pipeline
+
+### 步骤 1: 复制模板
+
+```bash
+cp -r pipeline/template my_pipeline
+cd my_pipeline
+```
+
+### 步骤 2: 修改配置
+
+编辑 `config.yaml`，修改：
+- `pipeline`: stage 名称列表
+- `vars`: 全局变量
+- 每个 stage 的 `vars`: stage 特定变量
+
+### 步骤 3: 编写 Prompt
+
+在 `prompts/` 目录下创建/修改：
+- `step1_input.txt`: 第一阶段任务描述
+- `step2_input.txt`: 第二阶段任务描述
+
+### 步骤 4: 运行
+
+```bash
+python pipeline/pipeline.py my_pipeline/config.yaml
+```

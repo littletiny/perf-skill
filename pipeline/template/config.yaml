@@ -1,0 +1,28 @@
+# Pipeline 模板配置
+# 简单的两阶段流水线，可作为自定义pipeline的起点
+
+pipeline: step1 - step2
+
+vars:
+  WORK_DIR: "./pipeline/test_verify/output"
+
+agent:
+  allowed_dirs:
+    - "{{WORK_DIR}}"
+  default_permissions: "read-write"
+  timeout: 60
+
+# Stage 1: 创建初始结果
+step1:
+  vars:
+    ROLE: "文件创建者"
+    input.template: "prompts/step1_input.txt"
+    output.result: "{{WORK_DIR}}/step1_result.txt"
+
+# Stage 2: 生成汇总报告
+step2:
+  vars:
+    ROLE: "报告生成器"
+    input.template: "prompts/step2_input.txt"
+    input.result: "{{step1.output.result}}"
+    output.report: "{{WORK_DIR}}/final_report.md"

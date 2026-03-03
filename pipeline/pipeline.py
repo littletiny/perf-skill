@@ -289,7 +289,8 @@ class PipelineRunner:
                 elif parts[1] == 'exit_code':
                     return str(result.exit_code)
                 elif parts[1] == 'output' and len(parts) >= 3:
-                    output_key = '.'.join(parts[2:])
+                    # 重构 output key，例如 "result" -> "output.result"
+                    output_key = f"output.{'.'.join(parts[2:])}"
                     return result.outputs.get(output_key, value)
             
             # 普通变量
@@ -330,7 +331,8 @@ class PipelineRunner:
             changed = False
             new_resolved = {}
             for key, value in resolved.items():
-                new_value = self._resolve_var(value, resolved)
+                # 使用 _replace_vars 处理包含变量的字符串
+                new_value = self._replace_vars(value, resolved)
                 if new_value != value:
                     changed = True
                 new_resolved[key] = new_value
@@ -345,7 +347,8 @@ class PipelineRunner:
         evaluator = ConditionEvaluator(self.results, vars_dict)
         return evaluator.evaluate(condition)
     
-    def _build_agent_prompt(self, agent: AgentConfig, task_content: str) -> str:
+    def _build_agent_prompt(self, agent: AgentConfig, task_content: str, 
+                           vars_dict: Dict[str, str]) -> str:
         """构建发送给 agent 的完整 prompt"""
         lines = []
         
@@ -357,17 +360,19 @@ class PipelineRunner:
             lines.append(system_content)
             lines.append("")
         
-        # 权限说明
+        # 权限说明（解析变量）
         lines.append("# Execution Environment")
         lines.append(f"Permissions: {agent.default_permissions}")
         
         if agent.allowed_dirs:
             lines.append("Allowed directories:")
             for d in agent.allowed_dirs:
-                lines.append(f"  - {d}")
+                resolved_d = self._replace_vars(d, vars_dict)
+                lines.append(f"  - {resolved_d}")
         
         if agent.working_dir:
-            lines.append(f"Working directory: {agent.working_dir}")
+            resolved_wd = self._replace_vars(agent.working_dir, vars_dict)
+            lines.append(f"Working directory: {resolved_wd}")
         
         lines.append("")
         
@@ -438,7 +443,7 @@ class PipelineRunner:
         # 4. 执行 agent
         print(f"  Running agent...")
         try:
-            self._execute_agent(stage_config.agent, str(task_file), stage_name)
+            self._execute_agent(stage_config.agent, str(task_file), stage_name, stage_config.vars)
             print(f"  Agent completed")
             
             # 5. 收集输出变量
@@ -465,44 +470,39 @@ class PipelineRunner:
                 error_message=error_msg
             )
     
-    def _execute_agent(self, agent: AgentConfig, input_file: str, stage_name: str):
+    def _execute_agent(self, agent: AgentConfig, input_file: str, stage_name: str,
+                        vars_dict: Dict[str, str]):
         """执行 agent
         
-        这里使用 shell 调用 kimi CLI 作为示例
+        使用 subprocess 调用 kimi CLI
         """
         # 读取任务内容
         with open(input_file, 'r') as f:
             task_content = f.read()
         
         # 构建完整 prompt
-        full_prompt = self._build_agent_prompt(agent, task_content)
+        full_prompt = self._build_agent_prompt(agent, task_content, vars_dict)
         
         # 构建 kimi CLI 命令
         cmd_parts = ['kimi', '--yolo', '--print']
         
-        # 添加 allowed_dirs 参数
+        # 添加 add_dirs 参数
         for d in agent.allowed_dirs:
             resolved_d = self._replace_vars(d, self._get_global_vars())
-            cmd_parts.extend(['--allowed-dir', resolved_d])
+            cmd_parts.extend(['--add-dir', resolved_d])
         
-        # 添加权限参数
-        if agent.default_permissions == 'read-only':
-            cmd_parts.append('--read-only')
-        elif agent.default_permissions == 'write-only':
-            cmd_parts.append('--write-only')
+        # kimi CLI 不直接支持权限参数，通过环境/提示控制
         
-        # 添加 working_dir
+        # 添加 work_dir
         if agent.working_dir:
             resolved_wd = self._replace_vars(agent.working_dir, self._get_global_vars())
-            cmd_parts.extend(['--working-dir', resolved_wd])
+            cmd_parts.extend(['--work-dir', resolved_wd])
         
-        # 添加 prompt
+        # 添加 prompt 内容（直接使用内容而非 @file 语法）
         cmd_parts.extend(['-p', full_prompt])
         
-        cmd_str = ' '.join(f'"{p}"' if ' ' in p else p for p in cmd_parts)
-        print(f"  CMD: {cmd_str[:200]}...")
-        
-        result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True)
+        # 使用 shell=False 直接传递列表
+        result = subprocess.run(cmd_parts, capture_output=True, text=True)
         
         if result.returncode != 0:
             raise RuntimeError(f"Agent failed: {result.stderr}")
