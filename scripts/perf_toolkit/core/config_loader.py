@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
@@ -48,6 +48,15 @@ class CPUSpecs:
     critical_utilization: float = 0.8      # 严重利用率阈值（相对于总容量）
     moderate_utilization: float = 0.5      # 中度利用率阈值
     critical_sys_per_core: float = 50.0    # 每核心严重 sys 阈值
+
+
+@dataclass
+class SensitiveCategory:
+    """敏感进程分类"""
+    name: str
+    comms: List[str]
+    message: str
+    flag: str
 
 
 @dataclass
@@ -127,6 +136,18 @@ class UnifiedConfig:
                     self._config_data['comm_thresholds']['global'].update(ct['global'])
                 if 'per_comm' in ct:
                     self._config_data['comm_thresholds']['per_comm'].update(ct['per_comm'])
+
+            if 'rules' in data:
+                self._config_data['rules'] = data['rules']
+
+            if 'cpu_specs' in data:
+                self._config_data['cpu_specs'] = data['cpu_specs']
+
+            if 'display_threshold' in data:
+                self._config_data['display_threshold'] = data['display_threshold']
+
+            if 'risk' in data:
+                self._config_data['risk'] = data['risk']
 
         except (json.JSONDecodeError, IOError):
             pass
@@ -221,6 +242,27 @@ class UnifiedConfig:
             moderate_utilization=thresholds.get('moderate_utilization', 0.5),
             critical_sys_per_core=thresholds.get('critical_sys_per_core', 50.0)
         )
+
+    def get_sensitive_categories(self) -> List[SensitiveCategory]:
+        """
+        获取敏感进程分类配置
+        
+        Returns:
+            List[SensitiveCategory]: 敏感进程分类列表
+        """
+        rules_cfg = self._config_data.get('rules', {})
+        sensitive_cfg = rules_cfg.get('sensitive_comms', {})
+        categories = sensitive_cfg.get('categories', [])
+        
+        result = []
+        for cat in categories:
+            result.append(SensitiveCategory(
+                name=cat.get('name', 'UNKNOWN'),
+                comms=cat.get('comms', []),
+                message=cat.get('message', ''),
+                flag=cat.get('flag', '<X1>')
+            ))
+        return result
 
     @classmethod
     def reload(cls):

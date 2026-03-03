@@ -183,6 +183,53 @@ def _build_core_distribution(
     )
 
 
+def _detect_sensitive_events(
+    all_groups: List['ProcessGroup']
+) -> List[Dict[str, Any]]:
+    """
+    检测敏感进程事件
+    
+    根据配置中的敏感进程分类，检测是否存在特定系统事件。
+    即使 CPU 占比不高，这些进程也可能影响系统性能。
+    
+    Returns:
+        List[Dict]: 检测到的敏感事件列表，包含分类、计数和消息
+    """
+    from perf_toolkit.core.config_loader import get_config
+    
+    categories = get_config().get_sensitive_categories()
+    if not categories:
+        return []
+    
+    # 构建进程名到进程的映射
+    comm_map = {g.comm: g for g in all_groups}
+    
+    events = []
+    for category in categories:
+        # 检测该分类下的进程
+        detected = []
+        for comm in category.comms:
+            if comm in comm_map:
+                g = comm_map[comm]
+                detected.append({
+                    'comm': comm,
+                    'total_cpu': g.total_cpu,
+                    'kernel_cpu': g.kernel_cpu,
+                    'pid_count': g.pid_count
+                })
+        
+        if detected:
+            events.append({
+                'category': category.name,
+                'message': category.message,
+                'flag': category.flag,
+                'count': len(detected),
+                'processes': detected
+            })
+    
+    return events
+
+
 def _build_expert_anchors(
     diagnosis: 'DiagnosisReport',
     comm_top: CommTopReport
@@ -301,21 +348,44 @@ def cmd_sys_audit(
     
     aggregated_risk = aggregator.aggregate()
     
-    # 记录到Trace（只记录聚合后的，不记录子分析）
-    if aggregated_risk.level in ["critical", "warning"]:
-        builder.record_risk(
-            aggregated_risk.level,
-            aggregated_risk.message,
-            aggregated_risk.hint
-        )
+    # 收集所有 bottleneck 进程的详细信息
+    all_bottlenecks: List[ProcessGroup] = []
+    if diagnosis.primary_suspect:
+        all_bottlenecks.append(diagnosis.primary_suspect)
+    all_bottlenecks.extend(diagnosis.secondary_loads)
+    
+    # 构建详细的 message（包含完整数据）
+    if all_bottlenecks:
+        # 构建摘要行
+        summary = f"发现 {len(all_bottlenecks)} 个关键性能瓶颈"
+        # 构建详细列表（每行一个进程）
+        details = []
+        for i, g in enumerate(all_bottlenecks[:5], 1):  # 最多显示5个
+            sys_ratio = (g.kernel_cpu / g.total_cpu * 100) if g.total_cpu > 0 else 0
+            details.append(
+                f"#{i} {g.comm}: {g.total_cpu:.1f}% CPU "
+                f"(sys: {g.kernel_cpu:.1f}%/{sys_ratio:.0f}%, "
+                f"pids: {g.pid_count}, score: {g.impact_score:.1f}, "
+                f"type: {g.diagnosis})"
+            )
+        if len(all_bottlenecks) > 5:
+            details.append(f"... 还有 {len(all_bottlenecks) - 5} 个")
+        
+        detailed_message = summary + " | " + "; ".join(details)
+    else:
+        detailed_message = aggregated_risk.message
+    
+    # 构建 target 列表
+    sorted_targets = [g.comm for g in all_bottlenecks]
     
     # 构建 RiskInfo，嵌入 SHECR Attention Flags
+    # Note: 不需要手动调用 record_risk，command 装饰器会在 print_output 时自动提取 _risk
     risk = RiskInfo(
         level=aggregated_risk.level,
-        message=f"{AttentionFlag.X0} {aggregated_risk.message}" if diagnosis.primary_suspect else aggregated_risk.message,
-        hint=f"{AttentionFlag.XA} {aggregated_risk.hint}" if aggregated_risk.hint else "",
+        message=f"{AttentionFlag.X0} {detailed_message}" if all_bottlenecks else detailed_message,
+        hint="",  # 禁用 hint 输出
         patterns=aggregated_risk.patterns,
-        pending_targets=aggregated_risk.pending_targets
+        pending_targets=sorted_targets if sorted_targets else aggregated_risk.pending_targets
     )
     
     # ========== Phase 5: 构建强类型输出 ==========
@@ -328,6 +398,10 @@ def cmd_sys_audit(
     # 构建所有强类型数据（无裸 Dict）
     # 获取所有进程组用于系统状态计算
     all_groups = comm_top.metrics.all_groups if comm_top.metrics else comm_top.groups
+    
+    # 检测敏感进程事件
+    sensitive_events = _detect_sensitive_events(all_groups)
+    
     system_fingerprint = _build_system_fingerprint(diagnosis, core_dist, all_groups)
     contention_matrix = _build_contention_matrix(diagnosis, comm_top)
     process_hierarchy = _build_process_hierarchy(diagnosis)
@@ -394,7 +468,8 @@ def cmd_sys_audit(
         recommendations=recommendations,
         time_range=time_range,
         top_by_total_cpu=top_by_total,
-        top_by_sys_cpu=top_by_sys
+        top_by_sys_cpu=top_by_sys,
+        sensitive_events=sensitive_events
     )
     
     return output

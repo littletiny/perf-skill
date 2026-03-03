@@ -65,6 +65,29 @@
       "_comment": "Idle 进程检测规则",
       "enabled": true,
       "pid_zero": true
+    },
+    "sensitive_comms": {
+      "_comment": "敏感进程分类 - 用于检测特定系统事件",
+      "categories": [
+        {
+          "name": "NETWORK_TC",
+          "comms": ["tc", "tc-ng"],
+          "message": "流量控制(TC)活动 - 可能影响网络延迟",
+          "flag": "<X1>"
+        },
+        {
+          "name": "FIREWALL",
+          "comms": ["iptables", "ipset", "nft", "ebtables", "arptables"],
+          "message": "防火墙规则变更 - 可能影响网络吞吐",
+          "flag": "<X1>"
+        },
+        {
+          "name": "BPF",
+          "comms": ["bpftool", "bpfload"],
+          "message": "BPF程序加载 - 可能影响系统调用性能",
+          "flag": "<X1>"
+        }
+      ]
     }
   },
 

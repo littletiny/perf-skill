@@ -16,7 +16,7 @@ import os
 import re
 import copy
 from datetime import datetime
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Optional
 from dataclasses import asdict
 
 from .risk_config import RiskDisplayConfig, get_risk_config
@@ -37,6 +37,7 @@ class Trace:
         self.path = path or self._find_doc()
         self.data = self._load()
         self._current_seq = None
+        self._current_fingerprint: Optional[str] = None  # 当前命令指纹
         self.config = config
 
     def _get_config(self, cfg: RiskDisplayConfig = None) -> RiskDisplayConfig:
@@ -104,6 +105,7 @@ class Trace:
         """
         seq = len(self.data['timeline']) + 1
         self._current_seq = seq
+        self._current_fingerprint = command  # 保存完整命令作为指纹
 
         # 使用 TimelineRecord dataclass，然后转换为 dict
         record = TimelineRecord(
@@ -146,9 +148,12 @@ class Trace:
         # 过滤掉数量为0的分类
         return {k: v for k, v in categories.items() if v > 0}
 
-    def add(self, desc: str, risk: str = "", hint: str = "", level: str = "warning") -> str:
+    def add(self, desc: str, risk: str = "", hint: str = "", level: str = "warning") -> Optional[str]:
         """
         添加新 issue（自动生成 ID）
+        
+        命令指纹去重：如果相同指纹的 open issue 已存在，则不创建新 issue，
+        而是在 timeline 中记录为关联风险。
 
         Args:
             desc: 问题描述
@@ -157,14 +162,32 @@ class Trace:
             level: 级别 critical/warning/info
 
         Returns:
-            issue_id: 自动生成的 ID (ISS-001, ISS-002, ...)
+            issue_id: 创建的 issue ID，如果去重跳过则返回 None
         """
-        # 创建新 issue（不检查重复，由用户自行管理）
+        # 检查是否有相同指纹的 open issue
+        fingerprint = getattr(self, '_current_fingerprint', None)
+        if fingerprint:
+            for existing_id, existing_issue in self.data['issues'].items():
+                if (existing_issue.get('status') == 'open' and
+                    existing_issue.get('command_fingerprint') == fingerprint):
+                    # 存在相同指纹的 open issue，记录为关联风险而非新建
+                    self._add_finding_to_current({
+                        "type": "risk_duplicate",
+                        "level": level,
+                        "desc": desc,
+                        "issue_id": existing_id,
+                        "message": f"关联到已存在的 {existing_id}"
+                    })
+                    self.save()
+                    return None  # 返回 None 表示已存在，跳过创建
+        
+        # 创建新 issue
         issue_id = self._generate_issue_id()
         now = self._now()
 
         # 使用 Issue dataclass，然后转换为 dict
-        issue = Issue(
+        # 添加 command_fingerprint 字段用于后续去重
+        issue_dict = asdict(Issue(
             id=issue_id,
             desc=desc,
             level=level,
@@ -175,8 +198,10 @@ class Trace:
             resolved_by_seq=None,
             result=None,
             hint=hint
-        )
-        self.data['issues'][issue_id] = asdict(issue)
+        ))
+        issue_dict['command_fingerprint'] = fingerprint  # 添加指纹字段
+        
+        self.data['issues'][issue_id] = issue_dict
 
         # 添加到 timeline
         self._add_finding_to_current({
@@ -289,6 +314,7 @@ class Trace:
     def end_command(self):
         """命令结束时调用，保存文档"""
         self._current_seq = None
+        self._current_fingerprint = None  # 清除指纹
         self.save()
 
     # =====================================================================

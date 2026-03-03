@@ -750,32 +750,25 @@ class CustomTemplate(Template):
                 lines.append(f"State: {pressure_state}")
                 lines.append("")
         
-        # 竞争矩阵
-        contention = data_dict.get('contention_matrix', [])
-        if contention:
-            lines.append(OutputDefaults.CONTENTION_MATRIX_HEADER)
+        # 敏感进程事件检测
+        sensitive_events = data_dict.get('sensitive_events', [])
+        if sensitive_events:
+            lines.append("### 特殊事件检测 (Sensitive Events)")
             lines.append("")
-            for item in contention:
-                dimension = item.get('dimension', 'N/A')
-                demand = item.get('demand', 0)
-                limit = item.get('limit', 0)
-                gap = item.get('gap', 0)
-                contenders = item.get('primary_contenders', [])
-                attention = item.get('attention_flag', '')
+            for event in sensitive_events:
+                flag = event.get('flag', '<X1>')
+                category = event.get('category', '')
+                message = event.get('message', '')
+                count = event.get('count', 0)
+                processes = event.get('processes', [])
                 
-                if dimension == "CPU_QUOTA":
-                    lines.append(f"{attention} {dimension} 竞争:")
-                    lines.append(f"  - Demand: {demand*100:.0f}% | Limit: {limit*100:.0f}% | Gap: {gap*100:.0f}%")
-                    if contenders:
-                        lines.append(f"  - {attention} Primary Contenders: {', '.join(contenders)}")
-                else:
-                    lines.append(f"{attention} {dimension} 压力:")
-                    reclaim = item.get('reclaim_rate_mbps', 0)
-                    pf = item.get('page_fault_rate', 0)
-                    if reclaim:
-                        lines.append(f"  - Reclaim Rate: {reclaim}MB/s")
-                    if pf:
-                        lines.append(f"  - Page Fault: {pf}/s")
+                lines.append(f"{flag} [{category}] {message}")
+                lines.append(f"  检测到 {count} 个相关进程:")
+                for proc in processes[:5]:  # 最多显示5个
+                    comm = proc.get('comm', '')
+                    total = proc.get('total_cpu', 0)
+                    kernel = proc.get('kernel_cpu', 0)
+                    lines.append(f"    - {comm}: {total:.1f}% (sys: {kernel:.1f}%)")
                 lines.append("")
         
         # Top N 按 Impact Score 排序显示

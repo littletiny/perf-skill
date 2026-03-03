@@ -890,6 +890,7 @@ class SysAuditOutput(BaseOutput):
     - root_cause_chain: RootCauseChain
     - top_by_total_cpu: 按 total CPU 排序的 Top comms
     - top_by_sys_cpu: 按 sys CPU 排序的 Top comms
+    - sensitive_events: 敏感进程事件列表
     """
     system_fingerprint: SystemFingerprint = field(default_factory=SystemFingerprint)
     contention_matrix: List[ContentionItem] = field(default_factory=list)
@@ -901,6 +902,7 @@ class SysAuditOutput(BaseOutput):
     recommendations: List[str] = field(default_factory=list)
     top_by_total_cpu: List[CommTopItem] = field(default_factory=list)
     top_by_sys_cpu: List[CommTopItem] = field(default_factory=list)
+    sensitive_events: List[Dict[str, Any]] = field(default_factory=list)
 
     def __init__(self,
                  _risk: RiskInfo,
@@ -914,7 +916,8 @@ class SysAuditOutput(BaseOutput):
                  recommendations: Optional[List[str]] = None,
                  time_range: Optional[TimeRange] = None,
                  top_by_total_cpu: Optional[List[CommTopItem]] = None,
-                 top_by_sys_cpu: Optional[List[CommTopItem]] = None):
+                 top_by_sys_cpu: Optional[List[CommTopItem]] = None,
+                 sensitive_events: Optional[List[Dict[str, Any]]] = None):
         super().__init__(_risk=_risk, summary=None, time_range=time_range)
         self.system_fingerprint = system_fingerprint
         self.contention_matrix = contention_matrix
@@ -926,6 +929,7 @@ class SysAuditOutput(BaseOutput):
         self.recommendations = recommendations or []
         self.top_by_total_cpu = top_by_total_cpu or []
         self.top_by_sys_cpu = top_by_sys_cpu or []
+        self.sensitive_events = sensitive_events or []
         self._template_config = TemplateConfig(
             template_type="custom",
             custom_renderer="sys_audit_renderer_v2"

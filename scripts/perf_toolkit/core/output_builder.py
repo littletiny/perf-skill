@@ -402,15 +402,15 @@ class OutputBuilder:
         # 简单启发式：根据消息内容推断 hint
         message_lower = message.lower()
         if '内核' in message_lower or 'kernel' in message_lower:
-            return "cluster-symbols --comm $COMM"
+            return "get-hotspots --comm $COMM && find-callers --target <top_symbol>"
         elif '锁' in message_lower or 'lock' in message_lower or 'mutex' in message_lower:
-            return "find-callers --target $FUNC"
+            return "get-hotspots --comm $COMM && find-callers --target <lock_symbol>"
         elif '进程' in message_lower or 'process' in message_lower:
-            return "count-process-variety --comm $COMM"
+            return "get-hotspots --comm $COMM"
         elif 'cpu' in message_lower or '瓶颈' in message_lower:
-            return "check-cpu-bottleneck"
+            return "get-hotspots --comm $COMM && find-callers --target <top_symbol>"
         else:
-            return "trace issues"
+            return "get-hotspots --comm $COMM"
 
     def print_output(self, output: BaseOutput, auto_end: bool = True):
         """
