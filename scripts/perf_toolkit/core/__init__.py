@@ -39,12 +39,10 @@ from .output_models import (
     # Outputs
     ProcessTopOutput, CommTopOutput, HotspotsOutput, ClustersOutput,
     ClusterCommOutput,
-    # Registry
-    OUTPUT_TYPE_MAP, get_output_classes,
 )
 from .output_adapter import (
     OutputAdapter, CompactOutputAdapter,
-    to_json_output, print_json_output,
+    to_json_output,
 )
 from .output_builder import OutputBuilder
 from .command_decorator import command
@@ -77,7 +75,6 @@ __all__ = [
     'ProcessTopOutput', 'CommTopOutput', 'HotspotsOutput', 'ClustersOutput',
     'ClusterCommOutput',
     # Output System - Utils
-    'OUTPUT_TYPE_MAP', 'get_output_classes',
-    'OutputAdapter', 'CompactOutputAdapter', 'to_json_output', 'print_json_output',
+    'OutputAdapter', 'CompactOutputAdapter', 'to_json_output',
     'OutputBuilder',    'command',
 ]

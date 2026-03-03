@@ -25,12 +25,12 @@ Usage:
 
 from ..core.output_models import (
     SysAuditOutput,
-    BottleneckTraceOutput,
+    BottleneckTraceResult,
     StormTraceOutput
 )
 
 __all__ = [
     'SysAuditOutput',
-    'BottleneckTraceOutput', 
+    'BottleneckTraceResult', 
     'StormTraceOutput',
 ]

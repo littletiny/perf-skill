@@ -151,18 +151,6 @@ class ClusterSummary(BaseSummary):
 
 
 @dataclass
-class BottleneckSummary(BaseSummary):
-    """瓶颈检测摘要"""
-    pass
-
-
-@dataclass
-class CPUUsageSummary(BaseSummary):
-    """CPU 使用率摘要"""
-    pass
-
-
-@dataclass
 class AnomalySummary(BaseSummary):
     """异常检测摘要"""
     total_anomalies: int = 0
@@ -354,22 +342,6 @@ class AnomalyItem:
     next_util: float
     severity: str
 
-    @classmethod
-    def from_raw(cls, type: str, cpu_id: int, start: str, end: str,
-                 prev: float, curr: float, next: float, z_score: float) -> 'AnomalyItem':
-        """从原始数据创建 AnomalyItem"""
-        severity = "high" if z_score > 2.5 else "medium"
-        return cls(
-            type=type,
-            cpu_id=cpu_id,
-            time_range_start=start,
-            time_range_end=end,
-            prev_util=prev,
-            curr_util=curr,
-            next_util=next,
-            severity=severity
-        )
-
 
 @dataclass
 class WindowItem:
@@ -408,18 +380,6 @@ class PathClusterItem:
     weight: float
     total_weight: float
     duration: float
-
-    @classmethod
-    def from_raw(cls, cluster_id: str, path_signature: str, weight: float,
-                 total_weight: float, duration: float) -> 'PathClusterItem':
-        """从原始数据创建 PathClusterItem"""
-        return cls(
-            cluster_id=cluster_id,
-            path_signature=path_signature,
-            weight=weight,
-            total_weight=total_weight,
-            duration=duration
-        )
 
 
 @dataclass
@@ -518,7 +478,7 @@ class BottleneckOutput(BaseOutput):
     data: BottleneckData = field(default_factory=dict)
 
     def __init__(self, _risk: RiskInfo, data: BottleneckData,
-                 summary: BottleneckSummary, time_range: Optional[TimeRange] = None):
+                 summary: BaseSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.data = data
         self._template_config = TemplateConfig.from_preset("bottleneck")
@@ -530,7 +490,7 @@ class CPUUsageOutput(BaseOutput):
     data: CPUUsageData = field(default_factory=dict)
 
     def __init__(self, _risk: RiskInfo, data: CPUUsageData,
-                 summary: CPUUsageSummary, time_range: Optional[TimeRange] = None):
+                 summary: BaseSummary, time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=summary, time_range=time_range)
         self.data = data
         self._template_config = TemplateConfig.from_preset("cpu_usage")
@@ -631,118 +591,67 @@ class CoreDistributionOutput(BaseOutput):
 # Bottleneck Trace Models
 # -----------------------------------------------------------------------------
 
-@dataclass
-class BottleneckProfile:
-    """瓶颈特征分析数据"""
-    found: bool = False
-    comm: str = ""
-    total_cpu: float = 0.0
-    kernel_ratio: float = 0.0
-    pid_count: int = 0
-    cv: float = 0.0
-    monopoly: float = 0.0
-    diagnosis: str = DiagnosisType.NORMAL
-    impact_score: float = 0.0
-
+# -----------------------------------------------------------------------------
+# Four-Section Markdown Output Models for bottleneck-trace
+# -----------------------------------------------------------------------------
 
 @dataclass
-class HotspotOutputItem:
-    """热点函数输出项"""
-    symbol: str
-    self_pct: float
-    inclusive_pct: float
-    resource_tag: str
-    attention_flag: str = ""  # <X0>, <X1>, etc.
+class EntityDistribution:
+    """实体分布矩阵行 - [ENTITY_DISTRIBUTION_MATRIX]"""
+    comm: str                       # 进程组名称
+    count: int                      # PID 数量
+    incl_saliency: float            # Inclusive 显著度 (0-1)
+    excl_saliency: float            # Exclusive 显著度 (0-1)
+    core_affinity: str              # Fixed/Uniform/Scattered
+    throttle_rate: float            # 节流比例 (0-100%)
 
 
 @dataclass
-class HotspotsOutputData:
-    """热点分析输出数据"""
-    top_symbol: Optional[str] = None
-    total_hotspots: int = 0
-    kernel_ratio: float = 0.0
-    user_ratio: float = 0.0
-    items: List[HotspotOutputItem] = field(default_factory=list)
+class CallPathCluster:
+    """调用路径聚类 - [CONVERGENCE_TRACE]"""
+    cluster_id: str                 # 聚类 ID
+    comm: str                       # 所属进程
+    weight: float                   # 占比 (0-100%)
+    path: List[str]                 # 调用链符号列表
+    hotspot: str                    # 汇聚热点符号
+    characteristic: str             # 路径特征标签
 
 
 @dataclass
-class CallerOutputItem:
-    """调用者输出项"""
-    symbol: str
-    call_ratio: float
-    call_stack: List[str] = field(default_factory=list)
+class CorrelationFlag:
+    """关联标志 - [CORRELATION_FLAGS]"""
+    flag_type: str                  # GLOBAL_LOCK_CONTENTION, etc.
+    target: str                     # 目标符号/进程
+    message: str                    # 描述信息
+    severity: str                   # critical/warning/info
 
 
 @dataclass
-class ConvergencePath:
-    """调用链聚合路径"""
-    description: str
-    impact: str
-
-
-@dataclass
-class CallChainAnalysis:
-    """调用链溯源分析"""
-    target: str = ""
-    convergence_path: Optional[ConvergencePath] = None
-    top_callers: List[CallerOutputItem] = field(default_factory=list)
-
-
-@dataclass
-class RootCauseAnalysis:
-    """根因分析"""
-    primary_driver: str
-    evidence: str
-    mechanism: str
-    victim: str
-
-
-@dataclass
-class BottleneckTraceSummary(BaseSummary):
-    """瓶颈追踪摘要"""
-    target_comm: str = ""
-    top_symbol: str = ""
-    hotspot_count: int = 0
-
-
-@dataclass
-class BottleneckTraceOutput(BaseOutput):
-    """
-    bottleneck-trace 输出结构 - V2 强类型版本
+class BottleneckTraceResult:
+    """bottleneck-trace 完整四段式输出结果"""
+    # 风险信息（置顶）
+    _risk: RiskInfo
     
-    替代原有 Dict 字段，使用强类型 dataclass:
-    - bottleneck_profile: BottleneckProfile (替代 dict)
-    - hotspots: HotspotsOutputData (替代 dict)
-    - call_chain: CallChainAnalysis (替代 dict)
-    - root_cause: RootCauseAnalysis (替代 dict)
-    """
-    target_comm: str = ""
-    bottleneck_profile: BottleneckProfile = field(default_factory=BottleneckProfile)
-    hotspots: HotspotsOutputData = field(default_factory=HotspotsOutputData)
-    call_chain: Optional[CallChainAnalysis] = None
-    root_cause: Optional[RootCauseAnalysis] = None
-    recommendations: List[str] = field(default_factory=list)
+    # [ENTITY_DISTRIBUTION_MATRIX] - 实体分布矩阵
+    entity_distribution: List[EntityDistribution] = field(default_factory=list)
+    
+    # [CONVERGENCE_TRACE] - 收敛追踪
+    common_hotspot: str = ""
+    common_hotspot_weight: float = 0.0
+    clusters: List[CallPathCluster] = field(default_factory=list)
+    
+    # [CORRELATION_FLAGS] - 关联标志
+    correlation_flags: List[CorrelationFlag] = field(default_factory=list)
+    
+    # [DATA_SUMMARY] - 数据摘要
+    total_pids: int = 0
+    total_sys_cpu: float = 0.0
+    top_bottlenecks: List[str] = field(default_factory=list)
+    duration_sec: float = 0.0
+    sample_count: int = 0
+    time_range: Optional[TimeRange] = None
 
-    def __init__(self, 
-                 _risk: RiskInfo,
-                 target_comm: str,
-                 bottleneck_profile: BottleneckProfile,
-                 hotspots: HotspotsOutputData,
-                 call_chain: Optional[CallChainAnalysis] = None,
-                 root_cause: Optional[RootCauseAnalysis] = None,
-                 recommendations: Optional[List[str]] = None,
-                 time_range: Optional[TimeRange] = None):
-        super().__init__(_risk=_risk, summary=None, time_range=time_range)
-        self.target_comm = target_comm
-        self.bottleneck_profile = bottleneck_profile
-        self.hotspots = hotspots
-        self.call_chain = call_chain
-        self.root_cause = root_cause
-        self.recommendations = recommendations or []
-        self._template_config = TemplateConfig(
-            template_type="custom",
-            custom_renderer="bottleneck_trace_renderer_v2"
-        )
+
 
 
 # -----------------------------------------------------------------------------
@@ -1057,17 +966,6 @@ class TraceData:
             profiles_used=[data_file] if data_file else []
         )
     
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为 dict 用于 JSON 序列化"""
-        return {
-            "version": self.version,
-            "data_file": self.data_file,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "timeline": self.timeline,
-            "issues": self.issues,
-            "profiles_used": self.profiles_used
-        }
 
 
 # =============================================================================
@@ -1120,19 +1018,6 @@ class FinalizeResult:
     open_count: Optional[int] = None
     open_issues: Optional[List[Dict[str, Any]]] = None
     
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为 dict 用于 JSON 序列化"""
-        result = {
-            "status": self.status,
-            "message": self.message,
-        }
-        if self.resolved_count is not None:
-            result["resolved_count"] = self.resolved_count
-        if self.open_count is not None:
-            result["open_count"] = self.open_count
-        if self.open_issues is not None:
-            result["open_issues"] = self.open_issues
-        return result
 
 
 # =============================================================================
@@ -1222,15 +1107,6 @@ class ProfileConfig:
     risk_config: Optional[str] = None
     rules_file: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为 dict 用于 JSON 序列化"""
-        return {
-            "init_time": self.init_time,
-            "script_path": self.script_path,
-            "freq": self.freq,
-            "risk_config": self.risk_config,
-            "rules_file": self.rules_file
-        }
 
 
 @dataclass
@@ -1242,35 +1118,6 @@ class EnvironmentConfig:
     profiles: Dict[str, ProfileConfig] = field(default_factory=dict)
     default: Optional[str] = None
 
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为 dict 用于 JSON 序列化"""
-        return {
-            "profiles": {
-                name: profile.to_dict()
-                for name, profile in self.profiles.items()
-            },
-            "default": self.default
-        }
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'EnvironmentConfig':
-        """从 dict 创建 EnvironmentConfig"""
-        profiles_data = data.get("profiles", {})
-        profiles = {
-            name: ProfileConfig(
-                name=name,
-                data_file=name,
-                init_time=pdata.get("init_time", ""),
-                script_path=pdata.get("script_path", ""),
-                freq=pdata.get("freq"),
-                risk_config=pdata.get("risk_config"),
-                rules_file=pdata.get("rules_file")
-            )
-            for name, pdata in profiles_data.items()
-        }
-        return cls(
-            profiles=profiles,
-            default=data.get("default")
-        )
 
 
 
@@ -1287,37 +1134,6 @@ class TraceConfig:
     timeline: List[Dict[str, Any]] = field(default_factory=list)
     issues: Dict[str, Any] = field(default_factory=dict)
     profiles_used: List[str] = field(default_factory=list)
-    
-
-    def to_dict(self) -> Dict[str, Any]:
-        """转换为 dict 用于 JSON 序列化"""
-        return {
-            "version": self.version,
-            "data_file": self.data_file,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "timeline": self.timeline,
-            "issues": self.issues,
-            "profiles_used": self.profiles_used
-        }
-
-
-
-
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'TraceConfig':
-        """从 dict 创建 TraceConfig"""
-        return cls(
-            version=data.get("version", "2.0"),
-            data_file=data.get("data_file", ""),
-            created_at=data.get("created_at", ""),
-            updated_at=data.get("updated_at", ""),
-            timeline=data.get("timeline", []),
-            issues=data.get("issues", {}),
-            profiles_used=data.get("profiles_used", [])
-        )
-
     @classmethod
     def create_new(cls, data_file: str) -> 'TraceConfig':
         """创建新的 TraceConfig 实例"""
@@ -1333,27 +1149,3 @@ class TraceConfig:
             profiles_used=[data_file]
         )
 
-# =============================================================================
-# Type Registry
-# =============================================================================
-
-OUTPUT_TYPE_MAP = {
-    "processes": (ProcessItem, ProcessSummary, ProcessTopOutput),
-    "comm_groups": (CommGroupItem, CommGroupSummary, CommTopOutput),
-    "clusters": (ClusterItem, ClusterSummary, ClustersOutput),
-    "hotspots": (HotspotItem, HotspotSummary, HotspotsOutput),
-    "bottleneck": (BottleneckData, BottleneckSummary, BottleneckOutput),
-    "cpu_usage": (CPUUsageData, CPUUsageSummary, CPUUsageOutput),
-    "anomalies": (AnomalyItem, AnomalySummary, AnomaliesOutput),
-    "windows": (WindowItem, WindowSummary, WindowsOutput),
-    "attributions": (AttributionItem, AttributionSummary, AttributionsOutput),
-    "traces": (TraceItem, TracesSummary, TracesOutput),
-    "path_clusters": (PathClusterItem, PathClusterSummary, PathClustersOutput),
-    "process_variety": (ProcessVarietyItem, ProcessVarietySummary, ProcessVarietyOutput),
-    "cores": (CoreItem, CoreDistributionSummary, CoreDistributionOutput),
-}
-
-
-def get_output_classes(data_type: str):
-    """Get output classes for a data type"""
-    return OUTPUT_TYPE_MAP.get(data_type, (None, None, None))

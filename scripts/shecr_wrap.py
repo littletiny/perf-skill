@@ -13,6 +13,7 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Tuple
+from dataclasses import asdict
 
 # Import dataclass models for CLI layer (Task-4.1.x)
 # Use relative import from perf_toolkit package
@@ -46,7 +47,20 @@ def load_env() -> EnvironmentConfig:
     if env_path.exists():
         try:
             data = json.loads(env_path.read_text())
-            return EnvironmentConfig.from_dict(data)
+            profiles_data = data.get("profiles", {})
+            profiles = {
+                name: ProfileConfig(
+                    name=name,
+                    data_file=name,
+                    init_time=pdata.get("init_time", ""),
+                    script_path=pdata.get("script_path", ""),
+                    freq=pdata.get("freq"),
+                    risk_config=pdata.get("risk_config"),
+                    rules_file=pdata.get("rules_file")
+                )
+                for name, pdata in profiles_data.items()
+            }
+            return EnvironmentConfig(profiles=profiles, default=data.get("default"))
         except json.JSONDecodeError:
             return migrate_old_env()
     return EnvironmentConfig()
@@ -79,7 +93,7 @@ def migrate_old_env() -> EnvironmentConfig:
 
 def save_env(env: EnvironmentConfig):
     """保存环境配置 (接受 EnvironmentConfig dataclass)"""
-    Path(ENV_FILE).write_text(json.dumps(env.to_dict(), indent=2))
+    Path(ENV_FILE).write_text(json.dumps(asdict(env), indent=2))
 
 
 def get_profile_id(data_path: str) -> str:
@@ -96,17 +110,17 @@ def init_global_trace(data_path: str) -> Tuple[bool, Optional[TraceConfig]]:
     trace_path = Path(GLOBAL_TRACE)
     if not trace_path.exists():
         trace = TraceConfig.create_new(data_path)
-        trace_path.write_text(json.dumps(trace.to_dict(), indent=2))
+        trace_path.write_text(json.dumps(asdict(trace), indent=2))
         return True, trace
     else:
         # 更新 profiles_used
         try:
             trace_data = json.loads(trace_path.read_text())
-            trace = TraceConfig.from_dict(trace_data)
+            trace = TraceConfig(**trace_data)
             if data_path not in trace.profiles_used:
                 trace.profiles_used.append(data_path)
                 trace.updated_at = datetime.now().isoformat()
-                trace_path.write_text(json.dumps(trace.to_dict(), indent=2))
+                trace_path.write_text(json.dumps(asdict(trace), indent=2))
         except:
             pass
         return False, None

@@ -93,10 +93,6 @@ class OutputAdapter:
             ensure_ascii=self.ensure_ascii
         )
 
-    def print_json(self, obj: Any):
-        """打印 JSON 输出"""
-        print(self.to_json(obj))
-
 
 class CompactOutputAdapter(OutputAdapter):
     """
@@ -155,6 +151,4 @@ def to_json_output(obj: Any, compact: bool = False) -> str:
     return adapter.to_json(obj)
 
 
-def print_json_output(obj: Any, compact: bool = False):
-    """快速打印 JSON 输出"""
-    print(to_json_output(obj, compact))
+

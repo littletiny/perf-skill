@@ -16,7 +16,7 @@ from perf_toolkit.analysis.comm_top import CommTopAnalyzer
 from config.defaults import DiagnosisType, RiskPattern
 
 if TYPE_CHECKING:
-    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core.output_builder import OutputBuilder
     from perf_toolkit.core import PerfExpertEngine
     from argparse import Namespace
 

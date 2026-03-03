@@ -82,7 +82,7 @@ def command(
     def decorator(func: AnalysisCommandHandler) -> AnalysisCommandHandler:
         @wraps(func)
         def wrapper(engine: 'PerfExpertEngine', args: 'Namespace') -> Optional['BaseOutput']:
-            from .builders import OutputBuilder
+            from ..core.output_builder import OutputBuilder
 
             # 1. 创建 builder（内部已集成 Trace auto_trace）
             builder = OutputBuilder(engine, args)

@@ -32,9 +32,11 @@ OutputBuilder - 基于统一数据模型的输出构建器
 
 import os
 import sys
+import warnings
 from pathlib import Path
 from typing import List, Dict, Optional, Any, Type, TypeVar, Generic
 from dataclasses import dataclass
+from functools import wraps
 
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -47,8 +49,8 @@ from .output_models import (
     ProcessTopOutput, CommTopOutput, HotspotsOutput, ClustersOutput,
     ClusterCommOutput,
     # V2 新增模型
-    BottleneckData, BottleneckSummary, BottleneckOutput,
-    CPUUsageData, CPUUsageSummary, CPUUsageOutput,
+    BottleneckData, BottleneckOutput,
+    CPUUsageData, CPUUsageOutput,
     AnomalyItem, AnomalySummary, AnomaliesOutput,
     WindowItem, WindowSummary, WindowsOutput,
     AttributionItem, AttributionSummary, AttributionsOutput,
@@ -68,6 +70,30 @@ from .trace import Trace
 
 
 T = TypeVar('T', bound=BaseOutput)
+
+
+def _silent(f):
+    """静默错误装饰器 - 捕获所有异常，不影响主流程"""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except Exception:
+            return None
+    return wrapper
+
+
+def _silent_return(return_value=""):
+    """静默错误装饰器工厂 - 返回指定默认值"""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                return f(*args, **kwargs)
+            except Exception:
+                return return_value
+        return wrapper
+    return decorator
 
 
 class OutputBuilder:
@@ -153,6 +179,7 @@ class OutputBuilder:
             # 自动记录失败不应影响主流程
             self._trace = None
 
+    @_silent_return("")
     def record_risk(self, level: str, desc: str, hint: str = "") -> str:
         """
         记录发现的风险，自动创建 issue
@@ -168,11 +195,9 @@ class OutputBuilder:
         if not self._auto_trace or not self._trace:
             return ""
 
-        try:
-            return self._trace.record_risk(level, desc, hint)
-        except Exception:
-            return ""
+        return self._trace.record_risk(level, desc, hint)
 
+    @_silent
     def record_resolution(self, issue_id: str, result: str):
         """
         标记 issue 已解决
@@ -184,39 +209,31 @@ class OutputBuilder:
         if not self._auto_trace or not self._trace:
             return
 
-        try:
-            self._trace.record_resolution(issue_id, result)
-        except Exception:
-            pass
+        self._trace.record_resolution(issue_id, result)
 
+    @_silent
     def record_info(self, message: str):
         """记录一般信息"""
         if not self._auto_trace or not self._trace:
             return
 
-        try:
-            self._trace.record_info(message)
-        except Exception:
-            pass
+        self._trace.record_info(message)
 
+    @_silent
     def end_command(self):
         """命令结束时调用，保存 Trace"""
         if not self._auto_trace or not self._trace:
             return
 
-        try:
-            self._trace.end_command()
-        except Exception:
-            pass
+        self._trace.end_command()
 
     def get_trace_summary(self) -> TraceSummary:
         """获取 Trace 摘要（返回 TraceSummary dataclass）"""
         if not self._trace:
-            return TraceSummary(enabled=False)
+            return TraceSummary()
 
         summary = self._trace.get_summary()
         return TraceSummary(
-            enabled=True,
             total_commands=summary.total_commands,
             open_issues=summary.open_issues,
             resolved_issues=summary.resolved_issues,
@@ -226,6 +243,16 @@ class OutputBuilder:
     # =====================================================================
     # 数据质量评估（与 V1 兼容）
     # =====================================================================
+
+    def _build_error_result(self, error_data: ErrorData, risk_info: RiskInfo, **extra) -> Dict:
+        """构建包含错误信息和风险的统一响应结构"""
+        return {
+            "_risk": risk_info,
+            "error": error_data.error,
+            "message": error_data.message,
+            "recovery_hint": error_data.recovery_hint,
+            **extra
+        }
 
     def check_empty_samples(self, samples: List[Dict], filters: Dict = None) -> bool:
         """检查样本是否为空"""
@@ -251,21 +278,17 @@ class OutputBuilder:
             patterns=[RiskPattern.NO_SAMPLES]
         )
 
-        result = {
-            "_risk": risk_info,
-            **{
-                "error": error_data.error,
-                "message": error_data.message,
-                "recovery_hint": error_data.recovery_hint,
-                "time_range": format_time_range(
-                    getattr(self.args, 'start_time', None),
-                    getattr(self.args, 'end_time', None)
-                ),
-                "available_range": self.engine.get_time_range(),
-                "filters": filters or {}
-            }
-        }
-        self.print_json(result)
+        result = self._build_error_result(
+            error_data,
+            risk_info,
+            time_range=format_time_range(
+                getattr(self.args, 'start_time', None),
+                getattr(self.args, 'end_time', None)
+            ),
+            available_range=self.engine.get_time_range(),
+            filters=filters or {}
+        )
+        print(self.adapter.to_json(result))
         return True
 
     def assess_quality(self, samples: List[Dict] = None,
@@ -309,20 +332,22 @@ class OutputBuilder:
                     patterns=[RiskPattern.CRITICAL_DATA_QUALITY]
                 )
 
-                result = {
-                    "_risk": risk_info,
-                    **{
-                        "data_quality": {
-                            "level": self._quality_metrics.level,
-                            "warning": self._quality_metrics.warning,
-                            "total_samples": self._quality_metrics.total_samples,
-                            "time_range_seconds": self._quality_metrics.time_range_seconds,
-                            "cpu_count": self._quality_metrics.cpu_count,
-                        },
-                        "error": "Insufficient data quality for analysis"
+                result = self._build_error_result(
+                    ErrorData(
+                        error="Insufficient data quality for analysis",
+                        message="数据质量不足",
+                        recovery_hint="使用更长的采样时间重新采集数据"
+                    ),
+                    risk_info,
+                    data_quality={
+                        "level": self._quality_metrics.level,
+                        "warning": self._quality_metrics.warning,
+                        "total_samples": self._quality_metrics.total_samples,
+                        "time_range_seconds": self._quality_metrics.time_range_seconds,
+                        "cpu_count": self._quality_metrics.cpu_count,
                     }
-                }
-                self.print_json(result)
+                )
+                print(self.adapter.to_json(result))
                 return True
             else:
                 # 数据质量良好，不提前返回
@@ -363,6 +388,21 @@ class OutputBuilder:
 
         return categories
 
+    def _ensure_trace_initialized(self):
+        """确保 trace 已初始化（即使 begin_command 未被调用）"""
+        if self._trace:
+            return True
+
+        try:
+            self._trace = Trace()
+            data_file = getattr(self.args, 'data', None)
+            if data_file and not self._trace.data.get('data_file'):
+                self._trace.init(data_file)
+            return True
+        except Exception:
+            return False
+
+    @_silent
     def _auto_record_risk_from_output(self, output: BaseOutput):
         """
         自动从 output 中提取 risk 信息并记录到 Trace
@@ -374,28 +414,16 @@ class OutputBuilder:
         if not self._auto_trace:
             return
 
-        # 确保 trace 已初始化（即使 begin_command 未被调用）
-        if not self._trace:
-            try:
-                self._trace = Trace()
-                data_file = getattr(self.args, 'data', None)
-                if data_file and not self._trace.data.get('data_file'):
-                    self._trace.init(data_file)
-            except Exception:
-                return
+        if not self._ensure_trace_initialized():
+            return
 
-        try:
-            risk = output._risk
+        risk = output._risk
 
-            # 只记录 critical 和 warning 级别的 risk
-            if risk.level in ['critical', 'warning'] and risk.message:
-                # 生成简洁的 hint（如果 hint 太长或为空）
-                hint = risk.hint or self._generate_hint_from_message(risk.message)
-                self.record_risk(risk.level, risk.message, hint)
-
-        except Exception:
-            # 自动记录失败不应影响主流程
-            pass
+        # 只记录 critical 和 warning 级别的 risk
+        if risk.level in ['critical', 'warning'] and risk.message:
+            # 生成简洁的 hint（如果 hint 太长或为空）
+            hint = risk.hint or self._generate_hint_from_message(risk.message)
+            self.record_risk(risk.level, risk.message, hint)
 
     def _generate_hint_from_message(self, message: str) -> str:
         """从 message 生成默认 hint"""
@@ -435,12 +463,18 @@ class OutputBuilder:
             self.end_command()
 
     def print_json(self, data: Dict):
-        """打印字典数据（兼容 V1，内部直接使用 dict，仅在输出时转 JSON）"""
-        # 使用 OutputAdapter 处理数据，支持 dataclass 自动转换
+        """
+        [已废弃] 打印字典数据（兼容 V1）
+        
+        注意: 此方法仅用于兼容旧代码，新代码请使用 print_output()
+        """
+        warnings.warn(
+            "print_json() is deprecated, use print_output() instead",
+            DeprecationWarning,
+            stacklevel=2
+        )
         print(self.adapter.to_json(data))
 
     def to_dict(self, output: BaseOutput) -> Dict:
         """将输出对象转换为字典"""
         return self.adapter.to_dict(output)
-
-

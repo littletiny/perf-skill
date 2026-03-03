@@ -15,7 +15,7 @@ from perf_toolkit.core.output_models import (
 from perf_toolkit.analysis.anomalies import AnomaliesAnalyzer
 
 if TYPE_CHECKING:
-    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core.output_builder import OutputBuilder
     from perf_toolkit.core import PerfExpertEngine
     from argparse import Namespace
 
@@ -55,15 +55,15 @@ def cmd_detect_anomalies(
     
     # 4. 转换为 Output 模型
     anomaly_items = [
-        AnomalyItem.from_raw(
+        AnomalyItem(
             type=a.type,
             cpu_id=a.cpu_id,
-            start=a.time_range_start,
-            end=a.time_range_end,
-            prev=a.prev_util,
-            curr=a.curr_util,
-            next=a.next_util,
-            z_score=a.z_score
+            time_range_start=a.time_range_start,
+            time_range_end=a.time_range_end,
+            prev_util=a.prev_util,
+            curr_util=a.curr_util,
+            next_util=a.next_util,
+            severity="high" if a.z_score > 2.5 else "medium"
         )
         for a in result.anomalies
     ]

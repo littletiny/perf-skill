@@ -14,21 +14,17 @@ from typing import Optional, List, Dict, Any, TYPE_CHECKING
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-from config.defaults import (
-    DiagnosisType, AttentionFlag, RiskPattern,
-    Thresholds, CompositeDefaults
-)
+from config.defaults import DiagnosisType
 
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.models import RiskInfo, TimeRange
 from perf_toolkit.core.output_models import (
-    BottleneckTraceOutput, BottleneckProfile,
-    HotspotOutputItem, HotspotsOutputData,
-    CallerOutputItem, CallChainAnalysis, ConvergencePath,
-    RootCauseAnalysis
+    BottleneckTraceResult,
+    EntityDistribution,
+    CallPathCluster,
+    CorrelationFlag,
 )
 from perf_toolkit.analysis.facade import AnalysisFacade
-from perf_toolkit.composite.risk_aggregator import RiskAggregator
 from perf_toolkit.composite.models import (
     BottleneckAnalysis, HotspotsReport, CallersReport
 )
@@ -40,97 +36,269 @@ from perf_toolkit.composite.bottleneck_trace import (
 )
 
 if TYPE_CHECKING:
-    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core.output_builder import OutputBuilder
     from perf_toolkit.core import PerfExpertEngine
     from argparse import Namespace
 
 
-def _convert_to_hotspots_output(hotspots_report: HotspotsReport) -> HotspotsOutputData:
-    """转换 HotspotsReport 为 HotspotsOutputData（强类型）"""
-    items = [
-        HotspotOutputItem(
-            symbol=hs.symbol,
-            self_pct=hs.cpu_percent / 100.0,  # 转换为小数
-            inclusive_pct=hs.inclusive_percent / 100.0,
-            resource_tag=hs.resource_tag,
-            attention_flag=AttentionFlag.X0 if hs.resource_tag == "LOCK" and i == 0 else ""
-        )
-        for i, hs in enumerate(hotspots_report.hotspots[:5])
-    ]
-    
-    return HotspotsOutputData(
-        top_symbol=hotspots_report.top_symbol,
-        total_hotspots=hotspots_report.total_hotspots,
-        kernel_ratio=hotspots_report.kernel_ratio / 100.0,
-        user_ratio=hotspots_report.user_ratio / 100.0,
-        items=items
-    )
-
-
-def _convert_to_call_chain_analysis(
-    callers_report: CallersReport,
-    target_comm: str
-) -> CallChainAnalysis:
-    """转换 CallersReport 为 CallChainAnalysis（强类型）"""
-    top_callers = [
-        CallerOutputItem(
-            symbol=caller.symbol,
-            call_ratio=caller.call_ratio / 100.0,
-            call_stack=caller.symbol.split(" <- ") if " <- " in caller.symbol else [caller.symbol]
-        )
-        for caller in callers_report.callers[:3]
-    ]
-    
-    # 构建聚合路径描述
-    convergence = None
-    if top_callers:
-        path_desc = f"[User_Logic:{target_comm}]"
-        if top_callers[0].call_stack:
-            path_desc += " → " + " → ".join(top_callers[0].call_stack[:3])
-        convergence = ConvergencePath(
-            description=path_desc,
-            impact=f"热点函数 {callers_report.target} 的调用来源"
-        )
-    
-    return CallChainAnalysis(
-        target=callers_report.target,
-        convergence_path=convergence,
-        top_callers=top_callers
-    )
-
-
-def _build_root_cause(
+def _convert_to_entity_distribution(
     bottleneck: BottleneckAnalysis,
-    target_comm: str
-) -> Optional[RootCauseAnalysis]:
-    """构建根因分析"""
+    hotspots_report: HotspotsReport
+) -> List[EntityDistribution]:
+    """
+    将进程组数据转换为 EntityDistribution
+    
+    Args:
+        bottleneck: 瓶颈分析结果
+        hotspots_report: 热点报告
+        
+    Returns:
+        List[EntityDistribution]: 实体分布列表
+    """
     if not bottleneck.found:
-        return None
+        return []
     
-    # 根据诊断类型构建根因描述
-    if bottleneck.diagnosis == DiagnosisType.BOTTLENECK:
-        return RootCauseAnalysis(
-            primary_driver=f"{target_comm} 单核瓶颈",
-            evidence=f"Monopoly={bottleneck.monopoly:.2f}, 单进程独占 CPU",
-            mechanism="单进程无法利用多核，导致串行化执行",
-            victim="业务请求处理延迟增加"
-        )
-    elif bottleneck.diagnosis == DiagnosisType.STORM:
-        return RootCauseAnalysis(
-            primary_driver=f"{target_comm} 进程风暴",
-            evidence=f"高频率进程创建，资源消耗在进程管理上",
-            mechanism="频繁创建/销毁进程导致系统开销增加",
-            victim="正常业务进程被资源竞争影响"
-        )
-    elif bottleneck.diagnosis == DiagnosisType.UNBALANCED:
-        return RootCauseAnalysis(
-            primary_driver=f"{target_comm} 负载不均衡",
-            evidence=f"CV={bottleneck.cv:.2f}, PID 间负载差异大",
-            mechanism="部分 PID 过载，其他 PID 空闲",
-            victim="整体吞吐量受限"
+    # 计算核心亲缘性
+    if bottleneck.monopoly > 0.8:
+        core_affinity = "Fixed"
+    elif bottleneck.cv < 0.5:
+        core_affinity = "Uniform"
+    else:
+        core_affinity = "Scattered"
+    
+    # 计算节流率（基于高 Monopoly 和低 CPU 推断）
+    throttle_rate = 0.0
+    if bottleneck.monopoly > 0.8 and bottleneck.total_cpu < 90:
+        throttle_rate = 100.0 - bottleneck.total_cpu
+    
+    # 获取显著度
+    incl_saliency = 0.0
+    excl_saliency = 0.0
+    if hotspots_report.hotspots:
+        top_hotspot = hotspots_report.hotspots[0]
+        incl_saliency = top_hotspot.inclusive_percent / 100.0
+        excl_saliency = top_hotspot.cpu_percent / 100.0
+    
+    return [EntityDistribution(
+        comm=bottleneck.comm,
+        count=bottleneck.pid_count,
+        incl_saliency=incl_saliency,
+        excl_saliency=excl_saliency,
+        core_affinity=core_affinity,
+        throttle_rate=throttle_rate
+    )]
+
+
+def _convert_to_call_path_clusters(
+    hotspots_report: HotspotsReport,
+    callers_report: Optional[CallersReport],
+    target_comm: str
+) -> List[CallPathCluster]:
+    """
+    将聚类数据转换为 CallPathCluster
+    
+    Args:
+        hotspots_report: 热点报告
+        callers_report: 调用链报告（可选）
+        target_comm: 目标进程名
+        
+    Returns:
+        List[CallPathCluster]: 调用路径聚类列表
+    """
+    clusters: List[CallPathCluster] = []
+    
+    if not hotspots_report.hotspots:
+        return clusters
+    
+    # 从热点构建聚类
+    for i, hs in enumerate(hotspots_report.hotspots[:5]):
+        # 推断路径特征
+        characteristic = "COMPUTE"
+        if any(k in hs.symbol.lower() for k in ['lock', 'mutex', 'spin', 'rwsem']):
+            characteristic = "Lock_Contention"
+        elif 'io_schedule' in hs.symbol.lower():
+            characteristic = "IO_Wait_Dominant"
+        elif any(k in hs.symbol.lower() for k in ['syscall', 'sys_', 'entry_syscall']):
+            characteristic = "Syscall_Bound"
+        elif hs.inclusive_percent > hs.cpu_percent * 3:
+            characteristic = "Inclusive_Latency_Victim"
+        elif hs.cpu_percent > hs.inclusive_percent * 2:
+            characteristic = "High_Frequency_Exclusive_CPU"
+        
+        clusters.append(CallPathCluster(
+            cluster_id=f"hotspot_{i}",
+            comm=target_comm,
+            weight=hs.inclusive_percent if hasattr(hs, 'inclusive_percent') else hs.cpu_percent,
+            path=[target_comm, hs.symbol],
+            hotspot=hs.symbol,
+            characteristic=characteristic
+        ))
+    
+    # 从调用者补充聚类
+    if callers_report and callers_report.callers:
+        for i, caller in enumerate(callers_report.callers[:3]):
+            path = caller.symbol.split(' -> ') if ' -> ' in caller.symbol else [caller.symbol]
+            
+            clusters.append(CallPathCluster(
+                cluster_id=f"caller_{i}",
+                comm=target_comm,
+                weight=caller.call_ratio if hasattr(caller, 'call_ratio') else 0.0,
+                path=path,
+                hotspot=callers_report.target if hasattr(callers_report, 'target') else "",
+                characteristic="COMPUTE"
+            ))
+    
+    # 按权重排序，返回前8个
+    clusters.sort(key=lambda c: c.weight, reverse=True)
+    return clusters[:8]
+
+
+def _detect_correlation_flags(
+    bottleneck: BottleneckAnalysis,
+    hotspots_report: HotspotsReport,
+    callers_report: Optional[CallersReport]
+) -> List[CorrelationFlag]:
+    """
+    检测关联标志
+    
+    Args:
+        bottleneck: 瓶颈分析结果
+        hotspots_report: 热点报告
+        callers_report: 调用链报告（可选）
+        
+    Returns:
+        List[CorrelationFlag]: 检测到的标志列表
+    """
+    flags: List[CorrelationFlag] = []
+    
+    if not bottleneck.found:
+        return flags
+    
+    comm = bottleneck.comm
+    
+    # 1. GLOBAL_LOCK_CONTENTION: 全局锁符号 inclusive% > 40%
+    lock_symbols = ['_raw_spin_lock', 'mutex_lock', 'rwsem_down_read',
+                   'spin_lock', 'queue_spin_lock']
+    if hotspots_report.hotspots:
+        for hs in hotspots_report.hotspots:
+            symbol = hs.symbol if hasattr(hs, 'symbol') else ""
+            inclusive_pct = hs.inclusive_percent if hasattr(hs, 'inclusive_percent') else 0
+            
+            if any(ls in symbol for ls in lock_symbols) or any(k in symbol.lower() for k in ['lock', 'mutex', 'spin']):
+                if inclusive_pct > 40:
+                    flags.append(CorrelationFlag(
+                        flag_type="GLOBAL_LOCK_CONTENTION",
+                        target=symbol,
+                        message=f"全局锁 '{symbol}' 占用 {inclusive_pct:.1f}% CPU",
+                        severity="critical"
+                    ))
+    
+    # 2. SINGLE_CORE_SATURATION: Monopoly > 0.8
+    if bottleneck.monopoly > 0.8:
+        flags.append(CorrelationFlag(
+            flag_type="SINGLE_CORE_SATURATION",
+            target=comm,
+            message=f"{comm} Monopoly={bottleneck.monopoly:.2f}，单核饱和",
+            severity="critical"
+        ))
+    
+    # 3. THROTTLE_VICTIM: 高 Monopoly 和低 CPU
+    if bottleneck.monopoly > 0.8 and bottleneck.total_cpu < 80:
+        throttle_rate = 100 - bottleneck.total_cpu
+        flags.append(CorrelationFlag(
+            flag_type="THROTTLE_VICTIM",
+            target=comm,
+            message=f"{comm} 可能被节流 (推断节流率 {throttle_rate:.1f}%)",
+            severity="warning"
+        ))
+    
+    # 4. STORM_PATTERN: 进程风暴
+    if bottleneck.diagnosis == DiagnosisType.STORM or bottleneck.spawn_rate > 100:
+        flags.append(CorrelationFlag(
+            flag_type="STORM_PATTERN",
+            target=comm,
+            message=f"{comm} 进程风暴 (Spawn_Rate={bottleneck.spawn_rate:.1f}/s)",
+            severity="warning"
+        ))
+    
+    # 5. KERNEL_HEAVY: 内核态占比 > 50%
+    if bottleneck.kernel_ratio > 50:
+        flags.append(CorrelationFlag(
+            flag_type="KERNEL_HEAVY",
+            target=comm,
+            message=f"{comm} 高内核态占比 ({bottleneck.kernel_ratio:.1f}%)",
+            severity="warning"
+        ))
+    
+    # 6. UNBALANCED_LOAD: CV > 1.5 且 Monopoly < 0.5
+    if bottleneck.cv > 1.5 and bottleneck.monopoly < 0.5:
+        flags.append(CorrelationFlag(
+            flag_type="UNBALANCED_LOAD",
+            target=comm,
+            message=f"{comm} 负载不均衡 (CV={bottleneck.cv:.2f}, Monopoly={bottleneck.monopoly:.2f})",
+            severity="info"
+        ))
+    
+    return flags
+
+
+def _build_risk_info(
+    bottleneck: BottleneckAnalysis,
+    correlation_flags: List[CorrelationFlag]
+) -> RiskInfo:
+    """
+    构建 RiskInfo
+    
+    Args:
+        bottleneck: 瓶颈分析结果
+        correlation_flags: 关联标志列表
+        
+    Returns:
+        RiskInfo: 风险信息
+    """
+    if not bottleneck.found:
+        return RiskInfo(
+            level="info",
+            message="未检测到明显瓶颈进程",
+            hint="尝试使用 sys-audit 进行全景扫描",
+            patterns=["NO_BOTTLENECK_FOUND"],
+            pending_targets=[],
+            source="bottleneck_trace"
         )
     
-    return None
+    patterns = [f.flag_type for f in correlation_flags]
+    critical_flags = [f for f in correlation_flags if f.severity == "critical"]
+    warning_flags = [f for f in correlation_flags if f.severity == "warning"]
+    
+    comm = bottleneck.comm
+    
+    if critical_flags:
+        return RiskInfo(
+            level="critical",
+            message=f"发现关键性能瓶颈: {comm}",
+            hint=f"{comm} Monopoly={bottleneck.monopoly:.2f}, Impact={bottleneck.impact_score:.1f}",
+            patterns=patterns,
+            pending_targets=[comm],
+            source="bottleneck_trace"
+        )
+    elif warning_flags:
+        return RiskInfo(
+            level="warning",
+            message=f"发现潜在性能问题: {comm}",
+            hint=f"{comm} 需要进一步分析",
+            patterns=patterns,
+            pending_targets=[comm],
+            source="bottleneck_trace"
+        )
+    else:
+        return RiskInfo(
+            level="info",
+            message=f"{comm} 分析完成，未发现严重问题",
+            hint="",
+            patterns=patterns,
+            pending_targets=[],
+            source="bottleneck_trace"
+        )
 
 
 @command("bottleneck-trace")
@@ -139,7 +307,7 @@ def cmd_bottleneck_trace(
     engine: 'PerfExpertEngine',
     args: 'Namespace',
     samples: List[Dict[str, Any]]
-) -> BottleneckTraceOutput:
+) -> BottleneckTraceResult:
     """
     [Composite] 瓶颈追踪命令
     
@@ -167,14 +335,21 @@ def cmd_bottleneck_trace(
                 hint="尝试运行 sys-audit 进行全面分析"
             )
             
-            return BottleneckTraceOutput(
+            return BottleneckTraceResult(
                 _risk=risk,
-                target_comm="",
-                bottleneck_profile=BottleneckProfile(found=False),
-                hotspots=HotspotsOutputData(),
+                entity_distribution=[],
+                common_hotspot="",
+                common_hotspot_weight=0.0,
+                clusters=[],
+                correlation_flags=[],
+                total_pids=0,
+                total_sys_cpu=0.0,
+                top_bottlenecks=[],
+                duration_sec=0.0,
+                sample_count=len(samples),
                 time_range=TimeRange.from_timestamps(
-                    samples[0].ts if hasattr(samples[0], 'ts') else samples[0].get('ts') if samples else None,
-                    samples[-1].ts if hasattr(samples[-1], 'ts') else samples[-1].get('ts') if len(samples) > 1 else None
+                    samples[0].get('ts') if samples and isinstance(samples[0], dict) else None,
+                    samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
                 )
             )
     
@@ -182,92 +357,73 @@ def cmd_bottleneck_trace(
     
     bottleneck_analysis = _analyze_bottleneck(facade, samples, target_comm)
     
-    # 转换为 BottleneckProfile
-    bottleneck_profile = BottleneckProfile(
-        found=bottleneck_analysis.found,
-        comm=bottleneck_analysis.comm,
-        total_cpu=bottleneck_analysis.total_cpu,
-        kernel_ratio=bottleneck_analysis.kernel_ratio,
-        pid_count=bottleneck_analysis.pid_count,
-        cv=bottleneck_analysis.cv,
-        monopoly=bottleneck_analysis.monopoly,
-        diagnosis=bottleneck_analysis.diagnosis,
-        impact_score=bottleneck_analysis.impact_score
-    )
-    
     # ========== Phase 3: 热点分析 ==========
     
     hotspots_result = facade.analyze_hotspots(samples, comm=target_comm, top_n=top_n)
     hotspots_report = _convert_hotspots_result(hotspots_result)
-    hotspots_output = _convert_to_hotspots_output(hotspots_report)
 
     # ========== Phase 4: 调用链溯源 ==========
 
-    call_chain: Optional[CallChainAnalysis] = None
+    callers_report: Optional[CallersReport] = None
     if hotspots_report.top_symbol:
         callers_result = facade.analyze_callers(samples, target_symbol=hotspots_report.top_symbol, comm=target_comm)
         callers_report = _convert_callers_result(callers_result)
-        call_chain = _convert_to_call_chain_analysis(callers_report, target_comm)
     
-    # ========== Phase 5: Risk聚合与输出 ==========
+    # ========== Phase 5: 构建四段式输出结果 ==========
     
-    aggregator = RiskAggregator()
-    aggregator.add_risks(bottleneck_analysis.risks)
-    aggregator.add_risks(hotspots_report.risks)
-    if call_chain:
-        # 添加调用链相关的 risk（从 callers_report 获取）
-        pass
+    # 1. 构建 Entity Distribution
+    entity_distribution = _convert_to_entity_distribution(
+        bottleneck_analysis, hotspots_report
+    )
     
-    aggregated = aggregator.aggregate()
+    # 2. 构建 Call Path Clusters
+    clusters = _convert_to_call_path_clusters(
+        hotspots_report, callers_report, target_comm
+    )
     
-    # 记录到Trace（只记录一次）
-    if aggregated.level in ["critical", "warning"]:
+    # 3. 检测 Correlation Flags
+    correlation_flags = _detect_correlation_flags(
+        bottleneck_analysis, hotspots_report, callers_report
+    )
+    
+    # 4. 构建 RiskInfo
+    risk = _build_risk_info(bottleneck_analysis, correlation_flags)
+    
+    # 5. 计算摘要数据
+    top_bottlenecks = [hs.symbol for hs in hotspots_report.hotspots[:3]] if hotspots_report else []
+    
+    duration_sec = 0.0
+    if samples:
+        timestamps = [s.get('ts') for s in samples if isinstance(s, dict) and 'ts' in s]
+        if timestamps:
+            duration_sec = max(timestamps) - min(timestamps)
+    
+    # 6. 构建时间范围
+    time_range = TimeRange.from_timestamps(
+        samples[0].get('ts') if samples and isinstance(samples[0], dict) else None,
+        samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
+    )
+    
+    # 记录到 Trace（如果有严重风险）
+    if risk.level in ["critical", "warning"]:
         builder.record_risk(
-            aggregated.level,
-            f"[{target_comm}] {aggregated.message}",
-            aggregated.hint
+            risk.level,
+            f"[{target_comm}] {risk.message}",
+            risk.hint
         )
     
-    # 构建 RiskInfo，嵌入 SHECR Attention Flags
-    attention_flag = (
-        AttentionFlag.X0 if bottleneck_analysis.monopoly > Thresholds.MONOPOLY_HIGH 
-        else AttentionFlag.X1 if bottleneck_analysis.cv > Thresholds.CV_UNBALANCED 
-        else ""
-    )
-    risk = RiskInfo(
-        level=aggregated.level,
-        message=f"{attention_flag} {aggregated.message}" if attention_flag else aggregated.message,
-        hint=f"<XA> {aggregated.hint}" if aggregated.hint else "",
-        patterns=aggregated.patterns,
-        pending_targets=aggregated.pending_targets
-    )
-    
-    # 构建根因分析
-    root_cause = _build_root_cause(bottleneck_analysis, target_comm)
-    
-    # 构建建议
-    recommendations = []
-    if bottleneck_analysis.monopoly > Thresholds.MONOPOLY_HIGH:
-        recommendations.append(f"{AttentionFlag.XA} 执行 find-callers --target {hotspots_report.top_symbol} 溯源热点")
-    if bottleneck_analysis.kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
-        recommendations.append(f"{AttentionFlag.XA} 执行 cluster-paths --comm {target_comm} 分析内核调用")
-    recommendations.append(f"{AttentionFlag.XA} 执行 sys-audit 查看系统全局状态")
-    
-    # 构建输出（强类型，无裸 Dict）
-    time_range = TimeRange.from_timestamps(
-        samples[0].ts if samples else None,
-        samples[-1].ts if len(samples) > 1 else None
-    )
-    
-    output = BottleneckTraceOutput(
+    # 7. 返回四段式结果
+    return BottleneckTraceResult(
         _risk=risk,
-        target_comm=target_comm,
-        bottleneck_profile=bottleneck_profile,
-        hotspots=hotspots_output,
-        call_chain=call_chain,
-        root_cause=root_cause,
-        recommendations=recommendations,
+        entity_distribution=entity_distribution,
+        common_hotspot=hotspots_report.top_symbol if hotspots_report else "",
+        common_hotspot_weight=hotspots_report.hotspots[0].inclusive_percent if hotspots_report and hotspots_report.hotspots else 0.0,
+        clusters=clusters,
+        correlation_flags=correlation_flags,
+        total_pids=bottleneck_analysis.pid_count if bottleneck_analysis.found else 0,
+        total_sys_cpu=bottleneck_analysis.total_cpu if bottleneck_analysis.found else 0.0,
+        top_bottlenecks=top_bottlenecks,
+        duration_sec=duration_sec,
+        sample_count=len(samples),
         time_range=time_range
     )
-    
-    return output

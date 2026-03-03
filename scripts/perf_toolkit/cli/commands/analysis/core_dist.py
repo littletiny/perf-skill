@@ -18,7 +18,7 @@ from perf_toolkit.core.core_distribution_builder import (
 from perf_toolkit.analysis.core_distribution import CoreDistAnalyzer
 
 if TYPE_CHECKING:
-    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core.output_builder import OutputBuilder
     from perf_toolkit.core import PerfExpertEngine
     from argparse import Namespace
 

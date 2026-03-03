@@ -13,7 +13,7 @@ from perf_toolkit.core.output_models import (
 from perf_toolkit.analysis.path_clusters import PathClustersAnalyzer
 
 if TYPE_CHECKING:
-    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core.output_builder import OutputBuilder
     from perf_toolkit.core import PerfExpertEngine
     from argparse import Namespace
 
@@ -43,7 +43,7 @@ def cmd_cluster_paths(
         top_risk = min(result.risks, key=lambda r: RiskLevel.from_string(r.level).value)
     
     path_clusters = [
-        PathClusterItem.from_raw(
+        PathClusterItem(
             cluster_id=c.cluster_id,
             path_signature=c.path_signature,
             weight=c.weight,
