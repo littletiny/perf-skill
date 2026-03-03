@@ -35,6 +35,13 @@ class CommThreshold:
 
 
 @dataclass
+class DisplayThreshold:
+    """显示过滤阈值配置"""
+    display_min: float = 10.0      # 显示的最小 total CPU
+    sys_display_min: float = 10.0  # 显示的最小 sys CPU
+
+
+@dataclass
 class CommThresholdsConfig:
     """进程阈值配置"""
     global_threshold: CommThreshold = field(default_factory=CommThreshold)
@@ -176,6 +183,19 @@ class UnifiedConfig:
         condition3 = total_cpu > threshold.total_min and kernel_cpu > threshold.sys_critical
 
         return condition1 or condition2 or condition3
+
+    def get_display_threshold(self) -> DisplayThreshold:
+        """
+        获取显示过滤阈值配置
+        
+        Returns:
+            DisplayThreshold: 显示阈值配置
+        """
+        display_cfg = self._config_data.get('display_threshold', {})
+        return DisplayThreshold(
+            display_min=display_cfg.get('display_min', 10.0),
+            sys_display_min=display_cfg.get('sys_display_min', 10.0)
+        )
 
     @classmethod
     def reload(cls):

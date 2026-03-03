@@ -68,6 +68,13 @@
     }
   },
 
+  "display_threshold": {
+    "_comment": "显示过滤阈值 - 用于TopN列表和专家锚点",
+    "_description": "只有 total_cpu > display_min 或 kernel_cpu > sys_display_min 的进程才显示",
+    "display_min": 10.0,
+    "sys_display_min": 10.0
+  },
+
   "comm_thresholds": {
     "_comment": "进程瓶颈判定阈值配置",
     "_description": "支持全局默认值和 per-comm 定制。判定 BOTTLENECK 条件: (total > sensitive 且 sys_ratio > sys_high) 或 (total >= limit)",

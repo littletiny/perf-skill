@@ -168,14 +168,18 @@ def _build_expert_anchors(
 ) -> List[ExpertAnchor]:
     """构建专家锚点（强类型）
     
-    注意：只有 CPU 绝对值 (>10%) 或 sys 绝对值 (>10%) 高的进程才展示锚点，
-    避免低负载进程的噪音干扰。
+    注意：只有 CPU 绝对值 (>display_min) 或 sys 绝对值 (>sys_display_min) 
+    高的进程才展示锚点，避免低负载进程的噪音干扰。
+    阈值从配置 display_threshold 读取。
     """
+    from perf_toolkit.core.config_loader import get_config
+    
     anchors: List[ExpertAnchor] = []
     
-    # 阈值：只有 CPU 或 sys 绝对值高的进程才展示
-    CPU_MIN = 10.0
-    SYS_MIN = 10.0
+    # 从配置读取显示阈值
+    display_thresh = get_config().get_display_threshold()
+    CPU_MIN = display_thresh.display_min
+    SYS_MIN = display_thresh.sys_display_min
     
     # Noisy Neighbor 检测 - 过滤低负载进程
     storm_groups = [g for g in comm_top.groups 

@@ -33,6 +33,9 @@ from config.defaults import (
     DiagnosisType
 )
 
+# 导入配置加载器
+from perf_toolkit.core.config_loader import get_config
+
 
 class Template(ABC):
     """模板基类"""
@@ -819,9 +822,13 @@ class CustomTemplate(Template):
         
         # Top By Total CPU - 过滤低负载进程
         top_by_total = data_dict.get('top_by_total_cpu', [])
-        # 只显示 total > 10% 或 sys > 10% 的进程
+        # 从配置读取显示阈值
+        display_thresh = get_config().get_display_threshold()
+        display_min = display_thresh.display_min
+        sys_display_min = display_thresh.sys_display_min
+        # 只显示 total > display_min 或 sys > sys_display_min 的进程
         filtered_total = [item for item in top_by_total 
-                         if item.get('total_cpu', 0) > 10.0 or item.get('kernel_cpu', 0) > 10.0]
+                         if item.get('total_cpu', 0) > display_min or item.get('kernel_cpu', 0) > sys_display_min]
         if filtered_total:
             lines.append("### Top By Total CPU (按总 CPU 排序)")
             lines.append("")
@@ -840,9 +847,10 @@ class CustomTemplate(Template):
         
         # Top By Sys CPU - 过滤低负载进程
         top_by_sys = data_dict.get('top_by_sys_cpu', [])
-        # 只显示 total > 10% 或 sys > 10% 的进程
+        # 使用已读取的显示阈值
+        # 只显示 total > display_min 或 sys > sys_display_min 的进程
         filtered_sys = [item for item in top_by_sys 
-                       if item.get('total_cpu', 0) > 10.0 or item.get('kernel_cpu', 0) > 10.0]
+                       if item.get('total_cpu', 0) > display_min or item.get('kernel_cpu', 0) > sys_display_min]
         if filtered_sys:
             lines.append("### Top By Sys CPU (按内核态 CPU 排序)")
             lines.append("")
