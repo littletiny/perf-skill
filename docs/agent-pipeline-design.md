@@ -1,766 +1,407 @@
-# SHECR 多轮 Agent 流水线设计
+# SHECR Agent Pipeline 设计
 
-> 设计文档：三轮诊断-审计-复查流水线架构
-> 版本: 1.0
-> 创建时间: 2026-03-02
+> 设计文档：基于 Code Agent 的简化流水线架构
+> 版本: 2.0
+> 更新: 2026-03-04
 
 ---
 
-## 1. 架构总览
+## 架构总览
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        SHECR Agent Pipeline v1.0                         │
+│                     SHECR Agent Pipeline v2.0                            │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐             │
-│  │  Round 1     │     │  Round 2     │     │  Round 3     │             │
-│  │  诊断轮       │ ──→ │  审计轮       │ ──→ │  复查轮       │             │
-│  │  (Diagnose)  │     │  (Audit)     │     │  (Recheck)   │             │
+│  │  diagnose    │ ──→ │    audit     │ ──→ │   recheck    │             │
+│  │  (coder)     │     │   (coder)    │     │   (coder)    │             │
 │  └──────┬───────┘     └──────┬───────┘     └──────┬───────┘             │
 │         │                    │                    │                     │
-│    输入: perf.data      输入: .shecr.json    输入: audit_report.json    │
-│         + 症状描述           + timeline           + gaps_found          │
-│                              + issues             + original_data       │
+│    input: template      input: template      input: template            │
 │         ↓                    ↓                    ↓                     │
-│    输出: .shecr.json    输出: audit_report    输出: final_report        │
-│         + debug/*.md         (通过/失败/建议)      + 确认/修正结论        │
+│    vars: {{DATA}}       vars: {{diagnose.      vars: {{audit.           │
+│         {{output.xxx}}        output.report}}        output.report}}    │
+│         ↓                    ↓                    ↓                     │
+│    output: report       output: report       output: report             │
 │                                                                          │
 │  ═══════════════════════════════════════════════════════════════════    │
-│  终止条件: audit_passed=true  OR  max_rounds=2 (防止无限循环)             │
-│                                                                          │
+│  条件执行: when: "{{audit.status}} == 'failed'"                          │
+│  变量语法: {{var}} 或 {{stage.output.key}}                                │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. 流水线数据流
+## 核心概念
 
-### 2.1 数据流转图
+### Stage
+
+每个 stage 是一个独立的 Code Agent 执行单元：
+
+```yaml
+stage_name:
+  when: "执行条件"           # 可选，条件满足时才执行
+  agent:                     # Agent 配置
+    system_prompt: "..."
+    allowed_dirs: ["..."]
+    default_permissions: "read-write"
+  vars:                      # Stage 变量
+    input.template: "prompts/input.txt"
+    output.report: "{{WORK_DIR}}/report.md"
+```
+
+### 变量系统
+
+支持 `{{var}}` 语法（Jinja2 风格）：
+
+| 类型 | 语法 | 示例 |
+|------|------|------|
+| 普通变量 | `{{VAR_NAME}}` | `{{WORK_DIR}}` → `./output` |
+| Stage 输出 | `{{stage.output.key}}` | `{{diagnose.output.report}}` |
+| Stage 状态 | `{{stage.status}}` | `{{audit.status}}` → `failed` |
+| Stage 退出码 | `{{stage.exit_code}}` | `{{diagnose.exit_code}}` → `0` |
+
+### 执行条件
+
+使用 `when` 字段控制 stage 是否执行：
+
+```yaml
+recheck:
+  when: "{{audit.status}} == 'failed'"
+```
+
+支持的操作：
+- 比较：`==`, `!=`, `>`, `<`, `>=`, `<=`
+- 存在检查：`exists({{file}})`
+- 逻辑：`not()`, `and`, `or`
+
+---
+
+## 数据流
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                          Shared Context                                │
+│                          Config + Templates                            │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
-│  │  context/   │  │  context/   │  │  context/   │  │  context/   │   │
-│  │  perf.data  │  │  .shecr.json│  │  audit_rpt  │  │  final_rpt  │   │
-│  │  (原始数据)  │  │  (trace记录)│  │  (审计报告)  │  │  (最终报告)  │   │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘   │
-│         ↑               ↑               ↑               ↑              │
-└─────────┼───────────────┼───────────────┼───────────────┼──────────────┘
-          │               │               │               │
-    ┌─────┴─────┐   ┌─────┴─────┐   ┌─────┴─────┐   ┌─────┴─────┐
-    │  Agent 1  │   │  Agent 2  │   │  Agent 3  │   │  Final    │
-    │  Diagnose │ → │  Audit    │ → │  Recheck  │ → │  Export   │
-    │  (诊断员)  │   │  (审计员)  │   │  (复查员)  │   │  (报告)   │
-    └───────────┘   └───────────┘   └───────────┘   └───────────┘
-          │               │               │
-          └───────────────┴───────────────┘
-                      ↓
-            ┌─────────────────┐
-            │   Controller    │
-            │  (流水线控制器)  │
-            └─────────────────┘
-```
-
-### 2.2 各轮数据格式
-
-#### Round 1 输出: `.shecr.json`
-
-```json
-{
-  "version": "2.0",
-  "data_file": "perf.data",
-  "created_at": "2026-03-02T10:00:00Z",
-  "updated_at": "2026-03-02T10:30:00Z",
-  "timeline": [
-    {
-      "seq": 1,
-      "type": "command",
-      "command": "get-comm-top --data perf.data",
-      "timestamp": "2026-03-02T10:00:00Z",
-      "findings": [
-        {
-          "type": "risk_created",
-          "level": "warning",
-          "desc": "netstat 高内核态 94.7%",
-          "issue_id": "ISS-001"
-        }
-      ]
-    },
-    {
-      "seq": 2,
-      "type": "command",
-      "command": "cluster-symbols --comm netstat",
-      "timestamp": "2026-03-02T10:05:00Z",
-      "findings": [
-        {
-          "type": "info",
-          "message": "LOCK_CONTENTION 38.36%"
-        }
-      ]
-    }
-  ],
-  "issues": {
-    "ISS-001": {
-      "id": "ISS-001",
-      "desc": "netstat 高内核态 94.7%",
-      "level": "warning",
-      "status": "resolved",
-      "created_at": "2026-03-02T10:00:00Z",
-      "created_by_seq": 1,
-      "resolved_at": "2026-03-02T10:05:00Z",
-      "resolved_by_seq": 2,
-      "result": "根因: /proc/net/tcp 锁竞争，详见 debug/netstat_analysis.md"
-    }
-  },
-  "round_info": {
-    "round": 1,
-    "agent": "diagnose",
-    "symptom": "系统响应慢，CPU高"
-  }
-}
-```
-
-#### Round 2 输出: `audit_report.json`
-
-```json
-{
-  "audit_time": "2026-03-02T10:35:00Z",
-  "auditor": "audit_agent_v1",
-  "source_round": 1,
-  "summary": {
-    "total_issues": 3,
-    "passed": 2,
-    "failed": 1,
-    "warnings": 0,
-    "pass_rate": "66.7%"
-  },
-  "checks": {
-    "structural": {
-      "status": "passed",
-      "items": [
-        {"check": "all_resolved_have_result", "status": "passed"},
-        {"check": "no_empty_result", "status": "passed"}
-      ]
-    },
-    "timeline": {
-      "status": "passed",
-      "items": [
-        {"check": "has_analysis_commands", "status": "passed"},
-        {"check": "result_consistency", "status": "passed"}
-      ]
-    },
-    "depth": {
-      "status": "failed",
-      "items": [
-        {"check": "three_hypotheses", "status": "failed", "issue": "ISS-002"},
-        {"check": "driver_analysis", "status": "passed"},
-        {"check": "trace_to_source", "status": "warning", "issue": "ISS-003"}
-      ]
-    },
-    "documentation": {
-      "status": "passed",
-      "items": [
-        {"check": "debug_md_exists", "status": "passed"},
-        {"check": "hypothesis_table", "status": "passed"}
-      ]
-    }
-  },
-  "failed_issues": [
-    {
-      "id": "ISS-002",
-      "reason": "缺少三候选假设验证",
-      "current_result": "锁竞争导致性能下降",
-      "expected": "应列出被排除的假设，如算法复杂度、资源配置等",
-      "severity": "critical",
-      "action": "reopen_and_enhance"
-    }
-  ],
-  "warnings": [
-    {
-      "id": "ISS-003",
-      "reason": "溯源深度不足",
-      "detail": "未使用 find-callers 定位调用链",
-      "severity": "warning",
-      "action": "suggest_enhance"
-    }
-  ],
-  "gaps": [
-    {
-      "type": "missing_hypotheses",
-      "issue_id": "ISS-002",
-      "suggestion": "补充架构维度和环境维度的假设验证"
-    },
-    {
-      "type": "insufficient_trace",
-      "issue_id": "ISS-003",
-      "suggestion": "执行 find-callers --target <lock_func>"
-    }
-  ],
-  "overall_status": "failed",
-  "recommendation": "需要复查轮补充分析"
-}
-```
-
-#### Round 3 输出: `final_report.json`
-
-```json
-{
-  "report_time": "2026-03-02T11:00:00Z",
-  "round": 3,
-  "previous_audit": "audit_report.json",
-  "summary": {
-    "original_issues": 3,
-    "enhanced_issues": 2,
-    "confirmed_issues": 3,
-    "final_conclusion": "confirmed"
-  },
-  "enhancements": [
-    {
-      "issue_id": "ISS-002",
-      "enhancement": "补充三候选假设验证",
-      "original": "锁竞争导致性能下降",
-      "enhanced": "根因为锁竞争（排除算法复杂度、排除CPU限制）- 详见假设追踪表",
-      "verification": "confirmed"
-    },
-    {
-      "issue_id": "ISS-003",
-      "enhancement": "补充调用链溯源",
-      "action": "执行 find-callers --target pthread_mutex_lock",
-      "result": "定位到 mysql_query 调用路径",
-      "verification": "confirmed"
-    }
-  ],
-  "conclusions": [
-    {
-      "issue_id": "ISS-001",
-      "root_cause": "netstat 进程风暴导致 /proc/net/tcp 锁竞争",
-      "confidence": "high"
-    },
-    {
-      "issue_id": "ISS-002",
-      "root_cause": "containerd-shim 频繁状态检查引发内核态开销",
-      "confidence": "high"
-    }
-  ],
-  "pipeline_meta": {
-    "total_rounds": 3,
-    "audit_passed": true,
-    "termination_reason": "audit_passed"
-  }
-}
+│  │ config.yaml │  │ diagnose_   │  │ audit_      │  │ recheck_    │   │
+│  │             │  │ input.txt   │  │ input.txt   │  │ input.txt   │   │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘   │
+│         │                │                │                │          │
+│         └────────────────┴────────────────┴────────────────┘          │
+│                          ↓                                             │
+│                   ┌─────────────┐                                      │
+│                   │  Pipeline   │                                      │
+│                   │  Runner     │                                      │
+│                   └──────┬──────┘                                      │
+│                          ↓                                             │
+│         ┌────────────────┼────────────────┐                           │
+│         ↓                ↓                ↓                           │
+│    ┌─────────┐     ┌─────────┐     ┌─────────┐                       │
+│    │ Stage 1 │ ──→ │ Stage 2 │ ──→ │ Stage 3 │                       │
+│    │(render  │     │(render  │     │(render  │                       │
+│    │ template│     │ template│     │ template│                       │
+│    │ + vars) │     │ + vars) │     │ + vars) │                       │
+│    └────┬────┘     └────┬────┘     └────┬────┘                       │
+│         ↓                ↓                ↓                           │
+│    ┌─────────┐     ┌─────────┐     ┌─────────┐                       │
+│    │ output/ │     │ output/ │     │ output/ │                       │
+│    │diagnose │     │ audit   │     │ recheck │                       │
+│    └─────────┘     └─────────┘     └─────────┘                       │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Agent 角色定义
+## 配置文件格式
 
-### 3.1 Round 1: 诊断 Agent (DiagnoseAgent)
+### 完整示例
 
-**角色描述**: 执行 SHECR 诊断流程，记录完整 trace
+```yaml
+# Pipeline 定义：stage 名称用 " - " 连接
+pipeline: diagnose - audit - recheck
 
-**输入**:
-```json
-{
-  "perf_data": "path/to/perf.data",
-  "symptom": "用户描述的故障症状",
-  "context": "额外上下文信息"
-}
+# 全局变量（所有 stage 可用，stage 可覆盖）
+vars:
+  DATA_FILE: "/path/to/perf.data"
+  WORK_DIR: "./output"
+  DATA_DIR: "./data"
+  SYMPTOM: "系统响应慢，CPU使用率100%"
+
+# 全局 Agent 配置（作为 stage 的默认值）
+agent:
+  system_prompt: "prompts/default_system.md"
+  allowed_dirs:
+    - "{{WORK_DIR}}"
+    - "{{DATA_DIR}}"
+  default_permissions: "read-write"
+  timeout: 300
+  model: "kimi"
+  working_dir: "{{WORK_DIR}}"
+
+# Stage 1: 诊断
+diagnose:
+  agent:
+    system_prompt: "prompts/diagnose_system.md"
+    allowed_dirs:
+      - "{{WORK_DIR}}/diagnose"
+      - "{{DATA_DIR}}"
+    timeout: 600
+  vars:
+    ROLE: "性能诊断专家"
+    input.template: "prompts/diagnose_input.txt"
+    output.report: "{{WORK_DIR}}/diagnose/report.md"
+
+# Stage 2: 审计
+audit:
+  agent:
+    system_prompt: "prompts/audit_system.md"
+    default_permissions: "read-only"
+  vars:
+    ROLE: "诊断审计员"
+    input.template: "prompts/audit_input.txt"
+    input.report: "{{diagnose.output.report}}"  # 引用 diagnose 的输出
+    output.report: "{{WORK_DIR}}/audit/report.md"
+
+# Stage 3: 复查（仅在审计失败时执行）
+recheck:
+  when: "{{audit.status}} == 'failed'"
+  agent:
+    system_prompt: "prompts/recheck_system.md"
+    timeout: 600
+  vars:
+    ROLE: "复查专家"
+    input.template: "prompts/recheck_input.txt"
+    input.diagnose: "{{diagnose.output.report}}"
+    input.audit: "{{audit.output.report}}"
+    output.report: "{{WORK_DIR}}/recheck/final_report.md"
 ```
 
-**执行流程**:
-1. 初始化 trace: `shecr trace init --data perf.data`
-2. 执行标准 SHECR 诊断流程（7 Phase）
-3. 自动记录每个命令执行到 timeline
-4. 对每个 issue 进行分析和 complete
-5. 生成 debug/*.md 诊断文档
+### 配置字段说明
 
-**输出**: `.shecr.json` + `debug/*.md`
+#### 顶层字段
 
-**系统 Prompt 核心**:
-```
-你是一个 SHECR 性能诊断专家。你的任务是：
-1. 严格遵循 SHECR 7 Phase 诊断流程
-2. 每执行一个诊断命令，确保 trace 自动记录
-3. 对每个发现的 issue，必须提供详细的分析结果
-4. 在 debug/*.md 中维护三候选假设追踪表
-5. 完成所有 open issues 后才能结束
-
-约束：
-- result 不能为空或敷衍（如"ok"/"done"）
-- 必须引用具体的 debug/*.md 文档
-- 必须体现因果推导过程
-```
-
----
-
-### 3.2 Round 2: 审计 Agent (AuditAgent)
-
-**角色描述**: 独立审计员，验证诊断质量
-
-**输入**:
-```json
-{
-  "shecr_json": ".shecr.json",
-  "debug_dir": "debug/",
-  "audit_config": {
-    "phases": ["structural", "timeline", "depth", "documentation"],
-    "strict_mode": true
-  }
-}
-```
-
-**执行流程**:
-1. 读取 `.shecr.json` 解析 timeline 和 issues
-2. 执行四阶段检查（见下方）
-3. 对每个 issue 生成审计结果
-4. 识别 gaps 并生成改进建议
-5. 输出 audit_report.json
-
-**四阶段检查**:
-
-| 阶段 | 检查项 | 失败处理 |
-|------|--------|---------|
-| **Phase 1: 结构完整性** | result 非空、非敷衍标记 | Critical - 必须 reopen |
-| **Phase 2: Timeline 关联** | 有 analysis commands 支撑 | Failed - 要求补充分析 |
-| **Phase 3: 分析深度** | 三候选假设、驱动力、溯源 | Failed - 要求增强 |
-| **Phase 4: 文档一致性** | debug/*.md 存在且完整 | Warning - 建议完善 |
-
-**输出**: `audit_report.json`
-
-**系统 Prompt 核心**:
-```
-你是一个独立的 SHECR 诊断审计员。你的任务是：
-1. 客观验证第一轮诊断的质量
-2. 检查结构完整性、timeline 关联、分析深度、文档一致性
-3. 识别任何敷衍或不完整的分析
-4. 生成明确的 gaps 列表和改进建议
-
-原则：
-- 你是独立审计员，不是诊断工程师
-- 严格要求三候选准则和因果推导
-- 任何不合格的分析都必须标记为 failed
-- 提供具体的修复建议
-```
-
----
-
-### 3.3 Round 3: 复查 Agent (RecheckAgent)
-
-**角色描述**: 根据审计结果补充分析和验证
-
-**输入**:
-```json
-{
-  "audit_report": "audit_report.json",
-  "shecr_json": ".shecr.json",
-  "perf_data": "path/to/perf.data",
-  "gaps": [
-    {"type": "missing_hypotheses", "issue_id": "ISS-002"},
-    {"type": "insufficient_trace", "issue_id": "ISS-003"}
-  ]
-}
-```
-
-**执行流程**:
-1. 读取 audit_report 识别 failed/warning issues
-2. 针对每个 gap 补充分析
-3. 更新 `.shecr.json` 中的 issue result
-4. 更新 debug/*.md 诊断文档
-5. 验证所有问题是否已充分解决
-6. 生成 final_report.json
-
-**输出**: 更新后的 `.shecr.json` + `final_report.json`
-
-**系统 Prompt 核心**:
-```
-你是一个 SHECR 诊断复查专家。你的任务是：
-1. 根据审计报告中的 gaps 补充分析
-2. 对标记为 failed 的 issue 进行深度增强
-3. 验证三候选假设是否完整
-4. 补充缺失的溯源分析（如 find-callers）
-5. 确保所有结论都有充分证据支撑
-
-约束：
-- 必须解决所有 audit failed 的问题
-- 更新 result 时要引用分析命令和时间线
-- 保持与原始诊断的连贯性
-- 最终结论必须明确、可验证
-```
-
----
-
-## 4. 流水线控制器 (PipelineController)
-
-### 4.1 职责
-
-- 管理多轮 Agent 的调度
-- 维护共享上下文
-- 决定终止条件
-- 处理异常和重试
-
-### 4.2 状态机
-
-```
-                    ┌─────────────┐
-                    │    Idle     │
-                    └──────┬──────┘
-                           │ init()
-                           ↓
-                    ┌─────────────┐
-           ┌──────→│   Round 1   │────────┐
-           │       │  Diagnosing │        │
-           │       └─────────────┘        │
-           │              │               │
-           │       completed              │
-           │              ↓               │
-           │       ┌─────────────┐        │
-           │       │   Round 2   │        │
-           │       │   Auditing  │        │
-           │       └──────┬──────┘        │
-           │              │               │
-           │    ┌─────────┴─────────┐     │
-           │    │                   │     │
-           │ failed              passed    │
-           │    │                   │      │
-           │    ↓                   ↓      │
-           │ ┌─────────┐      ┌─────────┐  │
-           └─┤ Round 3 │      │  Final  │←─┘
-             │ Recheck │      │ Export  │
-             └────┬────┘      └─────────┘
-                  │
-            completed
-                  ↓
-             ┌─────────┐
-             │  Final  │
-             │ Export  │
-             └─────────┘
-```
-
-### 4.3 终止条件
-
-| 条件 | 说明 | 输出 |
+| 字段 | 必需 | 说明 |
 |------|------|------|
-| `audit_passed=true` | 第二轮审计通过 | 直接生成最终报告 |
-| `max_rounds=2` | 已完成两轮（诊断+审计+复查）| 生成最终报告（含风险提示）|
-| `no_improvement` | 复查轮未解决任何问题 | 终止并标记为 failed |
-| `timeout` | 总耗时超过阈值 | 终止并标记为 timeout |
+| `pipeline` | 是 | Stage 定义，用 `-` 连接 |
+| `vars` | 否 | 全局变量 |
+| `agent` | 否 | 全局 Agent 配置 |
 
-### 4.4 Python 实现框架
+#### Agent 配置
 
-```python
-# pipeline/controller.py
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `system_prompt` | string | - | System prompt 文件路径 |
+| `allowed_dirs` | list | [] | 允许访问的目录列表 |
+| `default_permissions` | string | read-write | read-only/read-write/write-only |
+| `timeout` | int | 300 | 超时时间（秒） |
+| `model` | string | kimi | 模型名称 |
+| `working_dir` | string | - | 工作目录 |
 
-from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List, Optional
-import json
+#### Stage 配置
 
+| 字段 | 必需 | 说明 |
+|------|------|------|
+| `when` | 否 | 执行条件 |
+| `agent` | 否 | Stage 级 Agent 配置（覆盖全局） |
+| `vars` | 否 | Stage 变量（覆盖全局同名变量） |
 
-class PipelineStatus(Enum):
-    IDLE = "idle"
-    ROUND1_DIAGNOSING = "round1_diagnosing"
-    ROUND2_AUDITING = "round2_auditing"
-    ROUND3_RECHECKING = "round3_rechecking"
-    COMPLETED = "completed"
-    FAILED = "failed"
+### Input 模板
 
+**diagnose_input.txt:**
+```
+你是{{ROLE}}，请分析数据文件 {{DATA_FILE}}。
 
-@dataclass
-class PipelineConfig:
-    max_rounds: int = 2  # 最多几轮（诊断+审计算一轮）
-    timeout_seconds: int = 3600
-    strict_audit: bool = True
-    auto_recheck: bool = True  # 审计失败自动进入复查轮
+症状描述：{{SYMPTOM}}
 
+输出诊断报告到：{{output.report}}
 
-@dataclass
-class PipelineContext:
-    perf_data: str
-    symptom: str
-    work_dir: str
-    round_num: int = 0
-    status: PipelineStatus = PipelineStatus.IDLE
-    artifacts: Dict[str, str] = None  # 各轮输出文件路径
-    
-    def __post_init__(self):
-        if self.artifacts is None:
-            self.artifacts = {}
-
-
-class PipelineController:
-    """SHECR Agent Pipeline 控制器"""
-    
-    def __init__(self, config: PipelineConfig = None):
-        self.config = config or PipelineConfig()
-        self.context: Optional[PipelineContext] = None
-        
-    def init(self, perf_data: str, symptom: str, work_dir: str):
-        """初始化流水线上下文"""
-        self.context = PipelineContext(
-            perf_data=perf_data,
-            symptom=symptom,
-            work_dir=work_dir
-        )
-        return self
-    
-    def run_round1_diagnose(self, agent: 'DiagnoseAgent') -> Dict:
-        """执行第一轮诊断"""
-        self.context.status = PipelineStatus.ROUND1_DIAGNOSING
-        self.context.round_num = 1
-        
-        result = agent.run(
-            perf_data=self.context.perf_data,
-            symptom=self.context.symptom,
-            work_dir=self.context.work_dir
-        )
-        
-        self.context.artifacts['round1_shecr_json'] = result['shecr_json']
-        self.context.artifacts['round1_debug_dir'] = result['debug_dir']
-        
-        return result
-    
-    def run_round2_audit(self, agent: 'AuditAgent') -> Dict:
-        """执行第二轮审计"""
-        self.context.status = PipelineStatus.ROUND2_AUDITING
-        
-        shecr_json = self.context.artifacts['round1_shecr_json']
-        debug_dir = self.context.artifacts['round1_debug_dir']
-        
-        result = agent.run(
-            shecr_json=shecr_json,
-            debug_dir=debug_dir
-        )
-        
-        self.context.artifacts['audit_report'] = result['audit_report']
-        self.context.artifacts['audit_passed'] = result['overall_status'] == 'passed'
-        
-        return result
-    
-    def run_round3_recheck(self, agent: 'RecheckAgent') -> Dict:
-        """执行第三轮复查"""
-        self.context.status = PipelineStatus.ROUND3_RECHECKING
-        self.context.round_num = 3
-        
-        result = agent.run(
-            audit_report=self.context.artifacts['audit_report'],
-            shecr_json=self.context.artifacts['round1_shecr_json'],
-            perf_data=self.context.perf_data,
-            work_dir=self.context.work_dir
-        )
-        
-        self.context.artifacts['final_report'] = result['final_report']
-        
-        return result
-    
-    def should_continue(self) -> bool:
-        """判断是否继续下一轮"""
-        # 审计通过，无需继续
-        if self.context.artifacts.get('audit_passed'):
-            return False
-        
-        # 已达最大轮数
-        if self.context.round_num >= self.config.max_rounds * 2 - 1:
-            return False
-        
-        # 配置了自动复查
-        if not self.config.auto_recheck:
-            return False
-        
-        return True
-    
-    def run(self, 
-            diagnose_agent: 'DiagnoseAgent',
-            audit_agent: 'AuditAgent',
-            recheck_agent: 'RecheckAgent') -> Dict:
-        """运行完整流水线"""
-        
-        # Round 1: 诊断
-        round1_result = self.run_round1_diagnose(diagnose_agent)
-        
-        # Round 2: 审计
-        audit_result = self.run_round2_audit(audit_agent)
-        
-        # 判断是否进入 Round 3
-        if self.should_continue():
-            # Round 3: 复查
-            final_result = self.run_round3_recheck(recheck_agent)
-            
-            # 可选：再次审计复查结果
-            # second_audit = self.run_round2_audit(audit_agent)
-        else:
-            final_result = {
-                'status': 'completed',
-                'audit_passed': self.context.artifacts.get('audit_passed', False),
-                'reason': 'audit_passed' if self.context.artifacts.get('audit_passed') else 'no_recheck_needed'
-            }
-        
-        self.context.status = PipelineStatus.COMPLETED
-        
-        return {
-            'context': self.context,
-            'artifacts': self.context.artifacts,
-            'final_status': 'success'
-        }
+要求：
+1. 识别所有性能瓶颈
+2. 提供三候选假设验证
+3. 进行调用链溯源
 ```
 
 ---
 
-## 5. 使用示例
+## 执行流程
 
-### 5.1 完整流水线调用
+### 变量解析流程
 
-```python
-# 使用示例
-from pipeline.controller import PipelineController, PipelineConfig
-from pipeline.agents import DiagnoseAgent, AuditAgent, RecheckAgent
-
-# 配置
-config = PipelineConfig(
-    max_rounds=2,
-    strict_audit=True,
-    auto_recheck=True
-)
-
-# 创建控制器
-controller = PipelineController(config)
-controller.init(
-    perf_data="/path/to/perf.data",
-    symptom="系统响应慢，CPU使用率100%",
-    work_dir="./diagnosis_case_001"
-)
-
-# 创建 Agents
-diagnose_agent = DiagnoseAgent(model="claude-3-5-sonnet")
-audit_agent = AuditAgent(model="claude-3-5-sonnet")
-recheck_agent = RecheckAgent(model="claude-3-5-sonnet")
-
-# 运行流水线
-result = controller.run(
-    diagnose_agent=diagnose_agent,
-    audit_agent=audit_agent,
-    recheck_agent=recheck_agent
-)
-
-# 查看结果
-print(f"最终状态: {result['final_status']}")
-print(f"审计通过: {result['artifacts'].get('audit_passed')}")
-print(f"最终报告: {result['artifacts'].get('final_report')}")
+```
+1. 合并变量（全局 + Stage）
+   ↓
+2. 递归解析变量引用（{{var}} → 值）
+   ↓
+3. 解析 Stage 输出引用（{{stage.output.xxx}}）
+   ↓
+4. 替换 input.template 中的变量
+   ↓
+5. 生成最终任务文件
 ```
 
-### 5.2 CLI 使用方式
+### Stage 执行流程
+
+```
+1. 评估 when 条件
+   - 条件不满足 → 跳过 stage（status=skipped）
+   - 条件满足 → 继续执行
+   
+2. 读取 input.template
+   ↓
+3. 渲染模板（变量替换）
+   ↓
+4. 构建 Agent Prompt
+   - 添加 system_prompt
+   - 添加环境信息（permissions, allowed_dirs）
+   - 添加渲染后的任务内容
+   ↓
+5. 调用 Code Agent（coder subagent）
+   ↓
+6. 记录执行结果
+   - status: success/failed/skipped
+   - exit_code
+   - outputs（所有 output.* 变量）
+```
+
+---
+
+## Python 实现
+
+### 核心类
+
+```python
+# pipeline/pipeline.py
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+
+
+@dataclass
+class AgentConfig:
+    """Agent 配置"""
+    system_prompt: Optional[str] = None
+    allowed_dirs: List[str] = field(default_factory=list)
+    default_permissions: str = "read-write"
+    timeout: int = 300
+    model: str = "kimi"
+    working_dir: Optional[str] = None
+
+
+@dataclass
+class StageConfig:
+    """Stage 配置"""
+    name: str
+    agent: AgentConfig
+    vars: Dict[str, str] = field(default_factory=dict)
+    when: Optional[str] = None
+
+
+@dataclass
+class StageResult:
+    """Stage 执行结果"""
+    status: str  # success / failed / skipped
+    exit_code: int
+    outputs: Dict[str, str] = field(default_factory=dict)
+
+
+class PipelineRunner:
+    """Pipeline 运行器"""
+    
+    def __init__(self, config_file: str):
+        self.config_file = Path(config_file)
+        self.config = self._load_config()
+        self.results: Dict[str, StageResult] = {}
+    
+    def _replace_vars(self, content: str, vars_dict: Dict[str, str]) -> str:
+        """替换 {{var}} 变量"""
+        ...
+    
+    def _check_condition(self, condition: str) -> bool:
+        """评估 when 条件"""
+        ...
+    
+    def _run_stage(self, stage_name: str, stage_config: StageConfig) -> StageResult:
+        """执行单个 stage"""
+        ...
+    
+    def run(self):
+        """运行完整 pipeline"""
+        ...
+```
+
+---
+
+## 使用示例
+
+### CLI 使用
 
 ```bash
-# 运行完整流水线
-shecr pipeline run \
-  --data perf.data \
-  --symptom "系统响应慢" \
-  --work-dir ./case_001 \
-  --max-rounds 2
+# 运行 pipeline
+python pipeline/pipeline.py config.yaml
 
-# 只运行诊断轮
-shecr pipeline diagnose \
-  --data perf.data \
-  --symptom "CPU高" \
-  --output ./case_001
+# 输出示例:
+# Pipeline: diagnose -> audit -> recheck
+#
+# [STAGE] diagnose
+#   Agent: kimi
+#   Permissions: read-write
+#   Task file: ./output/.pipeline_diagnose_task.txt
+#   Running agent...
+#   Agent completed
+#   Output: output.report -> ./output/diagnose/report.md
+#
+# [STAGE] audit
+#   Agent: kimi
+#   Permissions: read-only
+#   ...
+#
+# [STAGE] recheck
+#   SKIPPED (condition: {{audit.status}} == 'failed')
+#
+# ============================================================
+# Pipeline Summary:
+#   ✓ diagnose: success
+#   ✓ audit: success
+#   ○ recheck: skipped
+#
+# [COMPLETE] Pipeline 'diagnose - audit - recheck' finished successfully
+```
 
-# 只运行审计轮（基于已有诊断）
-shecr pipeline audit \
-  --shecr-json ./case_001/.shecr.json \
-  --output ./case_001/audit_report.json
+### 条件执行示例
 
-# 运行复查轮（基于审计结果）
-shecr pipeline recheck \
-  --audit-report ./case_001/audit_report.json \
-  --output ./case_001/final_report.json
+```yaml
+# 复杂条件示例
+recheck:
+  when: "{{audit.status}} == 'failed' and {{diagnose.issue_count}} > 0"
+
+# 文件存在检查
+enhance:
+  when: "exists({{audit.output.gaps_file}})"
+
+# 逻辑组合
+critical_review:
+  when: "({{audit.failed_count}} > 3) or ({{diagnose.exit_code}} != 0)"
 ```
 
 ---
 
-## 6. 与其他组件的集成
+## 与旧版对比
 
-### 6.1 与现有 shecr trace 集成
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    现有 SHECR Trace                         │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
-│  │  init   │  │  add    │  │ complete│  │ finalize│        │
-│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
-│       └─────────────┴─────────────┴─────────────┘           │
-│                     ↓                                       │
-│              ┌─────────────┐                                │
-│              │ .shecr.json │                                │
-│              └─────────────┘                                │
-└─────────────────────────────────────────────────────────────┘
-                              ↑
-                              │ 读取/写入
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                   Pipeline Agents                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ DiagnoseAgent│  │ AuditAgent  │  │RecheckAgent │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 6.2 Agent 调用现有工具
-
-```python
-# DiagnoseAgent 内部实现示例
-class DiagnoseAgent:
-    def run(self, perf_data: str, symptom: str, work_dir: str):
-        # 1. 初始化
-        self.run_shecr_command(f"trace init --data {perf_data}")
-        
-        # 2. 执行诊断命令（自动记录到 trace）
-        self.run_shecr_command("get-comm-top")
-        self.run_shecr_command("check-cpu-bottleneck")
-        
-        # 3. 查看 open issues
-        issues = self.run_shecr_command("trace issues --status open --format json")
-        
-        # 4. 分析每个 issue 并 complete
-        for issue in issues['pending']:
-            self.analyze_issue(issue)
-            self.run_shecr_command(f"trace complete --id {issue['id']} --result '{result}'")
-        
-        # 5. 生成 debug/*.md
-        self.generate_debug_doc()
-        
-        return {'shecr_json': f'{work_dir}/.shecr.json'}
-```
+| 特性 | 旧版 Pipeline (v1.0) | 新版 Pipeline (v2.0) |
+|------|---------------------|---------------------|
+| Agent 实现 | 自定义 Python 类 | Code Agent (coder subagent) |
+| 配置方式 | 代码内定义 | YAML 配置文件 |
+| 输入方式 | 复杂数据结构 | 模板文件 + 变量替换 |
+| 变量语法 | 无 | `{{var}}` (Jinja2 风格) |
+| 条件执行 | 内置逻辑 | `when` 字段显式配置 |
+| 权限控制 | 内置 | Agent 配置 (allowed_dirs, permissions) |
+| 灵活性 | 低（固定流程） | 高（任意 stage 定义） |
 
 ---
 
-## 7. 质量度量
+## 参考
 
-### 7.1 流水线级指标
-
-| 指标 | 计算方式 | 目标 |
-|------|---------|------|
-| 首次通过率 | audit_passed=true / 总运行数 | > 70% |
-| 复查成功率 | 复查后通过 / 首次失败数 | > 90% |
-| 平均轮数 | 总轮数 / 总运行数 | < 2.5 |
-| 平均耗时 | 总耗时 / 总运行数 | < 30min |
-
-### 7.2 Agent 级指标
-
-| Agent | 指标 | 说明 |
-|-------|------|------|
-| DiagnoseAgent | issue 覆盖率 | 发现的真实问题 / 总问题 |
-| DiagnoseAgent | result 完整度 | 有详细 result 的 issue / 总 issue |
-| AuditAgent | 误报率 | 错误标记 failed / 总审计数 |
-| AuditAgent | 漏检率 | 未发现的真正问题 / 总问题 |
-| RecheckAgent | 修复成功率 | 成功修复的 gap / 总 gaps |
-
----
-
-## 8. 参考文档
-
-- [audit-process.md](./audit-process.md) - 审计流程详细规范
-- [design-rationale-trace-v2.md](./design-rationale-trace-v2.md) - Trace v2.0 设计
-- [trace-interface.md](./trace-interface.md) - Trace CLI 接口
+- [agent-pipeline-usage.md](./agent-pipeline-usage.md) - 使用指南
+- [../pipeline/README.md](../pipeline/README.md) - 实现文档
 - [../SKILL.md](../SKILL.md) - SHECR 方法论
-- [../references/workflow.md](../references/workflow.md) - 7 Phase 分析流程

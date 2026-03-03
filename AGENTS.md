@@ -31,6 +31,28 @@ perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-dri
 
 📁 **完整目录结构**: `docs/project-structure.md`
 
+📁 **Pipeline 模块**: `pipeline/README.md`
+
+简化版 Code Agent 流水线，支持 YAML 配置、变量替换、条件执行：
+
+```yaml
+pipeline: diagnose - audit - recheck
+
+vars:
+  WORK_DIR: "./output"
+
+audit:
+  agent:
+    default_permissions: "read-only"
+  vars:
+    input.report: "{{diagnose.output.report}}"
+
+recheck:
+  when: "{{audit.status}} == 'failed'"
+  vars:
+    input.audit: "{{audit.output.report}}"
+```
+
 📘 **分层接口规范**:
 - `docs/interface-core.md` - Core Layer 接口
 - `docs/interface-analysis.md` - Analysis Layer 接口

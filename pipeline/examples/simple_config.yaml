@@ -1,0 +1,32 @@
+# 简化版 Pipeline 配置示例
+# 展示 when 条件的基本用法
+
+pipeline: analyze - report
+
+vars:
+  DATA_FILE: "./data/perf.data"
+  WORK_DIR: "./output"
+
+agent:
+  allowed_dirs:
+    - "{{WORK_DIR}}"
+  default_permissions: "read-write"
+  timeout: 300
+
+# Stage 1: 分析（始终执行）
+analyze:
+  vars:
+    ROLE: "数据分析师"
+    input.template: "prompts/analyze_input.txt"
+    output.result: "{{WORK_DIR}}/analyze/result.json"
+    output.has_error: "{{WORK_DIR}}/analyze/has_error.txt"
+
+# Stage 2: 生成报告
+# 根据分析结果决定是否执行详细报告
+report:
+  when: "not(exists({{analyze.output.has_error}}))"
+  vars:
+    ROLE: "报告撰写员"
+    input.template: "prompts/report_input.txt"
+    input.result: "{{analyze.output.result}}"
+    output.report: "{{WORK_DIR}}/report/summary.md"
