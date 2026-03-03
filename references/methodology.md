@@ -510,7 +510,7 @@ shecr bottleneck-trace --comm <name> --verbose
 | `--start-time` | 开始时间（ISO 8601） | - |
 | `--end-time` | 结束时间（ISO 8601） | - |
 
-📘 **详细规范**: [`docs/tool-bottleneck-trace.md`](../docs/tool-bottleneck-trace.md)
+📘 **详细规范**: [`docs/report/tool-bottleneck-trace.md`](../docs/report/tool-bottleneck-trace.md)
 
 ---
 
@@ -579,4 +579,4 @@ ELSE IF (症状局限于单个进程):
 | [SKILL.md](../SKILL.md) | 快速开始、场景速查 |
 | [tools.md](./tools.md) | 命令参数详细参考 |
 | [templates.md](./templates.md) | 诊断报告模板 |
-| [design-three-tier-architecture.md](../docs/design-three-tier-architecture.md) | 三层架构设计详情 |
+| [design/design-three-tier-architecture.md](../docs/design/design-three-tier-architecture.md) | 三层架构设计详情 |

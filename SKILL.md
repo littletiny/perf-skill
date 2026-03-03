@@ -19,7 +19,7 @@ description: |
 
 通过"领域知识驱动的假设验证"实现根因定位。
 
-**最新更新**: 工具集已精简为 6 个核心工具 + 3 个组合命令，详见 [design-three-tier-architecture.md](./docs/design-three-tier-architecture.md)
+**最新更新**: 工具集已精简为 6 个核心工具 + 3 个组合命令，详见 [design/design-three-tier-architecture.md](./docs/design/design-three-tier-architecture.md)
 
 ---
 

@@ -1,6 +1,6 @@
 # 三层架构集成测试
 
-本目录包含 Core-Analysis-Composite 三层架构的集成测试，验证各层接口协作和Trace边界。
+本目录包含 Core-Analysis-Composite 三层架构的集成测试，验证各层接口协作和 Trace 边界。
 
 ---
 
@@ -14,7 +14,8 @@
 | `test_trace_boundary.py` | Trace边界 | Composite调用不污染timeline | 10+ |
 | `test_risk_integration.py` | Risk集成 | 三层risk流转与聚合 | 14+ |
 | `test_three_tier_e2e.py` | 端到端测试 | 完整诊断流程 | 8+ |
-| **总计** | | | **70+** |
+| `test_bottleneck_tracer.py` | 瓶颈追踪 | 瓶颈识别与追踪逻辑 | 10+ |
+| **总计** | | | **80+** |
 
 ---
 
@@ -24,52 +25,55 @@
 
 ```bash
 # 使用统一入口
-python3 tests/three_tier/run_all_tests.py
+python3 tests/integration/run_all_tests.py
 
 # 详细输出
-python3 tests/three_tier/run_all_tests.py -v
+python3 tests/integration/run_all_tests.py -v
 
 # 失败时停止
-python3 tests/three_tier/run_all_tests.py -f
+python3 tests/integration/run_all_tests.py -f
 
 # 只显示摘要
-python3 tests/three_tier/run_all_tests.py -s
+python3 tests/integration/run_all_tests.py -s
 ```
 
 ### 运行单个测试文件
 
 ```bash
 # Core层接口测试
-python3 tests/three_tier/test_core_interfaces.py
+python3 tests/integration/test_core_interfaces.py
 
 # Facade接口测试
-python3 tests/three_tier/test_facade_interfaces.py
+python3 tests/integration/test_facade_interfaces.py
 
 # Composite命令测试
-python3 tests/three_tier/test_composite_commands.py
+python3 tests/integration/test_composite_commands.py
 
 # Trace边界测试
-python3 tests/three_tier/test_trace_boundary.py
+python3 tests/integration/test_trace_boundary.py
 
 # Risk集成测试
-python3 tests/three_tier/test_risk_integration.py
+python3 tests/integration/test_risk_integration.py
 
 # 端到端测试
-python3 tests/three_tier/test_three_tier_e2e.py
+python3 tests/integration/test_three_tier_e2e.py
+
+# 瓶颈追踪测试
+python3 tests/integration/test_bottleneck_tracer.py
 ```
 
 ### 详细输出模式
 
 ```bash
 # 任何测试文件都支持 -v 参数
-python3 tests/three_tier/test_core_interfaces.py -v
+python3 tests/integration/test_core_interfaces.py -v
 ```
 
 ---
 
 ## 测试覆盖范围
 
-### 1. Core层接口测试 (`test_core_interfaces.py`)
+### Core层接口测试 (`test_core_interfaces.py`)
 
 **测试目标**: `core/engine.py` 新增接口
 
@@ -79,7 +83,7 @@ python3 tests/three_tier/test_core_interfaces.py -v
 - CV/Monopoly计算工具函数
 - 数据访问控制验证
 
-### 2. Facade接口测试 (`test_facade_interfaces.py`)
+### Facade接口测试 (`test_facade_interfaces.py`)
 
 **测试目标**: `analysis/facade.py` AnalysisFacade
 
@@ -89,7 +93,7 @@ python3 tests/three_tier/test_core_interfaces.py -v
 - 错误处理
 - 接口契约验证
 
-### 3. Composite命令测试 (`test_composite_commands.py`)
+### Composite命令测试 (`test_composite_commands.py`)
 
 **测试目标**: `composite/*.py` 组合命令
 
@@ -99,7 +103,7 @@ python3 tests/three_tier/test_core_interfaces.py -v
 - Risk聚合算法
 - 输出格式验证
 
-### 4. Trace边界测试 (`test_trace_boundary.py`)
+### Trace边界测试 (`test_trace_boundary.py`)
 
 **测试目标**: Trace边界强制执行
 
@@ -109,7 +113,7 @@ python3 tests/three_tier/test_core_interfaces.py -v
 - Trace隔离性
 - 违规检测
 
-### 5. Risk集成测试 (`test_risk_integration.py`)
+### Risk集成测试 (`test_risk_integration.py`)
 
 **测试目标**: Risk三层流转
 
@@ -119,7 +123,7 @@ python3 tests/three_tier/test_core_interfaces.py -v
 - 输出格式: `_risk` 字段
 - 跨层流转验证
 
-### 6. 端到端测试 (`test_three_tier_e2e.py`)
+### 端到端测试 (`test_three_tier_e2e.py`)
 
 **测试目标**: 完整诊断流程
 
@@ -128,6 +132,15 @@ python3 tests/three_tier/test_core_interfaces.py -v
 - Risk流验证
 - Trace边界验证
 - 错误处理
+
+### 瓶颈追踪测试 (`test_bottleneck_tracer.py`)
+
+**测试目标**: 瓶颈识别与追踪
+
+- 瓶颈检测算法
+- 调用链追踪
+- 根因分析
+- 报告生成
 
 ---
 
@@ -154,18 +167,24 @@ python3 tests/three_tier/test_core_interfaces.py -v
 
 ---
 
-## 持续集成建议
+## 理解测试结果
 
-```bash
-# 在CI中运行
-python3 tests/three_tier/run_all_tests.py -v
+### 测试状态
 
-# 或者按层并行运行
-python3 tests/three_tier/test_core_interfaces.py &
-python3 tests/three_tier/test_facade_interfaces.py &
-python3 tests/three_tier/test_composite_commands.py &
-wait
-```
+| 状态 | 含义 | 处理建议 |
+|-----|------|---------|
+| ✅ 通过 | 测试通过 | 无需处理 |
+| ⚠️ 跳过 | 依赖未实现 | 实现依赖模块后重试 |
+| ❌ 失败 | 断言失败 | 检查实现逻辑 |
+| 💥 错误 | 执行错误 | 检查代码语法/异常处理 |
+
+### 常见故障排除
+
+**ModuleNotFoundError**: 模块尚未实现，需实现对应接口后重试
+
+**AssertionError**: 实现逻辑不符合预期，运行 `-v` 查看具体差异
+
+**Trace边界测试失败**: Composite内部调用了记录Trace的方法，确保只有 `@command` 装饰器才记录Trace
 
 ---
 
@@ -173,11 +192,35 @@ wait
 
 ```bash
 # 运行单个测试用例
-python3 -m unittest tests.three_tier.test_core_interfaces.TestCoreInterfaces.test_get_process_lifecycle_interface
+python3 -m unittest tests.integration.test_core_interfaces.TestCoreInterfaces.test_get_process_lifecycle_interface
 
 # 查看跳过的测试
-python3 tests/three_tier/test_facade_interfaces.py -v 2>&1 | grep SKIP
+python3 tests/integration/test_facade_interfaces.py -v 2>&1 | grep SKIP
 
 # 生成测试报告（需要安装unittest-xml-reporting）
-python3 -m xmlrunner discover -s tests/three_tier -o reports/
+python3 -m xmlrunner discover -s tests/integration -o reports/
 ```
+
+---
+
+## 持续集成建议
+
+```bash
+# 在CI中运行
+python3 tests/integration/run_all_tests.py -v
+
+# 或者按层并行运行
+python3 tests/integration/test_core_interfaces.py &
+python3 tests/integration/test_facade_interfaces.py &
+python3 tests/integration/test_composite_commands.py &
+wait
+```
+
+---
+
+## 相关文档
+
+- [架构设计文档](../../docs/design/design-three-tier-architecture.md) - 三层架构设计
+- [接口规范](../../docs/interface/interface-core.md) - Core层接口规范
+- [接口规范](../../docs/interface/interface-analysis.md) - Analysis层接口规范
+- [接口规范](../../docs/interface/interface-composite.md) - Composite层接口规范

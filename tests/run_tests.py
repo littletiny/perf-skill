@@ -21,17 +21,14 @@ from pathlib import Path
 
 # 测试文件列表（按依赖关系排序）
 TEST_FILES = [
-    # 核心功能测试（根目录）
-    "tests/test_issue_overflow_warning.py",
-    # Risk 配置测试
-    "tests/risk/test_risk_display_config.py",
-    # Rules 加载测试
-    "tests/clusters/test_rules_loading.py",
-    "tests/clusters/test_external_rules_integration.py",
-    # 数据格式测试
-    "tests/perfdata/test_perfdata.py",
+    # 单元测试
+    "tests/unit/test_risk_display_config.py",
+    "tests/unit/test_perfdata.py",
+    # 功能测试
+    "tests/functional/test_issue_overflow_warning.py",
+    "tests/functional/test_trace_audit.py",
     # CLI 回归测试
-    "tests/shecr_wrap/test_shecr_wrap.py",
+    "tests/cli/test_shecr_wrap.py",
 ]
 
 

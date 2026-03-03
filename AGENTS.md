@@ -31,6 +31,14 @@ perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-dri
 
 📁 **完整目录结构**: `docs/project-structure.md`
 
+📂 **按内容分类**:
+- `docs/design/` - 架构与机制设计
+- `docs/interface/` - 接口规范
+- `docs/process/` - 流程与方法论
+- `docs/plan/` - 计划与重构
+- `docs/report/` - 报告与工具设计
+- `docs/pipeline/` - Agent 流水线
+
 📁 **Pipeline 模块**: `pipeline/README.md`
 
 简化版 Code Agent 流水线，支持 YAML 配置、变量替换、条件执行：
@@ -54,11 +62,11 @@ recheck:
 ```
 
 📘 **分层接口规范**:
-- `docs/interface-core.md` - Core Layer 接口
-- `docs/interface-analysis.md` - Analysis Layer 接口
-- `docs/interface-composite.md` - Composite Layer 接口
-- `docs/interface-cli.md` - CLI Layer 接口
-- `docs/interface-consistency-report.md` - 接口一致性检查报告
+- `docs/interface/interface-core.md` - Core Layer 接口
+- `docs/interface/interface-analysis.md` - Analysis Layer 接口
+- `docs/interface/interface-composite.md` - Composite Layer 接口
+- `docs/interface/interface-cli.md` - CLI Layer 接口
+- `docs/report/report-interface.md` - 接口一致性检查与改造报告
 
 > 开发前请先阅读上述文档，了解代码组织、文件命名和层间接口约定。
 >
@@ -169,10 +177,18 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 
 ### Attention Steering (SHECR 核心机制)
 
-详见设计文档: `docs/design-attention-steering.md`
+详见设计文档: `docs/design/design-attention-steering.md`
+- `docs/design/design-trace.md` - Trace 机制设计（数据格式、CLI接口、自动记录）
+- `docs/design/design-output.md` - 输出系统设计（格式规范、核心指标计算）
 
 ---
 
 ## 输入数据格式
 
 详见 `references/data-format.md`
+
+---
+
+## 重构与优化计划
+
+- `docs/plan/plan-refactoring.md` - 代码冗余消除重构计划（极简原则版）

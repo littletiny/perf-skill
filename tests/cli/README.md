@@ -15,13 +15,13 @@
 
 ```bash
 # 运行所有测试
-python3 tests/test_shecr_wrap.py
+python3 tests/cli/test_shecr_wrap.py
 
 # 详细输出
-python3 tests/test_shecr_wrap.py -v
+python3 tests/cli/test_shecr_wrap.py -v
 
 # 失败时立即停止
-python3 tests/test_shecr_wrap.py -f
+python3 tests/cli/test_shecr_wrap.py -f
 ```
 
 ## 测试覆盖范围

@@ -1,4 +1,4 @@
-# perf-hunter 代码冗余分析与重构计划 (v2 - 极致简化版)
+# perf-hunter 代码冗余分析与重构计划
 
 > 生成时间: 2026-03-03
 > 核心原则: **不写 to_dict/from_dict，显式字段映射替代隐式转换**
@@ -252,111 +252,131 @@ def cmd_get_comm_top(builder, engine, args, samples):
 
 ---
 
-## 重构步骤
+## 实施计划
 
-### Step 1: 创建 core/models.py
+### Phase 1: 基础结构统一 (Week 1)
 
-```python
-# core/models.py
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
-from datetime import datetime
+**目标**: 统一 RiskInfo, TimeRange 等基础类型
 
-@dataclass
-class RiskInfo:
-    level: str
-    message: str = ""
-    hint: str = ""
-    patterns: List[str] = field(default_factory=list)
-    source: str = ""
-    
-    @property
-    def action_required(self) -> bool:
-        return self.level in ("critical", "warning")
-    
-    @classmethod
-    def from_risk_list(cls, risks: List["RiskInfo"]) -> "RiskInfo":
-        if not risks:
-            return cls(level="none")
-        priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        return min(risks, key=lambda r: priority.get(r.level, 2))
+**任务**:
+1. [ ] 创建 `core/models.py`，定义统一的 `RiskInfo`、`TimeRange`、`Summary`
+2. [ ] 删除 `core/engine_types.py` 中的 `RiskInfo`、`TimeRange`
+3. [ ] 删除 `core/output_models.py` 中的 `RiskInfo`、`TimeRange`
+4. [ ] 删除 `analysis/models.py` 中的 `Risk` 类
+5. [ ] 删除 `composite/models.py` 中的 `RiskItem` 类
+6. [ ] 更新所有 import 引用
+7. [ ] 运行测试验证
 
-@dataclass(frozen=True)
-class TimeRange:
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    duration_sec: float = 0.0
-    
-    @classmethod
-    def from_samples(cls, samples: List) -> "TimeRange":
-        if not samples or len(samples) < 2:
-            return cls()
-        return cls(
-            datetime.fromtimestamp(samples[0].ts).isoformat(),
-            datetime.fromtimestamp(samples[-1].ts).isoformat(),
-            round(samples[-1].ts - samples[0].ts, 2)
-        )
+**受影响文件**:
+- 新增 `core/models.py`
+- `core/engine_types.py` (删除)
+- `core/output_models.py` (删除)
+- `analysis/models.py` (修改)
+- `composite/models.py` (修改)
 
-@dataclass
-class Summary:
-    total: int = 0
-    shown: int = 0
-```
+---
 
-### Step 2: 删除冗余定义
+### Phase 2: 删除 to_dict/from_dict (Week 2)
 
-删除以下文件中的重复定义：
-- [ ] `core/engine_types.py` - `RiskInfo`, `TimeRange`
-- [ ] `core/output_models.py` - `RiskInfo`, `TimeRange`
-- [ ] `analysis/models.py` - `Risk` 类
-- [ ] `composite/models.py` - `RiskItem` 类
-- [ ] 所有文件中的 `to_dict` 方法
-- [ ] 所有文件中的 `from_dict` 方法（仅保留处理 JSON 的特殊情况）
-- [ ] 所有 `from_analysis_*` 类方法
+**目标**: 消除重复的数据转换逻辑
 
-### Step 3: 更新 adapter
+**任务**:
+1. [ ] 创建 `core/output_adapter.py`，实现通用 `to_dict` 函数
+2. [ ] 删除 `composite/models.py` 中所有 `to_dict` 方法
+3. [ ] 删除 `analysis/models.py` 中所有 `to_dict` 方法
+4. [ ] 删除所有 `from_dict` 方法（JSON 处理除外）
+5. [ ] 运行测试验证
 
-```python
-# core/output_adapter.py
-from dataclasses import asdict, is_dataclass
-import json
+**受影响文件**:
+- 新增 `core/output_adapter.py`
+- `composite/models.py` (大量删除)
+- `analysis/models.py` (中等删除)
+- `core/output_models.py` (大量删除)
 
-def to_dict(obj):
-    if obj is None:
-        return None
-    if is_dataclass(obj):
-        return {
-            k: to_dict(v) 
-            for k, v in asdict(obj).items() 
-            if v is not None and v != [] and v != {}
-        }
-    if isinstance(obj, list):
-        return [to_dict(i) for i in obj]
-    if isinstance(obj, dict):
-        return {k: to_dict(v) for k, v in obj.items() if v is not None}
-    return obj
+---
 
-def to_json(obj, compact=False):
-    return json.dumps(to_dict(obj), indent=None if compact else 2, ensure_ascii=False)
-```
+### Phase 3: 删除 from_analysis_* 类方法 (Week 3)
 
-### Step 4: 更新 import
+**目标**: 层间转换改为显式字段映射
 
-```python
-# 批量替换
-from perf_toolkit.core.models import RiskInfo, TimeRange, Summary
+**任务**:
+1. [ ] 删除 `composite/models.py` 中所有 `from_analysis_*` 类方法
+2. [ ] 在 `composite/sys_audit.py` 和 facade 中使用显式字段映射
+3. [ ] 验证转换逻辑正确性
+4. [ ] 运行测试验证
 
-# 删除旧 import
-# from perf_toolkit.core.output_models import RiskInfo  # 删除
-# from perf_toolkit.analysis.models import Risk  # 删除
-# from perf_toolkit.composite.models import RiskItem  # 删除
-```
+**受影响文件**:
+- `composite/models.py` (大量删除)
+- `composite/sys_audit.py` (修改)
+- `cli/facade.py` (可能需要修改)
 
-### Step 5: 简化层间转换
+---
 
-在 `composite/sys_audit.py` 和 facade 中：
-- 删除 `from_analysis_result` 调用
-- 改为显式字段映射构造
+### Phase 4: CLI 命令简化 (Week 4)
+
+**目标**: 消除 CLI 命令中的重复模式
+
+**任务**:
+1. [ ] 扩展 `OutputBuilder` 添加 `record_risks()` 方法
+2. [ ] 重构一个命令作为试点（如 `get-comm-top`）
+3. [ ] 验证模式正确性
+4. [ ] 批量迁移其他命令（6个分析命令）
+
+**受影响文件**:
+- `cli/builders.py` (新增方法)
+- `cli/commands/analysis/*.py` (大量修改)
+
+---
+
+### Phase 5: 命名规范化与清理 (Week 5)
+
+**目标**: 统一字段命名规范，清理残留代码
+
+**任务**:
+1. [ ] 确定命名规范文档（原始值使用 `_pct` 后缀）
+2. [ ] 统一字段命名（如 `total_cpu` -> `total_pct`）
+3. [ ] 添加属性别名保持向后兼容
+4. [ ] 清理空类定义（如 `BottleneckSummary` 直接用 `Summary`）
+5. [ ] 更新文档
+6. [ ] 全量回归测试
+
+**受影响文件**:
+- `analysis/models.py`
+- `composite/models.py`
+- `core/output_models.py`
+
+---
+
+## 风险评估
+
+| 风险 | 概率 | 影响 | 缓解措施 |
+|------|------|------|---------|
+| 破坏现有 API | 中 | 高 | 添加向后兼容别名，分阶段迁移 |
+| 测试覆盖率不足 | 中 | 中 | 确保重构前测试覆盖 80%+ |
+| 性能下降 | 低 | 低 | dataclass 性能优于 dict，基本无影响 |
+| 引入新 Bug | 中 | 中 | 小步提交，每阶段充分测试 |
+
+---
+
+## 测试策略
+
+1. **单元测试**: 确保每个 dataclass 的构造正确
+2. **集成测试**: 验证层间转换逻辑
+3. **端到端测试**: 确保 CLI 命令输出格式不变
+4. **回归测试**: 对比重构前后输出一致性
+
+---
+
+## 成功标准
+
+- [ ] RiskInfo 定义唯一化
+- [ ] TimeRange 定义唯一化
+- [ ] 所有 Summary 类继承 SummaryBase
+- [ ] 消除 100% 的手写 to_dict/from_dict
+- [ ] 消除 100% 的 from_analysis_* 类方法
+- [ ] 无裸 dict 在核心接口中使用
+- [ ] 所有测试通过
+- [ ] CLI 输出格式保持兼容
 
 ---
 

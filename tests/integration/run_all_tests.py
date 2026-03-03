@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-三层架构测试统一入口
+三层架构集成测试统一入口
 
-运行所有三层架构相关测试:
+运行所有 Core-Analysis-Composite 三层架构集成测试:
 - Core层接口测试
 - Facade接口测试
 - Composite命令测试
@@ -11,9 +11,9 @@
 - 端到端测试
 
 使用方法:
-    python3 tests/three_tier/run_all_tests.py
-    python3 tests/three_tier/run_all_tests.py -v  # 详细输出
-    python3 tests/three_tier/run_all_tests.py -f  # 失败时停止
+    python3 tests/integration/run_all_tests.py
+    python3 tests/integration/run_all_tests.py -v  # 详细输出
+    python3 tests/integration/run_all_tests.py -f  # 失败时停止
 """
 
 import unittest
@@ -23,7 +23,7 @@ from pathlib import Path
 # 添加项目根目录到路径
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-sys.path.insert(0, str(PROJECT_ROOT / "tests" / "three_tier"))
+sys.path.insert(0, str(PROJECT_ROOT / "tests" / "integration"))
 
 # 导入所有测试模块
 try:
@@ -135,7 +135,7 @@ def main():
     """主函数"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="三层架构测试套件")
+    parser = argparse.ArgumentParser(description="三层架构集成测试套件")
     parser.add_argument("-v", "--verbose", action="store_true", help="详细输出")
     parser.add_argument("-f", "--failfast", action="store_true", help="失败时停止")
     parser.add_argument("-s", "--summary", action="store_true", help="只显示摘要")

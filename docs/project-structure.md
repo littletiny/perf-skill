@@ -33,72 +33,64 @@
 
 ## docs/ - 设计文档
 
-### 架构设计
+### 架构设计（design/）
 | 文件 | 说明 |
 |------|------|
-| `design-three-tier-architecture.md` | 三层架构设计 - Core/Analysis/Composite 分层架构 |
-| `interface-core.md` | Core Layer 接口设计 - 强类型 dataclass 接口规范 |
-| `design-analysis-directions.md` | 分析方向性设计 - Top-Down vs Bottom-Up |
-| `design-attention-steering.md` | Attention Steering 设计 - 基于 Flag 的诊断关注点引导 |
-| `design-cli-refactoring.md` | CLI 重构设计文档 |
-| `agent-pipeline-design.md` | Agent 流水线架构设计 - 多轮诊断-审计-复查 |
-| `commands-three-tier.md` | 三层架构命令设计 |
-| `analysis-layer-design.md` | 分析层设计文档 |
+| `design/design-three-tier-architecture.md` | 三层架构设计 - Core/Analysis/Composite 分层架构 |
+| `design/analysis-layer-design.md` | 分析层设计文档 |
+| `design/design-output.md` | 输出系统设计 - 格式规范、核心指标计算、Attention Flags |
+| `design/design-trace.md` | Trace 机制设计 - 数据格式、CLI接口、自动记录机制 |
+| `design/design-attention-steering.md` | Attention Steering 设计 - 基于 Flag 的诊断关注点引导 |
+| `design/design-analysis-directions.md` | 分析方向性设计 - Top-Down vs Bottom-Up |
+| `design/design-cli-refactoring.md` | CLI 重构设计文档 |
+| `design/design-rationale-consolidated-toolchain.md` | 工具链整合设计 - 从12个到6个核心工具 |
+| `design/design-issue-overflow-warning.md` | Issue 溢出警告设计 |
 
-### Trace 相关
+### 接口规范（interface/）
 | 文件 | 说明 |
 |------|------|
-| `design-rationale-trace-v1.md` | Trace v1.0 设计意图 - 基于 netstat 案例的问题追踪 |
-| `design-rationale-trace-v2.md` | Trace v2.0 演进设计 - 从手动记录到全自动 Tracing |
-| `trace-interface.md` | Trace 接口设计 - CLI 接口与技术规格 |
-| `design-issue-overflow-warning.md` | Issue 溢出警告设计 |
+| `interface/interface-core.md` | Core Layer 接口规范 - Engine、数据模型、Risk 结构 |
+| `interface/interface-analysis.md` | Analysis Layer 接口规范 - Analyzer、Facade、分析结果类型 |
+| `interface/interface-composite.md` | Composite Layer 接口规范 - 聚合器、诊断器、报告结构 |
+| `interface/interface-cli.md` | CLI Layer 接口规范 - 命令处理器、装饰器 |
+| `interface/component-interfaces.md` | 组件接口总览 - 三层架构接口全景 |
 
-### 工具链与输出
+### 流程与团队（process/）
 | 文件 | 说明 |
 |------|------|
-| `design-rationale-consolidated-toolchain.md` | 工具链整合设计 - 从12个到6个核心工具 |
-| `output-format-spec.md` | 工具输出格式规范 - 统一 JSON 标准 |
-| `output-system.md` | Output System 快速参考 |
-| `output-design-composite.md` | 组合层输出设计 |
-| `risk-display-customization.md` | Risk 消息展示自定义设计 |
-| `analysis-implementation-summary.md` | 分析层实现总结 |
+| `process/commands-three-tier.md` | 三层架构命令设计 |
+| `process/audit-process.md` | 审计流程 - 项目审计员验证 issues 分析质量指南 |
+| `process/team-division-three-tier.md` | 团队分工文档 - 3-4人开发分工与协作流程 |
+| `process/methodology-hierarchical-debugging.md` | 分层调试方法论 |
 
-### 流程与团队
+### 计划与重构（plan/）
 | 文件 | 说明 |
 |------|------|
-| `audit-process.md` | 审计流程 - 项目审计员验证 issues 分析质量指南 |
-| `agent-pipeline-usage.md` | Agent 流水线使用指南 |
-| `team-division-three-tier.md` | 团队分工文档 - 3-4人开发分工与协作流程 |
-| `methodology-hierarchical-debugging.md` | 分层调试方法论 |
-| `infra-refactoring-plan.md` | 基础设施重构计划 |
+| `plan/plan-refactoring.md` | 代码冗余消除重构计划（极简原则版） |
+| `plan/infra-refactoring-plan.md` | 基础设施重构计划 |
+| `plan/plan-absorb-core-distribution.md` | 核心分布分析整合计划 |
 
-### 接口规范
+### 报告与工具设计（report/）
 | 文件 | 说明 |
 |------|------|
-| `interface-core.md` | Core Layer 接口规范 - Engine、数据模型、Risk 结构 |
-| `interface-analysis.md` | Analysis Layer 接口规范 - Analyzer、Facade、分析结果类型 |
-| `interface-composite.md` | Composite Layer 接口规范 - 聚合器、诊断器、报告结构 |
-| `interface-cli.md` | CLI Layer 接口规范 - 命令处理器、装饰器 |
-| `interface-consistency-report.md` | 接口一致性检查报告 |
-| `interface-implementation-report.md` | 接口实现报告 |
-| `component-interfaces.md` | 组件接口总览 - 三层架构接口全景 |
+| `report/report-interface.md` | 接口一致性检查与改造报告 |
+| `report/tool-bottleneck-trace.md` | bottleneck-trace 工具文档 |
+| `report/sys-audit-refactoring-report.md` | sys-audit 重构报告 |
+| `report/analysis-implementation-summary.md` | 分析层实现总结 |
+| `report/risk-display-customization.md` | Risk 消息展示自定义设计 |
+
+### Agent 流水线（pipeline/）
+| 文件 | 说明 |
+|------|------|
+| `pipeline/agent-pipeline-design.md` | Agent 流水线架构设计 - 多轮诊断-审计-复查 |
+| `pipeline/agent-pipeline-usage.md` | Agent 流水线使用指南 |
 
 ### 项目维护
 | 文件 | 说明 |
 |------|------|
 | `CHANGELOG.md` | 版本变更记录 |
 | `LESSONS.md` | 设计决策与经验教训 |
-| `EVOLUTION.md` | 项目演进历史 |
 | `project-structure.md` | 项目目录结构（本文档） |
-
-### 重构与计划
-| 文件 | 说明 |
-|------|------|
-| `plan-absorb-core-distribution.md` | 吸收 core-distribution 功能计划 |
-| `refactoring-plan-redundancy.md` | 冗余代码重构计划 |
-| `refactoring-plan-redundancy-v2.md` | 冗余代码重构计划 v2 |
-| `sys-audit-refactoring-report.md` | sys-audit 重构报告 |
-| `tool-bottleneck-trace.md` | bottleneck-trace 工具文档 |
 
 ---
 
@@ -310,14 +302,14 @@ tests/
 
 | 文档 | 层级 | 说明 |
 |------|------|------|
-| `docs/interface-core.md` | Core Layer | Engine、OutputBuilder、数据模型接口 |
-| `docs/interface-analysis.md` | Analysis Layer | Analyzer、Facade、分析结果类型 |
-| `docs/interface-composite.md` | Composite Layer | RiskAggregator、诊断器、报告结构 |
-| `docs/interface-cli.md` | CLI Layer | 命令处理器、装饰器、输出渲染 |
-| `docs/interface-consistency-report.md` | 跨层 | 接口一致性检查报告 |
+| `docs/interface/interface-core.md` | Core Layer | Engine、OutputBuilder、数据模型接口 |
+| `docs/interface/interface-analysis.md` | Analysis Layer | Analyzer、Facade、分析结果类型 |
+| `docs/interface/interface-composite.md` | Composite Layer | RiskAggregator、诊断器、报告结构 |
+| `docs/interface/interface-cli.md` | CLI Layer | 命令处理器、装饰器、输出渲染 |
+| `docs/report/report-interface.md` | 跨层 | 接口一致性检查与改造报告 |
 
 ### 总体接口规范
-📘 **组件接口总览**: `docs/component-interfaces.md` - 三层架构接口总览
+📘 **组件接口总览**: `docs/interface/component-interfaces.md` - 三层架构接口总览
 
 ---
 

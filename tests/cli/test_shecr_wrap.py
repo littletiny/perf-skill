@@ -10,9 +10,9 @@ shecr_wrap 回归测试套件
 - 命令构建逻辑
 
 用法:
-    python3 tests/test_shecr_wrap.py        # 运行所有测试
-    python3 tests/test_shecr_wrap.py -v     # 详细输出
-    python3 tests/test_shecr_wrap.py -f     # 失败时停止
+    python3 tests/cli/test_shecr_wrap.py        # 运行所有测试
+    python3 tests/cli/test_shecr_wrap.py -v     # 详细输出
+    python3 tests/cli/test_shecr_wrap.py -f     # 失败时停止
 """
 
 import os

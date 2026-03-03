@@ -1,20 +1,237 @@
-# Trace 接口设计文档
+# Trace 机制设计文档
 
-## 概述
+> Trace 是 perf-hunter 的诊断过程追踪工具，确保性能诊断的完整性和可追溯性。
 
-### 目的
+---
 
-定义 `shecr trace` 工具的命令行接口、数据格式和集成方式。
+## 版本历史
 
-### 设计原则
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| 1.0 | 2026-02-28 | 初始设计 - 手动记录机制 |
+| | | - 基础 issues 列表结构 |
+| | | - `add/complete/issues/finalize` 命令 |
+| 2.0 | 2026-03-03 | 演进设计 - 自动记录机制 |
+| | | - 新增 timeline 字段，记录完整诊断时间线 |
+| | | - 新增 findings 机制，双向关联 timeline 和 issues |
+| | | - issues 结构从数组改为字典（以 issue_id 为键） |
+| | | - 新增 reopen 功能支持 |
+| | | - 新增 audit 命令进行质量审计 |
+| | | - 适配三层架构，明确 Trace 记录边界 |
 
-- **极简**: 核心命令简洁
-- **扁平**: JSON 结构最多 2 层
-- **强制**: finalize 是结束诊断的必要步骤
-- **分层**: 三层架构下的Trace边界
-  - **Composite层**: 记录顶层命令到timeline
-  - **Analysis层**: CLI调用记录，内部调用不记录
-  - **Core层**: 不记录Trace
+---
+
+## 背景与问题发现
+
+### 真实案例回顾
+
+在某次性能诊断中，分析 `netstat_perf.data` 数据时发现：
+
+```
+get-comm-top 输出:
+  netstat:          2623 PIDs, 243.87% CPU, 94.7% kernel
+  python3:           826 PIDs, 207.17% CPU, 35.2% kernel
+  dbatman:           311 PIDs, 147.94% CPU, 26.4% kernel
+  containerd-shim:   240 PIDs,  96.01% CPU, 89.9% kernel  ← 最初遗漏
+```
+
+**实际分析路径**:
+1. 被 netstat 的 2623 PIDs 吸引注意力
+2. 执行 cluster-symbols --comm netstat → LOCK_CONTENTION 38.36%
+3. 得出结论：netstat 进程风暴导致锁竞争
+4. **遗漏**: 未分析 containerd-shim (89.9% kernel)
+
+**事后发现**:
+```
+shecr cluster-symbols --comm containerd-shim → LOCK_CONTENTION 79.84%
+```
+
+containerd-shim 的锁竞争比例是 netstat 的 **2 倍**，但 PID 数只有 9%。
+
+### 造成的后果
+
+- 诊断结论不完整
+- 修复 netstat 后系统仍可能有问题
+- 需要二次分析，浪费时间
+
+### 根本原因分析
+
+诊断过程分析：
+
+```
+标准SHECR流程要求:              实际执行:
+  ├─ 并行验证假设                只验证了netstat
+  └─ 全局一致性检查              遗漏了containerd-shim
+```
+
+**搜索覆盖率**: 1/4 = 25% (严重不足)
+
+| 原因 | 说明 |
+|------|------|
+| 人脑记忆有限 | 工具输出后靠人脑记忆，信息必然淹没 |
+| 无客观审计 | 没有机制检查"还有哪些没分析" |
+| 数字偏见 | 2623 vs 240，被大数字吸引 |
+| 缺乏强制收敛检查 | 找到根因后没有机制阻止提前收敛 |
+
+**现有 Skill 的不足**:
+- "列出 ≥3 条竞争性假设" → 只要求假设数量，不要求验证覆盖
+- "延迟收敛" → 原则抽象，无量化指标
+- "全局一致性检查" → 依赖人工执行，无强制
+
+**根本问题**: 规则停留在"建议"层面，无强制力。
+
+---
+
+## 设计演进
+
+### v1.0 手动记录机制
+
+**设计目标**:
+1. **追加问题**: 发现风险时立即记录
+2. **完成标记**: 分析完毕后标记状态
+3. **强制审计**: 生成报告前必须检查剩余风险
+4. **扁平结构**: 对 agent 友好，JSON 不超过 2 层
+
+**核心机制**:
+
+```
+诊断流程:
+  1. shecr trace init              # 初始化文档
+  2. 分析工具执行                  # 发现问题
+  3. shecr trace add --id ...      # 手动记录问题
+  4. shecr trace issues            # 查看待办问题列表
+  5. 继续分析                      # 处理问题
+  6. shecr trace complete --id ... # 标记完成
+  7. shecr trace finalize          # 最终审计
+  8. shecr trace export            # 导出报告
+```
+
+**数据结构**:
+```json
+{
+  "version": "1.0",
+  "data_file": "netstat_perf.data",
+  "issues": [
+    {
+      "id": "ISS-001",
+      "desc": "netstat 高内核态 94.7%",
+      "status": "completed",
+      "result": "LOCK_CONTENTION 38.36%",
+      "completed_at": "2026-02-28T11:00:00Z"
+    },
+    {
+      "id": "ISS-002",
+      "desc": "containerd-shim 高内核态 89.9%",
+      "status": "pending",
+      "risk": "可能比 netstat 更严重",
+      "hint": "cluster-symbols --comm containerd-shim"
+    }
+  ]
+}
+```
+
+### v1.0 的问题
+
+v1.0 设计需要**人工执行** `shecr trace add` 和 `shecr trace complete`：
+
+```bash
+# 发现问题
+perf-exp get-comm-top --data xxx.data
+# 输出提示: [必须] 添加到 Trace...
+
+# 必须人工执行！
+shecr trace add --id ISS-001 --desc "xxx" --risk "xxx"
+
+# 分析完再人工标记完成
+shecr trace complete --id ISS-001 --result "xxx"
+```
+
+**问题**：提示容易被忽略，agent 可能忘记执行。
+
+### v2.0 自动记录机制
+
+| 维度 | v1.0 | v2.0 |
+|------|------|------|
+| 记录方式 | 手动 `add/complete` | **全自动** |
+| 数据结构 | issues 列表 | **timeline + issues** |
+| 链接关系 | 无 | **双向引用** |
+| 使用模式 | 状态跟踪 | **tracing 追溯** |
+
+**核心概念**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Trace v2.0                      │
+├─────────────────────────────────────────────────────────────┤
+│  timeline: [CommandRecord]  ← 按时间顺序记录所有命令执行      │
+│  issues: {issue_id: Issue}  ← 问题聚合状态                   │
+│  links: 双向引用，timeline 和 issues 互相指向                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**OutputBuilder 集成**:
+
+```python
+# 伪代码
+class OutputBuilder:
+    def __init__(self, engine, args):
+        self.live_doc = LiveDoc()  # 自动加载或创建
+        self.current_seq = None
+
+    def begin_command(self, command_name):
+        """命令开始时记录"""
+        self.current_seq = self.live_doc.record_command(command_name)
+
+    def record_risk(self, level, desc, hint=""):
+        """检测到风险时自动创建 issue"""
+        issue_id = self.live_doc.create_issue(
+            level=level,
+            desc=desc,
+            hint=hint,
+            command_seq=self.current_seq
+        )
+        return issue_id
+
+    # ❌ 不提供自动解决功能
+    # def record_resolution(self, issue_id, result): ...
+
+    def end_command(self):
+        """命令结束时保存"""
+        self.live_doc.save()
+```
+
+**为什么只添加不解决？**
+- 自动解决容易误判（无法确定分析是否充分）
+- 解决 issue 是**决策行为**，需要人工确认
+- 保持灵活性：分析后可以选择继续深入或标记完成
+
+**使用示例**:
+```python
+def cmd_get_comm_top(engine, args):
+    builder = OutputBuilder(engine, args)
+
+    # 1. 自动记录命令开始
+    builder.begin_command("get-comm-top")
+
+    # ... 分析逻辑 ...
+
+    # 2. 发现风险时自动创建 issue
+    for comm in high_kernel_comms:
+        builder.record_risk(
+            level="warning",
+            desc=f"{comm} 高内核态 94.7%",
+            hint=f"cluster-symbols --comm {comm}"
+        )
+
+    # 3. 自动保存
+    builder.end_command()
+```
+
+**解决 issue 仍需人工执行**：
+```bash
+# 分析后，人工确认并标记完成
+shecr trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+```
 
 ---
 
@@ -42,7 +259,14 @@
       "type": "command",
       "command": "sys-audit --data perf.data",
       "timestamp": "ISO-8601 timestamp",
-      "findings": []
+      "findings": [
+        {
+          "type": "risk_created",
+          "level": "warning",
+          "desc": "netstat 高内核态 94.7%",
+          "issue_id": "ISS-001"
+        }
+      ]
     }
   ],
   "issues": {
@@ -64,45 +288,9 @@
 }
 ```
 
-### Trace边界说明（三层架构）
-
-```
-用户执行: shecr sys-audit --data perf.data
-
-记录行为:
-┌─────────────────────────────────────────────────────────┐
-│ timeline[0]: command="sys-audit --data perf.data"      │  ◄── 记录（Composite层）
-│              type="command"                             │
-└─────────────────────────────────────────────────────────┘
-                          │
-                    内部调用（不记录）
-                          │
-        ┌─────────────────┼─────────────────┐
-        ▼                 ▼                 ▼
-   detect-anomalies  core-distribution   get-comm-top
-   （不记录）         （不记录）          （不记录）
-
-用户执行: shecr get-comm-top --data perf.data
-
-记录行为:
-┌─────────────────────────────────────────────────────────┐
-│ timeline[0]: command="get-comm-top --data perf.data"   │  ◄── 记录（Analysis CLI）
-│              type="command"                             │
-└─────────────────────────────────────────────────────────┘
-```
-
-**记录规则**:
-| 层级 | 调用方式 | 是否记录 | 示例 |
-|------|----------|----------|------|
-| Composite | CLI命令 | ✅ 记录 | `sys-audit`, `bottleneck-trace` |
-| Analysis | CLI命令 | ✅ 记录 | `get-comm-top`, `get-hotspots` |
-| Analysis | 内部调用（Facade） | ❌ 不记录 | `facade.analyze_comm_top()` |
-
-**设计理由**:
-- 避免Composite调用多个Analysis工具时timeline被污染
-- 用户关心的是"执行了什么诊断"，不是"内部调用了哪些工具"
-
 ### 字段说明
+
+**根级别字段**
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
@@ -111,24 +299,43 @@
 | created_at | string | 是 | 文档创建时间 |
 | updated_at | string | 是 | 最后更新时间 |
 | timeline | array | 是 | 命令执行时间线 |
-| timeline[].seq | int | 是 | 命令序号 |
-| timeline[].type | string | 是 | 记录类型: command |
-| timeline[].command | string | 是 | 执行的命令 |
-| timeline[].timestamp | string | 是 | 执行时间 |
-| timeline[].findings | array | 是 | 该命令产生的发现 |
 | issues | object | 是 | 问题字典（以 issue_id 为键） |
-| issues[].id | string | 是 | 唯一标识符，如 ISS-001 |
-| issues[].desc | string | 是 | 问题描述 |
-| issues[].level | string | 是 | 级别: critical / warning / info |
-| issues[].status | string | 是 | open 或 resolved |
-| issues[].created_at | string | 是 | 问题创建时间 |
-| issues[].created_by_seq | int | 是 | 创建该问题的命令序号 |
-| issues[].resolved_at | string | 否 | 问题完成时间 |
-| issues[].resolved_by_seq | int | 否 | 解决该问题的命令序号 |
-| issues[].result | string | 否 | 分析结果（兼容性） |
-| issues[].results | array | 否 | 解决记录列表（支持 reopen） |
-| issues[].hint | string | 否 | 建议的下一步操作 |
-| issues[].reopen_history | array | 否 | 重新打开历史记录 |
+
+**timeline[n] - 命令执行记录**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| seq | int | 是 | 全局序号，从1开始 |
+| type | string | 是 | 固定为 "command" |
+| command | string | 是 | 完整命令行 |
+| timestamp | string | 是 | ISO-8601 时间戳 |
+| findings | array | 是 | 该命令的发现/操作 |
+
+**findings[n] - 发现/操作**
+
+| type | 说明 |
+|------|------|
+| risk_created | 发现新风险，创建 issue |
+| info | 一般信息/分析结果记录 |
+
+**注意**: 不提供 `issue_resolved` 类型，解决 issue 需要人工执行命令。
+
+**issues[id] - 问题聚合**
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| id | string | 是 | 唯一标识符，如 ISS-001 |
+| desc | string | 是 | 问题描述 |
+| level | string | 是 | 级别: critical / warning / info |
+| status | string | 是 | open 或 resolved |
+| created_at | string | 是 | 问题创建时间 |
+| created_by_seq | int | 是 | 由哪个命令序号创建 |
+| resolved_at | string | 否 | 问题完成时间 |
+| resolved_by_seq | int | 否 | 解决该问题的命令序号 |
+| result | string | 否 | 分析结果（兼容性） |
+| results | array | 否 | 解决记录列表（支持 reopen） |
+| hint | string | 否 | 建议的下一步操作 |
+| reopen_history | array | 否 | 重新打开历史记录 |
 
 ---
 
@@ -138,7 +345,7 @@
 
 ```bash
 shecr trace init                    # 初始化文档
-shecr trace add [options]           # 添加问题
+shecr trace add [options]           # 手动添加问题
 shecr trace timeline [options]      # 查看诊断时间线
 shecr trace issues [options]        # 列出所有问题
 shecr trace audit [options]         # 审计已解决问题质量
@@ -169,16 +376,9 @@ shecr trace init --data <data-file> [--path <doc-path>]
 → Data file: netstat_perf.data
 ```
 
-**示例**:
-```bash
-shecr trace init --data netstat_perf.data
-```
+### add - 手动添加问题
 
----
-
-### add - 添加问题
-
-**用途**: 手动记录新发现的问题或风险
+**用途**: 手动记录新发现的问题或风险（v2.0 主要使用自动记录，此命令用于特殊情况）
 
 **用法**:
 ```bash
@@ -200,15 +400,6 @@ shecr trace add --desc <desc> [--level <level>] [--risk <risk>] [--hint <hint>]
 → Hint: bottleneck-trace --comm containerd-shim
 ```
 
-**示例**:
-```bash
-shecr trace add --desc "containerd-shim 高内核态 89.9%" \
-  --risk "可能比 netstat 更严重，单进程影响大" \
-  --hint "bottleneck-trace --comm containerd-shim"
-```
-
----
-
 ### timeline - 查看诊断时间线
 
 **用途**: 查看按时间顺序记录的所有命令执行及发现
@@ -225,24 +416,34 @@ shecr trace timeline [--format <format>] [--risk-config <path>] [--risk-style <s
 | --risk-config | string | 否 | - | Risk 显示配置文件路径 |
 | --risk-style | string | 否 | - | Risk 显示样式: default / ci / compact |
 
-**text 格式输出**:
+**text 格式输出示例**:
 ```
-[1] 10:05:00 sys-audit --data netstat_perf.data
-[WARNING] ISS-001: app_worker 核心独占率 0.92
+═══════════════════════════════════════════════════════════════════
+DIAGNOSIS TIMELINE  (2 commands executed)
+═══════════════════════════════════════════════════════════════════
 
-[2] 10:15:00 bottleneck-trace --comm app_worker --data netstat_perf.data
-[RESOLVED] ISS-001: spinlock_wait 85% - 数据库查询触发锁竞争
+[1] 10:00:00  get-comm-top --data netstat_perf.data
+    ───────────────────────────────────────────────────────────
+    ⚠️  RISK_CREATED: ISS-001  netstat 高内核态 94.7%
+    ⚠️  RISK_CREATED: ISS-002  containerd-shim 高内核态 89.9%
 
-Commands: 2, Open: 0, Resolved: 1
+[2] 10:01:00  cluster-symbols --comm netstat --data netstat_perf.data
+    ───────────────────────────────────────────────────────────
+    ℹ️  分析结果: LOCK_CONTENTION 38.36%, /proc/net/tcp 竞争
+        (ISS-001 仍需人工确认: shecr trace complete --id ISS-001 --result "...")
+
+═══════════════════════════════════════════════════════════════════
+OPEN ISSUES (2 remaining, 需人工处理)
+═══════════════════════════════════════════════════════════════════
+
+⚠️  ISS-001  netstat 高内核态 94.7%
+    ├─ 分析结果: LOCK_CONTENTION 38.36%
+    └─ 确认解决: shecr trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
+
+⚠️  ISS-002  containerd-shim 高内核态 89.9%
+    └─ 建议: cluster-symbols --comm containerd-shim
+═══════════════════════════════════════════════════════════════════
 ```
-
-**示例**:
-```bash
-shecr trace timeline                    # 默认 text 格式
-shecr trace timeline --format json      # JSON 格式
-```
-
----
 
 ### issues - 列出问题
 
@@ -270,15 +471,6 @@ shecr trace issues [--status <status>] [--risk-config <path>] [--risk-style <sty
 [OPEN] [ISS-002] [WARNING] containerd-shim 高内核态 89.9%
 → bottleneck-trace --comm containerd-shim
 ```
-
-**示例**:
-```bash
-shecr trace issues                    # 默认显示所有
-shecr trace issues --status open      # 只显示待处理
-shecr trace issues --status resolved  # 只显示已解决
-```
-
----
 
 ### audit - 审计已解决问题质量
 
@@ -322,16 +514,6 @@ Total: 2, Passed: 1, Warning: 1, Failed: 0
   ⚠ depth: Result lacks causal reasoning (no depth keywords)
 ```
 
-**示例**:
-```bash
-shecr trace audit                       # 完整审计
-shecr trace audit --phase depth         # 仅检查分析深度
-shecr trace audit --format json         # JSON 格式输出
-shecr trace audit --output report.json  # 保存到文件
-```
-
----
-
 ### complete - 标记完成
 
 **用途**: 标记问题已分析完毕
@@ -354,13 +536,6 @@ shecr trace complete --id <id> --result <result>
 
 [ALL DONE] No more issues
 ```
-
-**示例**:
-```bash
-shecr trace complete --id ISS-001 --result "spinlock_wait 85% - 数据库查询触发锁竞争"
-```
-
----
 
 ### reopen - 重新打开问题
 
@@ -386,14 +561,6 @@ shecr trace reopen --all [--reason <reason>]
 
 → 2 issues now open
 ```
-
-**示例**:
-```bash
-shecr trace reopen --id ISS-001 --reason "发现新的调用路径"
-shecr trace reopen --all --reason "需要重新验证所有结论"
-```
-
----
 
 ### finalize - 最终审计
 
@@ -450,14 +617,6 @@ Note: This is NOT an audit. Use 'shecr trace audit' for quality review.
 =================================================================
 ```
 
-**示例**:
-```bash
-shecr trace finalize                                    # 交互式检查
-shecr trace finalize --accept-risk "与当前问题无关"      # 接受风险
-```
-
----
-
 ### export - 导出
 
 **用途**: 导出为其他格式（markdown 报告等）
@@ -473,19 +632,51 @@ shecr trace export [--format <format>] [--output <path>]
 | --format | string | 否 | markdown | 导出格式: markdown / json |
 | --output | string | 否 | stdout | 输出路径 |
 
-**示例**:
-```bash
-shecr trace export --format markdown --output report.md
-shecr trace export --format json --output report.json
-```
-
 ---
 
-## 集成到 shecr（三层架构）
+## 三层架构集成
 
-### 自动记录机制
+### Trace 边界说明
 
-#### Analysis层（CLI命令）自动记录
+```
+用户执行: shecr sys-audit --data perf.data
+
+记录行为:
+┌─────────────────────────────────────────────────────────┐
+│ timeline[0]: command="sys-audit --data perf.data"      │  ◄── 记录（Composite层）
+│              type="command"                             │
+└─────────────────────────────────────────────────────────┘
+                          │
+                    内部调用（不记录）
+                          │
+        ┌─────────────────┼─────────────────┐
+        ▼                 ▼                 ▼
+   detect-anomalies  core-distribution   get-comm-top
+   （不记录）         （不记录）          （不记录）
+
+用户执行: shecr get-comm-top --data perf.data
+
+记录行为:
+┌─────────────────────────────────────────────────────────┐
+│ timeline[0]: command="get-comm-top --data perf.data"   │  ◄── 记录（Analysis CLI）
+│              type="command"                             │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 记录规则
+
+| 层级 | 调用方式 | 是否记录 | 示例 |
+|------|----------|----------|------|
+| Composite | CLI命令 | ✅ 记录 | `sys-audit`, `bottleneck-trace` |
+| Analysis | CLI命令 | ✅ 记录 | `get-comm-top`, `get-hotspots` |
+| Analysis | 内部调用（Facade） | ❌ 不记录 | `facade.analyze_comm_top()` |
+| Analysis | 内部调用Core | ❌ 不记录 | `engine.get_comm_cpu_util()` |
+
+**设计理由**:
+- 避免Composite调用多个Analysis工具时timeline被污染
+- 用户关心的是"执行了什么诊断"，不是"内部调用了哪些工具"
+
+### Analysis层自动记录示例
 
 ```python
 # perf_toolkit/analysis/hotspots.py
@@ -508,7 +699,7 @@ def cmd_get_hotspots(builder, engine, args, samples):
     return output
 ```
 
-#### Composite层（组合命令）自动记录
+### Composite层自动记录示例
 
 ```python
 # perf_toolkit/composite/sys_audit.py
@@ -611,12 +802,91 @@ shecr get-hotspots --comm app_worker --data netstat_perf.data
 # 输出: 热点函数
 # 自动记录到timeline: get-hotspots
 
-# 3. 手动添加issue
+# 3. 手动添加issue（特殊情况）
 shecr trace add --desc "app_worker 高内核态" \
   --hint "find-callers --target spinlock_wait --comm app_worker"
 
 # 4. 继续分析...
 ```
+
+---
+
+## 设计决策记录
+
+### 为什么不要奖励机制？
+
+**讨论**:
+> 怎么能让 agent 有意愿处理？
+
+**第一轮方案**: 进度条、徽章、积分、成就系统
+
+**反馈**:
+> "不要玩那么多奖励机制，太复杂了，直接点"
+
+**决策**:
+- 去掉所有激励元素
+- 直接展示剩余风险
+- 用 SKILL 规范强制要求
+
+**理由**:
+- Agent 不需要游戏化激励
+- 直接展示后果更有效
+- 简单设计更容易落地
+
+### 为什么扁平结构？
+
+**讨论**:
+> JSON 结构设计要考虑 agent 友好
+
+**第一轮方案**: 嵌套结构，按 phase 组织
+
+```json
+{
+  "phases": {
+    "phase_2": {
+      "critical_findings": {
+        "CF-001": {
+          "items": [...]
+        }
+      }
+    }
+  }
+}
+```
+
+**问题**:
+- 3 层嵌套，解析复杂
+- agent 需要理解 phase 概念
+
+**决策**:
+- 扁平化为 `issues` 列表
+- 最多 2 层嵌套
+- 字符串字段为主
+
+### 为什么只有两种状态？
+
+**讨论**:
+> 是否需要 in_progress / verified / wontfix 等状态？
+
+**决策**:
+- 只有 `pending/open` / `completed/resolved`
+- 简化认知负担
+- 其他信息放在 `result` 字符串中
+
+### finalize 的必要性
+
+**讨论**:
+> 如何强制 agent 看到全貌？
+
+**方案**:
+- 单独的 `finalize` 命令
+- 输出剩余风险清单
+- 必须选择才能退出
+
+**理由**:
+- `issues` 可以被忽略
+- `finalize` 是显式的"结束仪式"
+- 有明确的决策点
 
 ---
 
@@ -632,9 +902,7 @@ shecr trace add --desc "app_worker 高内核态" \
 
 ---
 
-## 参考实现
-
-### Python Trace 类设计
+## Python Trace 类设计参考
 
 ```python
 # perf_toolkit/core/trace.py
@@ -706,36 +974,7 @@ class Trace:
 
 ---
 
-## 版本历史
-
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| 1.0 | 2026-02-28 | 初始设计 |
-| 2.0 | 2026-03-03 | 适配三层架构 |
-| | | - 新增 timeline 字段，记录命令层级 |
-| | | - 新增 findings 机制，关联 timeline 和 issues |
-| | | - 新增 issues 字典结构（原为数组成员） |
-| | | - 新增 reopen 功能支持 |
-| | | - 新增 audit 命令进行质量审计 |
-
----
-
-## 三层架构Trace规范
-
-### 记录规则
-
-| 场景 | 是否记录 | 示例 |
-|------|----------|------|
-| 用户执行Composite命令 | ✅ 记录 | `sys-audit`, `bottleneck-trace` |
-| 用户执行Analysis命令 | ✅ 记录 | `get-comm-top`, `get-hotspots` |
-| Composite内部调用Analysis | ❌ 不记录 | `facade.analyze_comm_top()` |
-| Analysis内部调用Core | ❌ 不记录 | `engine.get_comm_cpu_util()` |
-
----
-
 ## 参考文档
 
-- [设计意图文档](./design-rationale-trace-v1.md)
 - [三层架构设计](./design-three-tier-architecture.md)
 - [SKILL.md](../SKILL.md)
-- [workflow.md](../references/workflow.md)
