@@ -166,11 +166,21 @@ def _build_expert_anchors(
     diagnosis: 'DiagnosisReport',
     comm_top: CommTopReport
 ) -> List[ExpertAnchor]:
-    """构建专家锚点（强类型）"""
+    """构建专家锚点（强类型）
+    
+    注意：只有 CPU 绝对值 (>10%) 或 sys 绝对值 (>10%) 高的进程才展示锚点，
+    避免低负载进程的噪音干扰。
+    """
     anchors: List[ExpertAnchor] = []
     
-    # Noisy Neighbor 检测
-    storm_groups = [g for g in comm_top.groups if g.diagnosis == DiagnosisType.STORM]
+    # 阈值：只有 CPU 或 sys 绝对值高的进程才展示
+    CPU_MIN = 10.0
+    SYS_MIN = 10.0
+    
+    # Noisy Neighbor 检测 - 过滤低负载进程
+    storm_groups = [g for g in comm_top.groups 
+                   if g.diagnosis == DiagnosisType.STORM 
+                   and (g.total_cpu > CPU_MIN or g.kernel_cpu > SYS_MIN)]
     if storm_groups:
         for g in storm_groups[:CompositeDefaults.DEFAULT_EXPERT_ANCHORS_LIMIT]:  # 最多显示 2 个
             anchors.append(ExpertAnchor(
@@ -182,8 +192,10 @@ def _build_expert_anchors(
                 recommendation=f"检查 {g.comm} 的进程创建源头"
             ))
     
-    # Quota Victim 检测
-    if diagnosis.primary_suspect and diagnosis.primary_suspect.diagnosis == DiagnosisType.BOTTLENECK:
+    # Quota Victim 检测 - 只有 CPU 高的主嫌疑人才展示
+    if (diagnosis.primary_suspect 
+        and diagnosis.primary_suspect.diagnosis == DiagnosisType.BOTTLENECK
+        and (diagnosis.primary_suspect.total_cpu > CPU_MIN or diagnosis.primary_suspect.kernel_cpu > SYS_MIN)):
         anchors.append(ExpertAnchor(
             type=ExpertAnchorType.QUOTA_VICTIM,
             target=diagnosis.primary_suspect.comm,
