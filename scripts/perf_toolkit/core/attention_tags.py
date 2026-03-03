@@ -37,18 +37,6 @@ def xa(text: str, cmd: str = "") -> str:
     return f"<XA> {text}"
 
 
-# 别名（推荐使用新的 x0/x1/x2/xa）
-p0 = x0
-p1 = x1
-p2 = x2
-hint = xa
-
-# 条件标签函数的兼容别名
-p0_if = x0_if
-p1_if = x1_if
-hint_if = xa_if
-
-
 def flag(level: str, text: str) -> str:
     """通用标签函数
     

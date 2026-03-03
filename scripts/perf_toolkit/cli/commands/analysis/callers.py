@@ -8,7 +8,6 @@ find-callers 命令实现
 
 from collections import defaultdict
 from perf_toolkit.cli.decorators import command
-from perf_toolkit.cli.builders import create_risk_info
 from perf_toolkit.core.output_models import (
     RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput, TimeRange
 )
@@ -62,7 +61,7 @@ def cmd_trace_attribution(builder, engine, args, samples):
     # Determine risk level
     risk = None
     if target_weight < 0.01:
-        risk = create_risk_info(
+        risk = RiskInfo(
             level="warning",
             message=f"目标函数 '{target}' 几乎无 CPU 活动",
             hint=f"[必须] 添加到 Trace: shecr trace add --desc '目标函数 {target} 几乎无 CPU 活动' --hint '检查目标函数名称是否正确'",

@@ -27,7 +27,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-from perf_toolkit.core.risk_config import RiskDisplayConfig, get_risk_config, clear_risk_config_cache, DEFAULT_CONFIG
+from perf_toolkit.core.risk_config import RiskDisplayConfig, get_risk_config, clear_risk_config_cache
 
 
 class TestRiskDisplayConfig(unittest.TestCase):

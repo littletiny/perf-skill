@@ -7,7 +7,6 @@ detect-anomalies 命令实现
 """
 
 from perf_toolkit.cli.decorators import command
-from perf_toolkit.cli.builders import create_risk_info
 from perf_toolkit.core.output_models import (
     RiskInfo, RiskLevel, AnomalyItem, AnomalySummary, AnomaliesOutput, TimeRange
 )
@@ -57,13 +56,13 @@ def cmd_detect_anomalies(builder, engine, args, samples):
         for a in result.anomalies
     ]
     
-    risk_output = create_risk_info(
+    risk_output = RiskInfo(
         level=top_risk.level,
         message=top_risk.message,
         hint=top_risk.hint,
         patterns=top_risk.patterns,
         pending_targets=top_risk.pending_targets
-    ) if top_risk else create_risk_info(level="none")
+    ) if top_risk else RiskInfo(level="none")
     
     output = AnomaliesOutput(
         _risk=risk_output,

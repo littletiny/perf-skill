@@ -54,7 +54,7 @@ from .output_models import (
 )
 from .output_adapter import OutputAdapter, CompactOutputAdapter
 from .text_output_adapter import TextOutputAdapter
-from .risk_mixin import RiskAwareOutput
+
 from .format_utils import format_time_range, safe_time_range
 from .reliability import assess_data_quality
 from .trace import Trace
@@ -94,7 +94,7 @@ class OutputBuilder:
             self.adapter = CompactOutputAdapter()
         else:
             self.adapter = OutputAdapter()
-        self._risk_output = RiskAwareOutput()
+
         self._quality_level = None
         self._quality_metrics = None
         self._samples = None
@@ -234,25 +234,27 @@ class OutputBuilder:
         )
 
         # 创建风险输出
-        risk_output = RiskAwareOutput()
-        risk_output.add_risk(
-            "warning",
-            "未找到样本数据",
-            "[必须] 添加到 Trace: shecr trace add --desc '未找到样本数据' --hint '检查过滤条件'",
+        risk_info = RiskInfo(
+            level="warning",
+            message="未找到样本数据",
+            hint="[必须] 添加到 Trace: shecr trace add --desc '未找到样本数据' --hint '检查过滤条件'",
             patterns=["NO_SAMPLES"]
         )
 
-        result = risk_output.build({
-            "error": error_data.error,
-            "message": error_data.message,
-            "recovery_hint": error_data.recovery_hint,
-            "time_range": format_time_range(
-                getattr(self.args, 'start_time', None),
-                getattr(self.args, 'end_time', None)
-            ),
-            "available_range": self.engine.get_time_range(),
-            "filters": filters or {}
-        })
+        result = {
+            "_risk": risk_info,
+            **{
+                "error": error_data.error,
+                "message": error_data.message,
+                "recovery_hint": error_data.recovery_hint,
+                "time_range": format_time_range(
+                    getattr(self.args, 'start_time', None),
+                    getattr(self.args, 'end_time', None)
+                ),
+                "available_range": self.engine.get_time_range(),
+                "filters": filters or {}
+            }
+        }
         self.print_json(result)
         return True
 
@@ -287,24 +289,26 @@ class OutputBuilder:
         if early_return:
             if quality_level == "CRITICAL":
                 # 添加数据质量风险
-                risk_output = RiskAwareOutput()
-                risk_output.add_risk(
-                    "critical",
-                    "数据质量不足！分析结果完全不可信",
-                    "[必须] 添加到 Trace: shecr trace add --desc '数据质量不足！分析结果完全不可信' --hint '使用更长的采样时间重新采集数据'",
+                risk_info = RiskInfo(
+                    level="critical",
+                    message="数据质量不足！分析结果完全不可信",
+                    hint="[必须] 添加到 Trace: shecr trace add --desc '数据质量不足！分析结果完全不可信' --hint '使用更长的采样时间重新采集数据'",
                     patterns=["CRITICAL_DATA_QUALITY"]
                 )
 
-                result = risk_output.build({
-                    "data_quality": {
-                        "level": self._quality_metrics.level,
-                        "warning": self._quality_metrics.warning,
-                        "total_samples": self._quality_metrics.total_samples,
-                        "time_range_seconds": self._quality_metrics.time_range_seconds,
-                        "cpu_count": self._quality_metrics.cpu_count,
-                    },
-                    "error": "Insufficient data quality for analysis"
-                })
+                result = {
+                    "_risk": risk_info,
+                    **{
+                        "data_quality": {
+                            "level": self._quality_metrics.level,
+                            "warning": self._quality_metrics.warning,
+                            "total_samples": self._quality_metrics.total_samples,
+                            "time_range_seconds": self._quality_metrics.time_range_seconds,
+                            "cpu_count": self._quality_metrics.cpu_count,
+                        },
+                        "error": "Insufficient data quality for analysis"
+                    }
+                }
                 self.print_json(result)
                 return True
             else:
@@ -450,30 +454,3 @@ class OutputBuilder:
         return self.adapter.to_dict(output)
 
 
-# =============================================================================
-# Legacy Compatibility
-# =============================================================================
-
-def create_risk_info(level: str, message: str = "", hint: str = "",
-                     patterns: List[str] = None,
-                     pending_targets: List[str] = None,
-                     action_required: bool = None) -> RiskInfo:
-    """
-    快速创建 RiskInfo
-
-    兼容旧版 RiskMixin 的使用方式
-    
-    Args:
-        action_required: 可选，如果为 None 则根据 level 自动计算
-    """
-    if action_required is None:
-        action_required = level in ["critical", "warning"]
-    
-    return RiskInfo(
-        level=level,
-        message=message,
-        hint=hint,
-        patterns=patterns or [],
-        pending_targets=pending_targets or [],
-        action_required=action_required
-    )
