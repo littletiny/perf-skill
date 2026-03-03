@@ -853,39 +853,39 @@ class CustomTemplate(Template):
                 lines.append(f"  {i:2d}. {attention}{comm:20s}: sys: {kernel:6.2f}% total: {total:6.2f}% (usr: {user:6.2f}%) pids: {pids:4d} mono: {mono:.2f}{diag_str}")
             lines.append("")
         
-        # 核心分布
+        # 核心分布 - 只有存在不均衡或饱和核心时才显示
         core_dist = data_dict.get('core_distribution', {})
         if core_dist:
-            lines.append(OutputDefaults.CORE_DISTRIBUTION_HEADER)
-            lines.append("")
             imbalance = core_dist.get('imbalance_level', ImbalanceLevel.NORMAL)
-            attention = core_dist.get('attention_flag', '')
-            lines.append(f"{attention} 负载不均衡:")
-            lines.append(f"  - Imbalance Level: {imbalance}")
             saturated = core_dist.get('saturated_cores', [])
-            if saturated:
-                lines.append(f"  - Saturated Cores: {', '.join(map(str, saturated))}")
-            lines.append("")
             
-            top_saturated = core_dist.get('top_saturated', [])
-            if top_saturated:
-                lines.append("Top Saturated:")
-                for i, core in enumerate(top_saturated[:5], 1):
-                    cpu_id = core.get('cpu_id', 'N/A')
-                    total = core.get('total_util', 0)
-                    kernel = core.get('kernel_util', 0)
-                    lines.append(f"  #{i} CPU {cpu_id}: {total:.2f}% (usr: {total-kernel:.2f}%)")
+            # 只有存在异常时才显示
+            if imbalance != ImbalanceLevel.NORMAL or saturated:
+                lines.append(OutputDefaults.CORE_DISTRIBUTION_HEADER)
                 lines.append("")
+                attention = core_dist.get('attention_flag', '')
+                lines.append(f"{attention} 负载不均衡:")
+                lines.append(f"  - Imbalance Level: {imbalance}")
+                if saturated:
+                    lines.append(f"  - Saturated Cores: {', '.join(map(str, saturated))}")
+                lines.append("")
+                
+                top_saturated = core_dist.get('top_saturated', [])
+                if top_saturated:
+                    lines.append("Top Saturated:")
+                    for i, core in enumerate(top_saturated[:5], 1):
+                        cpu_id = core.get('cpu_id', 'N/A')
+                        total = core.get('total_util', 0)
+                        kernel = core.get('kernel_util', 0)
+                        lines.append(f"  #{i} CPU {cpu_id}: {total:.2f}% (usr: {total-kernel:.2f}%)")
+                    lines.append("")
         
-        # 异常检测
+        # 异常检测 - 只有检测到异常时才显示
         anomaly = data_dict.get('anomaly_summary', {})
-        if anomaly:
+        if anomaly and anomaly.get('mutation_detected'):
             lines.append(OutputDefaults.ANOMALY_DETECTION_HEADER)
             lines.append("")
-            if anomaly.get('mutation_detected'):
-                lines.append(f"Mutation Detected! Count: {anomaly.get('anomalies_count', 0)}")
-            else:
-                lines.append("(未检测到异常突变)")
+            lines.append(f"Mutation Detected! Count: {anomaly.get('anomalies_count', 0)}")
             lines.append("")
         
         # 专家锚点
