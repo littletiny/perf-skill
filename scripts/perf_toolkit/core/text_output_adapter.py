@@ -817,12 +817,15 @@ class CustomTemplate(Template):
                 lines.append(f"  {tree_end} others ({count} procs): {cpu:.1f}% (已折叠)")
                 lines.append("")
         
-        # Top By Total CPU
+        # Top By Total CPU - 过滤低负载进程
         top_by_total = data_dict.get('top_by_total_cpu', [])
-        if top_by_total:
+        # 只显示 total > 10% 或 sys > 10% 的进程
+        filtered_total = [item for item in top_by_total 
+                         if item.get('total_cpu', 0) > 10.0 or item.get('kernel_cpu', 0) > 10.0]
+        if filtered_total:
             lines.append("### Top By Total CPU (按总 CPU 排序)")
             lines.append("")
-            for i, item in enumerate(top_by_total[:10], 1):
+            for i, item in enumerate(filtered_total[:10], 1):
                 comm = item.get('comm', 'N/A')
                 total = item.get('total_cpu', 0)
                 kernel = item.get('kernel_cpu', 0)
@@ -835,12 +838,15 @@ class CustomTemplate(Template):
                 lines.append(f"  {i:2d}. {attention}{comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%, usr: {user:6.2f}%) pids: {pids:4d} mono: {mono:.2f}{diag_str}")
             lines.append("")
         
-        # Top By Sys CPU
+        # Top By Sys CPU - 过滤低负载进程
         top_by_sys = data_dict.get('top_by_sys_cpu', [])
-        if top_by_sys:
+        # 只显示 total > 10% 或 sys > 10% 的进程
+        filtered_sys = [item for item in top_by_sys 
+                       if item.get('total_cpu', 0) > 10.0 or item.get('kernel_cpu', 0) > 10.0]
+        if filtered_sys:
             lines.append("### Top By Sys CPU (按内核态 CPU 排序)")
             lines.append("")
-            for i, item in enumerate(top_by_sys[:10], 1):
+            for i, item in enumerate(filtered_sys[:10], 1):
                 comm = item.get('comm', 'N/A')
                 total = item.get('total_cpu', 0)
                 kernel = item.get('kernel_cpu', 0)
