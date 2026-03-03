@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.3] - 2026-03-04
+
+### Added
+- **SHECR Attention Steering 输出提示系统**
+  - 为 `sys-audit` 输出添加 `<X0>`/`<X1>`/`<XA>` 优先级标签
+    - `BOTTLENECK` → `<X0>` (critical)
+    - `STORM`/`UNBALANCED` → `<X1>` (major)
+    - 所有可操作建议 → `<XA>` (action)
+  - 为 `bottleneck-trace` 输出添加 steering 标签
+    - 关键热点和根因标记为 `<X0>`
+    - 关键路径标记为 `<X1>`
+  - 新增设计文档：
+    - `docs/design/design-output-hints.md` - 标签规范与触发条件
+    - `docs/design/output-hints-examples.md` - 使用示例
+    - `docs/design/output-hints-implementation.md` - 实现总结
+
+### Changed
+- **Pipeline 架构简化**
+  - 使用 Code Agent（coder subagent）替代自定义 Agent 类
+  - 新变量语法：`{{var}}` 和 `{{stage.output.key}}`
+  - 支持条件执行：`when` 字段
+  - 新增 `AgentConfig` 配置：allowed_dirs, permissions, system_prompt
+  - 更新设计文档和示例配置
+
+- **目录结构重构**
+  - **Tests**: 
+    - `risk/` + `perfdata/` → `unit/`
+    - `three_tier/` → `integration/`
+    - 根目录测试文件 → `functional/`
+    - `shecr_wrap/` → `cli/`
+    - `perfdata/` → `data/`
+  - **Docs**:
+    - 设计文档 → `docs/design/`
+    - 接口文档 → `docs/interface/`
+    - Pipeline 文档 → `docs/pipeline/`
+    - 计划文档 → `docs/plan/`
+    - 流程文档 → `docs/process/`
+    - 报告文档 → `docs/report/`
+  - 更新 `docs/README.md` 和 `docs/project-structure.md`
+
+**Changed files**: `version`, `scripts/perf_toolkit/core/text_output_adapter.py`, `docs/design/design-output-hints.md`, `docs/design/output-hints-examples.md`, `docs/design/output-hints-implementation.md`, `pipeline/*.py`, `pipeline/README.md`, `docs/pipeline/`, `tests/`, `docs/project-structure.md`, `AGENTS.md`
+
+---
+
 ## [3.2] - 2026-03-03
 
 ### Changed (Architecture)

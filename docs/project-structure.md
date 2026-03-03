@@ -91,6 +91,7 @@
 | `CHANGELOG.md` | 版本变更记录 |
 | `LESSONS.md` | 设计决策与经验教训 |
 | `project-structure.md` | 项目目录结构（本文档） |
+| `config-guide.md` | 配置系统完整指南 |
 
 ---
 
