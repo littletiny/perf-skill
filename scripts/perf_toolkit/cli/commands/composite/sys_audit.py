@@ -78,26 +78,16 @@ def _build_contention_matrix(
     diagnosis: 'DiagnosisReport',
     comm_top: CommTopReport
 ) -> List[ContentionItem]:
-    """构建竞争矩阵（强类型）"""
+    """构建竞争矩阵（强类型）
+    
+    TODO: 暂时移除 CPU Quota 竞争显示，因为无法获取真实的 cgroup limit。
+    当前硬编码的 200% 假设不准确，需要后续从 /sys/fs/cgroup/cpu.max 读取真实值。
+    """
     items: List[ContentionItem] = []
     
-    # CPU Quota 竞争
-    if diagnosis.primary_suspect:
-        total_demand = sum(g.total_cpu for g in comm_top.groups[:5])
-        # 假设限制为 200% (2 cores)
-        limit = 200.0
-        gap = limit - total_demand
-        
-        contenders = [g.comm for g in comm_top.groups[:3]]
-        
-        items.append(ContentionItem(
-            dimension="CPU_QUOTA",
-            demand=total_demand / 100.0,  # 转换为 cores
-            limit=limit / 100.0,
-            gap=gap / 100.0,
-            attention_flag=AttentionFlag.X0 if gap < 0 else "",
-            primary_contenders=contenders
-        ))
+    # NOTE: CPU Quota 竞争分析已禁用
+    # 真实 cgroup limit 读取需要容器内访问权限，暂时无法可靠获取
+    # 如有需要，可通过环境变量或手动配置传入 limit 值
     
     return items
 
