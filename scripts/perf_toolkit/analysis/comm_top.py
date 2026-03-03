@@ -151,11 +151,35 @@ class CommTopAnalyzer(BaseAnalyzer):
                 spawn_rate_map={g.comm: g.spawn_rate for g in groups},
                 impact_score_map={g.comm: g.impact_score for g in groups},
                 folded_groups=[
-                    PG(comm=g.comm, total_cpu=g.total_cpu, diagnosis=g.diagnosis)
+                    PG(
+                        comm=g.comm,
+                        total_cpu=g.total_cpu,
+                        kernel_cpu=g.kernel_cpu,
+                        user_cpu=g.user_cpu,
+                        pid_count=g.pid_count,
+                        pids=list(g.pids) if g.pids else [],
+                        cv=g.cv,
+                        monopoly=g.monopoly,
+                        spawn_rate=g.spawn_rate,
+                        diagnosis=g.diagnosis,
+                        impact_score=g.impact_score
+                    )
                     for g in folded_groups
                 ],
                 all_groups=[
-                    PG(comm=g.comm, total_cpu=g.total_cpu, diagnosis=g.diagnosis)
+                    PG(
+                        comm=g.comm,
+                        total_cpu=g.total_cpu,
+                        kernel_cpu=g.kernel_cpu,
+                        user_cpu=g.user_cpu,
+                        pid_count=g.pid_count,
+                        pids=list(g.pids) if g.pids else [],
+                        cv=g.cv,
+                        monopoly=g.monopoly,
+                        spawn_rate=g.spawn_rate,
+                        diagnosis=g.diagnosis,
+                        impact_score=g.impact_score
+                    )
                     for g in groups
                 ]
             )

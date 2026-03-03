@@ -30,12 +30,14 @@ def cmd_get_comm_top(
 ) -> CommTopOutput:
     """[Skill] Get top N comm groups by aggregated CPU utilization"""
     
+    include_metrics = getattr(args, 'include_metrics', False)
+    
     # 1. 调用 Analyzer
     analyzer = CommTopAnalyzer(engine)
     result = analyzer.analyze(
         samples, 
         top_n=getattr(args, 'top_n', 10),
-        include_metrics=False
+        include_metrics=include_metrics
     )
     
     # 2. 记录所有 risks 到 Trace
@@ -58,11 +60,11 @@ def cmd_get_comm_top(
         
         # 构建 event 描述
         if g.diagnosis == DiagnosisType.BOTTLENECK:
-            event = f"{DiagnosisType.BOTTLENECK}(M={g.monopoly:.2f})"
+            event = f"{DiagnosisType.BOTTLENECK}(M={g.monopoly:.4f})"
         elif g.diagnosis == DiagnosisType.STORM:
             event = f"{DiagnosisType.STORM}({g.spawn_rate:.1f}/s)"
         elif g.diagnosis == DiagnosisType.UNBALANCED:
-            event = f"{DiagnosisType.UNBALANCED}(CV={g.cv:.2f})"
+            event = f"{DiagnosisType.UNBALANCED}(CV={g.cv:.4f})"
         else:
             event = "normal"
         
@@ -95,4 +97,34 @@ def cmd_get_comm_top(
         )
     )
     
+    # 5. 如果启用了增强指标，打印额外信息
+    if include_metrics and result.metrics:
+        _print_enhanced_metrics(result)
+    
     return output
+
+
+def _print_enhanced_metrics(result) -> None:
+    """打印增强指标（CV, Monopoly, SpawnRate, ImpactScore）"""
+    print("\n# Enhanced Metrics (CV=变异系数, M=独占率, SR=产生速率, IS=危害指数)")
+    print("# comm,CV,Monopoly,SpawnRate,ImpactScore")
+    
+    # 获取 metrics 中的数据
+    cv_map = result.metrics.cv_map if hasattr(result.metrics, 'cv_map') else {}
+    monopoly_map = result.metrics.monopoly_map if hasattr(result.metrics, 'monopoly_map') else {}
+    spawn_rate_map = result.metrics.spawn_rate_map if hasattr(result.metrics, 'spawn_rate_map') else {}
+    impact_score_map = result.metrics.impact_score_map if hasattr(result.metrics, 'impact_score_map') else {}
+    
+    # 按危害指数排序输出
+    sorted_comms = sorted(
+        impact_score_map.keys(),
+        key=lambda c: impact_score_map.get(c, 0),
+        reverse=True
+    )
+    
+    for comm in sorted_comms[:20]:  # 显示前20个
+        cv = cv_map.get(comm, 0)
+        monopoly = monopoly_map.get(comm, 0)
+        spawn_rate = spawn_rate_map.get(comm, 0)
+        impact_score = impact_score_map.get(comm, 0)
+        print(f"{comm},{cv:.4f},{monopoly:.4f},{spawn_rate:.2f},{impact_score:.2f}")

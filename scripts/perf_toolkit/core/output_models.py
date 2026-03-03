@@ -650,6 +650,37 @@ class BottleneckTraceResult:
     duration_sec: float = 0.0
     sample_count: int = 0
     time_range: Optional[TimeRange] = None
+    _template_config: Optional[TemplateConfig] = None
+
+    def __init__(self,
+                 _risk: RiskInfo,
+                 entity_distribution: Optional[List[EntityDistribution]] = None,
+                 common_hotspot: str = "",
+                 common_hotspot_weight: float = 0.0,
+                 clusters: Optional[List[CallPathCluster]] = None,
+                 correlation_flags: Optional[List[CorrelationFlag]] = None,
+                 total_pids: int = 0,
+                 total_sys_cpu: float = 0.0,
+                 top_bottlenecks: Optional[List[str]] = None,
+                 duration_sec: float = 0.0,
+                 sample_count: int = 0,
+                 time_range: Optional[TimeRange] = None):
+        self._risk = _risk
+        self.entity_distribution = entity_distribution or []
+        self.common_hotspot = common_hotspot
+        self.common_hotspot_weight = common_hotspot_weight
+        self.clusters = clusters or []
+        self.correlation_flags = correlation_flags or []
+        self.total_pids = total_pids
+        self.total_sys_cpu = total_sys_cpu
+        self.top_bottlenecks = top_bottlenecks or []
+        self.duration_sec = duration_sec
+        self.sample_count = sample_count
+        self.time_range = time_range
+        self._template_config = TemplateConfig(
+            template_type="custom",
+            custom_renderer="bottleneck_trace_renderer"
+        )
 
 
 

@@ -161,3 +161,5 @@ def register_commands(subparsers):
     p.add_argument("--comm-regex", type=str, help="Filter by process name regex")
     p.add_argument("--start-time", type=str, help="Filter samples after this time")
     p.add_argument("--end-time", type=str, help="Filter samples before this time")
+    p.add_argument("--include-metrics", action="store_true",
+                   help="Include enhanced metrics (CV, Monopoly, SpawnRate, ImpactScore)")
