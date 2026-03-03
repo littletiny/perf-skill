@@ -9,24 +9,11 @@
 ```
 tests/
 ├── README.md                        # 本文件 - 测试目录总览
+├── run_tests.py                     # 统一测试入口
 ├── test_issue_overflow_warning.py   # Issue Overflow Warning 功能测试
-├── three_tier/                      # 三层架构集成测试
-│   ├── README.md                    # 测试说明与运行指南
-│   ├── run_all_tests.py             # 统一测试入口
-│   ├── verify_interfaces.py         # 接口快速验证脚本
-│   ├── test_core_interfaces.py      # Core层接口测试
-│   ├── test_facade_interfaces.py    # Analysis Facade接口测试
-│   ├── test_composite_commands.py   # Composite命令测试
-│   ├── test_trace_boundary.py       # Trace边界测试
-│   ├── test_risk_integration.py     # Risk集成测试
-│   └── test_three_tier_e2e.py       # 端到端测试
 ├── risk/                            # Risk 显示配置测试
 │   ├── README.md
-│   └── test_display_config.py
-├── clusters/                        # cluster-symbols / rules 相关测试
-│   ├── README.md
-│   ├── test_rules_loading.py
-│   └── test_external_rules_integration.py
+│   └── test_risk_display_config.py
 ├── perfdata/                        # 性能数据格式测试
 │   ├── README.md
 │   ├── test_perfdata.py
@@ -35,9 +22,11 @@ tests/
 ├── scenario/                        # 场景测试（人工验证用）
 │   ├── netstat/                     # netstat 进程风暴场景
 │   └── ps/                          # ps 进程分析场景
-└── shecr_wrap/                      # shecr_wrap CLI 回归测试
-    ├── README.md
-    └── test_shecr_wrap.py
+├── shecr_wrap/                      # shecr_wrap CLI 回归测试
+│   ├── README.md
+│   └── test_shecr_wrap.py
+└── three_tier/                      # 三层架构集成测试（待完善）
+    └── README.md
 ```
 
 ---
@@ -60,16 +49,7 @@ Risk 显示配置的单元测试。
 |---------|------|----------|
 | `risk/test_risk_display_config.py` | Risk 显示配置加载与格式化测试 | `python3 tests/risk/test_risk_display_config.py` |
 
-### 3. Rules 加载测试 (`clusters/`)
-
-cluster-symbols 的 rules 文件加载与集成测试。
-
-| 测试文件 | 用途 | 运行方式 |
-|---------|------|----------|
-| `clusters/test_rules_loading.py` | Rules 文件加载与缓存机制测试 | `python3 tests/clusters/test_rules_loading.py` |
-| `clusters/test_external_rules_integration.py` | 外部规则文件集成测试 | `python3 tests/clusters/test_external_rules_integration.py` |
-
-### 4. 数据格式测试 (`perfdata/`)
+### 3. 数据格式测试 (`perfdata/`)
 
 测试不同 perf 数据格式的兼容性。
 
@@ -77,7 +57,7 @@ cluster-symbols 的 rules 文件加载与集成测试。
 |------|------|----------|
 | `perfdata/` | 数据格式兼容性测试 | `python3 tests/perfdata/test_perfdata.py` |
 
-### 5. CLI 回归测试 (`shecr_wrap/`)
+### 4. CLI 回归测试 (`shecr_wrap/`)
 
 测试 shecr CLI 各子命令的功能。
 
@@ -85,7 +65,7 @@ cluster-symbols 的 rules 文件加载与集成测试。
 |------|------|----------|
 | `shecr_wrap/` | CLI 回归测试 | `python3 tests/shecr_wrap/test_shecr_wrap.py` |
 
-### 6. 场景测试 (`scenario/`)
+### 5. 场景测试 (`scenario/`)
 
 真实场景的案例分析，用于人工验证和演示。
 
@@ -113,18 +93,6 @@ python3 tests/test_issue_overflow_warning.py -v
 ```bash
 # 运行 Risk 显示配置测试
 python3 tests/risk/test_risk_display_config.py
-```
-
-### Rules 加载测试
-
-```bash
-# 运行 Rules 加载测试
-python3 tests/clusters/test_rules_loading.py
-python3 tests/clusters/test_rules_loading.py -v
-
-# 运行外部规则集成测试
-python3 tests/clusters/test_external_rules_integration.py
-python3 tests/clusters/test_external_rules_integration.py -v
 ```
 
 ### 数据格式测试
@@ -203,12 +171,32 @@ if __name__ == "__main__":
 
 ## 测试状态
 
-| 测试套件 | 用例数 | 状态 |
-|---------|--------|------|
-| test_issue_overflow_warning | 10 | ✅ 通过 |
-| risk/test_display_config | 13 | ✅ 通过 |
-| clusters/test_rules_loading | 9 | ✅ 通过 |
-| clusters/test_external_rules_integration | 12 | ✅ 通过 |
-| shecr_wrap | 14 | ✅ 通过 |
-| perfdata (new_format) | 14 | ✅ 通过 |
-| perfdata (perf_format) | 14 | ✅ 通过 |
+### 当前状态（最新）
+
+| 测试套件 | 用例数 | 状态 | 备注 |
+|---------|--------|------|------|
+| test_issue_overflow_warning | 8 | ✅ 通过 | 2个测试跳过（功能禁用） |
+| risk/test_display_config | 13 | ✅ 通过 | |
+| shecr_wrap | 14 | ✅ 通过 | |
+| perfdata (new_format) | 14 | ✅ 通过 | |
+| perfdata (perf_format) | 14 | ✅ 通过 | |
+| **clusters/test_rules_loading** | - | ⏸️ 跳过 | 测试文件不存在 |
+| **clusters/test_external_rules_integration** | - | ⏸️ 跳过 | 测试文件不存在 |
+
+### 运行所有测试
+
+```bash
+# 使用统一测试入口
+python3 tests/run_tests.py
+
+# 详细输出
+python3 tests/run_tests.py -v
+
+# 失败时停止
+python3 tests/run_tests.py -f
+```
+
+### 说明
+
+- **clusters/** 目录下的测试文件 (`test_rules_loading.py`, `test_external_rules_integration.py`) 尚未创建，运行测试时会自动跳过
+- **test_issue_overflow_warning** 中的 2 个测试被标记为跳过（`@unittest.skip`），原因：Issue Overflow Warning 功能当前已禁用
