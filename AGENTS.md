@@ -13,6 +13,7 @@ perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-dri
 - **AI 友好**: 工具的输出格式便于AI阅读
 - **先设计再编码, 强制静态类型，不使用python的动态类型**
 - **如果一个Dict可以被dataclass替代，那么绝对不使用Dict**
+- **不允许硬编码，任何硬编码都要改成可配置**
 
 ### 输出设计原则
 
