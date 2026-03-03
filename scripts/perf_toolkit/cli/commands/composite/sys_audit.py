@@ -54,15 +54,30 @@ if TYPE_CHECKING:
 
 def _build_system_fingerprint(
     diagnosis: 'DiagnosisReport',
-    core_dist: CoreDistributionReport
+    core_dist: CoreDistributionReport,
+    all_groups: List['ProcessGroup']
 ) -> SystemFingerprint:
     """构建系统指纹（强类型）"""
-    # 根据核心分布和诊断信息推断系统压力状态
-    pressure_state = PressureState.NORMAL
-    if diagnosis.primary_suspect and diagnosis.primary_suspect.diagnosis == DiagnosisType.BOTTLENECK:
+    # 根据实际负载指标推断系统压力状态
+    
+    # 指标1: 最高 sys 占比（系统级问题严重程度）
+    max_sys = max((g.kernel_cpu for g in all_groups), default=0)
+    
+    # 指标2: 总 CPU 需求（系统负载）
+    total_demand = sum(g.total_cpu for g in all_groups)
+    
+    # 指标3: BOTTLENECK 进程数量
+    bottleneck_count = sum(1 for g in all_groups if g.diagnosis == DiagnosisType.BOTTLENECK)
+    
+    # 判定逻辑
+    if max_sys > 100 or total_demand > 500:
+        # 极高 sys (>100%) 或总需求 >500%：系统级严重问题
         pressure_state = PressureState.CRITICAL_CONTENTION
-    elif diagnosis.secondary_loads:
+    elif max_sys > 50 or total_demand > 200 or bottleneck_count >= 2:
+        # 高 sys (>50%) 或总需求 >200% 或多个瓶颈：中度竞争
         pressure_state = PressureState.MODERATE_CONTENTION
+    else:
+        pressure_state = PressureState.NORMAL
     
     return SystemFingerprint(
         pressure_state=pressure_state,
@@ -305,7 +320,9 @@ def cmd_sys_audit(
     )
     
     # 构建所有强类型数据（无裸 Dict）
-    system_fingerprint = _build_system_fingerprint(diagnosis, core_dist)
+    # 获取所有进程组用于系统状态计算
+    all_groups = comm_top.metrics.all_groups if comm_top.metrics else comm_top.groups
+    system_fingerprint = _build_system_fingerprint(diagnosis, core_dist, all_groups)
     contention_matrix = _build_contention_matrix(diagnosis, comm_top)
     process_hierarchy = _build_process_hierarchy(diagnosis)
     core_distribution = _build_core_distribution(core_dist)
