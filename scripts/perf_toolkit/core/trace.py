@@ -117,13 +117,9 @@ class Trace:
         self.save()
         
         # 无脑输出所有 open issues
-        self._print_open_issues()
+        self._print_issue_overflow_warning()
         
         return seq
-    
-    def _print_open_issues(self):
-        """输出 issue overflow warning（统一入口）"""
-        self._print_issue_overflow_warning()
     
     def _print_issue_overflow_warning(self):
         """统一的问题未闭环警告入口（当前禁用）"""

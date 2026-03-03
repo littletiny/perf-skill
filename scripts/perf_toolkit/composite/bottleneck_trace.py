@@ -306,19 +306,28 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
     metrics = result.metrics if hasattr(result, 'metrics') else result.get("metrics", {})
     target_group: Optional[ProcessGroup] = None
     
-    for g in metrics.get("all_groups", []):
-        if g["comm"] == comm:
-            target_group = ProcessGroup(
-                comm=g["comm"],
-                total_cpu=g.get("total_cpu", 0.0),
-                kernel_cpu=g.get("kernel_cpu", 0.0),
-                pid_count=g.get("pid_count", g.get("count", 0)),
-                cv=g.get("cv", 0.0),
-                monopoly=g.get("monopoly", 0.0),
-                diagnosis=g.get("diagnosis", "NORMAL"),
-                impact_score=g.get("impact_score", 0.0)
-            )
-            break
+    # 处理 metrics 可能是 dict 或 dataclass 的情况
+    if hasattr(metrics, 'all_groups'):
+        # metrics 是 dataclass，all_groups 中是 ProcessGroup 对象
+        for g in metrics.all_groups:
+            if g.comm == comm:
+                target_group = g
+                break
+    elif isinstance(metrics, dict):
+        # metrics 是 dict
+        for g in metrics.get("all_groups", []):
+            if g.get("comm") == comm:
+                target_group = ProcessGroup(
+                    comm=g["comm"],
+                    total_cpu=g.get("total_cpu", 0.0),
+                    kernel_cpu=g.get("kernel_cpu", 0.0),
+                    pid_count=g.get("pid_count", g.get("count", 0)),
+                    cv=g.get("cv", 0.0),
+                    monopoly=g.get("monopoly", 0.0),
+                    diagnosis=g.get("diagnosis", "NORMAL"),
+                    impact_score=g.get("impact_score", 0.0)
+                )
+                break
     
     if not target_group:
         return BottleneckAnalysis(

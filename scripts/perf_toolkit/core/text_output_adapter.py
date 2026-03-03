@@ -221,9 +221,6 @@ class TableTemplate(Template):
                 next_v = getattr(item, 'next_util', 0) * 100
                 change = f"{prev:.1f}% -> {curr:.1f}% -> {next_v:.1f}%"
             severity = getattr(item, 'severity', 'unknown')
-            time_range = getattr(item, 'time_range', 'N/A')
-            change = getattr(item, 'utilization_change', 'N/A')
-            severity = getattr(item, 'severity', 'unknown')
 
         if isinstance(time_range, dict):
             time_range = f"{time_range.get('start', '')} - {time_range.get('end', '')}"
