@@ -827,7 +827,8 @@ class CustomTemplate(Template):
         
         # 计算所有进程的总 CPU（用于统计隐藏进程）
         all_groups = top_by_total
-        shown_comms = {item.get('comm', '') for item, _ in filtered[:15]}
+        TOP_N_DISPLAY = 5  # 默认只显示 top 5
+        shown_comms = {item.get('comm', '') for item, _ in filtered[:TOP_N_DISPLAY]}
         
         total_all_cpu = sum(item.get('total_cpu', 0) for item in all_groups)
         shown_cpu = sum(item.get('total_cpu', 0) for item in all_groups if item.get('comm', '') in shown_comms)
@@ -836,7 +837,7 @@ class CustomTemplate(Template):
         if filtered:
             lines.append("### Top 进程 (按危害指数排序)")
             lines.append("")
-            for i, (item, score) in enumerate(filtered[:15], 1):
+            for i, (item, score) in enumerate(filtered[:TOP_N_DISPLAY], 1):
                 comm = item.get('comm', 'N/A')
                 total = item.get('total_cpu', 0)
                 kernel = item.get('kernel_cpu', 0)
@@ -848,7 +849,7 @@ class CustomTemplate(Template):
             
             # Summary
             lines.append("")
-            lines.append(f"  共显示 {min(15, len(filtered))} / {len(filtered)} 个进程")
+            lines.append(f"  共显示 {min(TOP_N_DISPLAY, len(filtered))} / {len(filtered)} 个进程")
             lines.append(f"  未显示进程 CPU: {hidden_cpu:.2f}% / {total_all_cpu:.2f}%")
             lines.append("")
         
