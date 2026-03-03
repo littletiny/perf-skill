@@ -778,90 +778,77 @@ class CustomTemplate(Template):
                         lines.append(f"  - Page Fault: {pf}/s")
                 lines.append("")
         
-        # Top N 合并显示 - 交错合并 Total 和 Sys 列表
+        # Top N 按 Impact Score 排序显示
         top_by_total = data_dict.get('top_by_total_cpu', [])
-        top_by_sys = data_dict.get('top_by_sys_cpu', [])
         
         # 从配置读取显示阈值
         display_thresh = get_config().get_display_threshold()
         display_min = display_thresh.display_min
         sys_display_min = display_thresh.sys_display_min
         
-        # 分别过滤
-        filtered_total = [item for item in top_by_total 
-                         if item.get('total_cpu', 0) > display_min or item.get('kernel_cpu', 0) > sys_display_min]
-        filtered_sys = [item for item in top_by_sys 
-                       if item.get('total_cpu', 0) > display_min or item.get('kernel_cpu', 0) > sys_display_min]
+        # 过滤并计算 Impact Score
+        def _calc_impact_score(item):
+            """计算 Impact Score（与 comm_top.py 一致）"""
+            total = item.get('total_cpu', 0)
+            kernel = item.get('kernel_cpu', 0)
+            cv = item.get('cv', 0)
+            mono = item.get('monopoly', 0)
+            spawn_rate = item.get('spawn_rate', 0)
+            diagnosis = item.get('diagnosis', '')
+            
+            # 基础分
+            base_score = 0
+            if diagnosis == DiagnosisType.BOTTLENECK:
+                base_score = 100
+            elif diagnosis == DiagnosisType.STORM:
+                base_score = 50
+            elif diagnosis == DiagnosisType.UNBALANCED:
+                base_score = 20
+            
+            return base_score + (
+                total * 0.5 +
+                kernel * 0.8 +
+                cv * 10 +
+                mono * 5 +
+                spawn_rate * 0.5
+            )
+        
+        # 过滤并计算分数
+        filtered = []
+        for item in top_by_total:
+            total = item.get('total_cpu', 0)
+            kernel = item.get('kernel_cpu', 0)
+            if total > display_min or kernel > sys_display_min:
+                score = _calc_impact_score(item)
+                filtered.append((item, score))
+        
+        # 按 Impact Score 排序
+        filtered.sort(key=lambda x: x[1], reverse=True)
         
         # 计算所有进程的总 CPU（用于统计隐藏进程）
-        all_groups = data_dict.get('top_by_total_cpu', [])  # 用 total 列表作为全集
-        shown_comms = set()
-        for item in filtered_total[:10]:
-            shown_comms.add(item.get('comm', ''))
-        for item in filtered_sys[:10]:
-            shown_comms.add(item.get('comm', ''))
+        all_groups = top_by_total
+        shown_comms = {item.get('comm', '') for item, _ in filtered[:15]}
         
         total_all_cpu = sum(item.get('total_cpu', 0) for item in all_groups)
         shown_cpu = sum(item.get('total_cpu', 0) for item in all_groups if item.get('comm', '') in shown_comms)
         hidden_cpu = total_all_cpu - shown_cpu
         
-        # 求交集（在两个列表前10中都出现的进程）
-        set_total_top10 = {item.get('comm', '') for item in filtered_total[:10]}
-        set_sys_top10 = {item.get('comm', '') for item in filtered_sys[:10]}
-        intersection = set_total_top10 & set_sys_top10
-        
-        # 交错合并（公平队列算法）
-        merged = []
-        idx_total, idx_sys = 0, 0
-        seen = set()
-        
-        while len(merged) < 15 and (idx_total < len(filtered_total) or idx_sys < len(filtered_sys)):
-            # 优先从 total 列表取（如果还有且未取过）
-            if idx_total < len(filtered_total):
-                item = filtered_total[idx_total]
-                comm = item.get('comm', '')
-                if comm not in seen:
-                    seen.add(comm)
-                    is_intersection = comm in intersection
-                    merged.append((item, is_intersection, 'total'))
-                idx_total += 1
-            
-            # 然后从 sys 列表取（如果还有且未取过）
-            if idx_sys < len(filtered_sys) and len(merged) < 15:
-                item = filtered_sys[idx_sys]
-                comm = item.get('comm', '')
-                if comm not in seen:
-                    seen.add(comm)
-                    is_intersection = comm in intersection
-                    merged.append((item, is_intersection, 'sys'))
-                idx_sys += 1
-            
-            # 防止死循环：如果两个列表都没进展，退出
-            if idx_total >= len(filtered_total) and idx_sys >= len(filtered_sys):
-                break
-        
-        if merged:
-            lines.append("### Top 进程 (交错合并 Total + Sys)")
+        if filtered:
+            lines.append("### Top 进程 (按危害指数排序)")
             lines.append("")
-            for i, (item, is_intersection, source) in enumerate(merged, 1):
+            for i, (item, score) in enumerate(filtered[:15], 1):
                 comm = item.get('comm', 'N/A')
                 total = item.get('total_cpu', 0)
                 kernel = item.get('kernel_cpu', 0)
-                user = item.get('user_cpu', 0)
                 pids = item.get('pid_count', 0)
-                mono = item.get('monopoly', 0)
                 diagnosis = item.get('diagnosis', '')
                 attention = item.get('attention_flag', '')
                 diag_str = f" [{diagnosis}]" if diagnosis else ""
-                # 标记交集和来源
-                marker = ""
-                if is_intersection:
-                    marker = " [both]" if source == 'total' else ""
-                lines.append(f"  {i:2d}. {attention}{comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) pids: {pids:4d}{diag_str}{marker}")
+                lines.append(f"  {i:2d}. {attention}{comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) pids: {pids:4d} score: {score:.1f}{diag_str}")
             
             # Summary
             lines.append("")
-            lines.append(f"  共 {len(merged)} 个进程，交集 {len(intersection)} 个")
+            lines.append(f"  共显示 {min(15, len(filtered))} / {len(filtered)} 个进程")
             lines.append(f"  未显示进程 CPU: {hidden_cpu:.2f}% / {total_all_cpu:.2f}%")
             lines.append("")
         
