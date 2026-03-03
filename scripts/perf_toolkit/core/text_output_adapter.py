@@ -566,7 +566,7 @@ class CustomTemplate(Template):
     def _render_bottleneck_trace_v2(self, data: Any) -> List[str]:
         """
         渲染瓶颈追踪结果 - V2 强类型版本
-        
+
         基于设计文档格式：
         ## [BOTTLENECK_TRACE]
         ### 瓶颈特征 (Bottleneck Profile)
@@ -576,100 +576,124 @@ class CustomTemplate(Template):
         """
         data_dict = asdict(data) if is_dataclass(data) else data
         lines = []
-        
+
         # 标题
         lines.append(OutputDefaults.BOTTLENECK_TRACE_TITLE)
         target_comm = data_dict.get('target_comm', OutputDefaults.NA)
         lines.append(f"> 目标进程: {target_comm}")
         lines.append("")
-        
+
         # 瓶颈特征
         profile = data_dict.get('bottleneck_profile', {})
         if profile and profile.get('found'):
             lines.append(OutputDefaults.BOTTLENECK_PROFILE_HEADER)
             lines.append("")
-            
-            # 评估标签
+
+            # 评估标签 - 根据 Monopoly 和 Kernel Ratio 确定整体评估标签
             monopoly = profile.get('monopoly', 0)
+            kernel_ratio = profile.get('kernel_ratio', 0)
+
+            # 优先级: 单核饱和 > 高内核态 > 负载不均衡
             if monopoly > Thresholds.MONOPOLY_HIGH:
-                lines.append(f"{AttentionFlag.X0} {OutputDefaults.ASSESSMENT_SATURATED} (Monopoly={monopoly:.2f})")
-            
+                lines.append(f"{AttentionFlag.X0} 评估结果: 单核饱和 (Monopoly={monopoly:.2f})")
+            elif kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
+                lines.append(f"{AttentionFlag.X0} 评估结果: 高内核态占比 ({kernel_ratio:.1f}%)")
+            elif profile.get('cv', 0) > Thresholds.CV_UNBALANCED:
+                lines.append(f"{AttentionFlag.X1} 评估结果: 负载不均衡 (CV={profile.get('cv', 0):.2f})")
+
             lines.append(f"| Metric | Value | Assessment |")
             lines.append(f"|--------|-------|------------|")
-            
+
             total_cpu = profile.get('total_cpu', 0)
             cpu_assessment = (
-                f"{AttentionFlag.X0} 严重超载" if total_cpu > Thresholds.CPU_UTIL_EXTREME 
-                else 'High' if total_cpu > Thresholds.CPU_UTIL_HIGH 
+                f"{AttentionFlag.X0} 严重超载" if total_cpu > Thresholds.CPU_UTIL_EXTREME
+                else f"{AttentionFlag.X1} 高负载" if total_cpu > Thresholds.CPU_UTIL_HIGH
                 else 'Normal'
             )
             lines.append(f"| Total CPU | {total_cpu:.2f}% | {cpu_assessment} |")
-            
+
             kernel_ratio = profile.get('kernel_ratio', 0)
             kernel_assessment = (
-                f"{AttentionFlag.X1} {OutputDefaults.ASSESSMENT_HIGH_KERNEL}" 
-                if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH 
+                f"{AttentionFlag.X0} {OutputDefaults.ASSESSMENT_HIGH_KERNEL}"
+                if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH
                 else 'Normal'
             )
             lines.append(f"| Kernel Ratio | {kernel_ratio:.1f}% | {kernel_assessment} |")
-            
+
             pid_count = profile.get('pid_count', 0)
             lines.append(f"| PID Count | {pid_count} | {'Single' if pid_count == 1 else 'Multi'} |")
-            
+
             monopoly_assessment = (
-                f"{AttentionFlag.X0} {OutputDefaults.ASSESSMENT_SINGLE_CORE_EXCLUSIVE}" 
-                if monopoly > Thresholds.MONOPOLY_HIGH 
+                f"{AttentionFlag.X0} {OutputDefaults.ASSESSMENT_SINGLE_CORE_EXCLUSIVE}"
+                if monopoly > Thresholds.MONOPOLY_HIGH
                 else 'Normal'
             )
             lines.append(f"| Monopoly | {monopoly:.2f} | {monopoly_assessment} |")
-            
+
             cv = profile.get('cv', 0)
             cv_assessment = (
-                f"{AttentionFlag.X1} {OutputDefaults.ASSESSMENT_UNBALANCED}" 
-                if cv > Thresholds.CV_UNBALANCED 
+                f"{AttentionFlag.X1} {OutputDefaults.ASSESSMENT_UNBALANCED}"
+                if cv > Thresholds.CV_UNBALANCED
                 else 'Balanced'
             )
             lines.append(f"| CV | {cv:.2f} | {cv_assessment} |")
-            
+
             impact_score = profile.get('impact_score', 0)
             impact_assessment = (
-                '极高' if impact_score > Thresholds.IMPACT_SCORE_HIGH 
-                else '高' if impact_score > Thresholds.IMPACT_SCORE_MEDIUM 
-                else '中' if impact_score > Thresholds.IMPACT_SCORE_LOW 
+                '极高' if impact_score > Thresholds.IMPACT_SCORE_HIGH
+                else '高' if impact_score > Thresholds.IMPACT_SCORE_MEDIUM
+                else '中' if impact_score > Thresholds.IMPACT_SCORE_LOW
                 else '低'
             )
             lines.append(f"| Impact Score | {impact_score:.2f} | {impact_assessment} |")
-            
+
             lines.append("")
-        
+
         # 热点函数
         hotspots = data_dict.get('hotspots', {})
         if hotspots:
             lines.append(OutputDefaults.HOTSPOTS_HEADER)
             lines.append(OutputDefaults.HOTSPOTS_SORT_HINT)
             lines.append("")
-            
+
             top_symbol = hotspots.get('top_symbol')
             items = hotspots.get('items', [])
-            
+
             if items:
-                # 第一个热点带 X0 标记（如果是 LOCK）
+                # 第一个热点 - 根据类型和占比添加标签
                 first = items[0]
+                first_self_pct = first.get('self_pct', 0) * 100
+
                 if first.get('resource_tag') == 'LOCK':
+                    # 锁竞争热点标记为 X0
                     lines.append(f"{AttentionFlag.X0} 锁竞争热点: {first.get('symbol', OutputDefaults.NA)}")
-                    lines.append(f"  - Self: {first.get('self_pct', 0)*100:.2f}% | Inclusive: {first.get('inclusive_pct', 0)*100:.2f}%")
+                    lines.append(f"  - Self: {first_self_pct:.2f}% | Inclusive: {first.get('inclusive_pct', 0)*100:.2f}%")
                     lines.append(f"  - Resource Tag: {first.get('resource_tag', OutputDefaults.NA)}")
                     lines.append("")
-                
-                # 其他热点
+                elif first_self_pct > 40:
+                    # 高占比热点标记为 X0
+                    lines.append(f"{AttentionFlag.X0} 高占比热点: {first.get('symbol', OutputDefaults.NA)}")
+                    lines.append(f"  - Self: {first_self_pct:.2f}% | Inclusive: {first.get('inclusive_pct', 0)*100:.2f}%")
+                    lines.append(f"  - Resource Tag: {first.get('resource_tag', OutputDefaults.NA)}")
+                    lines.append("")
+
+                # 其他热点 - 根据占比添加标签
+                start_idx = 1 if (first.get('resource_tag') == 'LOCK' or first_self_pct > 40) else 0
                 for i, hs in enumerate(items[:CompositeDefaults.DEFAULT_TOP_HOTSPOTS], 1):
-                    if i == 1 and hs.get('resource_tag') == 'LOCK':
+                    if i == 1 and start_idx == 1:
                         continue  # 已显示
+
+                    self_pct = hs.get('self_pct', 0) * 100
                     tag_str = f" ({hs.get('resource_tag', OutputDefaults.NA)})" if hs.get('resource_tag') else ""
-                    lines.append(f"#{i} {hs.get('symbol', OutputDefaults.NA)}: {hs.get('self_pct', 0)*100:.2f}%{tag_str}")
-            
+
+                    # 根据占比添加标签
+                    if self_pct > 20:
+                        lines.append(f"{AttentionFlag.X1} #{i} {hs.get('symbol', OutputDefaults.NA)}: {self_pct:.2f}%{tag_str}")
+                    else:
+                        lines.append(f"#{i} {hs.get('symbol', OutputDefaults.NA)}: {self_pct:.2f}%{tag_str}")
+
             lines.append("")
-        
+
         # 调用链溯源
         call_chain = data_dict.get('call_chain')
         if call_chain:
@@ -677,14 +701,15 @@ class CustomTemplate(Template):
             target = call_chain.get('target', OutputDefaults.NA)
             lines.append(f"{OutputDefaults.CALL_CHAIN_TARGET_PREFIX} {target}")
             lines.append("")
-            
+
             convergence = call_chain.get('convergence_path')
             if convergence:
+                # 调用链分析总是重要的，标记为 X0
                 lines.append(f"{AttentionFlag.X0} 聚合调用链:")
                 lines.append(f"  {convergence.get('description', OutputDefaults.NA)}")
                 lines.append(f"  - 影响: {convergence.get('impact', OutputDefaults.NA)}")
                 lines.append("")
-            
+
             top_callers = call_chain.get('top_callers', [])
             if top_callers:
                 lines.append("Top Callers:")
@@ -695,7 +720,7 @@ class CustomTemplate(Template):
                     stack_str = " <- ".join(stack) if stack else OutputDefaults.ROOT
                     lines.append(f"  #{i} [{ratio*100:.2f}%] {stack_str}")
                 lines.append("")
-        
+
         # 根因分析
         root_cause = data_dict.get('root_cause')
         if root_cause:
@@ -706,7 +731,7 @@ class CustomTemplate(Template):
             lines.append(f"  - 机制: {root_cause.get('mechanism', OutputDefaults.NA)}")
             lines.append(f"  - 受害者: {root_cause.get('victim', OutputDefaults.NA)}")
             lines.append("")
-        
+
         # 建议操作
         recommendations = data_dict.get('recommendations', [])
         if recommendations:
@@ -714,13 +739,13 @@ class CustomTemplate(Template):
             for i, rec in enumerate(recommendations, 1):
                 lines.append(f"  {i}. {rec}")
             lines.append("")
-        
+
         return lines
 
     def _render_sys_audit_v2(self, data: Any) -> List[str]:
         """
         渲染系统审计结果 - V2 强类型版本
-        
+
         基于设计文档格式：
         ## [SYSTEM_AUDIT]
         ### 系统指纹 (System Fingerprint)
@@ -732,12 +757,12 @@ class CustomTemplate(Template):
         """
         data_dict = asdict(data) if is_dataclass(data) else data
         lines = []
-        
+
         # 标题
         lines.append(OutputDefaults.SYS_AUDIT_TITLE)
         lines.append("> 策略: 自动降噪 + 危害排序，识别真瓶颈")
         lines.append("")
-        
+
         # 系统指纹
         fingerprint = data_dict.get('system_fingerprint', {})
         # NOTE: PSI 和 Throttle 数据需要从 /proc/pressure/ 和 cgroup 读取
@@ -749,7 +774,7 @@ class CustomTemplate(Template):
                 lines.append("")
                 lines.append(f"State: {pressure_state}")
                 lines.append("")
-        
+
         # 敏感进程事件检测
         sensitive_events = data_dict.get('sensitive_events', [])
         if sensitive_events:
@@ -761,7 +786,7 @@ class CustomTemplate(Template):
                 message = event.get('message', '')
                 count = event.get('count', 0)
                 processes = event.get('processes', [])
-                
+
                 lines.append(f"{flag} [{category}] {message}")
                 lines.append(f"  检测到 {count} 个相关进程:")
                 for proc in processes[:5]:  # 最多显示5个
@@ -770,15 +795,15 @@ class CustomTemplate(Template):
                     kernel = proc.get('kernel_cpu', 0)
                     lines.append(f"    - {comm}: {total:.1f}% (sys: {kernel:.1f}%)")
                 lines.append("")
-        
+
         # Top N 按 Impact Score 排序显示
         top_by_total = data_dict.get('top_by_total_cpu', [])
-        
+
         # 从配置读取显示阈值
         display_thresh = get_config().get_display_threshold()
         display_min = display_thresh.display_min
         sys_display_min = display_thresh.sys_display_min
-        
+
         # 过滤并计算 Impact Score
         def _calc_impact_score(item):
             """计算 Impact Score（与 comm_top.py 一致）"""
@@ -788,7 +813,7 @@ class CustomTemplate(Template):
             mono = item.get('monopoly', 0)
             spawn_rate = item.get('spawn_rate', 0)
             diagnosis = item.get('diagnosis', '')
-            
+
             # 基础分
             base_score = 0
             if diagnosis == DiagnosisType.BOTTLENECK:
@@ -797,7 +822,7 @@ class CustomTemplate(Template):
                 base_score = 50
             elif diagnosis == DiagnosisType.UNBALANCED:
                 base_score = 20
-            
+
             return base_score + (
                 total * 0.5 +
                 kernel * 0.8 +
@@ -805,7 +830,26 @@ class CustomTemplate(Template):
                 mono * 5 +
                 spawn_rate * 0.5
             )
-        
+
+        # 辅助函数：根据诊断类型确定 attention flag
+        def _get_attention_flag(diagnosis: str, monopoly: float, spawn_rate: float) -> str:
+            """根据诊断类型和指标确定 attention flag
+
+            标记规则:
+            - <X0>: BOTTLENECK 诊断（无论 Monopoly 值，只要是瓶颈就是关键问题）
+            - <X1>: STORM 诊断（进程风暴）或 UNBALANCED 诊断（负载不均衡）
+            """
+            if diagnosis == DiagnosisType.BOTTLENECK:
+                # BOTTLENECK 标记为 X0（关键瓶颈）
+                return AttentionFlag.X0
+            elif diagnosis == DiagnosisType.STORM:
+                # STORM 标记为 X1
+                return AttentionFlag.X1
+            elif diagnosis == DiagnosisType.UNBALANCED:
+                # UNBALANCED 标记为 X1
+                return AttentionFlag.X1
+            return ""
+
         # 过滤并计算分数
         filtered = []
         for item in top_by_total:
@@ -814,19 +858,19 @@ class CustomTemplate(Template):
             if total > display_min or kernel > sys_display_min:
                 score = _calc_impact_score(item)
                 filtered.append((item, score))
-        
+
         # 按 Impact Score 排序
         filtered.sort(key=lambda x: x[1], reverse=True)
-        
+
         # 计算所有进程的总 CPU（用于统计隐藏进程）
         all_groups = top_by_total
         TOP_N_DISPLAY = 5  # 默认只显示 top 5
         shown_comms = {item.get('comm', '') for item, _ in filtered[:TOP_N_DISPLAY]}
-        
+
         total_all_cpu = sum(item.get('total_cpu', 0) for item in all_groups)
         shown_cpu = sum(item.get('total_cpu', 0) for item in all_groups if item.get('comm', '') in shown_comms)
         hidden_cpu = total_all_cpu - shown_cpu
-        
+
         if filtered:
             lines.append("### Top 进程 (按危害指数排序)")
             lines.append("")
@@ -836,33 +880,45 @@ class CustomTemplate(Template):
                 kernel = item.get('kernel_cpu', 0)
                 pids = item.get('pid_count', 0)
                 diagnosis = item.get('diagnosis', '')
-                attention = item.get('attention_flag', '')
+                monopoly = item.get('monopoly', 0)
+                spawn_rate = item.get('spawn_rate', 0)
+
+                # 动态计算 attention flag（覆盖 item 中的值）
+                attention = _get_attention_flag(diagnosis, monopoly, spawn_rate)
+                attention_str = f"{attention}" if attention else ""
+
                 diag_str = f" [{diagnosis}]" if diagnosis else ""
-                lines.append(f"  {i:2d}. {attention}{comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) pids: {pids:4d} score: {score:.1f}{diag_str}")
-            
+                lines.append(f"  {i:2d}. {attention_str:<4} {comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) pids: {pids:4d} score: {score:.1f}{diag_str}")
+
             # Summary
             lines.append("")
             lines.append(f"  共显示 {min(TOP_N_DISPLAY, len(filtered))} / {len(filtered)} 个进程")
             lines.append(f"  未显示进程 CPU: {hidden_cpu:.2f}% / {total_all_cpu:.2f}%")
             lines.append("")
-        
+
         # 核心分布 - 只有存在不均衡或饱和核心时才显示
         core_dist = data_dict.get('core_distribution', {})
         if core_dist:
             imbalance = core_dist.get('imbalance_level', ImbalanceLevel.NORMAL)
             saturated = core_dist.get('saturated_cores', [])
-            
+
             # 只有存在异常时才显示
             if imbalance != ImbalanceLevel.NORMAL or saturated:
                 lines.append(OutputDefaults.CORE_DISTRIBUTION_HEADER)
                 lines.append("")
-                attention = core_dist.get('attention_flag', '')
+
+                # 根据不均衡程度确定标签
+                if imbalance in [ImbalanceLevel.CRITICAL, ImbalanceLevel.HIGH]:
+                    attention = AttentionFlag.X0
+                else:
+                    attention = AttentionFlag.X1
+
                 lines.append(f"{attention} 负载不均衡:")
                 lines.append(f"  - Imbalance Level: {imbalance}")
                 if saturated:
-                    lines.append(f"  - Saturated Cores: {', '.join(map(str, saturated))}")
+                    lines.append(f"  {AttentionFlag.X0} Saturated Cores: {', '.join(map(str, saturated))}")
                 lines.append("")
-                
+
                 top_saturated = core_dist.get('top_saturated', [])
                 if top_saturated:
                     lines.append("Top Saturated:")
@@ -872,7 +928,7 @@ class CustomTemplate(Template):
                         kernel = core.get('kernel_util', 0)
                         lines.append(f"  #{i} CPU {cpu_id}: {total:.2f}% (usr: {total-kernel:.2f}%)")
                     lines.append("")
-        
+
         # 异常检测 - 只有检测到异常时才显示
         anomaly = data_dict.get('anomaly_summary', {})
         if anomaly and anomaly.get('mutation_detected'):
@@ -880,7 +936,7 @@ class CustomTemplate(Template):
             lines.append("")
             lines.append(f"Mutation Detected! Count: {anomaly.get('anomalies_count', 0)}")
             lines.append("")
-        
+
         # 专家锚点
         anchors = data_dict.get('expert_anchors', [])
         if anchors:
@@ -889,14 +945,20 @@ class CustomTemplate(Template):
             for anchor in anchors:
                 anchor_type = anchor.get('type', 'N/A')
                 target = anchor.get('target', 'N/A')
-                attention = anchor.get('attention_flag', '')
+
+                # 根据锚点类型确定标签
+                if anchor_type in ['NOISY_NEIGHBOR', 'QUOTA_VICTIM', 'MEMORY_PRESSURE']:
+                    attention = AttentionFlag.X0
+                else:
+                    attention = AttentionFlag.X1
+
                 lines.append(f"{attention} !! DETECTED_{anchor_type}: {target} !!")
                 lines.append(f"  - {anchor.get('description', 'N/A')}")
                 lines.append(f"  - 影响: {anchor.get('impact', 'N/A')}")
                 if anchor.get('recommendation'):
-                    lines.append(f"  - 建议: {anchor.get('recommendation')}")
+                    lines.append(f"  {AttentionFlag.XA} 建议: {anchor.get('recommendation')}")
                 lines.append("")
-        
+
         # 根因链
         root_chain = data_dict.get('root_cause_chain')
         if root_chain:
@@ -911,7 +973,7 @@ class CustomTemplate(Template):
             lines.append(f"  {tree_branch} 受害者: {root_chain.get('victim', OutputDefaults.NA)}")
             lines.append(f"  {tree_end} 建议: {root_chain.get('recommendation', OutputDefaults.NA)}")
             lines.append("")
-        
+
         # 建议操作
         recommendations = data_dict.get('recommendations', [])
         if recommendations:
@@ -919,7 +981,7 @@ class CustomTemplate(Template):
             for i, rec in enumerate(recommendations, 1):
                 lines.append(f"  {i}. {rec}")
             lines.append("")
-        
+
         return lines
 
 
@@ -985,7 +1047,7 @@ class TextOutputAdapter:
 
     def _format_table_border(self, widths: List[int], position: str = "middle") -> str:
         """格式化表格边框
-        
+
         Args:
             widths: 各列宽度
             position: 位置 (top/middle/bottom)
@@ -996,7 +1058,7 @@ class TextOutputAdapter:
             left, right, cross = OutputDefaults.TABLE_CORNER_BL, OutputDefaults.TABLE_CORNER_BR, OutputDefaults.TABLE_T_UP
         else:
             left, right, cross = OutputDefaults.TABLE_T_RIGHT, OutputDefaults.TABLE_T_LEFT, OutputDefaults.TABLE_CROSS
-        
+
         parts = [left]
         for i, w in enumerate(widths):
             parts.append(OutputDefaults.TABLE_HLINE * (w + 2))
@@ -1006,7 +1068,11 @@ class TextOutputAdapter:
         return "".join(parts)
 
     def _format_risk(self, risk: Dict) -> List[str]:
-        """格式化风险信息"""
+        """格式化风险信息
+
+        确保 message 中的 attention tags (<X0>, <X1>, <XA>) 被正确显示。
+        如果 message 中已包含 attention tags，则直接显示。
+        """
         lines = []
         if not risk:
             return lines
@@ -1018,14 +1084,23 @@ class TextOutputAdapter:
         message = risk.get('message', '')
         hint = risk.get('hint', '')
 
+        # 如果 message 中已包含 attention tags，直接显示
+        # 否则根据 level 添加前缀
         if level == 'critical':
+            if AttentionFlag.X0 not in message and AttentionFlag.X1 not in message:
+                message = f"{AttentionFlag.X0} {message}"
             lines.append(f"{RiskDisplayDefaults.RISK_CRITICAL_LABEL} {message}")
         elif level == 'warning':
+            if AttentionFlag.X0 not in message and AttentionFlag.X1 not in message:
+                message = f"{AttentionFlag.X1} {message}"
             lines.append(f"{RiskDisplayDefaults.RISK_WARNING_LABEL} {message}")
         else:
             lines.append(f"{RiskDisplayDefaults.RISK_INFO_LABEL} {message}")
 
         if hint:
+            # 确保 hint 也有 <XA> 标签
+            if AttentionFlag.XA not in hint:
+                hint = f"{AttentionFlag.XA} {hint}"
             lines.append(f"  → hint: {hint}")
 
         return lines
