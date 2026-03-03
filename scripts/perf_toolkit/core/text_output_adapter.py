@@ -820,41 +820,72 @@ class CustomTemplate(Template):
                 lines.append(f"  {tree_end} others ({count} procs): {cpu:.1f}% (已折叠)")
                 lines.append("")
         
-        # Top By Total CPU - 过滤低负载进程
+        # Top N 合并显示 - 交错合并 Total 和 Sys 列表
         top_by_total = data_dict.get('top_by_total_cpu', [])
+        top_by_sys = data_dict.get('top_by_sys_cpu', [])
+        
         # 从配置读取显示阈值
         display_thresh = get_config().get_display_threshold()
         display_min = display_thresh.display_min
         sys_display_min = display_thresh.sys_display_min
-        # 只显示 total > display_min 或 sys > sys_display_min 的进程
+        
+        # 分别过滤
         filtered_total = [item for item in top_by_total 
                          if item.get('total_cpu', 0) > display_min or item.get('kernel_cpu', 0) > sys_display_min]
-        if filtered_total:
-            lines.append("### Top By Total CPU (按总 CPU 排序)")
-            lines.append("")
-            for i, item in enumerate(filtered_total[:10], 1):
-                comm = item.get('comm', 'N/A')
-                total = item.get('total_cpu', 0)
-                kernel = item.get('kernel_cpu', 0)
-                user = item.get('user_cpu', 0)
-                pids = item.get('pid_count', 0)
-                mono = item.get('monopoly', 0)
-                diagnosis = item.get('diagnosis', '')
-                attention = item.get('attention_flag', '')
-                diag_str = f" [{diagnosis}]" if diagnosis else ""
-                lines.append(f"  {i:2d}. {attention}{comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%, usr: {user:6.2f}%) pids: {pids:4d} mono: {mono:.2f}{diag_str}")
-            lines.append("")
-        
-        # Top By Sys CPU - 过滤低负载进程
-        top_by_sys = data_dict.get('top_by_sys_cpu', [])
-        # 使用已读取的显示阈值
-        # 只显示 total > display_min 或 sys > sys_display_min 的进程
         filtered_sys = [item for item in top_by_sys 
                        if item.get('total_cpu', 0) > display_min or item.get('kernel_cpu', 0) > sys_display_min]
-        if filtered_sys:
-            lines.append("### Top By Sys CPU (按内核态 CPU 排序)")
+        
+        # 计算所有进程的总 CPU（用于统计隐藏进程）
+        all_groups = data_dict.get('top_by_total_cpu', [])  # 用 total 列表作为全集
+        shown_comms = set()
+        for item in filtered_total[:10]:
+            shown_comms.add(item.get('comm', ''))
+        for item in filtered_sys[:10]:
+            shown_comms.add(item.get('comm', ''))
+        
+        total_all_cpu = sum(item.get('total_cpu', 0) for item in all_groups)
+        shown_cpu = sum(item.get('total_cpu', 0) for item in all_groups if item.get('comm', '') in shown_comms)
+        hidden_cpu = total_all_cpu - shown_cpu
+        
+        # 求交集（在两个列表前10中都出现的进程）
+        set_total_top10 = {item.get('comm', '') for item in filtered_total[:10]}
+        set_sys_top10 = {item.get('comm', '') for item in filtered_sys[:10]}
+        intersection = set_total_top10 & set_sys_top10
+        
+        # 交错合并（公平队列算法）
+        merged = []
+        idx_total, idx_sys = 0, 0
+        seen = set()
+        
+        while len(merged) < 15 and (idx_total < len(filtered_total) or idx_sys < len(filtered_sys)):
+            # 优先从 total 列表取（如果还有且未取过）
+            if idx_total < len(filtered_total):
+                item = filtered_total[idx_total]
+                comm = item.get('comm', '')
+                if comm not in seen:
+                    seen.add(comm)
+                    is_intersection = comm in intersection
+                    merged.append((item, is_intersection, 'total'))
+                idx_total += 1
+            
+            # 然后从 sys 列表取（如果还有且未取过）
+            if idx_sys < len(filtered_sys) and len(merged) < 15:
+                item = filtered_sys[idx_sys]
+                comm = item.get('comm', '')
+                if comm not in seen:
+                    seen.add(comm)
+                    is_intersection = comm in intersection
+                    merged.append((item, is_intersection, 'sys'))
+                idx_sys += 1
+            
+            # 防止死循环：如果两个列表都没进展，退出
+            if idx_total >= len(filtered_total) and idx_sys >= len(filtered_sys):
+                break
+        
+        if merged:
+            lines.append("### Top 进程 (交错合并 Total + Sys)")
             lines.append("")
-            for i, item in enumerate(filtered_sys[:10], 1):
+            for i, (item, is_intersection, source) in enumerate(merged, 1):
                 comm = item.get('comm', 'N/A')
                 total = item.get('total_cpu', 0)
                 kernel = item.get('kernel_cpu', 0)
@@ -864,7 +895,16 @@ class CustomTemplate(Template):
                 diagnosis = item.get('diagnosis', '')
                 attention = item.get('attention_flag', '')
                 diag_str = f" [{diagnosis}]" if diagnosis else ""
-                lines.append(f"  {i:2d}. {attention}{comm:20s}: sys: {kernel:6.2f}% total: {total:6.2f}% (usr: {user:6.2f}%) pids: {pids:4d} mono: {mono:.2f}{diag_str}")
+                # 标记交集和来源
+                marker = ""
+                if is_intersection:
+                    marker = " [both]" if source == 'total' else ""
+                lines.append(f"  {i:2d}. {attention}{comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) pids: {pids:4d}{diag_str}{marker}")
+            
+            # Summary
+            lines.append("")
+            lines.append(f"  共 {len(merged)} 个进程，交集 {len(intersection)} 个")
+            lines.append(f"  未显示进程 CPU: {hidden_cpu:.2f}% / {total_all_cpu:.2f}%")
             lines.append("")
         
         # 核心分布 - 只有存在不均衡或饱和核心时才显示
