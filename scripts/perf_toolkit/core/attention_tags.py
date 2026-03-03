@@ -7,22 +7,32 @@ Attention Tags 格式化工具
 - X1: 重要级 (High/Major)  
 - X2: 提示级 (Medium/Minor)
 - XA: 操作建议 (Action)
+
+常量定义统一从 config.defaults 导入。
 """
+
+import sys
+from pathlib import Path
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from config.defaults import AttentionFlag
 
 
 def x0(text: str) -> str:
     """添加 X0 标签（阻塞级）- Critical/Blocker"""
-    return f"<X0> {text}"
+    return f"{AttentionFlag.X0} {text}"
 
 
 def x1(text: str) -> str:
     """添加 X1 标签（重要级）- High/Major"""
-    return f"<X1> {text}"
+    return f"{AttentionFlag.X1} {text}"
 
 
 def x2(text: str) -> str:
     """添加 X2 标签（提示级）- Medium/Minor"""
-    return f"<X2> {text}"
+    return f"{AttentionFlag.X2} {text}"
 
 
 def xa(text: str, cmd: str = "") -> str:
@@ -33,8 +43,8 @@ def xa(text: str, cmd: str = "") -> str:
         cmd: 建议执行的命令（可选）
     """
     if cmd:
-        return f"<XA> {text}: {cmd}"
-    return f"<XA> {text}"
+        return f"{AttentionFlag.XA} {text}: {cmd}"
+    return f"{AttentionFlag.XA} {text}"
 
 
 def flag(level: str, text: str) -> str:

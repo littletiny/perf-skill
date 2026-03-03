@@ -12,9 +12,18 @@ Composite层命令，通过Facade编排多个analysis工具：
 
 注意：CLI 命令已迁移到 cli/commands/composite/sys_audit.py
 本文件保留辅助函数和 SysAuditor 类供 CLI 命令使用
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from typing import Optional, List, Dict, Tuple
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from config.defaults import DiagnosisType
 
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.risk_aggregator import RiskAggregator, AggregatedRisk
@@ -137,12 +146,12 @@ class SysAuditor:
         background = []
         
         for g in all_groups:
-            if g.diagnosis == "BOTTLENECK":
+            if g.diagnosis == DiagnosisType.BOTTLENECK:
                 if primary is None:
                     primary = g
                 else:
                     secondary.append(g)
-            elif g.total_cpu > 10 or g.diagnosis in ["STORM", "UNBALANCED"]:
+            elif g.total_cpu > 10 or g.diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
                 secondary.append(g)
             else:
                 background.append(g)
@@ -200,7 +209,7 @@ class SysAuditor:
             )
         
         for g in secondary:
-            if g.diagnosis == "STORM":
+            if g.diagnosis == DiagnosisType.STORM:
                 recommendations.append(
                     f"进程 {g.comm} 可能存在进程风暴，建议检查进程生命周期"
                 )
@@ -245,12 +254,12 @@ def _synthesize_diagnosis(anomalies: AnomaliesReport,
         diagnosis = g.diagnosis
         total_cpu = g.total_cpu
         
-        if diagnosis == "BOTTLENECK":
+        if diagnosis == DiagnosisType.BOTTLENECK:
             if primary is None:
                 primary = g
             else:
                 secondary.append(g)
-        elif total_cpu > 10 or diagnosis in ["STORM", "UNBALANCED"]:
+        elif total_cpu > 10 or diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
             secondary.append(g)
         else:
             background.append(g)

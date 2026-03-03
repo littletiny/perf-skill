@@ -11,12 +11,23 @@ Output Models - Unified data structures for all analysis tool outputs
 - 时间字符串化，使用 ISO 8601 格式
 
 显示格式配置统一在 display_presets.py 中管理
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional, Any, Union
 from datetime import datetime
 from enum import IntEnum
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from config.defaults import (
+    DiagnosisType, ImbalanceLevel, PressureState, 
+    SeverityLevel, ContextSwitchRate
+)
 
 from .display_presets import get_display_preset
 from .models import RiskInfo, TimeRange, Summary
@@ -613,32 +624,77 @@ class CoreDistributionOutput(BaseOutput):
 
 
 # =============================================================================
-# Composite Layer Output Models
+# Composite Layer Output Models - V2 Strongly Typed (No Dict)
 # =============================================================================
 
-@dataclass
-class SysAuditSummary(BaseSummary):
-    """系统审计摘要"""
-    primary_suspect: str = ""
-    secondary_count: int = 0
-    mutation_detected: bool = False
-
+# -----------------------------------------------------------------------------
+# Bottleneck Trace Models
+# -----------------------------------------------------------------------------
 
 @dataclass
-class SysAuditOutput(BaseOutput):
-    """sys-audit 输出结构"""
-    diagnosis: Dict = field(default_factory=dict)
-    details: Dict = field(default_factory=dict)
+class BottleneckProfile:
+    """瓶颈特征分析数据"""
+    found: bool = False
+    comm: str = ""
+    total_cpu: float = 0.0
+    kernel_ratio: float = 0.0
+    pid_count: int = 0
+    cv: float = 0.0
+    monopoly: float = 0.0
+    diagnosis: str = DiagnosisType.NORMAL
+    impact_score: float = 0.0
 
-    def __init__(self, _risk: RiskInfo, diagnosis: Dict, details: Dict,
-                 time_range: Optional[TimeRange] = None):
-        super().__init__(_risk=_risk, summary=None, time_range=time_range)
-        self.diagnosis = diagnosis
-        self.details = details
-        self._template_config = TemplateConfig(
-            template_type="custom",
-            custom_renderer="sys_audit_renderer"
-        )
+
+@dataclass
+class HotspotOutputItem:
+    """热点函数输出项"""
+    symbol: str
+    self_pct: float
+    inclusive_pct: float
+    resource_tag: str
+    attention_flag: str = ""  # <X0>, <X1>, etc.
+
+
+@dataclass
+class HotspotsOutputData:
+    """热点分析输出数据"""
+    top_symbol: Optional[str] = None
+    total_hotspots: int = 0
+    kernel_ratio: float = 0.0
+    user_ratio: float = 0.0
+    items: List[HotspotOutputItem] = field(default_factory=list)
+
+
+@dataclass
+class CallerOutputItem:
+    """调用者输出项"""
+    symbol: str
+    call_ratio: float
+    call_stack: List[str] = field(default_factory=list)
+
+
+@dataclass
+class ConvergencePath:
+    """调用链聚合路径"""
+    description: str
+    impact: str
+
+
+@dataclass
+class CallChainAnalysis:
+    """调用链溯源分析"""
+    target: str = ""
+    convergence_path: Optional[ConvergencePath] = None
+    top_callers: List[CallerOutputItem] = field(default_factory=list)
+
+
+@dataclass
+class RootCauseAnalysis:
+    """根因分析"""
+    primary_driver: str
+    evidence: str
+    mechanism: str
+    victim: str
 
 
 @dataclass
@@ -651,23 +707,207 @@ class BottleneckTraceSummary(BaseSummary):
 
 @dataclass
 class BottleneckTraceOutput(BaseOutput):
-    """bottleneck-trace 输出结构"""
+    """
+    bottleneck-trace 输出结构 - V2 强类型版本
+    
+    替代原有 Dict 字段，使用强类型 dataclass:
+    - bottleneck_profile: BottleneckProfile (替代 dict)
+    - hotspots: HotspotsOutputData (替代 dict)
+    - call_chain: CallChainAnalysis (替代 dict)
+    - root_cause: RootCauseAnalysis (替代 dict)
+    """
     target_comm: str = ""
-    bottleneck_analysis: Dict = field(default_factory=dict)
-    hotspots: Dict = field(default_factory=dict)
-    callers: Optional[Dict] = None
+    bottleneck_profile: BottleneckProfile = field(default_factory=BottleneckProfile)
+    hotspots: HotspotsOutputData = field(default_factory=HotspotsOutputData)
+    call_chain: Optional[CallChainAnalysis] = None
+    root_cause: Optional[RootCauseAnalysis] = None
+    recommendations: List[str] = field(default_factory=list)
 
-    def __init__(self, _risk: RiskInfo, target_comm: str,
-                 bottleneck_analysis: Dict, hotspots: Dict,
-                 callers: Optional[Dict] = None, time_range: Optional[TimeRange] = None):
+    def __init__(self, 
+                 _risk: RiskInfo,
+                 target_comm: str,
+                 bottleneck_profile: BottleneckProfile,
+                 hotspots: HotspotsOutputData,
+                 call_chain: Optional[CallChainAnalysis] = None,
+                 root_cause: Optional[RootCauseAnalysis] = None,
+                 recommendations: Optional[List[str]] = None,
+                 time_range: Optional[TimeRange] = None):
         super().__init__(_risk=_risk, summary=None, time_range=time_range)
         self.target_comm = target_comm
-        self.bottleneck_analysis = bottleneck_analysis
+        self.bottleneck_profile = bottleneck_profile
         self.hotspots = hotspots
-        self.callers = callers
+        self.call_chain = call_chain
+        self.root_cause = root_cause
+        self.recommendations = recommendations or []
         self._template_config = TemplateConfig(
             template_type="custom",
-            custom_renderer="bottleneck_trace_renderer"
+            custom_renderer="bottleneck_trace_renderer_v2"
+        )
+
+
+# -----------------------------------------------------------------------------
+# SysAudit Models
+# -----------------------------------------------------------------------------
+
+@dataclass
+class SystemFingerprint:
+    """系统指纹"""
+    pressure_state: str = PressureState.NORMAL
+    cpu_some: float = 0.0
+    cpu_full: float = 0.0
+    io_some: float = 0.0
+    memory_full: float = 0.0
+    throttle_events: int = 0
+    context_switch_rate: str = ContextSwitchRate.NORMAL
+
+
+@dataclass
+class ContentionItem:
+    """资源竞争项"""
+    dimension: str
+    demand: float
+    limit: float
+    gap: float
+    attention_flag: str = ""  # <X0>, <X1>
+    primary_contenders: List[str] = field(default_factory=list)
+
+
+@dataclass
+class PrimarySuspectOutput:
+    """主要嫌疑进程输出"""
+    comm: str
+    total_cpu: float
+    diagnosis: str
+    monopoly: float
+    impact_score: float
+    attention_flag: str = ""  # <X0>
+
+
+@dataclass
+class SecondaryLoadOutput:
+    """次要负载输出"""
+    comm: str
+    total_cpu: float
+    diagnosis: str
+    spawn_rate: float = 0.0
+    attention_flag: str = ""  # <X1>
+
+
+@dataclass
+class BackgroundNoiseOutput:
+    """背景噪音输出"""
+    count: int
+    total_cpu: float
+    folded: bool = True
+
+
+@dataclass
+class ProcessHierarchy:
+    """进程分层结构"""
+    primary_suspect: Optional[PrimarySuspectOutput] = None
+    secondary_loads: List[SecondaryLoadOutput] = field(default_factory=list)
+    background_noise: Optional[BackgroundNoiseOutput] = None
+
+
+@dataclass
+class CoreSaturationItem:
+    """核心饱和项"""
+    cpu_id: int
+    total_util: float
+    kernel_util: float
+
+
+@dataclass
+class CoreDistributionData:
+    """核心分布输出数据（用于 SysAudit）"""
+    imbalance_level: str = ImbalanceLevel.NORMAL
+    saturated_cores: List[int] = field(default_factory=list)
+    attention_flag: str = ""  # <X1>
+    top_saturated: List[CoreSaturationItem] = field(default_factory=list)
+
+
+@dataclass
+class AnomalySummaryOutput:
+    """异常检测摘要输出"""
+    anomalies_count: int = 0
+    mutation_detected: bool = False
+
+
+@dataclass
+class ExpertAnchor:
+    """专家锚点"""
+    type: str
+    target: str
+    description: str
+    impact: str
+    attention_flag: str = ""  # <X0>
+    recommendation: str = ""
+
+
+@dataclass
+class RootCauseChain:
+    """根因链"""
+    primary_driver: str
+    phenomenon: str
+    impact: str
+    victim: str
+    recommendation: str
+    attention_flag: str = ""  # <X0>
+
+
+@dataclass
+class SysAuditSummary(BaseSummary):
+    """系统审计摘要"""
+    primary_suspect: str = ""
+    secondary_count: int = 0
+    mutation_detected: bool = False
+
+
+@dataclass
+class SysAuditOutput(BaseOutput):
+    """
+    sys-audit 输出结构 - V2 强类型版本
+    
+    替代原有 Dict 字段，使用强类型 dataclass:
+    - system_fingerprint: SystemFingerprint
+    - contention_matrix: List[ContentionItem]
+    - process_hierarchy: ProcessHierarchy
+    - core_distribution: CoreDistributionData
+    - expert_anchors: List[ExpertAnchor]
+    - root_cause_chain: RootCauseChain
+    """
+    system_fingerprint: SystemFingerprint = field(default_factory=SystemFingerprint)
+    contention_matrix: List[ContentionItem] = field(default_factory=list)
+    process_hierarchy: ProcessHierarchy = field(default_factory=ProcessHierarchy)
+    core_distribution: CoreDistributionData = field(default_factory=CoreDistributionData)
+    anomaly_summary: AnomalySummaryOutput = field(default_factory=AnomalySummaryOutput)
+    expert_anchors: List[ExpertAnchor] = field(default_factory=list)
+    root_cause_chain: Optional[RootCauseChain] = None
+    recommendations: List[str] = field(default_factory=list)
+
+    def __init__(self,
+                 _risk: RiskInfo,
+                 system_fingerprint: SystemFingerprint,
+                 contention_matrix: List[ContentionItem],
+                 process_hierarchy: ProcessHierarchy,
+                 core_distribution: CoreDistributionData,
+                 anomaly_summary: AnomalySummaryOutput,
+                 expert_anchors: List[ExpertAnchor],
+                 root_cause_chain: Optional[RootCauseChain] = None,
+                 recommendations: Optional[List[str]] = None,
+                 time_range: Optional[TimeRange] = None):
+        super().__init__(_risk=_risk, summary=None, time_range=time_range)
+        self.system_fingerprint = system_fingerprint
+        self.contention_matrix = contention_matrix
+        self.process_hierarchy = process_hierarchy
+        self.core_distribution = core_distribution
+        self.anomaly_summary = anomaly_summary
+        self.expert_anchors = expert_anchors
+        self.root_cause_chain = root_cause_chain
+        self.recommendations = recommendations or []
+        self._template_config = TemplateConfig(
+            template_type="custom",
+            custom_renderer="sys_audit_renderer_v2"
         )
 
 

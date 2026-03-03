@@ -14,11 +14,24 @@ Text Output Adapter - 模板化文本输出系统
 1. 在 Output 模型中定义 _template_config (TemplateConfig)
 2. Adapter 自动根据 template_type 选择渲染器
 3. 如需自定义渲染,继承 Template 基类并注册
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from dataclasses import asdict, is_dataclass
 from typing import Any, Dict, List, Optional
 from abc import ABC, abstractmethod
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from config.defaults import (
+    OutputDefaults, Thresholds, AttentionFlag,
+    ImbalanceLevel, CompositeDefaults, RiskDisplayDefaults,
+    DiagnosisType
+)
 
 
 class Template(ABC):
@@ -321,6 +334,9 @@ class CustomTemplate(Template):
             "sys_audit_renderer": self._render_sys_audit,
             "bottleneck_trace_renderer": self._render_bottleneck_trace,
             "storm_trace_renderer": self._render_storm_trace,
+            # V2 强类型渲染器
+            "bottleneck_trace_renderer_v2": self._render_bottleneck_trace_v2,
+            "sys_audit_renderer_v2": self._render_sys_audit_v2,
         }
 
     def render(self, data: Any, config: Any) -> List[str]:
@@ -540,6 +556,354 @@ class CustomTemplate(Template):
 
         return lines
 
+    # =========================================================================
+    # V2 强类型渲染方法 - 基于设计文档 docs/output-design-composite.md
+    # =========================================================================
+
+    def _render_bottleneck_trace_v2(self, data: Any) -> List[str]:
+        """
+        渲染瓶颈追踪结果 - V2 强类型版本
+        
+        基于设计文档格式：
+        ## [BOTTLENECK_TRACE]
+        ### 瓶颈特征 (Bottleneck Profile)
+        ### 热点函数 (Hotspots)
+        ### 调用链溯源 (Call Chain Analysis)
+        ### 根因分析 (Root Cause)
+        """
+        data_dict = asdict(data) if is_dataclass(data) else data
+        lines = []
+        
+        # 标题
+        lines.append(OutputDefaults.BOTTLENECK_TRACE_TITLE)
+        target_comm = data_dict.get('target_comm', OutputDefaults.NA)
+        lines.append(f"> 目标进程: {target_comm}")
+        lines.append("")
+        
+        # 瓶颈特征
+        profile = data_dict.get('bottleneck_profile', {})
+        if profile and profile.get('found'):
+            lines.append(OutputDefaults.BOTTLENECK_PROFILE_HEADER)
+            lines.append("")
+            
+            # 评估标签
+            monopoly = profile.get('monopoly', 0)
+            if monopoly > Thresholds.MONOPOLY_HIGH:
+                lines.append(f"{AttentionFlag.X0} {OutputDefaults.ASSESSMENT_SATURATED} (Monopoly={monopoly:.2f})")
+            
+            lines.append(f"| Metric | Value | Assessment |")
+            lines.append(f"|--------|-------|------------|")
+            
+            total_cpu = profile.get('total_cpu', 0)
+            cpu_assessment = (
+                f"{AttentionFlag.X0} 严重超载" if total_cpu > Thresholds.CPU_UTIL_EXTREME 
+                else 'High' if total_cpu > Thresholds.CPU_UTIL_HIGH 
+                else 'Normal'
+            )
+            lines.append(f"| Total CPU | {total_cpu:.2f}% | {cpu_assessment} |")
+            
+            kernel_ratio = profile.get('kernel_ratio', 0)
+            kernel_assessment = (
+                f"{AttentionFlag.X1} {OutputDefaults.ASSESSMENT_HIGH_KERNEL}" 
+                if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH 
+                else 'Normal'
+            )
+            lines.append(f"| Kernel Ratio | {kernel_ratio:.1f}% | {kernel_assessment} |")
+            
+            pid_count = profile.get('pid_count', 0)
+            lines.append(f"| PID Count | {pid_count} | {'Single' if pid_count == 1 else 'Multi'} |")
+            
+            monopoly_assessment = (
+                f"{AttentionFlag.X0} {OutputDefaults.ASSESSMENT_SINGLE_CORE_EXCLUSIVE}" 
+                if monopoly > Thresholds.MONOPOLY_HIGH 
+                else 'Normal'
+            )
+            lines.append(f"| Monopoly | {monopoly:.2f} | {monopoly_assessment} |")
+            
+            cv = profile.get('cv', 0)
+            cv_assessment = (
+                f"{AttentionFlag.X1} {OutputDefaults.ASSESSMENT_UNBALANCED}" 
+                if cv > Thresholds.CV_UNBALANCED 
+                else 'Balanced'
+            )
+            lines.append(f"| CV | {cv:.2f} | {cv_assessment} |")
+            
+            impact_score = profile.get('impact_score', 0)
+            impact_assessment = (
+                '极高' if impact_score > Thresholds.IMPACT_SCORE_HIGH 
+                else '高' if impact_score > Thresholds.IMPACT_SCORE_MEDIUM 
+                else '中' if impact_score > Thresholds.IMPACT_SCORE_LOW 
+                else '低'
+            )
+            lines.append(f"| Impact Score | {impact_score:.2f} | {impact_assessment} |")
+            
+            lines.append("")
+        
+        # 热点函数
+        hotspots = data_dict.get('hotspots', {})
+        if hotspots:
+            lines.append(OutputDefaults.HOTSPOTS_HEADER)
+            lines.append(OutputDefaults.HOTSPOTS_SORT_HINT)
+            lines.append("")
+            
+            top_symbol = hotspots.get('top_symbol')
+            items = hotspots.get('items', [])
+            
+            if items:
+                # 第一个热点带 X0 标记（如果是 LOCK）
+                first = items[0]
+                if first.get('resource_tag') == 'LOCK':
+                    lines.append(f"{AttentionFlag.X0} 锁竞争热点: {first.get('symbol', OutputDefaults.NA)}")
+                    lines.append(f"  - Self: {first.get('self_pct', 0)*100:.2f}% | Inclusive: {first.get('inclusive_pct', 0)*100:.2f}%")
+                    lines.append(f"  - Resource Tag: {first.get('resource_tag', OutputDefaults.NA)}")
+                    lines.append("")
+                
+                # 其他热点
+                for i, hs in enumerate(items[:CompositeDefaults.DEFAULT_TOP_HOTSPOTS], 1):
+                    if i == 1 and hs.get('resource_tag') == 'LOCK':
+                        continue  # 已显示
+                    tag_str = f" ({hs.get('resource_tag', OutputDefaults.NA)})" if hs.get('resource_tag') else ""
+                    lines.append(f"#{i} {hs.get('symbol', OutputDefaults.NA)}: {hs.get('self_pct', 0)*100:.2f}%{tag_str}")
+            
+            lines.append("")
+        
+        # 调用链溯源
+        call_chain = data_dict.get('call_chain')
+        if call_chain:
+            lines.append(OutputDefaults.CALL_CHAIN_HEADER)
+            target = call_chain.get('target', OutputDefaults.NA)
+            lines.append(f"{OutputDefaults.CALL_CHAIN_TARGET_PREFIX} {target}")
+            lines.append("")
+            
+            convergence = call_chain.get('convergence_path')
+            if convergence:
+                lines.append(f"{AttentionFlag.X0} 聚合调用链:")
+                lines.append(f"  {convergence.get('description', OutputDefaults.NA)}")
+                lines.append(f"  - 影响: {convergence.get('impact', OutputDefaults.NA)}")
+                lines.append("")
+            
+            top_callers = call_chain.get('top_callers', [])
+            if top_callers:
+                lines.append("Top Callers:")
+                for i, caller in enumerate(top_callers[:CompositeDefaults.DEFAULT_TOP_CALLERS], 1):
+                    symbol = caller.get('symbol', OutputDefaults.NA)
+                    ratio = caller.get('call_ratio', 0)
+                    stack = caller.get('call_stack', [])
+                    stack_str = " <- ".join(stack) if stack else OutputDefaults.ROOT
+                    lines.append(f"  #{i} [{ratio*100:.2f}%] {stack_str}")
+                lines.append("")
+        
+        # 根因分析
+        root_cause = data_dict.get('root_cause')
+        if root_cause:
+            lines.append(OutputDefaults.ROOT_CAUSE_HEADER)
+            lines.append("")
+            lines.append(f"{AttentionFlag.X0} 第一推动力: {root_cause.get('primary_driver', OutputDefaults.NA)}")
+            lines.append(f"  - 证据: {root_cause.get('evidence', OutputDefaults.NA)}")
+            lines.append(f"  - 机制: {root_cause.get('mechanism', OutputDefaults.NA)}")
+            lines.append(f"  - 受害者: {root_cause.get('victim', OutputDefaults.NA)}")
+            lines.append("")
+        
+        # 建议操作
+        recommendations = data_dict.get('recommendations', [])
+        if recommendations:
+            lines.append(f"{AttentionFlag.XA} {OutputDefaults.RECOMMENDATIONS_HEADER}")
+            for i, rec in enumerate(recommendations, 1):
+                lines.append(f"  {i}. {rec}")
+            lines.append("")
+        
+        return lines
+
+    def _render_sys_audit_v2(self, data: Any) -> List[str]:
+        """
+        渲染系统审计结果 - V2 强类型版本
+        
+        基于设计文档格式：
+        ## [SYSTEM_AUDIT]
+        ### 系统指纹 (System Fingerprint)
+        ### 竞争矩阵 (Contention Matrix)
+        ### 进程分层 (Process Hierarchy)
+        ### 核心分布 (Core Distribution)
+        ### 专家锚点 (Expert Anchors)
+        ### 根因链 (Root Cause Chain)
+        """
+        data_dict = asdict(data) if is_dataclass(data) else data
+        lines = []
+        
+        # 标题
+        lines.append(OutputDefaults.SYS_AUDIT_TITLE)
+        lines.append("> 策略: 自动降噪 + 危害排序，识别真瓶颈")
+        lines.append("")
+        
+        # 系统指纹
+        fingerprint = data_dict.get('system_fingerprint', {})
+        if fingerprint:
+            lines.append("### 系统指纹 (System Fingerprint)")
+            lines.append("")
+            lines.append(f"State: {fingerprint.get('pressure_state', 'NORMAL')}")
+            lines.append("")
+            lines.append("┌─────────────────┬────────┬────────┬────────┐")
+            lines.append("│ PSI             │ CPU    │ Memory │ IO     │")
+            lines.append("├─────────────────┼────────┼────────┼────────┤")
+            cpu_some = fingerprint.get('cpu_some', 0)
+            cpu_full = fingerprint.get('cpu_full', 0)
+            io_some = fingerprint.get('io_some', 0)
+            memory_full = fingerprint.get('memory_full', 0)
+            memory_str = f"{memory_full:.2f}" if memory_full else "-"
+            lines.append(f"│ some            │ {cpu_some:.2f}   │ {memory_str:>6} │ {io_some:.2f}   │")
+            lines.append(f"│ full            │ {cpu_full:.2f}   │ -      │ -      │")
+            lines.append("└─────────────────┴────────┴────────┴────────┘")
+            lines.append("")
+            lines.append(f"Throttle Events: {fingerprint.get('throttle_events', 0)}")
+            lines.append(f"Context Switch: {fingerprint.get('context_switch_rate', 'NORMAL')}")
+            lines.append("")
+        
+        # 竞争矩阵
+        contention = data_dict.get('contention_matrix', [])
+        if contention:
+            lines.append(OutputDefaults.CONTENTION_MATRIX_HEADER)
+            lines.append("")
+            for item in contention:
+                dimension = item.get('dimension', 'N/A')
+                demand = item.get('demand', 0)
+                limit = item.get('limit', 0)
+                gap = item.get('gap', 0)
+                contenders = item.get('primary_contenders', [])
+                attention = item.get('attention_flag', '')
+                
+                if dimension == "CPU_QUOTA":
+                    lines.append(f"{attention} {dimension} 竞争:")
+                    lines.append(f"  - Demand: {demand*100:.0f}% | Limit: {limit*100:.0f}% | Gap: {gap*100:.0f}%")
+                    if contenders:
+                        lines.append(f"  - {attention} Primary Contenders: {', '.join(contenders)}")
+                else:
+                    lines.append(f"{attention} {dimension} 压力:")
+                    reclaim = item.get('reclaim_rate_mbps', 0)
+                    pf = item.get('page_fault_rate', 0)
+                    if reclaim:
+                        lines.append(f"  - Reclaim Rate: {reclaim}MB/s")
+                    if pf:
+                        lines.append(f"  - Page Fault: {pf}/s")
+                lines.append("")
+        
+        # 进程分层
+        hierarchy = data_dict.get('process_hierarchy', {})
+        if hierarchy:
+            lines.append(OutputDefaults.PROCESS_HIERARCHY_HEADER)
+            lines.append("")
+            
+            primary = hierarchy.get('primary_suspect')
+            if primary:
+                tree_branch = OutputDefaults.TREE_BRANCH
+                tree_end = OutputDefaults.TREE_END
+                lines.append(f"{AttentionFlag.X0} {OutputDefaults.PRIMARY_SUSPECT_LABEL}:")
+                lines.append(f"  {tree_branch} Comm: {primary.get('comm', OutputDefaults.NA)}")
+                lines.append(f"  {tree_branch} CPU: {primary.get('total_cpu', 0):.2f}%")
+                lines.append(f"  {tree_branch} Diagnosis: {primary.get('diagnosis', OutputDefaults.NA)}")
+                lines.append(f"  {tree_branch} Monopoly: {primary.get('monopoly', 0):.2f}  ({AttentionFlag.X0} {OutputDefaults.ASSESSMENT_SATURATED})")
+                lines.append(f"  {tree_end} Impact Score: {primary.get('impact_score', 0):.2f}")
+                lines.append("")
+            
+            secondary = hierarchy.get('secondary_loads', [])
+            if secondary:
+                tree_branch = OutputDefaults.TREE_BRANCH
+                lines.append(f"{AttentionFlag.X1} {OutputDefaults.SECONDARY_LOADS_LABEL}:")
+                for load in secondary:
+                    comm = load.get('comm', OutputDefaults.NA)
+                    cpu = load.get('total_cpu', 0)
+                    diagnosis = load.get('diagnosis', OutputDefaults.NA)
+                    spawn_rate = load.get('spawn_rate', 0)
+                    if diagnosis == DiagnosisType.STORM:
+                        lines.append(f"  {tree_branch} {comm}: {cpu:.2f}% ({DiagnosisType.STORM}: {spawn_rate:.1f}/s)")
+                    else:
+                        lines.append(f"  {tree_branch} {comm}: {cpu:.2f}% ({diagnosis})")
+                lines.append("")
+            
+            background = hierarchy.get('background_noise')
+            if background:
+                tree_end = OutputDefaults.TREE_END
+                count = background.get('count', 0)
+                cpu = background.get('total_cpu', 0)
+                lines.append(f"{OutputDefaults.BACKGROUND_NOISE_LABEL}:")
+                lines.append(f"  {tree_end} others ({count} procs): {cpu:.1f}% (已折叠)")
+                lines.append("")
+        
+        # 核心分布
+        core_dist = data_dict.get('core_distribution', {})
+        if core_dist:
+            lines.append(OutputDefaults.CORE_DISTRIBUTION_HEADER)
+            lines.append("")
+            imbalance = core_dist.get('imbalance_level', ImbalanceLevel.NORMAL)
+            attention = core_dist.get('attention_flag', '')
+            lines.append(f"{attention} 负载不均衡:")
+            lines.append(f"  - Imbalance Level: {imbalance}")
+            saturated = core_dist.get('saturated_cores', [])
+            if saturated:
+                lines.append(f"  - Saturated Cores: {', '.join(map(str, saturated))}")
+            lines.append("")
+            
+            top_saturated = core_dist.get('top_saturated', [])
+            if top_saturated:
+                lines.append("Top Saturated:")
+                for i, core in enumerate(top_saturated[:5], 1):
+                    cpu_id = core.get('cpu_id', 'N/A')
+                    total = core.get('total_util', 0)
+                    kernel = core.get('kernel_util', 0)
+                    lines.append(f"  #{i} CPU {cpu_id}: {total:.2f}% (usr: {total-kernel:.2f}%)")
+                lines.append("")
+        
+        # 异常检测
+        anomaly = data_dict.get('anomaly_summary', {})
+        if anomaly:
+            lines.append(OutputDefaults.ANOMALY_DETECTION_HEADER)
+            lines.append("")
+            if anomaly.get('mutation_detected'):
+                lines.append(f"Mutation Detected! Count: {anomaly.get('anomalies_count', 0)}")
+            else:
+                lines.append("(未检测到异常突变)")
+            lines.append("")
+        
+        # 专家锚点
+        anchors = data_dict.get('expert_anchors', [])
+        if anchors:
+            lines.append(OutputDefaults.EXPERT_ANCHORS_HEADER)
+            lines.append("")
+            for anchor in anchors:
+                anchor_type = anchor.get('type', 'N/A')
+                target = anchor.get('target', 'N/A')
+                attention = anchor.get('attention_flag', '')
+                lines.append(f"{attention} !! DETECTED_{anchor_type}: {target} !!")
+                lines.append(f"  - {anchor.get('description', 'N/A')}")
+                lines.append(f"  - 影响: {anchor.get('impact', 'N/A')}")
+                if anchor.get('recommendation'):
+                    lines.append(f"  - 建议: {anchor.get('recommendation')}")
+                lines.append("")
+        
+        # 根因链
+        root_chain = data_dict.get('root_cause_chain')
+        if root_chain:
+            tree_branch = OutputDefaults.TREE_BRANCH
+            tree_end = OutputDefaults.TREE_END
+            lines.append(OutputDefaults.ROOT_CAUSE_CHAIN_HEADER)
+            lines.append("")
+            attention = root_chain.get('attention_flag', '')
+            lines.append(f"{attention} 第一推动力: {root_chain.get('primary_driver', OutputDefaults.NA)}")
+            lines.append(f"  {tree_branch} 现象: {root_chain.get('phenomenon', OutputDefaults.NA)}")
+            lines.append(f"  {tree_branch} 影响: {root_chain.get('impact', OutputDefaults.NA)}")
+            lines.append(f"  {tree_branch} 受害者: {root_chain.get('victim', OutputDefaults.NA)}")
+            lines.append(f"  {tree_end} 建议: {root_chain.get('recommendation', OutputDefaults.NA)}")
+            lines.append("")
+        
+        # 建议操作
+        recommendations = data_dict.get('recommendations', [])
+        if recommendations:
+            lines.append(f"{AttentionFlag.XA} 后续操作:")
+            for i, rec in enumerate(recommendations, 1):
+                lines.append(f"  {i}. {rec}")
+            lines.append("")
+        
+        return lines
+
 
 class TextOutputAdapter:
     """文本输出适配器 - 模板化版本
@@ -601,6 +965,28 @@ class TextOutputAdapter:
 
         return "\n".join(lines)
 
+    def _format_table_border(self, widths: List[int], position: str = "middle") -> str:
+        """格式化表格边框
+        
+        Args:
+            widths: 各列宽度
+            position: 位置 (top/middle/bottom)
+        """
+        if position == "top":
+            left, right, cross = OutputDefaults.TABLE_CORNER_TL, OutputDefaults.TABLE_CORNER_TR, OutputDefaults.TABLE_T_DOWN
+        elif position == "bottom":
+            left, right, cross = OutputDefaults.TABLE_CORNER_BL, OutputDefaults.TABLE_CORNER_BR, OutputDefaults.TABLE_T_UP
+        else:
+            left, right, cross = OutputDefaults.TABLE_T_RIGHT, OutputDefaults.TABLE_T_LEFT, OutputDefaults.TABLE_CROSS
+        
+        parts = [left]
+        for i, w in enumerate(widths):
+            parts.append(OutputDefaults.TABLE_HLINE * (w + 2))
+            if i < len(widths) - 1:
+                parts.append(cross)
+        parts.append(right)
+        return "".join(parts)
+
     def _format_risk(self, risk: Dict) -> List[str]:
         """格式化风险信息"""
         lines = []
@@ -615,11 +1001,11 @@ class TextOutputAdapter:
         hint = risk.get('hint', '')
 
         if level == 'critical':
-            lines.append(f"[RISK-CRITICAL] {message}")
+            lines.append(f"{RiskDisplayDefaults.RISK_CRITICAL_LABEL} {message}")
         elif level == 'warning':
-            lines.append(f"[RISK-WARNING] {message}")
+            lines.append(f"{RiskDisplayDefaults.RISK_WARNING_LABEL} {message}")
         else:
-            lines.append(f"[RISK-INFO] {message}")
+            lines.append(f"{RiskDisplayDefaults.RISK_INFO_LABEL} {message}")
 
         if hint:
             lines.append(f"  → hint: {hint}")

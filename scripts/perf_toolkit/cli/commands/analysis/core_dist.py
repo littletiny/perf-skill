@@ -3,14 +3,18 @@
 """
 analyze-core-distribution 命令实现
 
-从 analysis/core_distribution.py 迁移而来
+使用共享的 CoreDistributionBuilder 构建输出，
+确保与 sys-audit 中的核心分布展示格式一致。
 """
 
 from typing import List, Dict, Any, TYPE_CHECKING
 
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.models import RiskInfo, TimeRange
-from perf_toolkit.core.output_models import RiskLevel, CoreItem, CoreDistributionOutput
+from perf_toolkit.core.output_models import RiskLevel, CoreDistributionOutput
+from perf_toolkit.core.core_distribution_builder import (
+    build_core_distribution_for_command
+)
 from perf_toolkit.analysis.core_distribution import CoreDistAnalyzer
 
 if TYPE_CHECKING:
@@ -26,7 +30,12 @@ def cmd_analyze_core_distribution(
     args: 'Namespace',
     samples: List[Dict[str, Any]]
 ) -> CoreDistributionOutput:
-    """[Skill] Analyze CPU core utilization distribution"""
+    """
+    [Skill] Analyze CPU core utilization distribution
+    
+    使用共享的 CoreDistributionBuilder 构建输出，
+    确保与 sys-audit 中的核心分布展示格式一致。
+    """
     
     # 1. 调用 Analyzer
     analyzer = CoreDistAnalyzer(engine)
@@ -48,16 +57,6 @@ def cmd_analyze_core_distribution(
     if result.risks:
         top_risk = min(result.risks, key=lambda r: RiskLevel.from_string(r.level).value)
     
-    # 4. 转换为 Output 模型
-    cores = [
-        CoreItem(
-            cpu_id=c.cpu_id,
-            total_cpu_util=f"{c.total_cpu:.2f}%",
-            kernel_cpu_util=f"{c.kernel_cpu:.2f}%"
-        )
-        for c in result.cores
-    ]
-    
     risk_output = RiskInfo(
         level=top_risk.level,
         message=top_risk.message,
@@ -66,13 +65,13 @@ def cmd_analyze_core_distribution(
         pending_targets=top_risk.pending_targets
     ) if top_risk else RiskInfo(level="none")
     
-    output = CoreDistributionOutput(
-        _risk=risk_output,
-        cores=cores,
-        time_range=TimeRange.from_timestamps(
-            samples[0].ts if samples else None,
-            samples[-1].ts if len(samples) > 1 else None
-        )
+    # 4. 使用共享构建器构建输出（确保与 sys-audit 格式一致）
+    output = build_core_distribution_for_command(result, risk_output)
+    
+    # 5. 添加时间范围
+    output.time_range = TimeRange.from_timestamps(
+        samples[0].ts if samples else None,
+        samples[-1].ts if len(samples) > 1 else None
     )
     
     return output

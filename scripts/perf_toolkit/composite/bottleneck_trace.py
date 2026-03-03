@@ -13,9 +13,18 @@ Bottleneck Trace - 瓶颈追踪命令
 
 注意：CLI 命令已迁移到 cli/commands/composite/bottleneck_trace.py
 本文件保留辅助函数和 BottleneckTracer 类供 CLI 命令使用
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from typing import Optional, List, Dict, Tuple
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from config.defaults import DiagnosisType, RiskPattern
 
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.risk_aggregator import RiskAggregator
@@ -150,7 +159,7 @@ class BottleneckTracer:
             ProcessGroup(
                 comm=g.get("comm", ""),
                 total_cpu=g.get("total_cpu", 0.0),
-                diagnosis=g.get("diagnosis", "HEALTHY"),
+                diagnosis=g.get("diagnosis", DiagnosisType.HEALTHY),
                 monopoly=g.get("monopoly", 0.0),
                 impact_score=g.get("impact_score", 0.0)
             )
@@ -162,7 +171,7 @@ class BottleneckTracer:
         
         # 找第一个 BOTTLENECK
         for group in all_groups:
-            if group.diagnosis == "BOTTLENECK":
+            if group.diagnosis == DiagnosisType.BOTTLENECK:
                 return group.comm
         
         # 如果没有明确的 BOTTLENECK，返回危害指数最高的
@@ -229,7 +238,7 @@ class BottleneckTracer:
                 level="warning",
                 message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",
                 hint=f"cluster-paths --comm {comm}",
-                patterns=["HIGH_KERNEL"],
+                patterns=[RiskPattern.HIGH_KERNEL],
                 pending_targets=[comm],
                 source="bottleneck"
             ))
@@ -277,7 +286,7 @@ def _find_bottleneck_comm(facade: AnalysisFacade, samples) -> Optional[str]:
         ProcessGroup(
             comm=g["comm"] if isinstance(g, dict) else getattr(g, 'comm', ''),
             total_cpu=g.get("total_cpu", 0.0) if isinstance(g, dict) else getattr(g, 'total_cpu', 0.0),
-            diagnosis=g.get("diagnosis", "HEALTHY") if isinstance(g, dict) else getattr(g, 'diagnosis', 'HEALTHY'),
+            diagnosis=g.get("diagnosis", DiagnosisType.HEALTHY) if isinstance(g, dict) else getattr(g, 'diagnosis', DiagnosisType.HEALTHY),
             monopoly=g.get("monopoly", 0.0) if isinstance(g, dict) else getattr(g, 'monopoly', 0.0)
         )
         for g in all_groups_data
@@ -285,7 +294,7 @@ def _find_bottleneck_comm(facade: AnalysisFacade, samples) -> Optional[str]:
     
     # 找第一个BOTTLENECK
     for group in all_groups:
-        if group.diagnosis == "BOTTLENECK":
+        if group.diagnosis == DiagnosisType.BOTTLENECK:
             return group.comm
     
     # 如果没有明确的BOTTLENECK，返回危害指数最高的
@@ -324,7 +333,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
                     pid_count=g.get("pid_count", g.get("count", 0)),
                     cv=g.get("cv", 0.0),
                     monopoly=g.get("monopoly", 0.0),
-                    diagnosis=g.get("diagnosis", "NORMAL"),
+                    diagnosis=g.get("diagnosis", DiagnosisType.NORMAL),
                     impact_score=g.get("impact_score", 0.0)
                 )
                 break

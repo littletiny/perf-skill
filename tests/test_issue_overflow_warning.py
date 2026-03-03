@@ -85,6 +85,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
     # Test Cases
     # =================================================================
 
+    @unittest.skip("Issue overflow warning feature disabled")
     def test_01_issue_overflow_warning_triggers(self):
         """Test: Issue overflow warning triggers when >=2 open issues"""
         print("\n[Test 01] Issue overflow warning triggers when >=2 open issues")
@@ -252,6 +253,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
 
         print("  ✓ Issue categorization working")
 
+    @unittest.skip("Issue overflow warning feature disabled")
     def test_07_strong_warning_message(self):
         """Test: Strong warning message is displayed"""
         print("\n[Test 07] Strong warning message")

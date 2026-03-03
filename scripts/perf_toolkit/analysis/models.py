@@ -4,10 +4,19 @@
 Analysis Models - Analysis 层数据模型
 
 用于 Analysis 层内部数据传递，供 Facade 层聚合使用。
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Optional
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from config.defaults import DiagnosisType
 
 from ..core.models import RiskInfo
 
@@ -24,7 +33,7 @@ class CommGroup:
     cv: float = 0.0                     # 变异系数
     monopoly: float = 0.0               # 核心独占率
     spawn_rate: float = 0.0             # 产生速率
-    diagnosis: str = "HEALTHY"          # BOTTLENECK/STORM/UNBALANCED/HEALTHY
+    diagnosis: str = DiagnosisType.HEALTHY          # BOTTLENECK/STORM/UNBALANCED/HEALTHY
     impact_score: float = 0.0           # 危害指数
 
 

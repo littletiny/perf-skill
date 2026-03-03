@@ -4,6 +4,7 @@
 Display Presets - 统一的显示格式配置
 
 所有命令的文本输出格式配置集中在此定义，修改显示格式只需改此文件。
+常量定义统一从 config.defaults 导入。
 
 配置项说明:
 - template_type: 模板类型 (simple_list/key_value/table/nested/custom)
@@ -17,8 +18,15 @@ Display Presets - 统一的显示格式配置
 - custom_renderer: 自定义渲染器标识
 """
 
+import sys
+from pathlib import Path
 from typing import Dict, Optional, List
 from dataclasses import dataclass, field
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from config.defaults import DisplayPresets as DisplayPresetConstants
 
 
 @dataclass
@@ -39,103 +47,103 @@ _DISPLAY_PRESETS: Dict[str, DisplayPreset] = {
     "hotspots": DisplayPreset(
         template_type="simple_list",
         list_field="hotspots",
-        header="# index,funcname,self,inclusive",
+        header=DisplayPresetConstants.HOTSPOTS_HEADER,
         display_fields=["symbol", "self", "inclusive"],
         index_format="#{index}",
-        empty_message="No hotspots found",
+        empty_message=DisplayPresetConstants.NO_HOTSPOTS,
         total_field="total_hotspots",
         shown_field="shown_hotspots",
     ),
     "processes": DisplayPreset(
         template_type="simple_list",
         list_field="processes",
-        header="# comm(pid) (usr+sys)/sys",
+        header=DisplayPresetConstants.PROCESSES_HEADER,
         display_fields=["comm", "pid", "total_cpu_util", "kernel_cpu_util"],
         index_format=None,
-        empty_message="No processes found",
+        empty_message=DisplayPresetConstants.NO_PROCESSES,
         total_field="total_processes",
         shown_field="shown_processes",
     ),
     "comm_groups": DisplayPreset(
         template_type="key_value",
         list_field="comm_groups",
-        header="# comm,pids,cpu_util,event",
+        header=DisplayPresetConstants.COMM_GROUPS_HEADER,
         display_fields=["comm", "pids", "cpu", "event"],
-        empty_message="No process groups found",
+        empty_message=DisplayPresetConstants.NO_COMM_GROUPS,
         total_field="total_comm_groups",
         shown_field=None,
     ),
     "symbol_clusters": DisplayPreset(
         template_type="key_value",
         list_field="symbol_clusters",
-        header="# event_type | pct_of_total (cluster_weight / total_weight)",
+        header=DisplayPresetConstants.SYMBOL_CLUSTERS_HEADER,
         display_fields=["cluster", "pct_of_total"],
-        empty_message="No symbol clusters found",
+        empty_message=DisplayPresetConstants.NO_SYMBOL_CLUSTERS,
         total_field="clusters_found",
         shown_field="shown_clusters",
     ),
     "path_clusters": DisplayPreset(
         template_type="simple_list",
         list_field="path_clusters",
-        header="# index,percent,cpu_util,path",
+        header=DisplayPresetConstants.PATH_CLUSTERS_HEADER,
         display_fields=["_ratio_pct", "_cpu_util", "path_signature"],
         index_format="#{index}",
-        empty_message="No path clusters found",
+        empty_message=DisplayPresetConstants.NO_PATH_CLUSTERS,
         total_field="total_clusters",
         shown_field="shown_clusters",
     ),
     "attributions": DisplayPreset(
         template_type="simple_list",
         list_field="attributions",
-        header="# index,ratio,callstack",
+        header=DisplayPresetConstants.ATTRIBUTIONS_HEADER,
         display_fields=["ratio_of_target_pct", "caller_stack"],
         index_format="#{index}",
-        empty_message="No attributions found",
+        empty_message=DisplayPresetConstants.NO_ATTRIBUTIONS,
         total_field="total_attributions",
         shown_field="shown_attributions",
     ),
     "traces": DisplayPreset(
         template_type="nested",
         list_field="traces",
-        header="# target (cpu_util) <- callstack",
-        empty_message="No traces found",
+        header=DisplayPresetConstants.TRACES_HEADER,
+        empty_message=DisplayPresetConstants.NO_TRACES,
         total_field=None,
         shown_field=None,
     ),
     "cores": DisplayPreset(
         template_type="simple_list",
         list_field="cores",
-        header="# SATURATED_CORES: index,cpu_id,(usr+sys)/sys",
+        header=DisplayPresetConstants.CORES_HEADER,
         display_fields=["cpu_id", "total_cpu_util", "kernel_cpu_util"],
         index_format="#{index}",
-        empty_message="No saturated cores found",
+        empty_message=DisplayPresetConstants.NO_CORES,
         total_field=None,
         shown_field=None,
     ),
     "process_variety": DisplayPreset(
         template_type="key_value",
         list_field="process_variety",
-        header="# PROCESS_STORM: comm,pids_per_min,cpu_util",
+        header=DisplayPresetConstants.PROCESS_VARIETY_HEADER,
         display_fields=["comm", "pids_per_min", "cpu_util"],
-        empty_message="No process variety data",
+        empty_message=DisplayPresetConstants.NO_PROCESS_VARIETY,
         total_field="total_processes",
         shown_field=None,
     ),
     "anomalies": DisplayPreset(
         template_type="table",
         list_field="anomalies",
-        header="# type,cpu_id,time_range,change,severity",
+        header=DisplayPresetConstants.ANOMALIES_HEADER,
         display_fields=["type", "cpu_id", "_time_range", "_util_change", "severity"],
-        empty_message="No anomalies detected",
+        empty_message=DisplayPresetConstants.NO_ANOMALIES,
         total_field="total_anomalies",
         shown_field=None,
     ),
     "windows": DisplayPreset(
         template_type="table",
         list_field="windows",
-        header="# cpu_id,start_time,end_time,util,weight",
+        header=DisplayPresetConstants.WINDOWS_HEADER,
         display_fields=["cpu_id", "start_time", "end_time", "utilization", "weight"],
-        empty_message="No windows data",
+        empty_message=DisplayPresetConstants.NO_WINDOWS,
         total_field="total_windows",
         shown_field=None,
     ),

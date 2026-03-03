@@ -9,13 +9,21 @@ Risk Display Configuration - JSON format with built-in defaults
 - 纯文本输出
 - 级别使用大写标签 [CRITICAL]/[WARNING]/[INFO]
 - Hint 使用箭头前缀 →
+
+常量定义统一从 config.defaults 导入。
 """
 
 import json
 import os
+import sys
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Optional
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from config.defaults import RiskDisplayDefaults
 
 
 # =============================================================================
@@ -24,27 +32,27 @@ from typing import Dict, Optional
 
 @dataclass
 class RiskConfigColors:
-    """Risk 配置颜色"""
-    critical: str = "\033[91m"
-    warning: str = "\033[93m"
-    info: str = "\033[94m"
-    reset: str = "\033[0m"
+    """Risk 配置颜色 - 使用 defaults 中的常量"""
+    critical: str = RiskDisplayDefaults.COLOR_CRITICAL
+    warning: str = RiskDisplayDefaults.COLOR_WARNING
+    info: str = RiskDisplayDefaults.COLOR_INFO
+    reset: str = RiskDisplayDefaults.COLOR_RESET
 
 
 @dataclass
 class RiskConfigTemplates:
-    """Risk 配置模板"""
-    issue_open: str = "[OPEN] [{id}] [{level}] {desc}"
-    issue_resolved: str = "[RESOLVED] [{id}] [{level}] {desc}"
-    hint: str = "→ {hint}"
-    result: str = "→ {result}"
-    list_header_open: str = "[OPEN] {count} issues pending"
-    list_header_resolved: str = "[RESOLVED] {count} issues"
-    list_header_all: str = "[ALL] {open_count} open, {resolved_count} resolved"
-    timeline_command: str = "[{seq}] {time} {command}"
-    timeline_finding_created: str = "[{level}] {issue_id}: {desc}"
-    timeline_finding_resolved: str = "[RESOLVED] {issue_id}: {result}"
-    timeline_info: str = "[INFO] {message}"
+    """Risk 配置模板 - 使用 defaults 中的常量"""
+    issue_open: str = RiskDisplayDefaults.TEMPLATE_ISSUE_OPEN
+    issue_resolved: str = RiskDisplayDefaults.TEMPLATE_ISSUE_RESOLVED
+    hint: str = RiskDisplayDefaults.TEMPLATE_HINT
+    result: str = RiskDisplayDefaults.TEMPLATE_RESULT
+    list_header_open: str = RiskDisplayDefaults.TEMPLATE_LIST_HEADER_OPEN
+    list_header_resolved: str = RiskDisplayDefaults.TEMPLATE_LIST_HEADER_RESOLVED
+    list_header_all: str = RiskDisplayDefaults.TEMPLATE_LIST_HEADER_ALL
+    timeline_command: str = RiskDisplayDefaults.TEMPLATE_TIMELINE_COMMAND
+    timeline_finding_created: str = RiskDisplayDefaults.TEMPLATE_TIMELINE_FINDING_CREATED
+    timeline_finding_resolved: str = RiskDisplayDefaults.TEMPLATE_TIMELINE_FINDING_RESOLVED
+    timeline_info: str = RiskDisplayDefaults.TEMPLATE_TIMELINE_INFO
 
 
 @dataclass

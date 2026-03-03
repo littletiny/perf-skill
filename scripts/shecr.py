@@ -23,7 +23,10 @@ import sys
 import os
 
 # Add perf_toolkit to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_dir)
+# Add project root to path for config.defaults
+sys.path.insert(0, os.path.dirname(script_dir))
 
 from perf_toolkit.cli.main import main
 

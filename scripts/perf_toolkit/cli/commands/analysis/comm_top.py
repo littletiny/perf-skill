@@ -13,6 +13,7 @@ from perf_toolkit.core.output_models import (
     RiskInfo, RiskLevel, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
 )
 from perf_toolkit.analysis.comm_top import CommTopAnalyzer
+from config.defaults import DiagnosisType, RiskPattern
 
 if TYPE_CHECKING:
     from perf_toolkit.cli.builders import OutputBuilder
@@ -56,12 +57,12 @@ def cmd_get_comm_top(
         kernel_ratio = (g.kernel_cpu / g.total_cpu * 100) if g.total_cpu > 0 else 0
         
         # 构建 event 描述
-        if g.diagnosis == "BOTTLENECK":
-            event = f"BOTTLENECK(M={g.monopoly:.2f})"
-        elif g.diagnosis == "STORM":
-            event = f"STORM({g.spawn_rate:.1f}/s)"
-        elif g.diagnosis == "UNBALANCED":
-            event = f"UNBALANCED(CV={g.cv:.2f})"
+        if g.diagnosis == DiagnosisType.BOTTLENECK:
+            event = f"{DiagnosisType.BOTTLENECK}(M={g.monopoly:.2f})"
+        elif g.diagnosis == DiagnosisType.STORM:
+            event = f"{DiagnosisType.STORM}({g.spawn_rate:.1f}/s)"
+        elif g.diagnosis == DiagnosisType.UNBALANCED:
+            event = f"{DiagnosisType.UNBALANCED}(CV={g.cv:.2f})"
         else:
             event = "normal"
         
@@ -86,7 +87,7 @@ def cmd_get_comm_top(
         comm_groups=groups,
         summary=CommGroupSummary(
             total_comm_groups=result.total_groups,
-            high_kernel_groups=len([r for r in result.risks if "HIGH_KERNEL" in str(r.patterns)])
+            high_kernel_groups=len([r for r in result.risks if RiskPattern.HIGH_KERNEL in str(r.patterns)])
         ),
         time_range=TimeRange.from_timestamps(
             samples[0].ts if samples else None,

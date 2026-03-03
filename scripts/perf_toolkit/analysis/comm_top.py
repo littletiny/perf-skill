@@ -10,10 +10,22 @@ V3 版本（三层架构）：
 - 危害指数排序，解决"A掩盖B"问题
 - Task-2.3.1: 返回 CommTopResult dataclass
 - Task-2.3.2: _analyze_storms 返回 StormAnalysisResult dataclass
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from config.defaults import (
+    DiagnosisType, RiskPattern, Thresholds, CompositeDefaults
+)
+
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
 from ..core.models import RiskInfo
@@ -33,16 +45,16 @@ class CommTopAnalyzer(BaseAnalyzer):
     - Impact Score (危害指数): 综合排序依据
     """
     
-    # 诊断分级阈值
-    CV_THRESHOLD = 1.0              # CV > 1.0 认为不均衡
-    MONOPOLY_THRESHOLD = 0.8        # Monopoly > 0.8 认为单点瓶颈
-    SPAWN_RATE_THRESHOLD = 10.0     # > 10/s 认为进程风暴
+    # 诊断分级阈值 - 使用 config.defaults 中的常量
+    CV_THRESHOLD = Thresholds.CV_UNBALANCED              # CV > 1.0 认为不均衡
+    MONOPOLY_THRESHOLD = Thresholds.MONOPOLY_HIGH        # Monopoly > 0.8 认为单点瓶颈
+    SPAWN_RATE_THRESHOLD = 10.0                          # > 10/s 认为进程风暴
     
     # 显著性判断阈值（用于自动降噪）
-    SIGNIFICANT_CPU_THRESHOLD = 5.0     # CPU% > 5 认为显著
-    SIGNIFICANT_CV_THRESHOLD = 1.0      # CV > 1.0 认为显著
-    SIGNIFICANT_MONOPOLY_THRESHOLD = 0.8 # Monopoly > 0.8 认为显著
-    SIGNIFICANT_SPAWN_RATE_THRESHOLD = 10.0 # SpawnRate > 10/s 认为显著
+    SIGNIFICANT_CPU_THRESHOLD = Thresholds.CPU_UTIL_LOW     # CPU% > 5 认为显著
+    SIGNIFICANT_CV_THRESHOLD = Thresholds.CV_UNBALANCED     # CV > 1.0 认为显著
+    SIGNIFICANT_MONOPOLY_THRESHOLD = Thresholds.MONOPOLY_HIGH  # Monopoly > 0.8 认为显著
+    SIGNIFICANT_SPAWN_RATE_THRESHOLD = 10.0                 # SpawnRate > 10/s 认为显著
     
     def analyze(self, samples: List[Sample], top_n: int = 10,
                 include_metrics: bool = False) -> CommTopResult:
@@ -197,13 +209,13 @@ class CommTopAnalyzer(BaseAnalyzer):
             HEALTHY: 健康状态
         """
         if monopoly > self.MONOPOLY_THRESHOLD:
-            return "BOTTLENECK"
+            return DiagnosisType.BOTTLENECK
         elif spawn_rate > self.SPAWN_RATE_THRESHOLD:
-            return "STORM"
+            return DiagnosisType.STORM
         elif cv > self.CV_THRESHOLD:
-            return "UNBALANCED"
+            return DiagnosisType.UNBALANCED
         else:
-            return "HEALTHY"
+            return DiagnosisType.HEALTHY
     
     def _calculate_impact_score(self, total_cpu: float, cv: float, 
                                  monopoly: float, spawn_rate: float) -> float:
@@ -230,28 +242,28 @@ class CommTopAnalyzer(BaseAnalyzer):
         Returns:
             RiskInfo 对象 或 None
         """
-        if group.diagnosis == "BOTTLENECK":
+        if group.diagnosis == DiagnosisType.BOTTLENECK:
             return self._create_risk(
                 level="critical",
                 message=f"{group.comm} 单核饱和 (Monopoly={group.monopoly:.2f})",
                 hint=f"bottleneck-trace --comm {group.comm}",
-                patterns=["SINGLE_CORE_SATURATION"],
+                patterns=[RiskPattern.SINGLE_CORE_SATURATION],
                 pending_targets=[group.comm]
             )
-        elif group.diagnosis == "STORM":
+        elif group.diagnosis == DiagnosisType.STORM:
             return self._create_risk(
                 level="warning",
                 message=f"{group.comm} 进程风暴 ({group.spawn_rate:.1f}/s)",
                 hint=f"find-callers --comm {group.comm} 查看创建源头",
-                patterns=["PROCESS_STORM"],
+                patterns=[RiskPattern.PROCESS_STORM],
                 pending_targets=[group.comm]
             )
-        elif group.diagnosis == "UNBALANCED":
+        elif group.diagnosis == DiagnosisType.UNBALANCED:
             return self._create_risk(
                 level="warning",
                 message=f"{group.comm} 负载不均衡 (CV={group.cv:.2f})",
                 hint=f"get-hotspots --comm {group.comm}",
-                patterns=["UNBALANCED_LOAD"],
+                patterns=[RiskPattern.UNBALANCED_LOAD],
                 pending_targets=[group.comm]
             )
         return None
@@ -296,7 +308,7 @@ class CommTopAnalyzer(BaseAnalyzer):
         Returns:
             StormAnalysisResult 或 None（如果没有风暴）
         """
-        storm_groups = [g for g in groups if g.diagnosis == "STORM"]
+        storm_groups = [g for g in groups if g.diagnosis == DiagnosisType.STORM]
         
         if not storm_groups:
             return None

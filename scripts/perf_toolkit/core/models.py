@@ -155,10 +155,3 @@ class AnomalySummary(Summary):
     drop_count: int = 0
 
 
-@dataclass
-class CoreDistributionSummary(Summary):
-    """核心分布摘要"""
-    imbalance_level: str = "UNKNOWN"
-    max_utilization: str = "0%"
-    min_utilization: str = "0%"
-    saturated_cores: int = 0

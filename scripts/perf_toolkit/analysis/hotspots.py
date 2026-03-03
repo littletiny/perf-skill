@@ -7,9 +7,19 @@ V3 版本（三层架构）：
 - 提取 HotspotsAnalyzer 纯逻辑类
 - 支持符号级热点分析
 - Task-2.5.1: 返回 HotspotsResult dataclass
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from typing import List, Optional
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from config.defaults import RiskPattern, Thresholds
+
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
 from ..core.models import RiskInfo
@@ -24,8 +34,8 @@ class HotspotsAnalyzer(BaseAnalyzer):
     分析符号级 CPU 利用率，识别热点函数。
     """
     
-    # Risk 阈值
-    KERNEL_HOTSPOT_THRESHOLD = 30.0  # 内核态热点占比阈值
+    # Risk 阈值 - 使用 config.defaults 中的常量
+    KERNEL_HOTSPOT_THRESHOLD = Thresholds.KERNEL_RATIO_HIGH  # 内核态热点占比阈值
     
     def analyze(self, samples: List[Sample], 
                 comm: Optional[str] = None,
@@ -102,7 +112,7 @@ class HotspotsAnalyzer(BaseAnalyzer):
                 level="warning",
                 message=f"热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%",
                 hint=f"find-callers --target {top_kernel_hotspot}",
-                patterns=["HIGH_KERNEL_HOTSPOT"],
+                patterns=[RiskPattern.HIGH_KERNEL_HOTSPOT],
                 pending_targets=[top_kernel_hotspot]
             ))
         

@@ -4,11 +4,20 @@
 Composite Layer Data Models
 
 用 dataclass 替代 dict，提供类型安全和代码可维护性
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from config.defaults import DiagnosisType, ImbalanceLevel, SeverityLevel
 
 from ..core.models import RiskInfo
 
@@ -42,7 +51,7 @@ class ProcessGroup:
     cv: float = 0.0              # 变异系数
     monopoly: float = 0.0        # 独占率
     spawn_rate: float = 0.0      # 产生速率
-    diagnosis: str = "HEALTHY"   # BOTTLENECK/STORM/UNBALANCED/HEALTHY
+    diagnosis: str = DiagnosisType.HEALTHY   # BOTTLENECK/STORM/UNBALANCED/HEALTHY
     impact_score: float = 0.0    # 危害指数
 
     @property
@@ -96,7 +105,7 @@ class CoreDistributionReport:
     """核心分布报告"""
     core_stats: List[CoreStat] = field(default_factory=list)
     saturated_cores: List[int] = field(default_factory=list)
-    imbalance_level: str = "NORMAL"  # NORMAL/MODERATE/SEVERE
+    imbalance_level: str = ImbalanceLevel.NORMAL  # NORMAL/MODERATE/SEVERE
     risks: List[RiskInfo] = field(default_factory=list)
 
 
@@ -142,7 +151,7 @@ class DiagnosisReport:
     mutation_detected: bool = False
     mutation_time: Optional[float] = None
     saturated_cores: List[int] = field(default_factory=list)
-    imbalance_level: str = "NORMAL"  # NORMAL/MODERATE/SEVERE
+    imbalance_level: str = ImbalanceLevel.NORMAL  # NORMAL/MODERATE/SEVERE
     root_cause_analysis: str = ""
     recommendations: List[str] = field(default_factory=list)
     risks: List[RiskInfo] = field(default_factory=list)
@@ -205,7 +214,7 @@ class BottleneckAnalysis:
     pid_count: int = 0
     cv: float = 0.0
     monopoly: float = 0.0
-    diagnosis: str = "NORMAL"
+    diagnosis: str = DiagnosisType.NORMAL
     impact_score: float = 0.0
     risks: List[RiskInfo] = field(default_factory=list)
 
@@ -256,7 +265,7 @@ class CoreDistDetails:
     """核心分布详情（SysAuditOutput.details.core_distribution）"""
     core_count: int = 0
     saturated_cores: List[int] = field(default_factory=list)
-    imbalance_level: str = "NORMAL"
+    imbalance_level: str = ImbalanceLevel.NORMAL
     risks: List[RiskInfo] = field(default_factory=list)
 
 
@@ -353,6 +362,6 @@ class StormAnalysis:
     spawn_rate: float = 0.0
     pid_count: int = 0
     total_cpu: float = 0.0
-    severity: str = "NONE"  # LOW/MEDIUM/HIGH/CRITICAL
-    diagnosis: str = "NORMAL"
+    severity: str = SeverityLevel.NONE  # LOW/MEDIUM/HIGH/CRITICAL
+    diagnosis: str = DiagnosisType.NORMAL
     risks: List[RiskInfo] = field(default_factory=list)

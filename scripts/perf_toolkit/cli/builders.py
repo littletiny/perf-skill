@@ -8,12 +8,20 @@ OutputBuilder - 基于统一数据模型的输出构建器
 - 统一的数据结构管理
 - 自动转换到 JSON
 - Trace 自动记录 (v2.0)
+
+常量定义统一从 config.defaults 导入。
 """
 
 import os
 import sys
+from pathlib import Path
 from typing import List, Dict, Optional, Any, Type, TypeVar, Generic
 from dataclasses import dataclass
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+
+from config.defaults import RiskPattern, SeverityLevel
 
 # 注意: import 路径从 core 改为相对导入
 from ..core.models import RiskInfo, TimeRange
@@ -218,10 +226,10 @@ class OutputBuilder:
 
         # 创建风险输出
         risk_info = RiskInfo(
-            level="warning",
+            level=SeverityLevel.WARNING.lower(),
             message="未找到样本数据",
             hint="[必须] 添加到 Trace: shecr trace add --desc '未找到样本数据' --hint '检查过滤条件'",
-            patterns=["NO_SAMPLES"]
+            patterns=[RiskPattern.NO_SAMPLES]
         )
 
         result = {
@@ -248,7 +256,7 @@ class OutputBuilder:
             samples = self._samples
 
         if not samples:
-            self._quality_level = "CRITICAL"
+            self._quality_level = SeverityLevel.CRITICAL
             self._quality_metrics = QualityMetrics()
             return self._quality_level if not early_return else False
 
@@ -270,13 +278,13 @@ class OutputBuilder:
 
         # 早期返回处理
         if early_return:
-            if quality_level == "CRITICAL":
+            if quality_level == SeverityLevel.CRITICAL:
                 # 添加数据质量风险
                 risk_info = RiskInfo(
-                    level="critical",
+                    level=SeverityLevel.CRITICAL.lower(),
                     message="数据质量不足！分析结果完全不可信",
                     hint="[必须] 添加到 Trace: shecr trace add --desc '数据质量不足！分析结果完全不可信' --hint '使用更长的采样时间重新采集数据'",
-                    patterns=["CRITICAL_DATA_QUALITY"]
+                    patterns=[RiskPattern.CRITICAL_DATA_QUALITY]
                 )
 
                 result = {
@@ -314,8 +322,8 @@ class OutputBuilder:
 
         分类规则:
         - 内核异常: desc 包含 "内核" 或 "kernel"
-        - 锁竞争: desc 包含 "锁竞争" 或 "LOCK_CONTENTION"
-        - 进程风暴: desc 包含 "进程风暴" 或 "PROCESS_STORM"
+        - 锁竞争: desc 包含 "锁竞争" 或 {RiskPattern.LOCK_CONTENTION}
+        - 进程风暴: desc 包含 "进程风暴" 或 {RiskPattern.PROCESS_STORM}
         """
         categories = IssueCategories()
 
@@ -324,9 +332,9 @@ class OutputBuilder:
 
             if '内核' in desc or 'kernel' in desc:
                 categories.kernel_anomaly += 1
-            elif '锁竞争' in desc or 'lock_contention' in desc:
+            elif '锁竞争' in desc or RiskPattern.LOCK_CONTENTION.lower() in desc:
                 categories.lock_contention += 1
-            elif '进程风暴' in desc or 'process_storm' in desc:
+            elif '进程风暴' in desc or RiskPattern.PROCESS_STORM.lower() in desc:
                 categories.process_storm += 1
 
         return categories

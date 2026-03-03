@@ -7,10 +7,20 @@ V3 版本（三层架构）：
 - 提取 CoreDistAnalyzer 纯逻辑类
 - 分析各 CPU 核心的负载分布
 - Task-2.4.1: 返回 CoreDistributionResult dataclass
+
+常量定义统一从 config.defaults 导入。
 """
 
+import sys
+from pathlib import Path
 from typing import Dict, List, Optional
 from collections import defaultdict
+
+# 添加项目根目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from config.defaults import ImbalanceLevel, Thresholds
+
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
 from ..core.models import RiskInfo
@@ -39,11 +49,11 @@ class CoreDistAnalyzer(BaseAnalyzer):
     分析各 CPU 核心的负载分布，识别负载不均衡。
     """
     
-    # 不均衡阈值
-    IMBALANCE_CRITICAL = 10.0   # 极不均衡
+    # 不均衡阈值 - 使用 config.defaults 中的常量
+    IMBALANCE_CRITICAL = Thresholds.IMBALANCE_RATIO_CRITICAL   # 极不均衡
     IMBALANCE_HIGH = 5.0        # 严重不均衡
     IMBALANCE_MEDIUM = 2.0      # 中度不均衡
-    SATURATION_THRESHOLD = 90.0  # 核心饱和阈值
+    SATURATION_THRESHOLD = Thresholds.CORE_SATURATED_THRESHOLD  # 核心饱和阈值
     
     def analyze(self, samples: List[Sample], top_n: int = 10) -> CoreDistributionResult:
         """
@@ -79,7 +89,7 @@ class CoreDistAnalyzer(BaseAnalyzer):
             ))
         
         # 3. 检测不均衡
-        imbalance_level = "LOW"
+        imbalance_level = ImbalanceLevel.NORMAL
         saturated_cores: List[CoreStat] = []
         risks: List[RiskInfo] = []
         
@@ -92,19 +102,19 @@ class CoreDistAnalyzer(BaseAnalyzer):
             
             # 分级判断
             if imbalance_ratio > self.IMBALANCE_CRITICAL and max_util > 50:
-                imbalance_level = "CRITICAL"
+                imbalance_level = ImbalanceLevel.CRITICAL
             elif imbalance_ratio > self.IMBALANCE_HIGH:
-                imbalance_level = "HIGH"
+                imbalance_level = ImbalanceLevel.HIGH
             elif imbalance_ratio > self.IMBALANCE_MEDIUM:
-                imbalance_level = "MEDIUM"
+                imbalance_level = ImbalanceLevel.MODERATE
             else:
-                imbalance_level = "LOW"
+                imbalance_level = ImbalanceLevel.NORMAL
             
             # 识别饱和核心
             saturated_cores = [c for c in cores if c.total_cpu > self.SATURATION_THRESHOLD]
             
             # 识别 risk
-            if imbalance_level == "CRITICAL":
+            if imbalance_level == ImbalanceLevel.CRITICAL:
                 risks.append(self._create_risk(
                     level="critical",
                     message="负载严重不均衡: 单核满载，其他核心空闲",
