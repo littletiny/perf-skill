@@ -114,22 +114,30 @@ def test_load_save_env():
     with TestEnv():
         # 初始状态 - 无 env 文件
         env = sw.load_env()
-        assert env == {"profiles": {}, "default": None}, "初始状态应为空"
+        assert isinstance(env, sw.EnvironmentConfig), "应返回 EnvironmentConfig"
+        assert len(env.profiles) == 0, "初始 profiles 应为空"
+        assert env.default is None, "初始 default 应为 None"
 
-        # 保存配置
-        env = {
-            "profiles": {
-                "/path/to/data": {"freq": "99", "script_path": "/path/shecr.py"}
-            },
-            "default": "/path/to/data"
-        }
+        # 保存配置 - 使用 dataclass
+        from datetime import datetime
+        profile = sw.ProfileConfig(
+            name="/path/to/data",
+            data_file="/path/to/data",
+            init_time=datetime.now().isoformat(),
+            script_path="/path/shecr.py",
+            freq="99"
+        )
+        env = sw.EnvironmentConfig(
+            profiles={"/path/to/data": profile},
+            default="/path/to/data"
+        )
         sw.save_env(env)
 
         # 重新加载
         loaded = sw.load_env()
-        assert loaded["default"] == "/path/to/data", "default 应正确保存"
-        assert "/path/to/data" in loaded["profiles"], "profile 应存在"
-        assert loaded["profiles"]["/path/to/data"]["freq"] == "99", "freq 应正确保存"
+        assert loaded.default == "/path/to/data", "default 应正确保存"
+        assert "/path/to/data" in loaded.profiles, "profile 应存在"
+        assert loaded.profiles["/path/to/data"].freq == "99", "freq 应正确保存"
 
 
 def test_migrate_old_env():
@@ -146,10 +154,11 @@ SPEAR_FREQ=99
         Path(sw.ENV_FILE).write_text(old_content)
 
         env = sw.load_env()
-        assert "profiles" in env, "应迁移到新格式"
-        assert data1 in env["profiles"], "数据文件应在 profiles 中"
-        assert env["profiles"][data1]["freq"] == "99", "freq 应迁移"
-        assert env["default"] == data1, "default 应设置"
+        assert isinstance(env, sw.EnvironmentConfig), "应返回 EnvironmentConfig"
+        assert len(env.profiles) > 0, "应迁移到新格式"
+        assert data1 in env.profiles, "数据文件应在 profiles 中"
+        assert env.profiles[data1].freq == "99", "freq 应迁移"
+        assert env.default == data1, "default 应设置"
 
 
 def test_init_new_profile():
@@ -165,9 +174,9 @@ def test_init_new_profile():
         sw.cmd_init(Args())
 
         env = sw.load_env()
-        assert env["default"] == data1, "新数据文件应设为默认"
-        assert data1 in env["profiles"], "应创建 profile"
-        assert env["profiles"][data1]["freq"] is None, "无 freq 应为 None"
+        assert env.default == data1, "新数据文件应设为默认"
+        assert data1 in env.profiles, "应创建 profile"
+        assert env.profiles[data1].freq is None, "无 freq 应为 None"
         assert Path(sw.GLOBAL_TRACE).exists(), "应创建全局 trace"
 
 
@@ -184,7 +193,7 @@ def test_init_with_freq():
         sw.cmd_init(Args())
 
         env = sw.load_env()
-        assert env["profiles"][data1]["freq"] == "99", "freq 应保存"
+        assert env.profiles[data1].freq == "99", "freq 应保存"
 
 
 def test_init_multiple_profiles():
@@ -207,8 +216,8 @@ def test_init_multiple_profiles():
         sw.cmd_init(Args2())
 
         env = sw.load_env()
-        assert len(env["profiles"]) == 2, "应有两个 profile"
-        assert env["default"] == data2, "最后一个应设为默认"
+        assert len(env.profiles) == 2, "应有两个 profile"
+        assert env.default == data2, "最后一个应设为默认"
 
         # 检查 trace 的 profiles_used
         trace = json.loads(Path(sw.GLOBAL_TRACE).read_text())
@@ -239,7 +248,7 @@ def test_use_switch_profile():
         sw.cmd_use(UseArgs())
 
         env = sw.load_env()
-        assert env["default"] == data1, "应切换到 data1"
+        assert env.default == data1, "应切换到 data1"
 
 
 def test_use_by_index():
@@ -259,7 +268,7 @@ def test_use_by_index():
 
         # 模拟通过索引 "1" 切换
         env = sw.load_env()
-        profiles = list(env["profiles"].keys())
+        profiles = list(env.profiles.keys())
         target = profiles[0]  # 索引 1 对应第一个
 
         class UseArgs:
@@ -268,7 +277,7 @@ def test_use_by_index():
         sw.cmd_use(UseArgs())
 
         env = sw.load_env()
-        assert env["default"] == target
+        assert env.default == target
 
 
 def test_freq_follows_data():
@@ -291,7 +300,7 @@ def test_freq_follows_data():
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
         assert dp == data2
-        assert profile.get("freq") == "99", "data2 应有 freq=99"
+        assert profile.freq == "99", "data2 应有 freq=99"
 
         # 切换到 data1
         class UseArgs:
@@ -301,7 +310,7 @@ def test_freq_follows_data():
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
         assert dp == data1
-        assert profile.get("freq") is None, "data1 应无 freq"
+        assert profile.freq is None, "data1 应无 freq"
 
 
 def test_get_active_config():
@@ -323,7 +332,8 @@ def test_get_active_config():
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
         assert dp == data2
-        assert profile.get("freq") == "99"
+        assert isinstance(profile, sw.ProfileConfig), "应返回 ProfileConfig"
+        assert profile.freq == "99"
 
 
 def test_cmd_build_no_freq():
@@ -340,7 +350,7 @@ def test_cmd_build_no_freq():
 
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
-        freq = profile.get("freq") if profile else None
+        freq = profile.freq if profile else None
 
         # 模拟 cmd_exec 的命令构建逻辑
         cmd = ["shecr.py", "get-hotspots", "--data", dp]
@@ -364,7 +374,7 @@ def test_cmd_build_with_freq():
 
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
-        freq = profile.get("freq") if profile else None
+        freq = profile.freq if profile else None
 
         cmd = ["shecr.py", "get-hotspots", "--data", dp]
         if freq and "--freq" not in ["--top-n", "10"]:
@@ -431,15 +441,15 @@ def test_re_init_updates_profile():
         sw.cmd_init(Args(data1, None))
 
         env = sw.load_env()
-        orig_time = env["profiles"][data1]["init_time"]
+        orig_time = env.profiles[data1].init_time
 
         # 重新 init，修改 freq
         sw.cmd_init(Args(data1, "199"))
 
         env = sw.load_env()
-        assert env["profiles"][data1]["freq"] == "199", "freq 应更新"
+        assert env.profiles[data1].freq == "199", "freq 应更新"
         # profile 数量应保持为 1
-        assert len(env["profiles"]) == 1, "不应创建重复 profile"
+        assert len(env.profiles) == 1, "不应创建重复 profile"
 
 
 def test_init_with_risk_config():
@@ -457,7 +467,7 @@ def test_init_with_risk_config():
         sw.cmd_init(Args())
 
         env = sw.load_env()
-        assert env["profiles"][data1]["risk_config"] == "./my-risk.json", "risk_config 应保存"
+        assert env.profiles[data1].risk_config == "./my-risk.json", "risk_config 应保存"
 
 
 def test_init_with_rules_file():
@@ -475,7 +485,7 @@ def test_init_with_rules_file():
         sw.cmd_init(Args())
 
         env = sw.load_env()
-        assert env["profiles"][data1]["rules_file"] == "./my-rules.json", "rules_file 应保存"
+        assert env.profiles[data1].rules_file == "./my-rules.json", "rules_file 应保存"
 
 
 def test_init_with_all_configs():
@@ -493,10 +503,10 @@ def test_init_with_all_configs():
         sw.cmd_init(Args())
 
         env = sw.load_env()
-        profile = env["profiles"][data1]
-        assert profile["freq"] == "99", "freq 应保存"
-        assert profile["risk_config"] == "./risk.json", "risk_config 应保存"
-        assert profile["rules_file"] == "./rules.json", "rules_file 应保存"
+        profile = env.profiles[data1]
+        assert profile.freq == "99", "freq 应保存"
+        assert profile.risk_config == "./risk.json", "risk_config 应保存"
+        assert profile.rules_file == "./rules.json", "rules_file 应保存"
 
 
 def test_risk_config_follows_data():
@@ -521,7 +531,7 @@ def test_risk_config_follows_data():
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
         assert dp == data2
-        assert profile.get("risk_config") is None, "data2 应无 risk_config"
+        assert profile.risk_config is None, "data2 应无 risk_config"
 
         # 切换到 data1
         class UseArgs:
@@ -531,7 +541,7 @@ def test_risk_config_follows_data():
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
         assert dp == data1
-        assert profile.get("risk_config") == "./risk1.json", "data1 应有 risk_config"
+        assert profile.risk_config == "./risk1.json", "data1 应有 risk_config"
 
 
 def test_rules_file_follows_data():
@@ -559,7 +569,7 @@ def test_rules_file_follows_data():
 
         env = sw.load_env()
         dp, profile = sw.get_active_config(env)
-        assert profile.get("rules_file") == "./rules1.json", "data1 应有 rules_file"
+        assert profile.rules_file == "./rules1.json", "data1 应有 rules_file"
 
 
 # ═════════════════════════════════════════════════════════════════════════════

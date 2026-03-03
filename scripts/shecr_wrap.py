@@ -12,6 +12,19 @@ import hashlib
 import argparse
 from pathlib import Path
 from datetime import datetime
+from typing import Optional, Tuple
+
+# Import dataclass models for CLI layer (Task-4.1.x)
+# Use relative import from perf_toolkit package
+def _import_cli_models():
+    """导入 CLI 层 dataclass 模型"""
+    core_path = Path(__file__).parent / "perf_toolkit" / "core"
+    if str(core_path.parent) not in sys.path:
+        sys.path.insert(0, str(core_path.parent))
+    from core.output_models import EnvironmentConfig, ProfileConfig, TraceConfig
+    return EnvironmentConfig, ProfileConfig, TraceConfig
+
+EnvironmentConfig, ProfileConfig, TraceConfig = _import_cli_models()
 
 ENV_FILE = ".shecr_env"
 GLOBAL_TRACE = ".shecr.json"
@@ -27,19 +40,20 @@ def get_default_script_path() -> Path:
     return get_script_dir() / "shecr.py"
 
 
-def load_env() -> dict:
-    """加载环境配置"""
+def load_env() -> EnvironmentConfig:
+    """加载环境配置 (Task-4.1.1: 返回 EnvironmentConfig dataclass)"""
     env_path = Path(ENV_FILE)
     if env_path.exists():
         try:
-            return json.loads(env_path.read_text())
+            data = json.loads(env_path.read_text())
+            return EnvironmentConfig.from_dict(data)
         except json.JSONDecodeError:
             return migrate_old_env()
-    return {"profiles": {}, "default": None}
+    return EnvironmentConfig()
 
 
-def migrate_old_env() -> dict:
-    """迁移旧版 env 格式到新版 JSON"""
+def migrate_old_env() -> EnvironmentConfig:
+    """迁移旧版 env 格式到新版 JSON (Task-4.1.2: 返回 EnvironmentConfig dataclass)"""
     env_path = Path(ENV_FILE)
     old_env = {}
     for line in env_path.read_text().splitlines():
@@ -49,22 +63,23 @@ def migrate_old_env() -> dict:
 
     data_path = old_env.get("SPEAR_DATA_PATH")
     if data_path and Path(data_path).exists():
-        return {
-            "default": data_path,
-            "profiles": {
-                data_path: {
-                    "init_time": datetime.now().isoformat(),
-                    "script_path": old_env.get("SPEAR_SCRIPT_PATH", str(get_default_script_path())),
-                    "freq": old_env.get("SPEAR_FREQ")
-                }
-            }
-        }
-    return {"profiles": {}, "default": None}
+        profile = ProfileConfig(
+            name=data_path,
+            data_file=data_path,
+            init_time=datetime.now().isoformat(),
+            script_path=old_env.get("SPEAR_SCRIPT_PATH", str(get_default_script_path())),
+            freq=old_env.get("SPEAR_FREQ")
+        )
+        return EnvironmentConfig(
+            profiles={data_path: profile},
+            default=data_path
+        )
+    return EnvironmentConfig()
 
 
-def save_env(env: dict):
-    """保存环境配置"""
-    Path(ENV_FILE).write_text(json.dumps(env, indent=2))
+def save_env(env: EnvironmentConfig):
+    """保存环境配置 (接受 EnvironmentConfig dataclass)"""
+    Path(ENV_FILE).write_text(json.dumps(env.to_dict(), indent=2))
 
 
 def get_profile_id(data_path: str) -> str:
@@ -72,32 +87,29 @@ def get_profile_id(data_path: str) -> str:
     return hashlib.md5(data_path.encode()).hexdigest()[:8]
 
 
-def init_global_trace(data_path: str) -> bool:
-    """初始化全局 trace 文件，返回是否为新创建"""
+def init_global_trace(data_path: str) -> Tuple[bool, Optional[TraceConfig]]:
+    """初始化全局 trace 文件 (Task-4.1.3: 返回 TraceConfig dataclass)
+    
+    Returns:
+        Tuple[bool, Optional[TraceConfig]]: (是否为新创建, TraceConfig实例或None)
+    """
     trace_path = Path(GLOBAL_TRACE)
     if not trace_path.exists():
-        trace = {
-            "version": "2.0",
-            "data_file": data_path,  # 最初的数据文件
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-            "timeline": [],
-            "issues": {},
-            "profiles_used": [data_path]  # 记录使用过的数据文件
-        }
-        trace_path.write_text(json.dumps(trace, indent=2))
-        return True
+        trace = TraceConfig.create_new(data_path)
+        trace_path.write_text(json.dumps(trace.to_dict(), indent=2))
+        return True, trace
     else:
         # 更新 profiles_used
         try:
-            trace = json.loads(trace_path.read_text())
-            if data_path not in trace.get("profiles_used", []):
-                trace.setdefault("profiles_used", []).append(data_path)
-                trace["updated_at"] = datetime.now().isoformat()
-                trace_path.write_text(json.dumps(trace, indent=2))
+            trace_data = json.loads(trace_path.read_text())
+            trace = TraceConfig.from_dict(trace_data)
+            if data_path not in trace.profiles_used:
+                trace.profiles_used.append(data_path)
+                trace.updated_at = datetime.now().isoformat()
+                trace_path.write_text(json.dumps(trace.to_dict(), indent=2))
         except:
             pass
-        return False
+        return False, None
 
 
 def cmd_init(args):
@@ -115,18 +127,20 @@ def cmd_init(args):
     env = load_env()
     data_path_str = str(data_path)
 
-    # 创建或更新 profile
-    profile = {
-        "init_time": datetime.now().isoformat(),
-        "script_path": str(script_path),
-        "freq": args.freq,
-        "risk_config": getattr(args, 'risk_config', None),
-        "rules_file": getattr(args, 'rules_file', None)
-    }
+    # 创建或更新 profile (Task-4.1.4: 使用 ProfileConfig dataclass)
+    profile = ProfileConfig(
+        name=data_path_str,
+        data_file=data_path_str,
+        init_time=datetime.now().isoformat(),
+        script_path=str(script_path),
+        freq=args.freq,
+        risk_config=getattr(args, 'risk_config', None),
+        rules_file=getattr(args, 'rules_file', None)
+    )
 
-    is_new = data_path_str not in env["profiles"]
-    env["profiles"][data_path_str] = profile
-    env["default"] = data_path_str
+    is_new = data_path_str not in env.profiles
+    env.profiles[data_path_str] = profile
+    env.default = data_path_str
     save_env(env)
 
     if is_new:
@@ -135,7 +149,7 @@ def cmd_init(args):
         print(f"✓ 数据文件已更新: {data_path}")
 
     # 初始化 trace（如果不存在）或更新 profiles_used
-    is_new_trace = init_global_trace(data_path_str)
+    is_new_trace, _ = init_global_trace(data_path_str)
 
     if is_new_trace:
         print(f"✓ Trace 文档已创建: {GLOBAL_TRACE}")
@@ -154,9 +168,9 @@ def cmd_use(args):
     env = load_env()
 
     # 如果路径不存在，尝试模糊匹配
-    if data_path_str not in env["profiles"]:
+    if data_path_str not in env.profiles:
         # 尝试匹配文件名
-        for profile_path in env["profiles"]:
+        for profile_path in env.profiles:
             if profile_path.endswith(f"/{data_path.name}") or profile_path == data_path.name:
                 data_path_str = profile_path
                 data_path = Path(profile_path)
@@ -166,25 +180,25 @@ def cmd_use(args):
             print("请先运行: shecr init --data-path", data_path)
             sys.exit(1)
 
-    env["default"] = data_path_str
+    env.default = data_path_str
     save_env(env)
 
-    profile = env["profiles"][data_path_str]
+    profile = env.profiles[data_path_str]
     print(f"✓ 已切换到: {data_path}")
-    print(f"  初始化时间: {profile['init_time']}")
-    if profile.get("freq"):
-        print(f"  采样频率: {profile['freq']}Hz")
-    if profile.get("risk_config"):
-        print(f"  Risk配置: {profile['risk_config']}")
-    if profile.get("rules_file"):
-        print(f"  规则配置: {profile['rules_file']}")
+    print(f"  初始化时间: {profile.init_time}")
+    if profile.freq:
+        print(f"  采样频率: {profile.freq}Hz")
+    if profile.risk_config:
+        print(f"  Risk配置: {profile.risk_config}")
+    if profile.rules_file:
+        print(f"  规则配置: {profile.rules_file}")
 
 
 def cmd_list():
     """列出所有已配置的数据文件"""
     env = load_env()
 
-    if not env["profiles"]:
+    if not env.profiles:
         print("未配置任何数据文件")
         print("请运行: shecr init --data-path <path>")
         return
@@ -202,19 +216,19 @@ def cmd_list():
     print("=== 已配置的数据文件 ===")
     print()
 
-    default_path = env.get("default")
+    default_path = env.default
 
-    for i, (path, profile) in enumerate(env["profiles"].items(), 1):
+    for i, (path, profile) in enumerate(env.profiles.items(), 1):
         marker = "▶" if path == default_path else " "
         used = "✓" if path in profiles_used else " "
         display_path = path if len(path) <= 60 else f"...{path[-57:]}"
         print(f"{marker} [{i}] {display_path} [{used}]")
-        if profile.get("freq"):
-            print(f"       Freq: {profile['freq']}Hz")
-        if profile.get("risk_config"):
-            print(f"       Risk: {profile['risk_config']}")
-        if profile.get("rules_file"):
-            print(f"       Rules: {profile['rules_file']}")
+        if profile.freq:
+            print(f"       Freq: {profile.freq}Hz")
+        if profile.risk_config:
+            print(f"       Risk: {profile.risk_config}")
+        if profile.rules_file:
+            print(f"       Rules: {profile.rules_file}")
         print()
 
     print("图例: ▶ 当前默认  ✓ 已在 trace 中使用")
@@ -232,11 +246,11 @@ def cmd_status():
     print(f"Trace 文件: {Path.cwd() / GLOBAL_TRACE}")
     print()
 
-    if not env["profiles"]:
+    if not env.profiles:
         print("未初始化。请运行: shecr init --data-path <path>")
         return
 
-    default_path = env.get("default")
+    default_path = env.default
 
     # 读取全局 trace 信息
     trace_path = Path(GLOBAL_TRACE)
@@ -255,19 +269,19 @@ def cmd_status():
         except:
             pass
 
-    print(f"已配置 {len(env['profiles'])} 个数据文件:")
+    print(f"已配置 {len(env.profiles)} 个数据文件:")
     print()
 
-    for path, profile in env["profiles"].items():
+    for path, profile in env.profiles.items():
         marker = "▶ " if path == default_path else "  "
         display_path = path if len(path) <= 60 else f"...{path[-57:]}"
         print(f"{marker}{display_path}")
-        if profile.get("freq"):
-            print(f"    Freq: {profile['freq']}Hz")
-        if profile.get("risk_config"):
-            print(f"    Risk: {profile['risk_config']}")
-        if profile.get("rules_file"):
-            print(f"    Rules: {profile['rules_file']}")
+        if profile.freq:
+            print(f"    Freq: {profile.freq}Hz")
+        if profile.risk_config:
+            print(f"    Risk: {profile.risk_config}")
+        if profile.rules_file:
+            print(f"    Rules: {profile.rules_file}")
         print()
 
     if default_path:
@@ -276,12 +290,12 @@ def cmd_status():
     print("提示: 使用 'shecr use <path>' 切换默认数据文件")
 
 
-def get_active_config(env: dict) -> tuple:
-    """获取当前激活的配置"""
+def get_active_config(env: EnvironmentConfig) -> Tuple[Optional[str], Optional[ProfileConfig]]:
+    """获取当前激活的配置 (Task-4.1.5: 返回 ProfileConfig dataclass)"""
     # 使用默认配置
-    default_path = env.get("default")
-    if default_path and default_path in env["profiles"]:
-        return default_path, env["profiles"][default_path]
+    default_path = env.default
+    if default_path and default_path in env.profiles:
+        return default_path, env.profiles[default_path]
 
     return None, None
 
@@ -303,8 +317,8 @@ def cmd_exec(subcommand: str, args: list):
                 sys.exit(1)
 
         # 确定脚本路径（优先从 profile 读取）
-        if profile and profile.get("script_path"):
-            script_path = Path(profile["script_path"])
+        if profile and profile.script_path:
+            script_path = Path(profile.script_path)
         else:
             script_path = get_default_script_path()
 
@@ -326,9 +340,9 @@ def cmd_exec(subcommand: str, args: list):
             cmd.append(trace_subcommand)
 
         # 自动注入 risk_config（如果 profile 有配置且用户未显式指定）
-        if profile and profile.get("risk_config"):
+        if profile and profile.risk_config:
             if not any(arg.startswith("--risk-config") for arg in args):
-                cmd.extend(["--risk-config", profile["risk_config"]])
+                cmd.extend(["--risk-config", profile.risk_config])
 
         cmd.extend(other_args)
         os.execvp(cmd[0], cmd)
@@ -343,8 +357,8 @@ def cmd_exec(subcommand: str, args: list):
         sys.exit(1)
 
     # 确定脚本路径
-    if profile and profile.get("script_path"):
-        script_path = Path(profile["script_path"])
+    if profile and profile.script_path:
+        script_path = Path(profile.script_path)
     else:
         script_path = get_default_script_path()
 
@@ -354,7 +368,7 @@ def cmd_exec(subcommand: str, args: list):
         sys.exit(1)
 
     # 确定频率
-    freq = profile.get("freq") if profile else None
+    freq = profile.freq if profile else None
 
     # 构建命令
     cmd = ["python3", str(script_path)]
@@ -366,9 +380,9 @@ def cmd_exec(subcommand: str, args: list):
 
     # 自动注入 rules_file（仅限 cluster-symbols 命令）
     if subcommand == "cluster-symbols":
-        if profile and profile.get("rules_file"):
+        if profile and profile.rules_file:
             if not any(arg.startswith("--rules-file") for arg in args):
-                cmd.extend(["--rules-file", profile["rules_file"]])
+                cmd.extend(["--rules-file", profile.rules_file])
 
     cmd.extend(args)
 
@@ -493,7 +507,7 @@ def main():
 
         try:
             index = int(data_arg)
-            profiles = list(env["profiles"].keys())
+            profiles = list(env.profiles.keys())
             if 1 <= index <= len(profiles):
                 data_arg = profiles[index - 1]
             else:

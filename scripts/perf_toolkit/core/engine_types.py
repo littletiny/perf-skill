@@ -16,7 +16,7 @@ Engine Data Types - Structured data classes for Engine return values
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Any
 from datetime import datetime
 
 
@@ -170,7 +170,19 @@ class Sample:
     cpu: int
     ts: float
     core_per_sec: Optional[float]
-    # stack 保持为 SymbolStack 对象，不在这里定义
+    stack: Optional[Any] = None  # SymbolStack 对象，延迟导入避免循环依赖
+    
+    def __getitem__(self, key: str):
+        """支持 dict 风格的访问，兼容现有代码"""
+        return getattr(self, key)
+    
+    def __contains__(self, key: str) -> bool:
+        """支持 'in' 操作符"""
+        return hasattr(self, key) and getattr(self, key) is not None
+    
+    def get(self, key: str, default=None):
+        """支持 dict 风格的 get 方法"""
+        return getattr(self, key, default)
 
 
 # =============================================================================

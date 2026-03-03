@@ -225,3 +225,296 @@ class AnalysisResult:
             "risks": [r.to_dict() for r in self.risks],
             "metrics": self.metrics
         }
+
+
+# =============================================================================
+# Analyzer Result Dataclasses (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class AnomaliesResult:
+    """异常检测结果 - Task-2.2.1"""
+    anomalies: List[Anomaly]
+    mutation_detected: bool
+    spike_count: int
+    drop_count: int
+    risks: List[Risk] = field(default_factory=list)
+    
+    def to_dict(self) -> dict:
+        return {
+            "result": {
+                "anomalies": [a.to_dict() for a in self.anomalies],
+                "mutation_detected": self.mutation_detected,
+                "spike_count": self.spike_count,
+                "drop_count": self.drop_count
+            },
+            "risks": [r.to_dict() for r in self.risks]
+        }
+
+
+@dataclass 
+class StormGroupDetail:
+    """风暴组详情 - StormAnalysisResult 子结构"""
+    comm: str
+    spawn_rate: float
+    pid_count: int
+    total_cpu: float
+    severity: str
+    top_creators: List[dict] = field(default_factory=list)
+    short_lived_count: int = 0
+    leaked_count: int = 0
+    
+    def to_dict(self) -> dict:
+        return {
+            "comm": self.comm,
+            "spawn_rate": self.spawn_rate,
+            "pid_count": self.pid_count,
+            "total_cpu": self.total_cpu,
+            "severity": self.severity,
+            "top_creators": self.top_creators,
+            "short_lived_count": self.short_lived_count,
+            "leaked_count": self.leaked_count
+        }
+
+
+@dataclass
+class StormAnalysisResult:
+    """进程风暴分析结果 - Task-2.3.2"""
+    storm_groups: List[StormGroupDetail]
+    total_storm_comms: int
+    max_spawn_rate: float
+    
+    def to_dict(self) -> dict:
+        return {
+            "storm_groups": [g.to_dict() for g in self.storm_groups],
+            "total_storm_comms": self.total_storm_comms,
+            "max_spawn_rate": self.max_spawn_rate
+        }
+
+
+@dataclass
+class CommTopResult:
+    """进程组分析结果 - Task-2.3.1"""
+    groups: List[CommGroup]
+    folded_count: int
+    total_groups: int
+    risks: List[Risk] = field(default_factory=list)
+    storm_analysis: Optional[StormAnalysisResult] = None
+    metrics: Optional[dict] = None
+    
+    def to_dict(self) -> dict:
+        result = {
+            "result": {
+                "groups": [g.to_dict() for g in self.groups],
+                "folded_count": self.folded_count,
+                "total_groups": self.total_groups,
+                "storm_analysis": self.storm_analysis.to_dict() if self.storm_analysis else None
+            },
+            "risks": [r.to_dict() for r in self.risks]
+        }
+        if self.metrics is not None:
+            result["metrics"] = self.metrics
+        return result
+
+
+@dataclass
+class CoreDistributionResult:
+    """核心分布分析结果 - Task-2.4.1"""
+    cores: List[CoreStat]
+    imbalance_level: str
+    saturated_cores: List[CoreStat]
+    total_cores: int
+    risks: List[Risk] = field(default_factory=list)
+    
+    def to_dict(self) -> dict:
+        return {
+            "result": {
+                "cores": [c.to_dict() for c in self.cores],
+                "imbalance_level": self.imbalance_level,
+                "saturated_cores": [c.to_dict() for c in self.saturated_cores],
+                "total_cores": self.total_cores
+            },
+            "risks": [r.to_dict() for r in self.risks]
+        }
+
+
+@dataclass
+class HotspotsResult:
+    """热点函数分析结果 - Task-2.5.1"""
+    hotspots: List[Hotspot]
+    kernel_ratio: float
+    user_ratio: float
+    sort_by: str
+    risks: List[Risk] = field(default_factory=list)
+    
+    def to_dict(self) -> dict:
+        return {
+            "result": {
+                "hotspots": [h.to_dict() for h in self.hotspots],
+                "kernel_ratio": self.kernel_ratio,
+                "user_ratio": self.user_ratio,
+                "sort_by": self.sort_by
+            },
+            "risks": [r.to_dict() for r in self.risks]
+        }
+
+
+@dataclass
+class PathClustersResult:
+    """路径聚类分析结果 - Task-2.6.1"""
+    clusters: List[PathCluster]
+    total_clusters: int
+    shown_clusters: int
+    total_weight: float
+    clustered_weight: float
+    risks: List[Risk] = field(default_factory=list)
+    
+    def to_dict(self) -> dict:
+        return {
+            "result": {
+                "clusters": [c.to_dict() for c in self.clusters],
+                "total_clusters": self.total_clusters,
+                "shown_clusters": self.shown_clusters,
+                "total_weight": self.total_weight,
+                "clustered_weight": self.clustered_weight
+            },
+            "risks": [r.to_dict() for r in self.risks]
+        }
+
+
+@dataclass
+class CallerAttribution:
+    """调用归因详情 - CallersResult 子结构"""
+    symbol: str
+    call_count: int
+    call_ratio: float
+    total_weight: float
+    
+    def to_dict(self) -> dict:
+        return {
+            "symbol": self.symbol,
+            "call_count": self.call_count,
+            "call_ratio": self.call_ratio,
+            "total_weight": self.total_weight
+        }
+
+
+@dataclass
+class CallersResult:
+    """调用链溯源结果 - Task-2.7.1"""
+    target: str
+    callers: List[CallerAttribution]
+    total_weight: float
+    risks: List[Risk] = field(default_factory=list)
+    
+    def to_dict(self) -> dict:
+        return {
+            "result": {
+                "target": self.target,
+                "callers": [c.to_dict() for c in self.callers],
+                "total_weight": self.total_weight
+            },
+            "risks": [r.to_dict() for r in self.risks]
+        }
+
+
+# =============================================================================
+# Engine Protocol Return Types (Task-2.8.4, Task-2.8.5)
+# =============================================================================
+
+@dataclass
+class SpawnEvent:
+    """进程创建事件"""
+    pid: int
+    comm: str
+    ts: float
+    stack: Optional[List[str]] = None
+    
+    def to_dict(self) -> dict:
+        return {
+            "pid": self.pid,
+            "comm": self.comm,
+            "ts": self.ts,
+            "stack": self.stack or []
+        }
+
+
+@dataclass
+class ExitEvent:
+    """进程退出事件"""
+    pid: int
+    comm: str
+    ts: float
+    
+    def to_dict(self) -> dict:
+        return {
+            "pid": self.pid,
+            "comm": self.comm,
+            "ts": self.ts
+        }
+
+
+@dataclass
+class LifecycleStats:
+    """生命周期统计"""
+    total_spawned: int = 0
+    total_exited: int = 0
+    short_lived_count: int = 0
+    avg_lifetime_sec: float = 0.0
+    
+    def to_dict(self) -> dict:
+        return {
+            "total_spawned": self.total_spawned,
+            "total_exited": self.total_exited,
+            "short_lived_count": self.short_lived_count,
+            "avg_lifetime_sec": self.avg_lifetime_sec
+        }
+
+
+@dataclass
+class LifecycleInfo:
+    """进程生命周期信息 - Task-2.8.4"""
+    spawn_events: List[SpawnEvent]
+    exit_events: List[ExitEvent]
+    spawn_rate: float
+    lifecycle_stats: LifecycleStats
+    
+    def to_dict(self) -> dict:
+        return {
+            "spawn_events": [e.to_dict() for e in self.spawn_events],
+            "exit_events": [e.to_dict() for e in self.exit_events],
+            "spawn_rate": self.spawn_rate,
+            "lifecycle_stats": self.lifecycle_stats.to_dict()
+        }
+
+
+@dataclass
+class CallerInfo:
+    """调用者信息"""
+    symbol: str
+    call_count: int
+    total_weight: float
+    call_ratio: float
+    
+    def to_dict(self) -> dict:
+        return {
+            "symbol": self.symbol,
+            "call_count": self.call_count,
+            "total_weight": self.total_weight,
+            "call_ratio": self.call_ratio
+        }
+
+
+@dataclass
+class CallGraphInfo:
+    """调用图信息 - Task-2.8.5"""
+    callers: List[CallerInfo]
+    call_graph: dict
+    hot_paths: List[str]
+    
+    def to_dict(self) -> dict:
+        return {
+            "callers": [c.to_dict() for c in self.callers],
+            "call_graph": self.call_graph,
+            "hot_paths": self.hot_paths
+        }

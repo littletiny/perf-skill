@@ -49,6 +49,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 │   ├── agent-pipeline-usage.md               # Agent 流水线使用指南
 │   ├── audit-process.md                      # 审计流程 - 项目审计员验证 issues 分析质量指南
 │   ├── command-design.md                     # 诊断命令设计文档 - 功能矩阵与场景选择决策
+│   ├── design-analysis-directions.md         # 分析方向性设计 - Top-Down vs Bottom-Up 与分叉淹没问题
 │   ├── design-attention-steering.md          # Attention Steering 设计 - 基于 Flag 的诊断关注点引导机制
 │   ├── design-rationale-consolidated-toolchain.md  # 工具链整合设计 - 从12个到6个核心工具的精简与增强
 │   ├── design-rationale-trace-v1.md          # Trace v1.0 设计意图 - 基于 netstat 案例的问题追踪机制

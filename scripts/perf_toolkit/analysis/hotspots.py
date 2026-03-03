@@ -6,11 +6,12 @@ Hotspot Analysis - Extract function rankings by self/inclusive time
 V3 版本（三层架构）：
 - 提取 HotspotsAnalyzer 纯逻辑类
 - 支持符号级热点分析
+- Task-2.5.1: 返回 HotspotsResult dataclass
 """
 
 from typing import Dict, List, Any, Optional
 from .base import BaseAnalyzer
-from .models import Risk, Hotspot
+from .models import Risk, Hotspot, HotspotsResult
 
 
 class HotspotsAnalyzer(BaseAnalyzer):
@@ -27,7 +28,7 @@ class HotspotsAnalyzer(BaseAnalyzer):
                 comm: Optional[str] = None,
                 pid: Optional[int] = None,
                 top_n: int = 20,
-                sort_by: str = "self") -> Dict[str, Any]:
+                sort_by: str = "self") -> HotspotsResult:
         """
         分析热点函数
         
@@ -39,16 +40,16 @@ class HotspotsAnalyzer(BaseAnalyzer):
             sort_by: 排序方式 - "self" | "inclusive"
             
         Returns:
-            {
-                "result": {"hotspots": [...], "kernel_ratio": float},
-                "risks": [...]
-            }
+            HotspotsResult dataclass
         """
         if not samples:
-            return {
-                "result": {"hotspots": [], "kernel_ratio": 0.0},
-                "risks": []
-            }
+            return HotspotsResult(
+                hotspots=[],
+                kernel_ratio=0.0,
+                user_ratio=100.0,
+                sort_by=sort_by,
+                risks=[]
+            )
         
         # 1. 从 engine 获取符号级 CPU 利用率
         symbol_util = self._engine.get_symbol_cpu_util(samples, comm=comm, pid=pid)
@@ -102,15 +103,13 @@ class HotspotsAnalyzer(BaseAnalyzer):
                 pending_targets=[top_kernel_hotspot]
             ))
         
-        return {
-            "result": {
-                "hotspots": [h.to_dict() for h in hotspots[:top_n]],
-                "kernel_ratio": kernel_ratio,
-                "user_ratio": 100.0 - kernel_ratio,
-                "sort_by": sort_by
-            },
-            "risks": [r.to_dict() for r in risks]
-        }
+        return HotspotsResult(
+            hotspots=hotspots[:top_n],
+            kernel_ratio=kernel_ratio,
+            user_ratio=100.0 - kernel_ratio,
+            sort_by=sort_by,
+            risks=risks
+        )
 
 
 # =============================================================================
@@ -139,36 +138,42 @@ def cmd_get_hotspots(builder, engine, args, samples):
     )
     
     # 2. 记录 risks 到 Trace
-    for risk_dict in result["risks"]:
+    for risk in result.risks:
         builder.record_risk(
-            risk_dict["level"],
-            risk_dict["message"],
-            risk_dict["hint"]
+            risk.level,
+            risk.message,
+            risk.hint
         )
     
     # 3. 取最高级别 risk
     top_risk = None
-    if result["risks"]:
+    if result.risks:
         priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        top_risk = min(result["risks"], key=lambda r: priority.get(r["level"], 3))
+        top_risk = min(result.risks, key=lambda r: priority.get(r.level, 3))
     
     # 4. 转换为 Output 模型
     hotspots = [
         HotspotItem.from_stats(
-            symbol=h["symbol"],
-            self_pct=h["self_pct"],
-            inclusive_pct=h["inclusive_pct"]
+            symbol=h.symbol,
+            self_pct=h.self_pct,
+            inclusive_pct=h.inclusive_pct
         )
-        for h in result["result"]["hotspots"]
+        for h in result.hotspots
     ]
     
-    risk_output = create_risk_info(**top_risk) if top_risk else create_risk_info(level="none")
+    risk_output = create_risk_info(
+        level=top_risk.level,
+        message=top_risk.message,
+        hint=top_risk.hint,
+        patterns=top_risk.patterns,
+        pending_targets=top_risk.pending_targets
+    ) if top_risk else create_risk_info(level="none")
     
     output = HotspotsOutput(
         _risk=risk_output,
         hotspots=hotspots,
         summary=HotspotSummary(
-            total_hotspots=len(result["result"]["hotspots"]),
+            total_hotspots=len(result.hotspots),
             shown_hotspots=len(hotspots)
         ),
         time_range=TimeRange.from_timestamps(

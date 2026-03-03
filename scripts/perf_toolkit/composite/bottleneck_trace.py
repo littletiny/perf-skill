@@ -22,7 +22,8 @@ from ..analysis.facade import AnalysisFacade
 from .risk_aggregator import RiskAggregator
 from .models import (
     RiskItem, ProcessGroup, BottleneckAnalysis,
-    HotspotsReport, CallersReport
+    HotspotsReport, CallersReport,
+    HotspotData, HotspotsDetails, CallerData, CallersDetails
 )
 
 
@@ -74,15 +75,15 @@ def cmd_bottleneck_trace(builder, engine, args, samples):
     
     # ========== Phase 3: 热点分析 ==========
     
-    hotspots_raw = facade.analyze_hotspots(samples, comm=target_comm, top_n=top_n)
-    hotspots = HotspotsReport.from_dict(hotspots_raw)
+    hotspots_result = facade.analyze_hotspots(samples, comm=target_comm, top_n=top_n)
+    hotspots = HotspotsReport.from_dict(hotspots_result)
     
     # ========== Phase 4: 调用链溯源 ==========
     
     callers: Optional[CallersReport] = None
     if hotspots.top_symbol:
-        callers_raw = facade.analyze_callers(samples, target_symbol=hotspots.top_symbol, comm=target_comm)
-        callers = CallersReport.from_dict(callers_raw)
+        callers_result = facade.analyze_callers(samples, target_symbol=hotspots.top_symbol, comm=target_comm)
+        callers = CallersReport.from_dict(callers_result)
     
     # ========== Phase 5: Risk聚合与输出 ==========
     
@@ -120,9 +121,9 @@ def cmd_bottleneck_trace(builder, engine, args, samples):
     output = BottleneckTraceOutput(
         _risk=risk,
         target_comm=target_comm,
-        bottleneck_analysis=_bottleneck_to_dict(bottleneck_analysis),
-        hotspots=_hotspots_to_dict(hotspots),
-        callers=_callers_to_dict(callers) if callers else None,
+        bottleneck_analysis=bottleneck_analysis,
+        hotspots=_hotspots_to_dataclass(hotspots),
+        callers=_callers_to_dataclass(callers) if callers else None,
         time_range=time_range
     )
     
@@ -142,16 +143,24 @@ def _find_bottleneck_comm(facade: AnalysisFacade, samples) -> Optional[str]:
     analyzer = CommTopAnalyzer(facade._engine)
     result = analyzer.analyze(samples, top_n=20, include_metrics=True)
     
-    # 从result中提取all_groups
-    metrics = result.get("metrics", {})
+    # 从result中提取all_groups（处理 CommTopResult dataclass）
+    metrics = result.metrics if hasattr(result, 'metrics') else result.get("metrics", {})
+    # 处理 metrics 可能是 dict 或 dataclass 的情况
+    if hasattr(metrics, 'all_groups'):
+        all_groups_data = metrics.all_groups
+    elif isinstance(metrics, dict):
+        all_groups_data = metrics.get("all_groups", [])
+    else:
+        all_groups_data = []
+    
     all_groups = [
         ProcessGroup(
-            comm=g["comm"],
-            total_cpu=g.get("total_cpu", 0.0),
-            diagnosis=g.get("diagnosis", "HEALTHY"),
-            monopoly=g.get("monopoly", 0.0)
+            comm=g["comm"] if isinstance(g, dict) else getattr(g, 'comm', ''),
+            total_cpu=g.get("total_cpu", 0.0) if isinstance(g, dict) else getattr(g, 'total_cpu', 0.0),
+            diagnosis=g.get("diagnosis", "HEALTHY") if isinstance(g, dict) else getattr(g, 'diagnosis', 'HEALTHY'),
+            monopoly=g.get("monopoly", 0.0) if isinstance(g, dict) else getattr(g, 'monopoly', 0.0)
         )
-        for g in metrics.get("all_groups", [])
+        for g in all_groups_data
     ]
     
     # 找第一个BOTTLENECK
@@ -173,8 +182,8 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
     analyzer = CommTopAnalyzer(facade._engine)
     result = analyzer.analyze(samples, top_n=50, include_metrics=True)
     
-    # 找到目标comm
-    metrics = result.get("metrics", {})
+    # 找到目标comm（处理 CommTopResult dataclass）
+    metrics = result.metrics if hasattr(result, 'metrics') else result.get("metrics", {})
     target_group: Optional[ProcessGroup] = None
     
     for g in metrics.get("all_groups", []):
@@ -241,46 +250,34 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
     )
 
 
-def _bottleneck_to_dict(b: BottleneckAnalysis) -> dict:
-    """转换BottleneckAnalysis为dict"""
-    return {
-        "found": b.found,
-        "comm": b.comm,
-        "total_cpu": b.total_cpu,
-        "kernel_ratio": b.kernel_ratio,
-        "pid_count": b.pid_count,
-        "cv": b.cv,
-        "monopoly": b.monopoly,
-        "diagnosis": b.diagnosis,
-        "impact_score": b.impact_score,
-        "risks": [r.to_dict() for r in b.risks]
-    }
+def _hotspots_to_dataclass(h: HotspotsReport) -> HotspotsDetails:
+    """转换HotspotsReport为HotspotsDetails dataclass"""
+    hotspots = [
+        HotspotData(
+            symbol=hs.symbol,
+            cpu_percent=hs.cpu_percent,
+            resource_tag=hs.resource_tag
+        )
+        for hs in h.hotspots[:5]
+    ]
+    
+    return HotspotsDetails(
+        hotspots=hotspots,
+        top_symbol=h.top_symbol,
+        total_hotspots=h.total_hotspots,
+        risks=h.risks
+    )
 
 
-def _hotspots_to_dict(h: HotspotsReport) -> dict:
-    """转换HotspotsReport为dict"""
-    return {
-        "hotspots": [
-            {
-                "symbol": hs.symbol,
-                "cpu_percent": hs.cpu_percent,
-                "resource_tag": hs.resource_tag
-            }
-            for hs in h.hotspots[:5]
-        ],
-        "top_symbol": h.top_symbol,
-        "total_hotspots": h.total_hotspots,
-        "risks": [r.to_dict() for r in h.risks]
-    }
-
-
-def _callers_to_dict(c: CallersReport) -> dict:
-    """转换CallersReport为dict"""
-    return {
-        "target": c.target,
-        "callers": [
-            {"symbol": caller.symbol, "call_ratio": caller.call_ratio}
-            for caller in c.callers[:3]
-        ],
-        "risks": [r.to_dict() for r in c.risks]
-    }
+def _callers_to_dataclass(c: CallersReport) -> CallersDetails:
+    """转换CallersReport为CallersDetails dataclass"""
+    callers = [
+        CallerData(symbol=caller.symbol, call_ratio=caller.call_ratio)
+        for caller in c.callers[:3]
+    ]
+    
+    return CallersDetails(
+        target=c.target,
+        callers=callers,
+        risks=c.risks
+    )

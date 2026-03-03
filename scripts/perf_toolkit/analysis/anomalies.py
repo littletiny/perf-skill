@@ -6,13 +6,14 @@ Anomaly Detection - Detect CPU utilization anomalies
 V3 版本（三层架构）：
 - 提取 AnomaliesAnalyzer 纯逻辑类
 - 支持时序异常检测
+- Task-2.2.1: 返回 AnomaliesResult dataclass
 """
 
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 from .base import BaseAnalyzer
-from .models import Risk, Anomaly
+from .models import Risk, Anomaly, AnomaliesResult
 
 
 # =============================================================================
@@ -49,7 +50,7 @@ class AnomaliesAnalyzer(BaseAnalyzer):
                 spike_threshold: float = 0.5,
                 min_utilization: float = 0.3,
                 cpu_id: Optional[int] = None,
-                top_n: int = 10) -> Dict[str, Any]:
+                top_n: int = 10) -> AnomaliesResult:
         """
         分析时序异常
         
@@ -62,19 +63,16 @@ class AnomaliesAnalyzer(BaseAnalyzer):
             top_n: 返回前 N 个异常
             
         Returns:
-            {
-                "result": {
-                    "anomalies": [...],
-                    "mutation_detected": bool
-                },
-                "risks": [...]
-            }
+            AnomaliesResult dataclass
         """
         if not samples:
-            return {
-                "result": {"anomalies": [], "mutation_detected": False},
-                "risks": []
-            }
+            return AnomaliesResult(
+                anomalies=[],
+                mutation_detected=False,
+                spike_count=0,
+                drop_count=0,
+                risks=[]
+            )
         
         # 1. 按 CPU 分组样本
         cpu_samples = defaultdict(list)
@@ -123,15 +121,13 @@ class AnomaliesAnalyzer(BaseAnalyzer):
                 patterns=["CPU_SPIKE"]
             ))
         
-        return {
-            "result": {
-                "anomalies": [a.to_dict() for a in all_anomalies[:top_n]],
-                "mutation_detected": len(all_anomalies) > 0,
-                "spike_count": spike_count,
-                "drop_count": len(all_anomalies) - spike_count
-            },
-            "risks": [r.to_dict() for r in risks]
-        }
+        return AnomaliesResult(
+            anomalies=all_anomalies[:top_n],
+            mutation_detected=len(all_anomalies) > 0,
+            spike_count=spike_count,
+            drop_count=len(all_anomalies) - spike_count,
+            risks=risks
+        )
     
     def _build_windows(self, samples: List[Dict], window_size: float, 
                        cpu_id: int) -> List[WindowRawData]:
@@ -252,43 +248,49 @@ def cmd_detect_anomalies(builder, engine, args, samples):
     )
     
     # 2. 记录 risks 到 Trace
-    for risk_dict in result["risks"]:
+    for risk in result.risks:
         builder.record_risk(
-            risk_dict["level"],
-            risk_dict["message"],
-            risk_dict["hint"]
+            risk.level,
+            risk.message,
+            risk.hint
         )
     
     # 3. 取最高级别 risk
     top_risk = None
-    if result["risks"]:
+    if result.risks:
         priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        top_risk = min(result["risks"], key=lambda r: priority.get(r["level"], 3))
+        top_risk = min(result.risks, key=lambda r: priority.get(r.level, 3))
     
     # 4. 转换为 Output 模型
     anomaly_items = [
         AnomalyItem.from_raw(
-            type=a["type"],
-            cpu_id=a["cpu_id"],
-            start=a["time_range_start"],
-            end=a["time_range_end"],
-            prev=a["prev_util"],
-            curr=a["curr_util"],
-            next=a["next_util"],
-            z_score=a["z_score"]
+            type=a.type,
+            cpu_id=a.cpu_id,
+            start=a.time_range_start,
+            end=a.time_range_end,
+            prev=a.prev_util,
+            curr=a.curr_util,
+            next=a.next_util,
+            z_score=a.z_score
         )
-        for a in result["result"]["anomalies"]
+        for a in result.anomalies
     ]
     
-    risk_output = create_risk_info(**top_risk) if top_risk else create_risk_info(level="none")
+    risk_output = create_risk_info(
+        level=top_risk.level,
+        message=top_risk.message,
+        hint=top_risk.hint,
+        patterns=top_risk.patterns,
+        pending_targets=top_risk.pending_targets
+    ) if top_risk else create_risk_info(level="none")
     
     output = AnomaliesOutput(
         _risk=risk_output,
         anomalies=anomaly_items,
         summary=AnomalySummary(
-            total_anomalies=result["result"].get("spike_count", 0) + result["result"].get("drop_count", 0),
-            spike_count=result["result"].get("spike_count", 0),
-            drop_count=result["result"].get("drop_count", 0)
+            total_anomalies=result.spike_count + result.drop_count,
+            spike_count=result.spike_count,
+            drop_count=result.drop_count
         ),
         time_range=TimeRange.from_timestamps(
             samples[0].get('ts') if samples else None,

@@ -6,12 +6,13 @@ Core Distribution Analysis - Analyze per-core CPU utilization
 V3 版本（三层架构）：
 - 提取 CoreDistAnalyzer 纯逻辑类
 - 分析各 CPU 核心的负载分布
+- Task-2.4.1: 返回 CoreDistributionResult dataclass
 """
 
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from .base import BaseAnalyzer
-from .models import Risk, CoreStat
+from .models import Risk, CoreStat, CoreDistributionResult
 
 
 def parse_cpu_quota(value: str) -> float:
@@ -42,7 +43,7 @@ class CoreDistAnalyzer(BaseAnalyzer):
     IMBALANCE_MEDIUM = 2.0      # 中度不均衡
     SATURATION_THRESHOLD = 90.0  # 核心饱和阈值
     
-    def analyze(self, samples: List[Dict], top_n: int = 10) -> Dict[str, Any]:
+    def analyze(self, samples: List[Dict], top_n: int = 10) -> CoreDistributionResult:
         """
         分析核心级负载分布
         
@@ -51,24 +52,16 @@ class CoreDistAnalyzer(BaseAnalyzer):
             top_n: 返回前 N 个饱和核心
             
         Returns:
-            {
-                "result": {
-                    "cores": [...],
-                    "imbalance_level": str,
-                    "saturated_cores": [...]
-                },
-                "risks": [...]
-            }
+            CoreDistributionResult dataclass
         """
         if not samples:
-            return {
-                "result": {
-                    "cores": [],
-                    "imbalance_level": "UNKNOWN",
-                    "saturated_cores": []
-                },
-                "risks": []
-            }
+            return CoreDistributionResult(
+                cores=[],
+                imbalance_level="UNKNOWN",
+                saturated_cores=[],
+                total_cores=0,
+                risks=[]
+            )
         
         # 1. 从 engine 获取核心级 CPU 利用率
         core_util = self._engine.get_core_cpu_util(samples)
@@ -125,15 +118,13 @@ class CoreDistAnalyzer(BaseAnalyzer):
                     pending_targets=[f"cpu_{saturated_cores[0].cpu_id}"]
                 ))
         
-        return {
-            "result": {
-                "cores": [c.to_dict() for c in cores[:top_n]],
-                "imbalance_level": imbalance_level,
-                "saturated_cores": [c.to_dict() for c in saturated_cores],
-                "total_cores": len(cores)
-            },
-            "risks": [r.to_dict() for r in risks]
-        }
+        return CoreDistributionResult(
+            cores=cores[:top_n],
+            imbalance_level=imbalance_level,
+            saturated_cores=saturated_cores,
+            total_cores=len(cores),
+            risks=risks
+        )
 
 
 # =============================================================================
@@ -157,30 +148,36 @@ def cmd_analyze_core_distribution(builder, engine, args, samples):
     )
     
     # 2. 记录 risks 到 Trace
-    for risk_dict in result["risks"]:
+    for risk in result.risks:
         builder.record_risk(
-            risk_dict["level"],
-            risk_dict["message"],
-            risk_dict["hint"]
+            risk.level,
+            risk.message,
+            risk.hint
         )
     
     # 3. 取最高级别 risk
     top_risk = None
-    if result["risks"]:
+    if result.risks:
         priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        top_risk = min(result["risks"], key=lambda r: priority.get(r["level"], 3))
+        top_risk = min(result.risks, key=lambda r: priority.get(r.level, 3))
     
     # 4. 转换为 Output 模型
     cores = [
         CoreItem(
-            cpu_id=c["cpu_id"],
-            total_cpu_util=f"{c['total_cpu']:.2f}%",
-            kernel_cpu_util=f"{c['kernel_cpu']:.2f}%"
+            cpu_id=c.cpu_id,
+            total_cpu_util=f"{c.total_cpu:.2f}%",
+            kernel_cpu_util=f"{c.kernel_cpu:.2f}%"
         )
-        for c in result["result"]["cores"]
+        for c in result.cores
     ]
     
-    risk_output = create_risk_info(**top_risk) if top_risk else create_risk_info(level="none")
+    risk_output = create_risk_info(
+        level=top_risk.level,
+        message=top_risk.message,
+        hint=top_risk.hint,
+        patterns=top_risk.patterns,
+        pending_targets=top_risk.pending_targets
+    ) if top_risk else create_risk_info(level="none")
     
     output = CoreDistributionOutput(
         _risk=risk_output,

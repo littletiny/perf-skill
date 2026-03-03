@@ -18,6 +18,7 @@ from typing import List, Optional
 from dataclasses import dataclass, field
 
 from .models import RiskItem, TargetDetail
+from ..core.output_models import RiskInfo
 
 
 # Risk级别优先级（数字越小优先级越高）
@@ -43,20 +44,21 @@ class AggregatedRisk:
     def __post_init__(self):
         self.action_required = self.level in ["critical", "warning"]
     
-    def to_risk_info_dict(self) -> dict:
+    def to_risk_info(self) -> RiskInfo:
         """
-        转换为RiskInfo字典格式（用于output_models.RiskInfo）
+        转换为RiskInfo dataclass（用于output_models）
         
-        注意：这是为了兼容OutputBuilder的接口，仅在需要时调用
+        Returns:
+            RiskInfo: 标准风险信息结构
         """
-        return {
-            "level": self.level,
-            "message": self.message,
-            "hint": self.hint,
-            "patterns": self.patterns,
-            "pending_targets": self.pending_targets,
-            "action_required": self.action_required
-        }
+        return RiskInfo(
+            level=self.level,
+            message=self.message,
+            hint=self.hint,
+            patterns=self.patterns,
+            pending_targets=self.pending_targets,
+            action_required=self.action_required
+        )
 
 
 class RiskAggregator:

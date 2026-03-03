@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2] - 2026-03-03
+
+### Changed (Architecture)
+- **全面重构：Dict 转 Dataclass 架构升级**
+  - Core 层：所有内部数据结构改用 dataclass（Sample, RiskInfo, DisplayPreset, TraceDocument 等）
+  - Analysis 层：6 个 Analyzer 返回类型统一为 dataclass（AnomaliesResult, CommTopResult, CoreDistributionResult, HotspotsResult, PathClustersResult, CallersResult）
+  - Composite 层：诊断报告全部使用 dataclass（DiagnosisReport, BottleneckAnalysis, HotspotsReport, CallersReport 等）
+  - CLI 层：配置管理改用 dataclass（EnvironmentConfig, ProfileConfig, TraceConfig）
+  - 新增 `analysis/models.py`：Analysis 层统一数据模型（520 行）
+  - 新增 `composite/models.py`：Composite 层统一数据模型（715 行）
+  - 完善 `output_models.py`：补充 Trace/Quality/Risk 相关 dataclass
+- **类型安全提升**：消除 `Dict[str, Any]` 传递固定结构数据的反模式
+- **代码可维护性**：字段自动补全、类型检查、IDE 友好
+
+**Changed files**: `scripts/perf_toolkit/core/*.py`, `scripts/perf_toolkit/analysis/*.py`, `scripts/perf_toolkit/composite/*.py`, `scripts/shecr_wrap.py`, `tests/shecr_wrap/test_shecr_wrap.py`, `version`
+
+---
+
 ## [3.1] - 2026-03-03
 
 ### Changed

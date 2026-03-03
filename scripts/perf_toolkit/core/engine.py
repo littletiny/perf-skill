@@ -20,7 +20,7 @@ from .symbol import Symbol, SymbolStack
 from .engine_types import (
     UserKernelStats, CPUUtilization, ProcessCPUInfo, PidCPUInfo, CommCPUInfo,
     CoreCPUInfo, SymbolCPUInfo, ProcessLifecycle, LifecycleEvent,
-    LifecycleStats, CallerInfo, CallEdge, CallGraph
+    LifecycleStats, CallerInfo, CallEdge, CallGraph, Sample
 )
 
 
@@ -348,14 +348,14 @@ class PerfExpertEngine:
             if symbol:
                 stack.append(symbol)
 
-        return {
-            "comm": comm,
-            "pid": pid,
-            "cpu": cpuid,
-            "ts": timestamp,
-            "core_per_sec": core_per_sec,
-            "stack": stack
-        }
+        return Sample(
+            comm=comm,
+            pid=pid,
+            cpu=cpuid,
+            ts=timestamp,
+            core_per_sec=core_per_sec,
+            stack=stack
+        )
 
     def _parse_test2_symbol(self, sym_str: str) -> Symbol:
         """
@@ -426,18 +426,18 @@ class PerfExpertEngine:
                         detected_core_per_sec = True
                     # Note: raw perf format has event name like "cpu-clock:ppp:" instead of "core/s:"
 
-                    current_sample = {
-                        "comm": comm,
-                        "pid": pid,
-                        "cpu": cpu,
-                        "ts": ts,
-                        "core_per_sec": core_per_sec,
-                        "stack": SymbolStack()  # Use SymbolStack instead of list
-                    }
+                    current_sample = Sample(
+                        comm=comm,
+                        pid=pid,
+                        cpu=cpu,
+                        ts=ts,
+                        core_per_sec=core_per_sec,
+                        stack=SymbolStack()  # Use SymbolStack instead of list
+                    )
                 elif current_sample and line.strip():
                     symbol = self._parse_stack_line(line)
                     if symbol:
-                        current_sample["stack"].append(symbol)
+                        current_sample.stack.append(symbol)
 
             if current_sample:
                 self.samples.append(current_sample)
@@ -449,7 +449,7 @@ class PerfExpertEngine:
         """Get the time range of all samples"""
         if not self.samples:
             return (0, 0)
-        return (self.samples[0]['ts'], self.samples[-1]['ts'])
+        return (self.samples[0].ts, self.samples[-1].ts)
 
     def get_filtered_samples(self, start_time=None, end_time=None, cpu_id=None, pid=None, comm=None, comm_regex=None):
         """
@@ -554,19 +554,18 @@ class PerfExpertEngine:
             kernel_records=kernel_records
         )
 
-    def get_sample_weight(self, sample):
+    def get_sample_weight(self, sample: Sample) -> float:
         """
         获取样本权重。
 
         Args:
-            sample: Sample dict with 'core_per_sec' field
+            sample: Sample dataclass with 'core_per_sec' field
 
         Returns:
             float: Sample weight
         """
-        core_per_sec = sample.get('core_per_sec')
-        if core_per_sec is not None:
-            return core_per_sec
+        if sample.core_per_sec is not None:
+            return sample.core_per_sec
         # Raw perf format: each sample represents 1/freq weight
         return 1.0 / self.freq
 
@@ -581,7 +580,7 @@ class PerfExpertEngine:
             # Auto-detect based on samples
             if self.samples:
                 self._has_core_per_sec = any(
-                    s.get('core_per_sec') is not None for s in self.samples
+                    s.core_per_sec is not None for s in self.samples
                 )
             else:
                 self._has_core_per_sec = False
@@ -626,7 +625,7 @@ class PerfExpertEngine:
         if not samples:
             return CPUUtilization()
 
-        duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+        duration = samples[-1].ts - samples[0].ts if len(samples) > 1 else 0
 
         # 使用新的方法获取准确的 user/kernel 分解
         uk_stats = self.get_user_kernel_core_per_sec(samples)
@@ -688,11 +687,11 @@ class PerfExpertEngine:
         stats = defaultdict(lambda: {'total': 0.0, 'user': 0.0, 'kernel': 0.0})
 
         for s in samples:
-            key = (s['comm'], s['pid'])
+            key = (s.comm, s.pid)
             weight = self.get_sample_weight(s)
             stats[key]['total'] += weight
 
-            stack = s.get('stack')
+            stack = s.stack
             if stack and stack.is_leaf_kernel:
                 stats[key]['kernel'] += weight
             else:
@@ -734,13 +733,13 @@ class PerfExpertEngine:
         })
 
         for s in samples:
-            pid = int(s['pid'])
+            pid = int(s.pid)
             weight = self.get_sample_weight(s)
             stats[pid]['total'] += weight
-            stats[pid]['comm_counts'][s['comm']] += 1
+            stats[pid]['comm_counts'][s.comm] += 1
             stats[pid]['sample_count'] += 1
 
-            stack = s.get('stack')
+            stack = s.stack
             if stack and stack.is_leaf_kernel:
                 stats[pid]['kernel'] += weight
             else:
@@ -779,12 +778,12 @@ class PerfExpertEngine:
         stats = defaultdict(lambda: {'total': 0.0, 'user': 0.0, 'kernel': 0.0, 'pids': set()})
 
         for s in samples:
-            comm = s['comm']
-            stats[comm]['pids'].add(s['pid'])
+            comm = s.comm
+            stats[comm]['pids'].add(s.pid)
             weight = self.get_sample_weight(s)
             stats[comm]['total'] += weight
 
-            stack = s.get('stack')
+            stack = s.stack
             if stack and stack.is_leaf_kernel:
                 stats[comm]['kernel'] += weight
             else:
@@ -820,16 +819,16 @@ class PerfExpertEngine:
 
         # 应用过滤条件
         if comm:
-            samples = [s for s in samples if s['comm'] == comm]
+            samples = [s for s in samples if s.comm == comm]
         if pid:
-            samples = [s for s in samples if int(s['pid']) == pid]
+            samples = [s for s in samples if int(s.pid) == pid]
 
         from collections import defaultdict
         self_core_sec = defaultdict(float)
         incl_core_sec = defaultdict(float)
 
         for s in samples:
-            stack = s.get('stack')
+            stack = s.stack
             if not stack or len(stack) == 0:
                 continue
 
@@ -881,13 +880,13 @@ class PerfExpertEngine:
         stats = defaultdict(lambda: {'total': 0.0, 'kernel': 0.0})
 
         for s in samples:
-            cpu_id = s.get('cpu')
+            cpu_id = s.cpu
             if cpu_id is None:
                 continue
             weight = self.get_sample_weight(s)
             stats[cpu_id]['total'] += weight
 
-            stack = s.get('stack')
+            stack = s.stack
             if stack and stack.is_leaf_kernel:
                 stats[cpu_id]['kernel'] += weight
 
@@ -924,13 +923,13 @@ class PerfExpertEngine:
 
         # 按 comm 过滤
         if comm:
-            samples = [s for s in samples if s['comm'] == comm]
+            samples = [s for s in samples if s.comm == comm]
 
         if not samples:
             return ProcessLifecycle()
 
         # 按时间排序
-        sorted_samples = sorted(samples, key=lambda s: s['ts'])
+        sorted_samples = sorted(samples, key=lambda s: s.ts)
         duration = self.get_duration(sorted_samples)
 
         # 追踪每个 PID 的出现和消失，同时记录首次出现时的调用栈
@@ -940,14 +939,14 @@ class PerfExpertEngine:
         pid_first_stack = {}  # 记录首次出现时的栈
 
         for s in sorted_samples:
-            pid = s['pid']
-            ts = s['ts']
-            pid_comm[pid] = s['comm']
+            pid = s.pid
+            ts = s.ts
+            pid_comm[pid] = s.comm
 
             if pid not in pid_first_seen:
                 pid_first_seen[pid] = ts
                 # 记录首次出现时的调用栈
-                stack = s.get('stack')
+                stack = s.stack
                 if stack:
                     pid_first_stack[pid] = stack.get_normalized_names()
                 else:
@@ -1014,7 +1013,7 @@ class PerfExpertEngine:
 
         # 按 comm 过滤
         if comm:
-            samples = [s for s in samples if s['comm'] == comm]
+            samples = [s for s in samples if s.comm == comm]
 
         if not samples:
             return {}
@@ -1028,7 +1027,7 @@ class PerfExpertEngine:
         pid_cpu_time = defaultdict(float)
 
         for s in samples:
-            pid = int(s['pid'])
+            pid = int(s.pid)
             weight = self.get_sample_weight(s)
             pid_cpu_time[pid] += weight
 
@@ -1056,7 +1055,7 @@ class PerfExpertEngine:
 
         # 按 comm 过滤
         if comm:
-            samples = [s for s in samples if s['comm'] == comm]
+            samples = [s for s in samples if s.comm == comm]
 
         if not samples:
             return CallGraph()
@@ -1069,7 +1068,7 @@ class PerfExpertEngine:
         path_counts = defaultdict(int)
 
         for s in samples:
-            stack = s.get('stack')
+            stack = s.stack
             if not stack or len(stack) == 0:
                 continue
 

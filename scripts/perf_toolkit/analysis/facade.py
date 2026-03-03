@@ -9,9 +9,18 @@ Analysis Facade - Analysis 层对外暴露的干净接口
 3. 错误封装 - 下层异常转换为有意义的错误信息
 
 供 Composite 层调用，不触发 Trace 记录。
+
+Task-2.7.1: analyze_callers 返回 CallersResult dataclass
 """
 
 from typing import Dict, List, Any, Optional
+from collections import defaultdict
+
+from .models import (
+    CommTopResult, HotspotsResult, CoreDistributionResult,
+    AnomaliesResult, PathClustersResult, CallersResult,
+    Risk, CallerAttribution
+)
 
 
 class AnalysisFacade:
@@ -65,7 +74,7 @@ class AnalysisFacade:
     # ========== 供 Composite 调用的接口 ==========
     
     def analyze_comm_top(self, samples: List[Dict], top_n: int = 10,
-                         include_metrics: bool = False) -> Dict:
+                         include_metrics: bool = False) -> CommTopResult:
         """
         进程组 CPU 分析（内部接口，不触发 Trace）
         
@@ -75,11 +84,7 @@ class AnalysisFacade:
             include_metrics: 是否包含中间指标
             
         Returns:
-            {
-                "result": {"groups": [...], "folded_count": N, "total_groups": N},
-                "risks": [...],
-                "metrics": {...}  # if include_metrics
-            }
+            CommTopResult dataclass
         """
         analyzer = self._get_analyzer("comm_top")
         return analyzer.analyze(samples, top_n=top_n, include_metrics=include_metrics)
@@ -88,7 +93,7 @@ class AnalysisFacade:
                          comm: Optional[str] = None,
                          pid: Optional[int] = None,
                          top_n: int = 20,
-                         sort_by: str = "self") -> Dict:
+                         sort_by: str = "self") -> HotspotsResult:
         """
         热点函数分析（内部接口，不触发 Trace）
         
@@ -100,16 +105,13 @@ class AnalysisFacade:
             sort_by: 排序方式 - "self" | "inclusive"
             
         Returns:
-            {
-                "result": {"hotspots": [...], "kernel_ratio": float},
-                "risks": [...]
-            }
+            HotspotsResult dataclass
         """
         analyzer = self._get_analyzer("hotspots")
         return analyzer.analyze(samples, comm=comm, pid=pid, top_n=top_n, sort_by=sort_by)
     
     def analyze_core_distribution(self, samples: List[Dict], 
-                                   top_n: int = 10) -> Dict:
+                                   top_n: int = 10) -> CoreDistributionResult:
         """
         核心分布分析（内部接口，不触发 Trace）
         
@@ -118,10 +120,7 @@ class AnalysisFacade:
             top_n: 返回前 N 个饱和核心
             
         Returns:
-            {
-                "result": {"cores": [...], "imbalance_level": str},
-                "risks": [...]
-            }
+            CoreDistributionResult dataclass
         """
         analyzer = self._get_analyzer("core_dist")
         return analyzer.analyze(samples, top_n=top_n)
@@ -131,7 +130,7 @@ class AnalysisFacade:
                          spike_threshold: float = 0.5,
                          min_utilization: float = 0.3,
                          cpu_id: Optional[int] = None,
-                         top_n: int = 10) -> Dict:
+                         top_n: int = 10) -> AnomaliesResult:
         """
         异常检测（内部接口，不触发 Trace）
         
@@ -144,10 +143,7 @@ class AnalysisFacade:
             top_n: 返回前 N 个异常
             
         Returns:
-            {
-                "result": {"anomalies": [...], "mutation_detected": bool},
-                "risks": [...]
-            }
+            AnomaliesResult dataclass
         """
         analyzer = self._get_analyzer("anomalies")
         return analyzer.analyze(
@@ -164,7 +160,7 @@ class AnalysisFacade:
                       min_samples: int = 5,
                       top_n: int = 10,
                       comm: Optional[str] = None,
-                      pid: Optional[int] = None) -> Dict:
+                      pid: Optional[int] = None) -> PathClustersResult:
         """
         路径聚类（内部接口，不触发 Trace）
         
@@ -177,10 +173,7 @@ class AnalysisFacade:
             pid: 可选，按 PID 过滤
             
         Returns:
-            {
-                "result": {"clusters": [...], "total_weight": float},
-                "risks": [...]
-            }
+            PathClustersResult dataclass
         """
         analyzer = self._get_analyzer("path_clusters")
         return analyzer.analyze(
@@ -196,9 +189,11 @@ class AnalysisFacade:
                         target_symbol: str,
                         comm: Optional[str] = None,
                         min_ratio: float = 0.5,
-                        top_n: int = 10) -> Dict:
+                        top_n: int = 10) -> CallersResult:
         """
         调用链溯源分析（内部接口，不触发 Trace）
+        
+        Task-2.7.1: 返回 CallersResult dataclass
         
         Args:
             samples: 样本数据
@@ -208,28 +203,20 @@ class AnalysisFacade:
             top_n: 返回前 N 个调用者
             
         Returns:
-            {
-                "result": {
-                    "target": str,
-                    "callers": [...],
-                    "total_weight": float
-                },
-                "risks": [...]
-            }
+            CallersResult dataclass
         """
-        from ..core.engine_types import CallerInfo
-        from collections import defaultdict
-        
         # 过滤样本
         filtered_samples = samples
         if comm:
             filtered_samples = [s for s in filtered_samples if s['comm'] == comm]
         
         if not filtered_samples:
-            return {
-                "result": {"target": target_symbol, "callers": [], "total_weight": 0.0},
-                "risks": []
-            }
+            return CallersResult(
+                target=target_symbol,
+                callers=[],
+                total_weight=0.0,
+                risks=[]
+            )
         
         # 获取总量用于计算比例
         total_weight, _ = self._engine.get_total_core_per_sec(filtered_samples)
@@ -254,15 +241,15 @@ class AnalysisFacade:
                     attribution[tuple(caller_stack)] += weight
         
         # 构建 callers 列表
-        callers = []
+        callers: List[CallerAttribution] = []
         for stack, weight_val in attribution.items():
             ratio_total = (weight_val / total_weight * 100) if total_weight > 0 else 0
             if ratio_total >= min_ratio:
-                callers.append(CallerInfo(
+                callers.append(CallerAttribution(
                     symbol=" -> ".join(stack),
                     call_count=int(weight_val * 100),  # 近似计数
-                    total_weight=weight_val,
-                    call_ratio=ratio_total
+                    call_ratio=ratio_total,
+                    total_weight=weight_val
                 ))
         
         # 按调用次数排序
@@ -270,32 +257,22 @@ class AnalysisFacade:
         callers = callers[:top_n]
         
         # 识别 risk
-        risks = []
+        risks: List[Risk] = []
         if target_weight < 0.01:
-            risks.append({
-                "level": "warning",
-                "message": f"目标函数 '{target_symbol}' 几乎无 CPU 活动",
-                "hint": "检查目标函数名称是否正确",
-                "patterns": ["LOW_TARGET_ACTIVITY"],
-                "pending_targets": []
-            })
+            risks.append(Risk(
+                level="warning",
+                message=f"目标函数 '{target_symbol}' 几乎无 CPU 活动",
+                hint="检查目标函数名称是否正确",
+                patterns=["LOW_TARGET_ACTIVITY"],
+                pending_targets=[]
+            ))
         
-        return {
-            "result": {
-                "target": target_symbol,
-                "callers": [
-                    {
-                        "symbol": c.symbol,
-                        "call_count": c.call_count,
-                        "call_ratio": c.call_ratio,
-                        "total_weight": c.total_weight
-                    }
-                    for c in callers
-                ],
-                "total_weight": target_weight
-            },
-            "risks": risks
-        }
+        return CallersResult(
+            target=target_symbol,
+            callers=callers,
+            total_weight=target_weight,
+            risks=risks
+        )
 
 
 # =============================================================================

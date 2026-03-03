@@ -21,7 +21,9 @@ from ..analysis.facade import AnalysisFacade
 from .risk_aggregator import RiskAggregator, AggregatedRisk
 from .models import (
     RiskItem, ProcessGroup, DiagnosisReport,
-    AnomaliesReport, CoreDistributionReport, CommTopReport
+    AnomaliesReport, CoreDistributionReport, CommTopReport,
+    PrimarySuspectData, SecondaryLoadData, DiagnosisDetails,
+    AnomaliesDetails, CoreDistDetails, CommTopDetails, SysAuditDetails
 )
 
 
@@ -40,18 +42,18 @@ def cmd_sys_audit(builder, engine, args, samples):
     facade = AnalysisFacade(engine)
     
     # 1.1 异常检测
-    anomalies_raw = facade.detect_anomalies(samples, window_size=10, spike_threshold=0.5)
-    anomalies = AnomaliesReport.from_dict(anomalies_raw)
+    anomalies_result = facade.detect_anomalies(samples, window_size=10, spike_threshold=0.5)
+    anomalies = AnomaliesReport.from_dict(anomalies_result)
     
     # 1.2 核心分布分析
-    core_dist_raw = facade.analyze_core_distribution(samples)
-    core_dist = CoreDistributionReport.from_dict(core_dist_raw)
+    core_dist_result = facade.analyze_core_distribution(samples)
+    core_dist = CoreDistributionReport.from_dict(core_dist_result)
     
     # 1.3 CommTop分析（增强版，通过include_metrics获取详细指标）
     from ..analysis.comm_top import CommTopAnalyzer
     comm_top_analyzer = CommTopAnalyzer(engine)
-    comm_top_result_raw = comm_top_analyzer.analyze(samples, top_n=top_n, include_metrics=True)
-    comm_top = CommTopReport.from_result(comm_top_result_raw)
+    comm_top_result = comm_top_analyzer.analyze(samples, top_n=top_n, include_metrics=True)
+    comm_top = CommTopReport.from_result(comm_top_result)
     
     # ========== Phase 2: 收集Risks ==========
     
@@ -103,18 +105,18 @@ def cmd_sys_audit(builder, engine, args, samples):
         samples[-1].get('ts') if len(samples) > 1 else None
     )
     
-    # 转换diagnosis为dict用于输出
-    diagnosis_dict = _diagnosis_to_dict(diagnosis)
-    details_dict = {
-        "anomalies": _anomalies_to_dict(anomalies),
-        "core_distribution": _core_dist_to_dict(core_dist),
-        "comm_top": _comm_top_to_dict(comm_top)
-    }
+    # 转换analysis结果为dataclass用于输出
+    diagnosis_data = _diagnosis_to_dataclass(diagnosis)
+    details_data = SysAuditDetails(
+        anomalies=_anomalies_to_dataclass(anomalies),
+        core_distribution=_core_dist_to_dataclass(core_dist),
+        comm_top=_comm_top_to_dataclass(comm_top)
+    )
     
     output = SysAuditOutput(
         _risk=risk,
-        diagnosis=diagnosis_dict,
-        details=details_dict,
+        diagnosis=diagnosis_data,
+        details=details_data,
         time_range=time_range
     )
     
@@ -205,51 +207,57 @@ def _build_root_cause(primary: Optional[ProcessGroup],
     return "; ".join(parts) if parts else "未检测到明显瓶颈"
 
 
-def _diagnosis_to_dict(d: DiagnosisReport) -> dict:
-    """转换DiagnosisReport为dict（用于输出）"""
-    return {
-        "primary_suspect": {
-            "comm": d.primary_suspect.comm,
-            "total_cpu": d.primary_suspect.total_cpu,
-            "diagnosis": d.primary_suspect.diagnosis,
-            "monopoly": d.primary_suspect.monopoly
-        } if d.primary_suspect else None,
-        "secondary_loads": [
-            {"comm": g.comm, "total_cpu": g.total_cpu, "diagnosis": g.diagnosis}
-            for g in d.secondary_loads
-        ],
-        "background_count": d.background_count,
-        "mutation_detected": d.mutation_detected,
-        "mutation_time": d.mutation_time,
-        "saturated_cores": d.saturated_cores,
-        "root_cause_analysis": d.root_cause_analysis
-    }
+def _diagnosis_to_dataclass(d: DiagnosisReport) -> DiagnosisDetails:
+    """转换DiagnosisReport为DiagnosisDetails dataclass（用于输出）"""
+    primary = None
+    if d.primary_suspect:
+        primary = PrimarySuspectData(
+            comm=d.primary_suspect.comm,
+            total_cpu=d.primary_suspect.total_cpu,
+            diagnosis=d.primary_suspect.diagnosis,
+            monopoly=d.primary_suspect.monopoly
+        )
+    
+    secondary = [
+        SecondaryLoadData(comm=g.comm, total_cpu=g.total_cpu, diagnosis=g.diagnosis)
+        for g in d.secondary_loads
+    ]
+    
+    return DiagnosisDetails(
+        primary_suspect=primary,
+        secondary_loads=secondary,
+        background_count=d.background_count,
+        mutation_detected=d.mutation_detected,
+        mutation_time=d.mutation_time,
+        saturated_cores=d.saturated_cores,
+        root_cause_analysis=d.root_cause_analysis
+    )
 
 
-def _anomalies_to_dict(a: AnomaliesReport) -> dict:
-    """转换AnomaliesReport为dict"""
-    return {
-        "anomalies_count": len(a.anomalies),
-        "mutation_detected": a.mutation_detected,
-        "risks": [r.to_dict() for r in a.risks]
-    }
+def _anomalies_to_dataclass(a: AnomaliesReport) -> AnomaliesDetails:
+    """转换AnomaliesReport为AnomaliesDetails dataclass"""
+    return AnomaliesDetails(
+        anomalies_count=len(a.anomalies),
+        mutation_detected=a.mutation_detected,
+        risks=a.risks
+    )
 
 
-def _core_dist_to_dict(c: CoreDistributionReport) -> dict:
-    """转换CoreDistributionReport为dict"""
-    return {
-        "core_count": len(c.core_stats),
-        "saturated_cores": c.saturated_cores,
-        "imbalance_level": c.imbalance_level,
-        "risks": [r.to_dict() for r in c.risks]
-    }
+def _core_dist_to_dataclass(c: CoreDistributionReport) -> CoreDistDetails:
+    """转换CoreDistributionReport为CoreDistDetails dataclass"""
+    return CoreDistDetails(
+        core_count=len(c.core_stats),
+        saturated_cores=c.saturated_cores,
+        imbalance_level=c.imbalance_level,
+        risks=c.risks
+    )
 
 
-def _comm_top_to_dict(c: CommTopReport) -> dict:
-    """转换CommTopReport为dict"""
-    return {
-        "groups_count": len(c.groups),
-        "folded_count": c.folded_count,
-        "total_groups": c.total_groups,
-        "risks": [r.to_dict() for r in c.risks]
-    }
+def _comm_top_to_dataclass(c: CommTopReport) -> CommTopDetails:
+    """转换CommTopReport为CommTopDetails dataclass"""
+    return CommTopDetails(
+        groups_count=len(c.groups),
+        folded_count=c.folded_count,
+        total_groups=c.total_groups,
+        risks=c.risks
+    )

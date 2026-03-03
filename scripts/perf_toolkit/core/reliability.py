@@ -8,6 +8,8 @@ Data Quality Assessment Module
 """
 
 import math
+from typing import Tuple, Optional
+from .output_models import DataQualityMetrics
 
 
 def calculate_wilson_score_interval(successes, total, confidence=0.95):
@@ -32,7 +34,7 @@ def calculate_wilson_score_interval(successes, total, confidence=0.95):
     return (max(0, centre - half_width), min(1, centre + half_width))
 
 
-def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=None):
+def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=None) -> Tuple[str, str, DataQualityMetrics]:
     """
     Assess the quality and reliability of aggregated perf data.
 
@@ -44,7 +46,7 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
         total_weight: Sum of sample weights
         record_count: Number of aggregated records (for reference only)
 
-    Returns: (quality_level, warning_message, metrics_dict)
+    Returns: (quality_level, warning_message, DataQualityMetrics)
         quality_level: CRITICAL / WARNING / ACCEPTABLE / GOOD / EXCELLENT
     """
     if duration <= 0:
@@ -58,16 +60,17 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
         avg_cpu_utilization = 0.0
         utilization_source = "unknown"
 
-    metrics = {
-        "record_count": record_count or 0,
-        "duration_sec": round(duration, 2),
-        "cpu_utilization_pct": round(avg_cpu_utilization, 2),
-        "utilization_source": utilization_source,
-    }
+    # 使用 DataQualityMetrics dataclass
+    metrics = DataQualityMetrics(
+        record_count=record_count or 0,
+        duration_sec=round(duration, 2),
+        cpu_utilization_pct=round(avg_cpu_utilization, 2),
+        utilization_source=utilization_source,
+    )
 
     if total_weight is not None:
-        metrics["total_weight"] = round(total_weight, 4)
-        metrics["avg_weight"] = round(total_weight / duration, 4)
+        metrics.total_weight = round(total_weight, 4)
+        metrics.avg_weight = round(total_weight / duration, 4)
 
     # =========================================================================
     # Data Quality Assessment based on CPU Utilization and Duration

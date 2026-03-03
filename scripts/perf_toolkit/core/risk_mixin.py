@@ -10,6 +10,7 @@ RiskMixin - Standardized risk hints for tool output
 """
 
 from typing import List, Dict, Optional
+from .output_models import RiskInfo
 
 
 class RiskMixin:
@@ -21,7 +22,7 @@ class RiskMixin:
     PRIORITY = {"critical": 0, "warning": 1, "info": 2, "none": 3}
 
     def __init__(self):
-        self.risks = []
+        self.risks: List[RiskInfo] = []
 
     def add_risk(self, level: str, message: str, hint: str = "",
                  patterns: List[str] = None, targets: List[str] = None):
@@ -40,50 +41,43 @@ class RiskMixin:
         if level not in self.RISK_LEVELS:
             level = "info"
 
-        self.risks.append({
-            "level": level,
-            "message": message,
-            "hint": hint,
-            "patterns": patterns or [],
-            "pending_targets": targets or []
-        })
+        self.risks.append(RiskInfo(
+            level=level,
+            message=message,
+            hint=hint,
+            patterns=patterns or [],
+            pending_targets=targets or []
+        ))
 
-    def get_top_risk(self) -> Dict:
+    def get_top_risk(self) -> RiskInfo:
         """
         Get the highest level risk.
 
         Returns:
-            Risk dict with action_required flag
+            RiskInfo dataclass with action_required flag
         """
         if not self.risks:
-            return {
-                "level": "none",
-                "message": "无风险",
-                "hint": "",
-                "patterns": [],
-                "pending_targets": [],
-                "action_required": False
-            }
+            return RiskInfo(
+                level="none",
+                message="无风险",
+                hint="",
+                patterns=[],
+                pending_targets=[],
+                action_required=False
+            )
 
         # Find highest priority (lowest number) risk
-        top = min(self.risks, key=lambda r: self.PRIORITY.get(r["level"], 3))
+        top = min(self.risks, key=lambda r: self.PRIORITY.get(r.level, 3))
+        return top
 
-        return {
-            **top,
-            "action_required": top["level"] in ["critical", "warning"]
-        }
-
-    def get_all_risks(self) -> List[Dict]:
+    def get_all_risks(self) -> List[RiskInfo]:
         """
         Get all recorded risks.
 
         Returns:
-            List of risk dicts, each with action_required flag
+            List of RiskInfo dataclasses, each with action_required flag
         """
-        return [
-            {**risk, "action_required": risk["level"] in ["critical", "warning"]}
-            for risk in self.risks
-        ]
+        return self.risks
 
     def format_output(self, data: Dict) -> Dict:
         """
@@ -95,8 +89,9 @@ class RiskMixin:
         Returns:
             Data with _risk field prepended
         """
+        from dataclasses import asdict
         return {
-            "_risk": self.get_top_risk(),
+            "_risk": asdict(self.get_top_risk()),
             **data
         }
 

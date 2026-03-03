@@ -707,6 +707,311 @@ class StormTraceOutput(BaseOutput):
 
 
 # =============================================================================
+# Trace Module Data Models (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class TimelineRecord:
+    """时间线记录 - trace.py begin_command"""
+    seq: int
+    type: str
+    command: str
+    timestamp: str
+    findings: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class Issue:
+    """Issue 记录 - trace.py add"""
+    id: str
+    desc: str
+    level: str
+    status: str
+    created_at: str
+    created_by_seq: Optional[int] = None
+    resolved_at: Optional[str] = None
+    resolved_by_seq: Optional[int] = None
+    result: Optional[str] = None
+    hint: str = ""
+    results: List[Dict[str, Any]] = field(default_factory=list)
+    reopen_history: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class ResolutionResult:
+    """解决结果记录 - trace.py complete"""
+    result: str
+    resolved_at: str
+    resolved_by_seq: Optional[int] = None
+
+
+@dataclass
+class ReopenRecord:
+    """重新打开记录 - trace.py reopen"""
+    reopened_at: str
+    reason: str
+    previous_result: Optional[str] = None
+    previous_resolved_at: Optional[str] = None
+    previous_resolved_by_seq: Optional[int] = None
+    previous_results: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class TraceDocument:
+    """Trace 文档根结构 - trace.py _create_new"""
+    version: str
+    created_at: str
+    updated_at: str
+    data_file: Optional[str] = None
+    initial_command: str = ""
+    timeline: List[TimelineRecord] = field(default_factory=list)
+    issues: Dict[str, Issue] = field(default_factory=dict)
+
+
+# =============================================================================
+# OutputBuilder Module Data Models (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class TraceSummary:
+    """Trace 摘要统计 - output_builder.py get_trace_summary"""
+    total_commands: int = 0
+    open_issues: int = 0
+    resolved_issues: int = 0
+    can_finalize: bool = False
+
+
+@dataclass
+class ErrorData:
+    """错误数据结构 - output_builder.py 错误处理"""
+    error: str
+    message: str
+    recovery_hint: str = ""
+
+
+@dataclass
+class QualityMetrics:
+    """质量指标 - output_builder.py 质量指标"""
+    total_samples: int = 0
+    time_range_seconds: float = 0.0
+    cpu_count: int = 0
+
+
+@dataclass
+class IssueCategories:
+    """Issue 分类统计 - output_builder.py _categorize_issues"""
+    kernel_anomaly: int = 0
+    lock_contention: int = 0
+    process_storm: int = 0
+
+
+# =============================================================================
+# Reliability Module Data Models (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class DataQualityMetrics:
+    """数据质量指标 - reliability.py assess_data_quality"""
+    record_count: int = 0
+    duration_sec: float = 0.0
+    cpu_utilization_pct: float = 0.0
+    utilization_source: str = "unknown"
+    total_weight: Optional[float] = None
+    avg_weight: Optional[float] = None
+
+
+# =============================================================================
+# Display Presets Module Data Models (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class DisplayPreset:
+    """显示格式预设 - display_presets.py DISPLAY_PRESETS"""
+    template_type: str
+    list_field: Optional[str] = None
+    header: Optional[str] = None
+    display_fields: List[str] = field(default_factory=list)
+    index_format: Optional[str] = None
+    custom_renderer: Optional[str] = None
+    empty_message: Optional[str] = None
+    total_field: Optional[str] = None
+    shown_field: Optional[str] = None
+
+
+# =============================================================================
+# CLI Layer Data Models (Dict Refactor - Task-4.1.x)
+# =============================================================================
+
+@dataclass
+class ProfileConfig:
+    """Profile 配置 - shecr_wrap.py cmd_init 使用
+    
+    Task-4.1.4, Task-4.1.5: 替代原有的 profile dict
+    """
+    name: str  # data_path as identifier
+    data_file: str
+    init_time: str
+    script_path: str
+    freq: Optional[str] = None
+    risk_config: Optional[str] = None
+    rules_file: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 dict 用于 JSON 序列化"""
+        return {
+            "init_time": self.init_time,
+            "script_path": self.script_path,
+            "freq": self.freq,
+            "risk_config": self.risk_config,
+            "rules_file": self.rules_file
+        }
+    
+    @classmethod
+    def from_dict(cls, name: str, data: Dict[str, Any]) -> 'ProfileConfig':
+        """从 dict 创建 ProfileConfig"""
+        return cls(
+            name=name,
+            data_file=name,  # name is the data_file path
+            init_time=data.get("init_time", ""),
+            script_path=data.get("script_path", ""),
+            freq=data.get("freq"),
+            risk_config=data.get("risk_config"),
+            rules_file=data.get("rules_file")
+        )
+
+
+@dataclass
+class EnvironmentConfig:
+    """环境配置 - shecr_wrap.py load_env/migrate_old_env 使用
+    
+    Task-4.1.1, Task-4.1.2: 替代原有的 env dict
+    """
+    profiles: Dict[str, ProfileConfig] = field(default_factory=dict)
+    default: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 dict 用于 JSON 序列化"""
+        return {
+            "profiles": {
+                name: profile.to_dict() 
+                for name, profile in self.profiles.items()
+            },
+            "default": self.default
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'EnvironmentConfig':
+        """从 dict 创建 EnvironmentConfig"""
+        profiles_data = data.get("profiles", {})
+        profiles = {
+            name: ProfileConfig.from_dict(name, profile_data)
+            for name, profile_data in profiles_data.items()
+        }
+        return cls(
+            profiles=profiles,
+            default=data.get("default")
+        )
+
+
+@dataclass
+class TraceConfig:
+    """Trace 配置 - shecr_wrap.py init_global_trace 使用
+    
+    Task-4.1.3: 替代原有的 trace dict
+    """
+    version: str
+    data_file: str
+    created_at: str
+    updated_at: str
+    timeline: List[Dict[str, Any]] = field(default_factory=list)
+    issues: Dict[str, Any] = field(default_factory=dict)
+    profiles_used: List[str] = field(default_factory=list)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 dict 用于 JSON 序列化"""
+        return {
+            "version": self.version,
+            "data_file": self.data_file,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "timeline": self.timeline,
+            "issues": self.issues,
+            "profiles_used": self.profiles_used
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'TraceConfig':
+        """从 dict 创建 TraceConfig"""
+        return cls(
+            version=data.get("version", "2.0"),
+            data_file=data.get("data_file", ""),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+            timeline=data.get("timeline", []),
+            issues=data.get("issues", {}),
+            profiles_used=data.get("profiles_used", [])
+        )
+    
+    @classmethod
+    def create_new(cls, data_file: str) -> 'TraceConfig':
+        """创建新的 TraceConfig 实例"""
+        now = datetime.now().isoformat()
+        return cls(
+            version="2.0",
+            data_file=data_file,
+            created_at=now,
+            updated_at=now,
+            timeline=[],
+            issues={},
+            profiles_used=[data_file]
+        )
+
+
+# =============================================================================
+# Risk Config Module Data Models (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class RiskConfigColors:
+    """Risk 配置颜色"""
+    critical: str = "\033[91m"
+    warning: str = "\033[93m"
+    info: str = "\033[94m"
+    reset: str = "\033[0m"
+
+
+@dataclass
+class RiskConfigTemplates:
+    """Risk 配置模板"""
+    issue_open: str = "[OPEN] [{id}] [{level}] {desc}"
+    issue_resolved: str = "[RESOLVED] [{id}] [{level}] {desc}"
+    hint: str = "→ {hint}"
+    result: str = "→ {result}"
+    list_header_open: str = "[OPEN] {count} issues pending"
+    list_header_resolved: str = "[RESOLVED] {count} issues"
+    list_header_all: str = "[ALL] {open_count} open, {resolved_count} resolved"
+    timeline_command: str = "[{seq}] {time} {command}"
+    timeline_finding_created: str = "[{level}] {issue_id}: {desc}"
+    timeline_finding_resolved: str = "[RESOLVED] {issue_id}: {result}"
+    timeline_info: str = "[INFO] {message}"
+
+
+@dataclass
+class RiskConfigShow:
+    """Risk 配置显示开关"""
+    hint: bool = True
+    result: bool = True
+
+
+@dataclass
+class RiskConfigData:
+    """Risk 配置完整结构 - risk_config.py DEFAULT_CONFIG"""
+    colors: RiskConfigColors = field(default_factory=RiskConfigColors)
+    templates: RiskConfigTemplates = field(default_factory=RiskConfigTemplates)
+    show: RiskConfigShow = field(default_factory=RiskConfigShow)
+
+
+# =============================================================================
 # Type Registry
 # =============================================================================
 

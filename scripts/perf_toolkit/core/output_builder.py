@@ -49,6 +49,8 @@ from .output_models import (
     PathClusterItem, PathClusterSummary, PathClustersOutput,
     ProcessVarietyItem, ProcessVarietySummary, ProcessVarietyOutput,
     CoreItem, CoreDistributionSummary, CoreDistributionOutput,
+    # Dict Refactor 新增模型
+    TraceSummary, ErrorData, QualityMetrics, IssueCategories,
 )
 from .output_adapter import OutputAdapter, CompactOutputAdapter
 from .text_output_adapter import TextOutputAdapter
@@ -229,15 +231,19 @@ class OutputBuilder:
         except Exception:
             pass
 
-    def get_trace_summary(self) -> Dict:
-        """获取 Trace 摘要（用于输出）"""
+    def get_trace_summary(self) -> TraceSummary:
+        """获取 Trace 摘要（返回 TraceSummary dataclass）"""
         if not self._trace:
-            return {"enabled": False}
+            return TraceSummary(enabled=False)
 
-        return {
-            "enabled": True,
-            **self._trace.get_summary()
-        }
+        summary = self._trace.get_summary()
+        return TraceSummary(
+            enabled=True,
+            total_commands=summary.total_commands,
+            open_issues=summary.open_issues,
+            resolved_issues=summary.resolved_issues,
+            can_finalize=summary.can_finalize
+        )
 
     # =====================================================================
     # 数据质量评估（与 V1 兼容）
@@ -249,18 +255,12 @@ class OutputBuilder:
             self._samples = samples
             return False
 
-        # 构建错误响应
-        error_data = {
-            "error": "No samples found",
-            "time_range": format_time_range(
-                getattr(self.args, 'start_time', None),
-                getattr(self.args, 'end_time', None)
-            ),
-            "available_range": self.engine.get_time_range()
-        }
-
-        if filters:
-            error_data["filters"] = filters
+        # 构建错误响应（使用 ErrorData dataclass）
+        error_data = ErrorData(
+            error="No samples found",
+            message="未找到匹配过滤条件的样本数据",
+            recovery_hint="检查过滤条件或扩大时间范围"
+        )
 
         # 创建风险输出
         risk_output = RiskAwareOutput()
@@ -271,22 +271,32 @@ class OutputBuilder:
             patterns=["NO_SAMPLES"]
         )
 
-        result = risk_output.build(error_data)
+        result = risk_output.build({
+            "error": error_data.error,
+            "message": error_data.message,
+            "recovery_hint": error_data.recovery_hint,
+            "time_range": format_time_range(
+                getattr(self.args, 'start_time', None),
+                getattr(self.args, 'end_time', None)
+            ),
+            "available_range": self.engine.get_time_range(),
+            "filters": filters or {}
+        })
         self.print_json(result)
         return True
 
     def assess_quality(self, samples: List[Dict] = None,
                        early_return: bool = False) -> Optional[str]:
-        """评估数据质量"""
+        """评估数据质量（使用 QualityMetrics dataclass）"""
         if samples is None:
             samples = self._samples
 
         if not samples:
             self._quality_level = "CRITICAL"
-            self._quality_metrics = {}
+            self._quality_metrics = QualityMetrics()
             return self._quality_level if not early_return else False
 
-        duration = samples[-1]['ts'] - samples[0]['ts'] if len(samples) > 1 else 0
+        duration = samples[-1].ts - samples[0].ts if len(samples) > 1 else 0
         record_count = len(samples)
 
         total_weight, _ = self.engine.get_total_core_per_sec(samples)
@@ -294,12 +304,13 @@ class OutputBuilder:
             duration, total_weight=total_weight, record_count=record_count
         )
 
+        # 使用 QualityMetrics dataclass
         self._quality_level = quality_level
-        self._quality_metrics = {
-            "level": quality_level,
-            "warning": warning_msg,
-            "metrics": metrics
-        }
+        self._quality_metrics = QualityMetrics(
+            total_samples=getattr(metrics, 'record_count', 0),
+            time_range_seconds=getattr(metrics, 'duration_sec', 0.0),
+            cpu_count=getattr(self.args, 'cpu_id', 0) or 0
+        )
 
         # 早期返回处理
         if early_return:
@@ -314,7 +325,13 @@ class OutputBuilder:
                 )
 
                 result = risk_output.build({
-                    "data_quality": self._quality_metrics,
+                    "data_quality": {
+                        "level": self._quality_metrics.level,
+                        "warning": self._quality_metrics.warning,
+                        "total_samples": self._quality_metrics.total_samples,
+                        "time_range_seconds": self._quality_metrics.time_range_seconds,
+                        "cpu_count": self._quality_metrics.cpu_count,
+                    },
                     "error": "Insufficient data quality for analysis"
                 })
                 self.print_json(result)
@@ -358,33 +375,28 @@ class OutputBuilder:
             # 提示失败不应影响主流程
             pass
 
-    def _categorize_issues(self, issues: List[Dict]) -> Dict[str, int]:
+    def _categorize_issues(self, issues: List[Dict]) -> IssueCategories:
         """
-        对 issues 进行分类统计
+        对 issues 进行分类统计（返回 IssueCategories dataclass）
 
         分类规则:
         - 内核异常: desc 包含 "内核" 或 "kernel"
         - 锁竞争: desc 包含 "锁竞争" 或 "LOCK_CONTENTION"
         - 进程风暴: desc 包含 "进程风暴" 或 "PROCESS_STORM"
         """
-        categories = {
-            "内核异常": 0,
-            "锁竞争": 0,
-            "进程风暴": 0,
-        }
+        categories = IssueCategories()
 
         for issue in issues:
             desc = issue.get('desc', '').lower()
 
             if '内核' in desc or 'kernel' in desc:
-                categories["内核异常"] += 1
+                categories.kernel_anomaly += 1
             elif '锁竞争' in desc or 'lock_contention' in desc:
-                categories["锁竞争"] += 1
+                categories.lock_contention += 1
             elif '进程风暴' in desc or 'process_storm' in desc:
-                categories["进程风暴"] += 1
+                categories.process_storm += 1
 
-        # 过滤掉计数为 0 的分类
-        return {k: v for k, v in categories.items() if v > 0}
+        return categories
 
     def _auto_record_risk_from_output(self, output: BaseOutput):
         """

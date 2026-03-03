@@ -11,7 +11,10 @@ Base Analyzer - Analysis 层抽象基类
 
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
-from .models import Risk, AnalysisResult
+from .models import (
+    Risk, AnalysisResult, AnomaliesResult, CommTopResult,
+    CoreDistributionResult, HotspotsResult, PathClustersResult, CallersResult
+)
 
 
 class BaseAnalyzer(ABC):
@@ -25,7 +28,7 @@ class BaseAnalyzer(ABC):
         self._engine = engine
     
     @abstractmethod
-    def analyze(self, samples: List[Dict], **kwargs) -> Dict[str, Any]:
+    def analyze(self, samples: List[Dict], **kwargs) -> AnalysisResult:
         """
         执行分析
         
@@ -34,11 +37,7 @@ class BaseAnalyzer(ABC):
             **kwargs: 分析特定参数
             
         Returns:
-            {
-                "result": Any,           # 分析结果（工具特定）
-                "risks": List[Dict],     # 识别到的风险列表
-                "metrics": Dict          # 中间指标（可选，供 Composite 使用）
-            }
+            AnalysisResult: 包含 result、risks、metrics 的标准结构
         """
         pass
     

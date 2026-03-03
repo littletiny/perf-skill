@@ -6,13 +6,14 @@ Path Clustering - Cluster samples by common call path prefixes using Trie
 V3 版本（三层架构）：
 - 提取 PathClustersAnalyzer 纯逻辑类
 - 支持调用路径聚类
+- Task-2.6.1: 返回 PathClustersResult dataclass
 """
 
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 from collections import defaultdict
 from .base import BaseAnalyzer
-from .models import Risk, PathCluster
+from .models import Risk, PathCluster, PathClustersResult
 
 
 # =============================================================================
@@ -92,7 +93,7 @@ class PathClustersAnalyzer(BaseAnalyzer):
                 min_samples: int = 5,
                 top_n: int = 10,
                 comm: Optional[str] = None,
-                pid: Optional[int] = None) -> Dict[str, Any]:
+                pid: Optional[int] = None) -> PathClustersResult:
         """
         分析调用路径聚类
         
@@ -105,16 +106,17 @@ class PathClustersAnalyzer(BaseAnalyzer):
             pid: 可选，按 PID 过滤
             
         Returns:
-            {
-                "result": {"clusters": [...], "total_weight": float},
-                "risks": [...]
-            }
+            PathClustersResult dataclass
         """
         if not samples:
-            return {
-                "result": {"clusters": [], "total_weight": 0.0},
-                "risks": []
-            }
+            return PathClustersResult(
+                clusters=[],
+                total_clusters=0,
+                shown_clusters=0,
+                total_weight=0.0,
+                clustered_weight=0.0,
+                risks=[]
+            )
         
         # 1. 过滤样本
         filtered_samples = samples
@@ -151,16 +153,14 @@ class PathClustersAnalyzer(BaseAnalyzer):
         
         clustered_weight = sum(c.weight for c in top_clusters)
         
-        return {
-            "result": {
-                "clusters": [c.to_dict() for c in top_clusters],
-                "total_clusters": len(clusters),
-                "shown_clusters": len(top_clusters),
-                "total_weight": total_weight,
-                "clustered_weight": clustered_weight
-            },
-            "risks": []  # 路径聚类通常不产生 risk
-        }
+        return PathClustersResult(
+            clusters=top_clusters,
+            total_clusters=len(clusters),
+            shown_clusters=len(top_clusters),
+            total_weight=total_weight,
+            clustered_weight=clustered_weight,
+            risks=[]  # 路径聚类通常不产生 risk
+        )
 
 
 # =============================================================================
@@ -194,17 +194,17 @@ def cmd_cluster_paths(builder, engine, args, samples):
     
     # 3. 转换为 Output 模型
     duration = engine.get_duration(samples)
-    total_weight = result["result"]["total_weight"]
+    total_weight = result.total_weight
     
     results = [
         PathClusterItem.from_raw(
-            cluster_id=c["cluster_id"],
-            path_signature=c["path_signature"],
-            weight=c["weight"],
+            cluster_id=c.cluster_id,
+            path_signature=c.path_signature,
+            weight=c.weight,
             total_weight=total_weight,
             duration=duration
         )
-        for c in result["result"]["clusters"]
+        for c in result.clusters
     ]
     
     time_range = TimeRange.from_timestamps(
@@ -213,9 +213,9 @@ def cmd_cluster_paths(builder, engine, args, samples):
     )
     
     summary = PathClusterSummary(
-        total_clusters=result["result"]["total_clusters"],
-        shown_clusters=result["result"]["shown_clusters"],
-        clustered_weight=result["result"]["clustered_weight"]
+        total_clusters=result.total_clusters,
+        shown_clusters=result.shown_clusters,
+        clustered_weight=result.clustered_weight
     )
     
     output = PathClustersOutput(

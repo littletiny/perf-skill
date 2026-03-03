@@ -14,10 +14,13 @@ Trace v2.0 - 诊断过程追踪工具
 import json
 import os
 import re
+import copy
 from datetime import datetime
 from typing import List, Dict, Optional, Any
+from dataclasses import asdict
 
 from .risk_config import RiskDisplayConfig, get_risk_config
+from .output_models import TimelineRecord, Issue, ResolutionResult, ReopenRecord, TraceSummary
 
 
 class Trace:
@@ -58,15 +61,16 @@ class Trace:
                 return data
 
         # 新文档
-        return self._create_new()
+        return self._create_new_dict()
 
-    def _create_new(self) -> Dict:
-        """创建新文档结构"""
+    def _create_new_dict(self) -> Dict:
+        """创建新文档结构（返回 dict 用于 JSON 序列化）"""
+        now = self._now()
         return {
             "version": self.CURRENT_VERSION,
             "data_file": None,
-            "created_at": self._now(),
-            "updated_at": self._now(),
+            "created_at": now,
+            "updated_at": now,
             "timeline": [],
             "issues": {}
         }
@@ -125,7 +129,7 @@ class Trace:
 
     def init(self, data_file: str):
         """初始化新诊断文档"""
-        self.data = self._create_new()
+        self.data = self._create_new_dict()
         self.data['data_file'] = data_file
         self.save()
         return self
@@ -144,14 +148,15 @@ class Trace:
         seq = len(self.data['timeline']) + 1
         self._current_seq = seq
 
-        record = {
-            "seq": seq,
-            "type": "command",
-            "command": command,
-            "timestamp": self._now(),
-            "findings": []
-        }
-        self.data['timeline'].append(record)
+        # 使用 TimelineRecord dataclass，然后转换为 dict
+        record = TimelineRecord(
+            seq=seq,
+            type="command",
+            command=command,
+            timestamp=self._now(),
+            findings=[]
+        )
+        self.data['timeline'].append(asdict(record))
         self.save()
         
         # 无脑输出所有 open issues
@@ -227,18 +232,20 @@ class Trace:
         issue_id = self._generate_issue_id()
         now = self._now()
 
-        self.data['issues'][issue_id] = {
-            "id": issue_id,
-            "desc": desc,
-            "level": level,
-            "status": "open",
-            "created_at": now,
-            "created_by_seq": self._current_seq,
-            "resolved_at": None,
-            "resolved_by_seq": None,
-            "result": None,
-            "hint": hint
-        }
+        # 使用 Issue dataclass，然后转换为 dict
+        issue = Issue(
+            id=issue_id,
+            desc=desc,
+            level=level,
+            status="open",
+            created_at=now,
+            created_by_seq=self._current_seq,
+            resolved_at=None,
+            resolved_by_seq=None,
+            result=None,
+            hint=hint
+        )
+        self.data['issues'][issue_id] = asdict(issue)
 
         # 添加到 timeline
         self._add_finding_to_current({
@@ -270,19 +277,19 @@ class Trace:
             if 'results' not in issue:
                 issue['results'] = []
             
-            # 追加新结果到列表
-            result_entry = {
-                "result": result,
-                "resolved_at": self._now(),
-                "resolved_by_seq": self._current_seq
-            }
-            issue['results'].append(result_entry)
+            # 使用 ResolutionResult dataclass，然后转换为 dict
+            result_entry = ResolutionResult(
+                result=result,
+                resolved_at=self._now(),
+                resolved_by_seq=self._current_seq
+            )
+            issue['results'].append(asdict(result_entry))
             
             # 同时更新单字段 result（兼容性）
             issue['result'] = result
             issue['status'] = 'resolved'
-            issue['resolved_at'] = result_entry['resolved_at']
-            issue['resolved_by_seq'] = result_entry['resolved_by_seq']
+            issue['resolved_at'] = result_entry.resolved_at
+            issue['resolved_by_seq'] = result_entry.resolved_by_seq
 
             self._add_finding_to_current({
                 "type": "issue_resolved",
@@ -310,20 +317,19 @@ class Trace:
             if issue['status'] != 'resolved':
                 raise ValueError(f"Issue {issue_id} is not resolved (status: {issue['status']})")
             
-            # 记录 reopen 历史（保留之前的解决信息）
-            import copy
-            reopen_record = {
-                "reopened_at": self._now(),
-                "reason": reason,
-                "previous_result": issue.get('result'),
-                "previous_resolved_at": issue.get('resolved_at'),
-                "previous_resolved_by_seq": issue.get('resolved_by_seq'),
-                "previous_results": copy.deepcopy(issue.get('results', []))  # 深拷贝 results 列表
-            }
+            # 使用 ReopenRecord dataclass，然后转换为 dict
+            reopen_record = ReopenRecord(
+                reopened_at=self._now(),
+                reason=reason,
+                previous_result=issue.get('result'),
+                previous_resolved_at=issue.get('resolved_at'),
+                previous_resolved_by_seq=issue.get('resolved_by_seq'),
+                previous_results=copy.deepcopy(issue.get('results', []))  # 深拷贝 results 列表
+            )
             
             if 'reopen_history' not in issue:
                 issue['reopen_history'] = []
-            issue['reopen_history'].append(reopen_record)
+            issue['reopen_history'].append(asdict(reopen_record))
             
             # 更新状态为 open，但保留 result 等历史信息
             issue['status'] = 'open'
@@ -438,16 +444,16 @@ class Trace:
         """获取完整时间线"""
         return self.data['timeline']
 
-    def get_summary(self) -> Dict:
-        """获取摘要统计"""
+    def get_summary(self) -> TraceSummary:
+        """获取摘要统计（返回 TraceSummary dataclass）"""
         open_issues = self.get_open_issues()
         resolved_issues = self.get_resolved_issues()
-        return {
-            "total_commands": len(self.data['timeline']),
-            "open_issues": len(open_issues),
-            "resolved_issues": len(resolved_issues),
-            "can_finalize": len(open_issues) == 0
-        }
+        return TraceSummary(
+            total_commands=len(self.data['timeline']),
+            open_issues=len(open_issues),
+            resolved_issues=len(resolved_issues),
+            can_finalize=len(open_issues) == 0
+        )
 
     # =====================================================================
     # 最终审计
@@ -486,10 +492,6 @@ class Trace:
             "message": f"存在 {len(open_issues)} 个未处理问题",
             "open_issues": open_issues
         }
-
-    # =====================================================================
-    # 导出
-    # =====================================================================
 
     # =====================================================================
     # 格式化方法（使用 RiskDisplayConfig）
@@ -657,7 +659,7 @@ class Trace:
 
         # 摘要
         summary = self.get_summary()
-        lines.append(f"Commands: {summary['total_commands']}, Open: {summary['open_issues']}, Resolved: {summary['resolved_issues']}")
+        lines.append(f"Commands: {summary.total_commands}, Open: {summary.open_issues}, Resolved: {summary.resolved_issues}")
 
         return '\n'.join(lines)
 
@@ -673,10 +675,10 @@ class Trace:
         # 摘要
         summary = self.get_summary()
         lines.append("## 执行摘要")
-        lines.append(f"- 执行命令: {summary['total_commands']} 个")
-        lines.append(f"- 发现问题: {summary['open_issues'] + summary['resolved_issues']} 个")
-        lines.append(f"- 已解决: {summary['resolved_issues']} 个")
-        lines.append(f"- 待处理: {summary['open_issues']} 个")
+        lines.append(f"- 执行命令: {summary.total_commands} 个")
+        lines.append(f"- 发现问题: {summary.open_issues + summary.resolved_issues} 个")
+        lines.append(f"- 已解决: {summary.resolved_issues} 个")
+        lines.append(f"- 待处理: {summary.open_issues} 个")
         lines.append("")
 
         # Timeline
@@ -998,221 +1000,3 @@ def cmd_doc_audit(args):
             warning_count += 1
         else:
             passed_count += 1
-    
-    # 生成报告
-    report = {
-        "audit_time": datetime.utcnow().isoformat() + "Z",
-        "summary": {
-            "total_issues": len(resolved_issues),
-            "passed": passed_count,
-            "failed": failed_count,
-            "warnings": warning_count
-        },
-        "issues": audit_results
-    }
-    
-    # 输出格式
-    fmt = getattr(args, 'format', 'text')
-    
-    if fmt == 'json':
-        content = json.dumps(report, indent=2, ensure_ascii=False)
-        if output:
-            with open(output, 'w') as f:
-                f.write(content)
-            print(f"[AUDIT REPORT SAVED] {output}")
-        else:
-            print(content)
-    else:
-        _print_audit_report(report, cfg, output)
-    
-    # 如果有失败项，返回非零退出码
-    if failed_count > 0 and not getattr(args, 'no_fail', False):
-        import sys
-        sys.exit(1)
-
-
-def _audit_issue(issue: Dict, timeline: List[Dict], phase: str) -> Dict:
-    """审计单个 issue"""
-    issue_id = issue.get('id', 'unknown')
-    result_text = issue.get('result', '') or ''
-    created_seq = issue.get('created_by_seq')
-    resolved_seq = issue.get('resolved_by_seq')
-    created_at = issue.get('created_at', '')
-    resolved_at = issue.get('resolved_at', '')
-    
-    checks = {}
-    failures = []
-    warnings = []
-    
-    # Phase 1: 结构完整性
-    if phase in ('all', 'structural'):
-        # Check has_result
-        if not result_text or result_text.strip() == '':
-            checks['has_result'] = False
-            failures.append("Empty result")
-        else:
-            checks['has_result'] = True
-        
-        # Check敷衍标记
-        perfunctory_markers = ['ok', 'done', 'fixed', 'yes', 'no', 'ok.', 'done.', 'fixed.']
-        if result_text.strip().lower() in perfunctory_markers:
-            checks['substantive_result'] = False
-            failures.append(f"Perfunctory result: '{result_text}'")
-        else:
-            checks['substantive_result'] = True
-    
-    # Phase 2: Timeline 关联
-    if phase in ('all', 'timeline'):
-        # Check 分析时间间隔
-        if created_at and resolved_at:
-            try:
-                created_dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                resolved_dt = datetime.fromisoformat(resolved_at.replace('Z', '+00:00'))
-                duration = (resolved_dt - created_dt).total_seconds()
-                checks['analysis_duration_seconds'] = duration
-                
-                if duration < 30:  # 30秒内完成 = 可疑
-                    checks['sufficient_analysis_time'] = False
-                    warnings.append(f"Analysis time too short: {duration:.1f}s")
-                else:
-                    checks['sufficient_analysis_time'] = True
-            except:
-                checks['sufficient_analysis_time'] = None
-        
-        # Check timeline 支撑
-        if created_seq and timeline:
-            # 查找 created_seq 之后的命令
-            analysis_commands = []
-            for record in timeline:
-                if record.get('seq', 0) > created_seq:
-                    # 排除 trace 自身的命令
-                    cmd = record.get('command', '')
-                    if not cmd.startswith('trace '):
-                        analysis_commands.append(cmd)
-            
-            if analysis_commands:
-                checks['has_timeline_support'] = True
-                checks['analysis_commands_count'] = len(analysis_commands)
-            else:
-                checks['has_timeline_support'] = False
-                if resolved_seq is None:
-                    failures.append("No analysis commands found (resolved_by_seq is null)")
-                else:
-                    warnings.append("No analysis commands in timeline")
-        else:
-            checks['has_timeline_support'] = None
-    
-    # Phase 3: 分析深度（启发式检查）
-    if phase in ('all', 'depth'):
-        # Check 是否包含文档引用
-        has_doc_ref = 'debug/' in result_text or '.md' in result_text
-        checks['has_document_reference'] = has_doc_ref
-        
-        # Check 是否包含因果词
-        causal_words = ['根因', '原因', '导致', '因为', 'caused by', 'root cause', 
-                       '排除', 'verified', 'confirmed', 'identified']
-        has_causal = any(word in result_text.lower() for word in causal_words)
-        checks['has_causal_analysis'] = has_causal
-        
-        if not has_causal and len(result_text) < 50:
-            warnings.append("Result lacks causal analysis")
-    
-    # 确定最终状态
-    if failures:
-        status = 'failed'
-    elif warnings:
-        status = 'warning'
-    else:
-        status = 'passed'
-    
-    return {
-        "id": issue_id,
-        "desc": issue.get('desc', ''),
-        "status": status,
-        "checks": checks,
-        "failures": failures,
-        "warnings": warnings,
-        "action_required": "Reopen and add analysis" if status == 'failed' else None
-    }
-
-
-def _print_audit_report(report: Dict, cfg: RiskDisplayConfig, output_path: str = None):
-    """打印审计报告（文本格式）"""
-    lines = []
-    
-    # Header
-    lines.append("=" * 65)
-    lines.append("AUDIT REPORT")
-    lines.append("=" * 65)
-    lines.append(f"Audit Time: {report['audit_time']}")
-    lines.append("")
-    
-    # Summary
-    summary = report['summary']
-    lines.append("SUMMARY")
-    lines.append("-" * 65)
-    lines.append(f"Total Issues: {summary['total_issues']}")
-    lines.append(f"  ✅ Passed:   {summary['passed']}")
-    lines.append(f"  ⚠️  Warnings: {summary['warnings']}")
-    lines.append(f"  ❌ Failed:   {summary['failed']}")
-    lines.append(f"Pass Rate: {summary['passed']/summary['total_issues']*100:.1f}%")
-    lines.append("")
-    
-    # Failed Issues
-    failed_issues = [i for i in report['issues'] if i['status'] == 'failed']
-    if failed_issues:
-        lines.append("FAILED ISSUES (Action Required)")
-        lines.append("-" * 65)
-        for issue in failed_issues:
-            color = cfg.colors.get('critical', '')
-            reset = cfg.colors.get('reset', '')
-            lines.append(f"{color}[FAIL] {issue['id']}: {issue['desc']}{reset}")
-            for failure in issue['failures']:
-                lines.append(f"  └─ {failure}")
-            if issue['action_required']:
-                lines.append(f"  → Action: {issue['action_required']}")
-            lines.append("")
-    
-    # Warning Issues
-    warning_issues = [i for i in report['issues'] if i['status'] == 'warning']
-    if warning_issues:
-        lines.append("WARNINGS (Recommended to Improve)")
-        lines.append("-" * 65)
-        for issue in warning_issues:
-            color = cfg.colors.get('warning', '')
-            reset = cfg.colors.get('reset', '')
-            lines.append(f"{color}[WARN] {issue['id']}: {issue['desc']}{reset}")
-            for warning in issue['warnings']:
-                lines.append(f"  └─ {warning}")
-            lines.append("")
-    
-    # Passed Issues
-    passed_issues = [i for i in report['issues'] if i['status'] == 'passed']
-    if passed_issues:
-        lines.append("PASSED ISSUES")
-        lines.append("-" * 65)
-        for issue in passed_issues:
-            lines.append(f"[PASS] {issue['id']}: {issue['desc']}")
-        lines.append("")
-    
-    # Footer
-    lines.append("=" * 65)
-    if failed_issues:
-        lines.append("AUDIT FAILED - Fix issues before finalize")
-        lines.append("Command: shecr trace reopen --all --reason 'audit failed'")
-    elif warning_issues:
-        lines.append("AUDIT PASSED with warnings")
-    else:
-        lines.append("AUDIT PASSED - All issues meet quality standards")
-    lines.append("=" * 65)
-    
-    content = '\n'.join(lines)
-    
-    if output_path:
-        with open(output_path, 'w') as f:
-            f.write(content)
-        print(f"[AUDIT REPORT SAVED] {output_path}")
-    else:
-        print(content)
-    
-    return content
