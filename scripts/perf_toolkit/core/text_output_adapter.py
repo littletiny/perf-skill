@@ -778,48 +778,6 @@ class CustomTemplate(Template):
                         lines.append(f"  - Page Fault: {pf}/s")
                 lines.append("")
         
-        # 进程分层
-        hierarchy = data_dict.get('process_hierarchy', {})
-        if hierarchy:
-            lines.append(OutputDefaults.PROCESS_HIERARCHY_HEADER)
-            lines.append("")
-            
-            primary = hierarchy.get('primary_suspect')
-            if primary:
-                tree_branch = OutputDefaults.TREE_BRANCH
-                tree_end = OutputDefaults.TREE_END
-                lines.append(f"{AttentionFlag.X0} {OutputDefaults.PRIMARY_SUSPECT_LABEL}:")
-                lines.append(f"  {tree_branch} Comm: {primary.get('comm', OutputDefaults.NA)}")
-                lines.append(f"  {tree_branch} CPU: {primary.get('total_cpu', 0):.2f}%")
-                lines.append(f"  {tree_branch} Diagnosis: {primary.get('diagnosis', OutputDefaults.NA)}")
-                lines.append(f"  {tree_branch} Monopoly: {primary.get('monopoly', 0):.2f}  ({AttentionFlag.X0} {OutputDefaults.ASSESSMENT_SATURATED})")
-                lines.append(f"  {tree_end} Impact Score: {primary.get('impact_score', 0):.2f}")
-                lines.append("")
-            
-            secondary = hierarchy.get('secondary_loads', [])
-            if secondary:
-                tree_branch = OutputDefaults.TREE_BRANCH
-                lines.append(f"{AttentionFlag.X1} {OutputDefaults.SECONDARY_LOADS_LABEL}:")
-                for load in secondary:
-                    comm = load.get('comm', OutputDefaults.NA)
-                    cpu = load.get('total_cpu', 0)
-                    diagnosis = load.get('diagnosis', OutputDefaults.NA)
-                    spawn_rate = load.get('spawn_rate', 0)
-                    if diagnosis == DiagnosisType.STORM:
-                        lines.append(f"  {tree_branch} {comm}: {cpu:.2f}% ({DiagnosisType.STORM}: {spawn_rate:.1f}/s)")
-                    else:
-                        lines.append(f"  {tree_branch} {comm}: {cpu:.2f}% ({diagnosis})")
-                lines.append("")
-            
-            background = hierarchy.get('background_noise')
-            if background:
-                tree_end = OutputDefaults.TREE_END
-                count = background.get('count', 0)
-                cpu = background.get('total_cpu', 0)
-                lines.append(f"{OutputDefaults.BACKGROUND_NOISE_LABEL}:")
-                lines.append(f"  {tree_end} others ({count} procs): {cpu:.1f}% (已折叠)")
-                lines.append("")
-        
         # Top N 合并显示 - 交错合并 Total 和 Sys 列表
         top_by_total = data_dict.get('top_by_total_cpu', [])
         top_by_sys = data_dict.get('top_by_sys_cpu', [])
