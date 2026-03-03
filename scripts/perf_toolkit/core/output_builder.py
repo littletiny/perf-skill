@@ -272,7 +272,7 @@ class OutputBuilder:
         
         # 创建风险输出
         risk_info = RiskInfo(
-            level=SeverityLevel.WARNING.lower(),
+            level=SeverityLevel.MEDIUM.lower(),
             message="未找到样本数据",
             hint="[必须] 添加到 Trace: shecr trace add --desc '未找到样本数据' --hint '检查过滤条件'",
             patterns=[RiskPattern.NO_SAMPLES]
@@ -288,7 +288,7 @@ class OutputBuilder:
             available_range=self.engine.get_time_range(),
             filters=filters or {}
         )
-        print(self.adapter.to_json(result))
+        print(self.adapter.format_output(result))
         return True
 
     def assess_quality(self, samples: List[Dict] = None,

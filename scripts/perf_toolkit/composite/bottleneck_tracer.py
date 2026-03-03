@@ -32,7 +32,7 @@ from scripts.perf_toolkit.analysis.facade import AnalysisFacade
 from scripts.perf_toolkit.composite.bottleneck_trace import (
     BottleneckTracer, BottleneckAnalysis, HotspotsReport, CallersReport
 )
-from config.defaults import DiagnosisType, Thresholds
+from config.defaults import DiagnosisType, Thresholds, StringConstants, DiagnosisThresholds
 
 
 # =============================================================================
@@ -270,13 +270,13 @@ class BottleneckTraceAdapter:
             str: "Fixed" / "Uniform" / "Scattered"
         """
         if not distribution:
-            return "Scattered"
+            return StringConstants.AFFINITY_SCATTERED
         
         values = list(distribution.values())
         total = sum(values)
         
         if total == 0:
-            return "Scattered"
+            return StringConstants.AFFINITY_SCATTERED
         
         # 计算概率分布
         probs = [v / total for v in values]
@@ -295,13 +295,13 @@ class BottleneckTraceAdapter:
         
         # 判定模式
         # Fixed: 低熵(高度集中), 高垄断度
-        if entropy < 1.0 and monopoly > 0.7:
-            return "Fixed"
+        if entropy < 1.0 and monopoly > Thresholds.MONOPOLY_HIGH:
+            return StringConstants.AFFINITY_FIXED
         # Uniform: 高熵(分布均匀), 低变异系数
-        elif entropy > 1.8 and cv < 0.5:
-            return "Uniform"
+        elif entropy > 1.8 and cv < Thresholds.CV_AFFINITY_UNIFORM:
+            return StringConstants.AFFINITY_UNIFORM
         else:
-            return "Scattered"
+            return StringConstants.AFFINITY_SCATTERED
     
     def _detect_correlation_flags_from_reports(self, 
                                                 bottleneck_analysis: BottleneckAnalysis,
@@ -329,16 +329,14 @@ class BottleneckTraceAdapter:
         monopoly = bottleneck_analysis.monopoly
         total_cpu = bottleneck_analysis.total_cpu
         
-        # 1. GLOBAL_LOCK_CONTENTION: 全局锁符号 inclusive% > 40%
-        lock_symbols = ['_raw_spin_lock', 'mutex_lock', 'rwsem_down_read',
-                       'spin_lock', 'queue_spin_lock']
+        # 1. GLOBAL_LOCK_CONTENTION: 全局锁符号 inclusive% > LOCK_CONTENTION_INCLUSIVE_PCT
         if hotspots_report and hotspots_report.hotspots:
             for hotspot in hotspots_report.hotspots:
                 symbol = hotspot.symbol if hasattr(hotspot, 'symbol') else ""
                 inclusive_pct = hotspot.inclusive_percent if hasattr(hotspot, 'inclusive_percent') else 0
                 
-                if any(ls in symbol for ls in lock_symbols):
-                    if inclusive_pct > 40:
+                if any(ls in symbol for ls in StringConstants.GLOBAL_LOCK_SYMBOLS):
+                    if inclusive_pct > Thresholds.LOCK_CONTENTION_INCLUSIVE_PCT:
                         flags.append(CorrelationFlag(
                             flag_type="GLOBAL_LOCK_CONTENTION",
                             target=symbol,
@@ -346,9 +344,9 @@ class BottleneckTraceAdapter:
                             severity="critical"
                         ))
         
-        # 2. SINGLE_CORE_SATURATION: 单核利用率 > 90% 且 Monopoly > 0.8
+        # 2. SINGLE_CORE_SATURATION: 单核利用率 > 90% 且 Monopoly > MONOPOLY_HIGH
         for core_stat in core_dist_result.saturated_cores:
-            if core_stat.total_cpu > 90 and monopoly > 0.8:
+            if core_stat.total_cpu > Thresholds.AFFINITY_FIXED_CPU_MIN and monopoly > Thresholds.MONOPOLY_HIGH:
                 flags.append(CorrelationFlag(
                     flag_type="SINGLE_CORE_SATURATION",
                     target=f"Core_{core_stat.cpu_id}",
@@ -358,9 +356,9 @@ class BottleneckTraceAdapter:
                 ))
         
         # 3. THROTTLE_VICTIM: 基于高 Monopoly 和低 CPU 推断
-        if monopoly > 0.8 and total_cpu < 80:
+        if monopoly > Thresholds.MONOPOLY_HIGH and total_cpu < Thresholds.THROTTLE_VICTIM_CPU_MAX:
             throttle_rate = 100 - total_cpu
-            if throttle_rate > 50:
+            if throttle_rate > Thresholds.THROTTLE_RATE_MIN:
                 flags.append(CorrelationFlag(
                     flag_type="THROTTLE_VICTIM",
                     target=comm,
@@ -371,7 +369,7 @@ class BottleneckTraceAdapter:
         # 4. STORM_PATTERN: 从 comm_top_result 查找
         for group in comm_top_result.groups:
             if group.comm == comm:
-                if group.spawn_rate > 100 or group.pid_count > 1000:
+                if group.spawn_rate > DiagnosisThresholds.STORM_RATE_MIN or group.pid_count > DiagnosisThresholds.STORM_PID_COUNT_MIN:
                     flags.append(CorrelationFlag(
                         flag_type="STORM_PATTERN",
                         target=comm,
@@ -381,9 +379,9 @@ class BottleneckTraceAdapter:
                     ))
                 break
         
-        # 5. KERNEL_HEAVY: 内核态占比 > 50%
+        # 5. KERNEL_HEAVY: 内核态占比 > KERNEL_RATIO_HIGH
         kernel_ratio = bottleneck_analysis.kernel_ratio
-        if kernel_ratio > 50:
+        if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
             flags.append(CorrelationFlag(
                 flag_type="KERNEL_HEAVY",
                 target=comm,
@@ -391,9 +389,9 @@ class BottleneckTraceAdapter:
                 severity="warning"
             ))
         
-        # 6. UNBALANCED_LOAD: CV > 1.5 且 Monopoly < 0.5
+        # 6. UNBALANCED_LOAD: CV > CV_UNBALANCED_LOAD 且 Monopoly < MONOPOLY_HIGH
         cv = bottleneck_analysis.cv
-        if cv > 1.5 and monopoly < 0.5:
+        if cv > Thresholds.CV_UNBALANCED_LOAD and monopoly < Thresholds.MONOPOLY_HIGH:
             flags.append(CorrelationFlag(
                 flag_type="UNBALANCED_LOAD",
                 target=comm,
@@ -420,18 +418,16 @@ class BottleneckTraceAdapter:
         hotspot_symbol = hotspot.symbol.lower() if hasattr(hotspot, 'symbol') else ""
         
         # Lock_Contention: 热点为 lock/mutex/spinlock
-        lock_keywords = ['lock', 'mutex', 'spin', 'rwsem', 'semaphore']
-        if any(k in hotspot_symbol for k in lock_keywords):
-            return "Lock_Contention"
+        if any(k in hotspot_symbol for k in StringConstants.LOCK_KEYWORDS):
+            return StringConstants.CHAR_LOCK_CONTENTION
         
         # IO_Wait_Dominant: io_schedule 高频
-        if 'io_schedule' in hotspot_symbol or 'io_schedule' in path_str:
-            return "IO_Wait_Dominant"
+        if any(k in hotspot_symbol for k in StringConstants.IO_KEYWORDS) or any(k in path_str for k in StringConstants.IO_KEYWORDS):
+            return StringConstants.CHAR_IO_WAIT
         
         # Syscall_Bound: 系统调用密集
-        syscall_keywords = ['syscall', 'sys_', 'entry_syscall']
-        if any(k in path_str for k in syscall_keywords):
-            return "Syscall_Bound"
+        if any(k in path_str for k in StringConstants.SYSCALL_KEYWORDS):
+            return StringConstants.CHAR_SYSCALL_BOUND
         
         # 获取 inclusive_percent 和 cpu_percent (self)
         inclusive_pct = getattr(hotspot, 'inclusive_percent', 0)
@@ -439,13 +435,13 @@ class BottleneckTraceAdapter:
         
         # Inclusive_Latency_Victim: 等待资源/锁 (inclusive >> self)
         if inclusive_pct > self_pct * 3:
-            return "Inclusive_Latency_Victim"
+            return StringConstants.CHAR_LATENCY_VICTIM
         
         # High_Frequency_Exclusive_CPU: 高频独占 (self >> inclusive)
         if self_pct > inclusive_pct * 2:
-            return "High_Frequency_Exclusive_CPU"
+            return StringConstants.CHAR_HIGH_FREQ_CPU
         
-        return "COMPUTE"
+        return StringConstants.CHAR_COMPUTE
     
     def _find_common_hotspot(self, clusters: List[CallPathCluster],
                              hotspots: List[Hotspot]) -> Tuple[str, float]:
@@ -596,8 +592,8 @@ class BottleneckTraceAdapter:
             
             # 计算节流率（简化：基于 Monopoly 和 CPU 利用率推断）
             throttle_rate = 0.0
-            if group.monopoly > 0.8 and group.total_cpu < 90:
-                throttle_rate = 90 - group.total_cpu
+            if group.monopoly > Thresholds.MONOPOLY_HIGH and group.total_cpu < Thresholds.AFFINITY_THROTTLE_INFER_CPU_MAX:
+                throttle_rate = Thresholds.AFFINITY_THROTTLE_INFER_CPU_MAX - group.total_cpu
             
             distribution.append(EntityDistribution(
                 comm=group.comm,
@@ -645,7 +641,7 @@ class BottleneckTraceAdapter:
                     hotspot = hotspots_report.hotspots[0].symbol
             
             # 推断路径特征
-            characteristic = "COMPUTE"
+            characteristic = StringConstants.CHAR_COMPUTE
             if hotspots_report and hotspots_report.hotspots:
                 for h in hotspots_report.hotspots:
                     if h.symbol == hotspot:
@@ -669,7 +665,7 @@ class BottleneckTraceAdapter:
                 
                 # 查找关联热点
                 hotspot = callers_report.target if hasattr(callers_report, 'target') else ""
-                characteristic = "COMPUTE"
+                characteristic = StringConstants.CHAR_COMPUTE
                 if hotspots_report and hotspots_report.hotspots:
                     for h in hotspots_report.hotspots:
                         if h.symbol == hotspot:

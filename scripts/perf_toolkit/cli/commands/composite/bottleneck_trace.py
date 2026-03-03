@@ -14,7 +14,13 @@ from typing import Optional, List, Dict, Any, TYPE_CHECKING
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-from config.defaults import DiagnosisType
+from config.defaults import (
+    DiagnosisType,
+    Thresholds,
+    StringConstants,
+    EventConfig,
+    DiagnosisThresholds,
+)
 
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.models import RiskInfo, TimeRange
@@ -41,6 +47,20 @@ if TYPE_CHECKING:
     from argparse import Namespace
 
 
+def _get_comm_by_pid(samples: List[Dict[str, Any]], pid: int) -> Optional[str]:
+    """从样本中根据 PID 查找进程名"""
+    for s in samples:
+        if isinstance(s, dict):
+            s_pid = s.get('pid')
+            if str(s_pid) == str(pid):
+                return s.get('comm')
+        elif hasattr(s, 'pid'):
+            s_pid = getattr(s, 'pid', None)
+            if str(s_pid) == str(pid):
+                return getattr(s, 'comm', None)
+    return None
+
+
 def _convert_to_entity_distribution(
     bottleneck: BottleneckAnalysis,
     hotspots_report: HotspotsReport
@@ -59,16 +79,17 @@ def _convert_to_entity_distribution(
         return []
     
     # 计算核心亲缘性
-    if bottleneck.monopoly > 0.8:
-        core_affinity = "Fixed"
-    elif bottleneck.cv < 0.5:
-        core_affinity = "Uniform"
+    if bottleneck.monopoly > Thresholds.MONOPOLY_HIGH:
+        core_affinity = StringConstants.AFFINITY_FIXED
+    elif bottleneck.cv < Thresholds.CV_AFFINITY_UNIFORM:
+        core_affinity = StringConstants.AFFINITY_UNIFORM
     else:
-        core_affinity = "Scattered"
+        core_affinity = StringConstants.AFFINITY_SCATTERED
     
     # 计算节流率（基于高 Monopoly 和低 CPU 推断）
     throttle_rate = 0.0
-    if bottleneck.monopoly > 0.8 and bottleneck.total_cpu < 90:
+    if (bottleneck.monopoly > Thresholds.MONOPOLY_HIGH and 
+        bottleneck.total_cpu < Thresholds.AFFINITY_THROTTLE_INFER_CPU_MAX):
         throttle_rate = 100.0 - bottleneck.total_cpu
     
     # 获取显著度
@@ -113,17 +134,18 @@ def _convert_to_call_path_clusters(
     # 从热点构建聚类
     for i, hs in enumerate(hotspots_report.hotspots[:5]):
         # 推断路径特征
-        characteristic = "COMPUTE"
-        if any(k in hs.symbol.lower() for k in ['lock', 'mutex', 'spin', 'rwsem']):
-            characteristic = "Lock_Contention"
-        elif 'io_schedule' in hs.symbol.lower():
-            characteristic = "IO_Wait_Dominant"
-        elif any(k in hs.symbol.lower() for k in ['syscall', 'sys_', 'entry_syscall']):
-            characteristic = "Syscall_Bound"
+        characteristic = StringConstants.CHAR_COMPUTE
+        symbol_lower = hs.symbol.lower()
+        if any(k in symbol_lower for k in StringConstants.LOCK_KEYWORDS):
+            characteristic = StringConstants.CHAR_LOCK_CONTENTION
+        elif any(k in symbol_lower for k in StringConstants.IO_KEYWORDS):
+            characteristic = StringConstants.CHAR_IO_WAIT
+        elif any(k in symbol_lower for k in StringConstants.SYSCALL_KEYWORDS):
+            characteristic = StringConstants.CHAR_SYSCALL_BOUND
         elif hs.inclusive_percent > hs.cpu_percent * 3:
-            characteristic = "Inclusive_Latency_Victim"
+            characteristic = StringConstants.CHAR_LATENCY_VICTIM
         elif hs.cpu_percent > hs.inclusive_percent * 2:
-            characteristic = "High_Frequency_Exclusive_CPU"
+            characteristic = StringConstants.CHAR_HIGH_FREQ_CPU
         
         clusters.append(CallPathCluster(
             cluster_id=f"hotspot_{i}",
@@ -145,7 +167,7 @@ def _convert_to_call_path_clusters(
                 weight=caller.call_ratio if hasattr(caller, 'call_ratio') else 0.0,
                 path=path,
                 hotspot=callers_report.target if hasattr(callers_report, 'target') else "",
-                characteristic="COMPUTE"
+                characteristic=StringConstants.CHAR_COMPUTE
             ))
     
     # 按权重排序，返回前8个
@@ -177,15 +199,13 @@ def _detect_correlation_flags(
     comm = bottleneck.comm
     
     # 1. GLOBAL_LOCK_CONTENTION: 全局锁符号 inclusive% > 40%
-    lock_symbols = ['_raw_spin_lock', 'mutex_lock', 'rwsem_down_read',
-                   'spin_lock', 'queue_spin_lock']
     if hotspots_report.hotspots:
         for hs in hotspots_report.hotspots:
             symbol = hs.symbol if hasattr(hs, 'symbol') else ""
             inclusive_pct = hs.inclusive_percent if hasattr(hs, 'inclusive_percent') else 0
             
-            if any(ls in symbol for ls in lock_symbols) or any(k in symbol.lower() for k in ['lock', 'mutex', 'spin']):
-                if inclusive_pct > 40:
+            if any(ls in symbol for ls in StringConstants.GLOBAL_LOCK_SYMBOLS) or any(k in symbol.lower() for k in StringConstants.LOCK_KEYWORDS):
+                if inclusive_pct > Thresholds.LOCK_CONTENTION_INCLUSIVE_PCT:
                     flags.append(CorrelationFlag(
                         flag_type="GLOBAL_LOCK_CONTENTION",
                         target=symbol,
@@ -194,7 +214,7 @@ def _detect_correlation_flags(
                     ))
     
     # 2. SINGLE_CORE_SATURATION: Monopoly > 0.8
-    if bottleneck.monopoly > 0.8:
+    if bottleneck.monopoly > Thresholds.MONOPOLY_HIGH:
         flags.append(CorrelationFlag(
             flag_type="SINGLE_CORE_SATURATION",
             target=comm,
@@ -203,7 +223,8 @@ def _detect_correlation_flags(
         ))
     
     # 3. THROTTLE_VICTIM: 高 Monopoly 和低 CPU
-    if bottleneck.monopoly > 0.8 and bottleneck.total_cpu < 80:
+    if (bottleneck.monopoly > Thresholds.MONOPOLY_HIGH and 
+        bottleneck.total_cpu < Thresholds.THROTTLE_VICTIM_CPU_MAX):
         throttle_rate = 100 - bottleneck.total_cpu
         flags.append(CorrelationFlag(
             flag_type="THROTTLE_VICTIM",
@@ -213,7 +234,8 @@ def _detect_correlation_flags(
         ))
     
     # 4. STORM_PATTERN: 进程风暴
-    if bottleneck.diagnosis == DiagnosisType.STORM or bottleneck.spawn_rate > 100:
+    if (bottleneck.diagnosis == DiagnosisType.STORM or 
+        bottleneck.spawn_rate > Thresholds.STORM_SPAWN_RATE):
         flags.append(CorrelationFlag(
             flag_type="STORM_PATTERN",
             target=comm,
@@ -222,7 +244,7 @@ def _detect_correlation_flags(
         ))
     
     # 5. KERNEL_HEAVY: 内核态占比 > 50%
-    if bottleneck.kernel_ratio > 50:
+    if bottleneck.kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
         flags.append(CorrelationFlag(
             flag_type="KERNEL_HEAVY",
             target=comm,
@@ -231,7 +253,8 @@ def _detect_correlation_flags(
         ))
     
     # 6. UNBALANCED_LOAD: CV > 1.5 且 Monopoly < 0.5
-    if bottleneck.cv > 1.5 and bottleneck.monopoly < 0.5:
+    if (bottleneck.cv > Thresholds.CV_UNBALANCED_LOAD and 
+        bottleneck.monopoly < Thresholds.MONOPOLY_HIGH):
         flags.append(CorrelationFlag(
             flag_type="UNBALANCED_LOAD",
             target=comm,
@@ -318,11 +341,70 @@ def cmd_bottleneck_trace(
         --comm: 指定目标进程（可选，未指定时自动识别）
     """
     target_comm = getattr(args, 'comm', None)
+    target_pid = getattr(args, 'pid', None)
     top_n = getattr(args, 'top_n', 10)
     
     facade = AnalysisFacade(engine)
     
     # ========== Phase 1: 识别瓶颈 ==========
+    
+    # 如果指定了 PID 但没有指定 comm，尝试推导 comm
+    if target_pid and not target_comm:
+        target_comm = _get_comm_by_pid(samples, target_pid)
+        if not target_comm:
+            from perf_toolkit.core.output_models import RiskInfo
+            risk = RiskInfo(
+                level="error",
+                message=f"无法找到 PID {target_pid} 对应的进程名",
+                hint="请检查 PID 是否正确，或同时使用 --comm 指定进程名"
+            )
+            
+            return BottleneckTraceResult(
+                _risk=risk,
+                entity_distribution=[],
+                common_hotspot="",
+                common_hotspot_weight=0.0,
+                clusters=[],
+                correlation_flags=[],
+                total_pids=0,
+                total_sys_cpu=0.0,
+                top_bottlenecks=[],
+                duration_sec=0.0,
+                sample_count=len(samples),
+                time_range=TimeRange.from_timestamps(
+                    samples[0].get('ts') if samples and isinstance(samples[0], dict) else None,
+                    samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
+                )
+            )
+    
+    # 如果同时指定了 comm 和 pid，验证 pid 是否属于该 comm
+    if target_pid and target_comm:
+        derived_comm = _get_comm_by_pid(samples, target_pid)
+        if derived_comm and derived_comm != target_comm:
+            from perf_toolkit.core.output_models import RiskInfo
+            risk = RiskInfo(
+                level="warning",
+                message=f"PID {target_pid} 对应的进程名是 {derived_comm}，与指定的 --comm {target_comm} 不匹配",
+                hint="请检查 PID 和进程名是否正确"
+            )
+            
+            return BottleneckTraceResult(
+                _risk=risk,
+                entity_distribution=[],
+                common_hotspot="",
+                common_hotspot_weight=0.0,
+                clusters=[],
+                correlation_flags=[],
+                total_pids=0,
+                total_sys_cpu=0.0,
+                top_bottlenecks=[],
+                duration_sec=0.0,
+                sample_count=len(samples),
+                time_range=TimeRange.from_timestamps(
+                    samples[0].get('ts') if samples and isinstance(samples[0], dict) else None,
+                    samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
+                )
+            )
     
     if not target_comm:
         # 自动识别瓶颈进程
@@ -359,14 +441,14 @@ def cmd_bottleneck_trace(
     
     # ========== Phase 3: 热点分析 ==========
     
-    hotspots_result = facade.analyze_hotspots(samples, comm=target_comm, top_n=top_n)
+    hotspots_result = facade.analyze_hotspots(samples, comm=target_comm, pid=target_pid, top_n=top_n)
     hotspots_report = _convert_hotspots_result(hotspots_result)
 
     # ========== Phase 4: 调用链溯源 ==========
 
     callers_report: Optional[CallersReport] = None
     if hotspots_report.top_symbol:
-        callers_result = facade.analyze_callers(samples, target_symbol=hotspots_report.top_symbol, comm=target_comm)
+        callers_result = facade.analyze_callers(samples, target_symbol=hotspots_report.top_symbol, comm=target_comm, pid=target_pid)
         callers_report = _convert_callers_result(callers_result)
     
     # ========== Phase 5: 构建四段式输出结果 ==========

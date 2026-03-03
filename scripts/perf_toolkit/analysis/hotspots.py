@@ -188,8 +188,8 @@ def cmd_get_hotspots(builder, engine, args, samples):
             shown_hotspots=len(hotspots)
         ),
         time_range=TimeRange.from_timestamps(
-            samples[0].ts if samples else None if samples else None,
-            samples[-1].ts if len(samples) > 1 else None if len(samples) > 1 else None
+            samples[0].ts if samples else None,
+            samples[-1].ts if len(samples) > 1 else None
         )
     )
     

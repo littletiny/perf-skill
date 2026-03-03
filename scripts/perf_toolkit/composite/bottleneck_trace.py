@@ -68,7 +68,8 @@ class BottleneckTracer:
         self._aggregator = RiskAggregator()
     
     def trace(self, samples: List[Dict],
-              target_comm: Optional[str] = None) -> Tuple[BottleneckAnalysis, 
+              target_comm: Optional[str] = None,
+              target_pid: Optional[int] = None) -> Tuple[BottleneckAnalysis, 
                                                          HotspotsReport,
                                                          Optional[CallersReport]]:
         """
@@ -77,12 +78,17 @@ class BottleneckTracer:
         Args:
             samples: 样本数据
             target_comm: 可选，指定目标进程。如为 None，自动识别瓶颈进程
+            target_pid: 可选，指定目标 PID。如指定，只分析该 PID 的数据
             
         Returns:
             Tuple[BottleneckAnalysis, HotspotsReport, Optional[CallersReport]]:
                 瓶颈分析结果、热点报告、调用链报告（可选）
         """
-        # 1. 自动识别或验证目标进程
+        # 1. 如果指定了 target_pid，先过滤样本
+        if target_pid is not None:
+            samples = self._filter_samples_by_pid(samples, target_pid)
+        
+        # 2. 自动识别或验证目标进程
         if not target_comm:
             target_comm = self._find_bottleneck_comm(samples)
         
@@ -101,20 +107,26 @@ class BottleneckTracer:
                 None
             )
         
-        # 2. 分析瓶颈特征
-        bottleneck = self._analyze_bottleneck(samples, target_comm)
+        # 3. 分析瓶颈特征
+        bottleneck = self._analyze_bottleneck(samples, target_comm, pid=target_pid)
         
-        # 3. 热点函数分析
-        hotspots_result = self._facade.analyze_hotspots(samples, comm=target_comm)
+        # 4. 热点函数分析
+        hotspots_result = self._facade.analyze_hotspots(
+            samples,
+            comm=target_comm,
+            pid=target_pid,
+            top_n=10
+        )
         hotspots_report = _convert_hotspots_result(hotspots_result)
 
-        # 4. 调用链溯源（如果热点明确）
+        # 5. 调用链溯源（如果热点明确）
         callers_report = None
         if hotspots_report.top_symbol:
             callers_result = self._facade.analyze_callers(
                 samples,
                 target_symbol=hotspots_report.top_symbol,
-                comm=target_comm
+                comm=target_comm,
+                pid=target_pid
             )
             callers_report = _convert_callers_result(callers_result)
         
@@ -128,6 +140,19 @@ class BottleneckTracer:
         bottleneck.risks = list(self._aggregator._risks)
         
         return bottleneck, hotspots_report, callers_report
+    
+    def _filter_samples_by_pid(self, samples: List[Dict], pid: int) -> List[Dict]:
+        """
+        按 PID 过滤样本
+        
+        Args:
+            samples: 样本数据
+            pid: 目标 PID
+            
+        Returns:
+            List[Dict]: 只包含指定 PID 的样本
+        """
+        return [s for s in samples if str(s.get('pid', '')) == str(pid)]
     
     def _find_bottleneck_comm(self, samples: List[Dict]) -> Optional[str]:
         """
@@ -180,13 +205,14 @@ class BottleneckTracer:
         
         return None
     
-    def _analyze_bottleneck(self, samples: List[Dict], comm: str) -> BottleneckAnalysis:
+    def _analyze_bottleneck(self, samples: List[Dict], comm: str, pid: Optional[int] = None) -> BottleneckAnalysis:
         """
         分析指定进程的瓶颈特征
         
         Args:
             samples: 样本数据
             comm: 目标进程名
+            pid: 可选，目标 PID
             
         Returns:
             BottleneckAnalysis: 瓶颈分析结果
@@ -305,7 +331,7 @@ def _find_bottleneck_comm(facade: AnalysisFacade, samples) -> Optional[str]:
     return None
 
 
-def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> BottleneckAnalysis:
+def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str, pid: Optional[int] = None) -> BottleneckAnalysis:
     """分析指定进程的瓶颈特征"""
     from perf_toolkit.analysis.comm_top import CommTopAnalyzer
     

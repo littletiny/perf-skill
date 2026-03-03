@@ -274,6 +274,109 @@ class Thresholds:
     # -------------------------------------------------------------------------
     Z_SCORE_MEDIUM = 2.0            # 中等异常 Z-Score
     Z_SCORE_HIGH = 2.5              # 高异常 Z-Score
+    
+    # -------------------------------------------------------------------------
+    # Core Affinity & Throttle Detection
+    # -------------------------------------------------------------------------
+    CV_AFFINITY_UNIFORM = 0.5       # Core Affinity: Uniform 阈值
+    CV_UNBALANCED_LOAD = 1.5        # UNBALANCED_LOAD flag 阈值
+    AFFINITY_FIXED_CPU_MIN = 90.0   # Fixed 需要 CPU > 90%
+    AFFINITY_THROTTLE_INFER_CPU_MAX = 90.0  # 节流推断: CPU < 90
+    
+    # -------------------------------------------------------------------------
+    # Correlation Flags 阈值 (bottleneck-trace)
+    # -------------------------------------------------------------------------
+    LOCK_CONTENTION_INCLUSIVE_PCT = 40.0    # GLOBAL_LOCK_CONTENTION 阈值
+    THROTTLE_VICTIM_CPU_MAX = 80.0          # THROTTLE_VICTIM: CPU < 80
+    THROTTLE_RATE_MIN = 50.0                # 节流率 > 50%
+    STORM_SPAWN_RATE = 100.0                # STORM_PATTERN 产生速率阈值
+
+
+# =============================================================================
+# Event Configuration - 事件命名和格式统一配置
+# =============================================================================
+
+@dataclass(frozen=True)
+class EventConfig:
+    """Event 配置 - 统一事件命名和格式"""
+    
+    # Event 类型标识
+    BOTTLENECK_MARKER = "M"           # Monopoly 标记
+    STORM_MARKER = "RATE"             # Spawn rate 标记  
+    UNBALANCED_MARKER = "CV"          # CV 标记
+    
+    # Event 格式模板
+    BOTTLENECK_FORMAT = "{type}({marker}={value:.4f})"
+    STORM_FORMAT = "{type}({value:.1f}/s)"
+    UNBALANCED_FORMAT = "{type}({marker}={value:.4f})"
+    NORMAL_FORMAT = "normal"
+    
+    # Event 检测配置
+    STORM_RATE_THRESHOLD = 100.0      # 风暴速率阈值 (/s)
+    STORM_RATE_DISPLAY_UNIT = "/s"    # 显示单位
+
+
+# =============================================================================
+# Diagnosis Thresholds - 诊断阈值配置
+# =============================================================================
+
+@dataclass(frozen=True)
+class DiagnosisThresholds:
+    """诊断阈值配置"""
+    
+    # Monopoly 诊断
+    BOTTLENECK_MONOPOLY_MIN = 0.8
+    
+    # Storm 诊断  
+    STORM_RATE_MIN = 100.0            # 与 EventConfig.STORM_RATE_THRESHOLD 一致
+    STORM_PID_COUNT_MIN = 1000        # 进程数阈值
+    
+    # Unbalanced 诊断
+    UNBALANCED_CV_MIN = 1.0
+
+
+# =============================================================================
+# String Constants - 字符串常量统一配置
+# =============================================================================
+
+@dataclass(frozen=True)
+class StringConstants:
+    """字符串常量 - 避免代码中硬编码字符串"""
+    
+    # ==========================================================================
+    # Core Affinity 值
+    # ==========================================================================
+    AFFINITY_FIXED = "Fixed"
+    AFFINITY_UNIFORM = "Uniform"
+    AFFINITY_SCATTERED = "Scattered"
+    
+    # ==========================================================================
+    # Path Characteristic 值
+    # ==========================================================================
+    CHAR_COMPUTE = "COMPUTE"
+    CHAR_LOCK_CONTENTION = "Lock_Contention"
+    CHAR_IO_WAIT = "IO_Wait_Dominant"
+    CHAR_SYSCALL_BOUND = "Syscall_Bound"
+    CHAR_LATENCY_VICTIM = "Inclusive_Latency_Victim"
+    CHAR_HIGH_FREQ_CPU = "High_Frequency_Exclusive_CPU"
+    
+    # ==========================================================================
+    # 符号检测关键词 (小写，用于 in 检查)
+    # ==========================================================================
+    LOCK_KEYWORDS = ["lock", "mutex", "spin", "rwsem"]
+    IO_KEYWORDS = ["io_schedule"]
+    SYSCALL_KEYWORDS = ["syscall", "sys_", "entry_syscall"]
+    
+    # ==========================================================================
+    # 全局锁符号列表
+    # ==========================================================================
+    GLOBAL_LOCK_SYMBOLS = [
+        "_raw_spin_lock",
+        "mutex_lock", 
+        "rwsem_down_read",
+        "spin_lock",
+        "queue_spin_lock"
+    ]
 
 
 # =============================================================================
@@ -343,6 +446,34 @@ class SamplingDefaults:
     DEFAULT_WINDOW_SIZE = 1.0       # 默认窗口大小 (秒)
     DEFAULT_SPIKE_THRESHOLD = 0.5   # 默认突变阈值
     DEFAULT_MIN_UTILIZATION = 0.3   # 默认最小利用率
+
+
+# =============================================================================
+# CallChain Format Configuration
+# =============================================================================
+
+@dataclass(frozen=True)
+class CallChainFormat:
+    """CallChain 输出格式配置"""
+    
+    # 分隔符
+    SEPARATOR_TOP_DOWN = " -> "      # 正向: 入口 -> 热点
+    SEPARATOR_BOTTOM_UP = " <- "     # 反向: 热点 <- 入口
+    
+    # 标记
+    CODE_MARKER = "`"                 # 代码标记: `function`
+    HOTSPOT_PREFIX = "**["           # 热点前缀
+    HOTSPOT_SUFFIX = "]**"           # 热点后缀
+    
+    # 默认格式模板
+    TEMPLATE_SIMPLE = "{path}"                                    # 纯路径
+    TEMPLATE_WITH_RATIO = "[{ratio}] {path}"                     # 带比例
+    TEMPLATE_WITH_HOTSPOT = "{path} -> {hotspot_marker}"         # 带热点
+    
+    # 样式预设
+    STYLE_DEFAULT = "default"         # 标准格式
+    STYLE_MARKDOWN = "markdown"       # Markdown 格式 (带 ` 标记)
+    STYLE_PLAIN = "plain"             # 纯文本 (无标记)
 
 
 # =============================================================================

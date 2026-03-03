@@ -1,1 +1,1 @@
-使用SPEAR分析 "某台机器上出现频繁的卡顿，mysql性能下降，对应的perf文件是case.data"
+使用SHECR分析 "某台机器上出现频繁的卡顿，mysql性能下降，对应的perf文件是case.data"

@@ -121,7 +121,7 @@ def init_global_trace(data_path: str) -> Tuple[bool, Optional[TraceConfig]]:
                 trace.profiles_used.append(data_path)
                 trace.updated_at = datetime.now().isoformat()
                 trace_path.write_text(json.dumps(asdict(trace), indent=2))
-        except:
+        except (json.JSONDecodeError, TypeError, KeyError, IOError):
             pass
         return False, None
 
@@ -224,7 +224,7 @@ def cmd_list():
         try:
             trace = json.loads(trace_path.read_text())
             profiles_used = trace.get("profiles_used", [])
-        except:
+        except (json.JSONDecodeError, KeyError, TypeError):
             pass
 
     print("=== 已配置的数据文件 ===")
@@ -280,7 +280,7 @@ def cmd_status():
             print(f"Issues: {issues_count} 个 ({open_issues} 个待处理)")
             print(f"涉及数据文件: {len(profiles_used)} 个")
             print()
-        except:
+        except (json.JSONDecodeError, TypeError, KeyError):
             pass
 
     print(f"已配置 {len(env.profiles)} 个数据文件:")

@@ -190,6 +190,7 @@ class AnalysisFacade:
     def analyze_callers(self, samples: List[Sample],
                         target_symbol: str,
                         comm: Optional[str] = None,
+                        pid: Optional[int] = None,
                         min_ratio: float = 0.5,
                         top_n: int = 10) -> CallersResult:
         """
@@ -201,6 +202,7 @@ class AnalysisFacade:
             samples: 样本数据
             target_symbol: 目标符号名
             comm: 可选，按进程名过滤
+            pid: 可选，按 PID 过滤
             min_ratio: 最小占比阈值（百分比）
             top_n: 返回前 N 个调用者
             
@@ -211,6 +213,10 @@ class AnalysisFacade:
         filtered_samples = samples
         if comm:
             filtered_samples = [s for s in filtered_samples if s.comm == comm]
+        
+        # 按 PID 过滤（统一转为字符串比较，因为样本中的 pid 可能是 str 或 int）
+        if pid:
+            filtered_samples = [s for s in filtered_samples if str(s.pid) == str(pid)]
         
         if not filtered_samples:
             return CallersResult(

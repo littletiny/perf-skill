@@ -55,6 +55,7 @@ def register_commands(subparsers):
     p.add_argument("--freq", type=int, default=19, metavar="HZ",
                    help="Sampling frequency in Hz")
     p.add_argument("--comm", type=str, help="Target process name")
+    p.add_argument("--pid", type=int, default=None, help="Target process PID (optional)")
     p.add_argument("--top-n", "--limit", type=int, default=10,
                    help="Number of top hotspots")
     p.add_argument("--cpu-id", type=int, help="Filter by CPU ID")

@@ -108,6 +108,6 @@ def init_global_trace(data_path: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
                 trace_data["profiles_used"].append(data_path)
                 trace_data["updated_at"] = datetime.now().isoformat()
                 trace_path.write_text(json.dumps(trace_data, indent=2))
-        except:
+        except (json.JSONDecodeError, KeyError, TypeError, IOError):
             pass
         return False, None
