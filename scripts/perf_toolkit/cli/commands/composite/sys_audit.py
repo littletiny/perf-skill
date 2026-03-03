@@ -66,11 +66,13 @@ def _build_system_fingerprint(
     
     return SystemFingerprint(
         pressure_state=pressure_state,
-        cpu_some=0.92 if diagnosis.primary_suspect else 0.0,  # 示例值
-        cpu_full=0.45 if diagnosis.primary_suspect else 0.0,
-        io_some=0.12,
-        throttle_events=1250 if diagnosis.primary_suspect else 0,
-        context_switch_rate=ContextSwitchRate.EXTREME if diagnosis.secondary_loads else ContextSwitchRate.NORMAL
+        # NOTE: PSI 数据需要从 /proc/pressure/ 读取，当前未实现
+        cpu_some=0.0,
+        cpu_full=0.0,
+        io_some=0.0,
+        # NOTE: Throttle 事件需要从 cgroup v2 cpu.stat 读取，当前未实现
+        throttle_events=0,
+        context_switch_rate=ContextSwitchRate.NORMAL
     )
 
 

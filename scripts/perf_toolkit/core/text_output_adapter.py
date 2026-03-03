@@ -737,26 +737,15 @@ class CustomTemplate(Template):
         
         # 系统指纹
         fingerprint = data_dict.get('system_fingerprint', {})
+        # NOTE: PSI 和 Throttle 数据需要从 /proc/pressure/ 和 cgroup 读取
+        # 当前未实现，暂时简化显示
         if fingerprint:
-            lines.append("### 系统指纹 (System Fingerprint)")
-            lines.append("")
-            lines.append(f"State: {fingerprint.get('pressure_state', 'NORMAL')}")
-            lines.append("")
-            lines.append("┌─────────────────┬────────┬────────┬────────┐")
-            lines.append("│ PSI             │ CPU    │ Memory │ IO     │")
-            lines.append("├─────────────────┼────────┼────────┼────────┤")
-            cpu_some = fingerprint.get('cpu_some', 0)
-            cpu_full = fingerprint.get('cpu_full', 0)
-            io_some = fingerprint.get('io_some', 0)
-            memory_full = fingerprint.get('memory_full', 0)
-            memory_str = f"{memory_full:.2f}" if memory_full else "-"
-            lines.append(f"│ some            │ {cpu_some:.2f}   │ {memory_str:>6} │ {io_some:.2f}   │")
-            lines.append(f"│ full            │ {cpu_full:.2f}   │ -      │ -      │")
-            lines.append("└─────────────────┴────────┴────────┴────────┘")
-            lines.append("")
-            lines.append(f"Throttle Events: {fingerprint.get('throttle_events', 0)}")
-            lines.append(f"Context Switch: {fingerprint.get('context_switch_rate', 'NORMAL')}")
-            lines.append("")
+            pressure_state = fingerprint.get('pressure_state', 'NORMAL')
+            if pressure_state != 'NORMAL':
+                lines.append("### 系统指纹 (System Fingerprint)")
+                lines.append("")
+                lines.append(f"State: {pressure_state}")
+                lines.append("")
         
         # 竞争矩阵
         contention = data_dict.get('contention_matrix', [])
