@@ -123,25 +123,22 @@ recheck:
 
 | 测试类型 | 正确路径 | 示例 |
 |---------|---------|------|
-| 系统级功能测试 | `tests/test_<feature>.py` | `tests/test_issue_overflow_warning.py` |
-| 三层架构测试 | `tests/three_tier/` | `tests/three_tier/test_core_interfaces.py` |
-| Risk 配置测试 | `tests/risk/` | `tests/risk/test_risk_display_config.py` |
-| Rules 加载测试 | `tests/clusters/` | `tests/clusters/test_rules_loading.py` |
-| 数据格式测试 | `tests/perfdata/` | `tests/perfdata/test_perfdata.py` |
-| CLI 测试 | `tests/shecr_wrap/` | `tests/shecr_wrap/test_shecr_wrap.py` |
-| 场景测试 | `tests/scenario/<name>/` | `tests/scenario/netstat/` |
+| 单元测试 | `tests/unit/` | `tests/unit/test_risk_display_config.py` |
+| 功能测试 | `tests/functional/` | `tests/functional/test_issue_overflow_warning.py` |
+| 集成测试 | `tests/integration/` | `tests/integration/test_core_interfaces.py` |
+| CLI 测试 | `tests/cli/` | `tests/cli/test_shecr_wrap.py` |
+| 场景测试 | `tests/scenario/<name>/` | `tests/scenario/ns/` |
 
-**测试数据**: `tests/perfdata/new_format/case_test.data`
+**测试数据**: `tests/data/new_format/case_test.data`
 
 **开发后必做**（添加新功能或修改功能后）：
 ```bash
 # 运行所有自动化测试（不包括 scenario/ 人工验证）
-python3 tests/test_issue_overflow_warning.py
-python3 tests/risk/test_risk_display_config.py
-python3 tests/clusters/test_rules_loading.py
-python3 tests/clusters/test_external_rules_integration.py
-python3 tests/perfdata/test_perfdata.py
-python3 tests/shecr_wrap/test_shecr_wrap.py
+python3 tests/unit/test_risk_display_config.py
+python3 tests/unit/test_perfdata.py
+python3 tests/functional/test_issue_overflow_warning.py
+python3 tests/functional/test_trace_audit.py
+python3 tests/cli/test_shecr_wrap.py
 ```
 
 **统一测试入口**：使用 `tests/run_tests.py` 运行所有自动化测试
