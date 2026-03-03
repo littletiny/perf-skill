@@ -13,9 +13,10 @@ Analysis Facade - Analysis 层对外暴露的干净接口
 Task-2.7.1: analyze_callers 返回 CallersResult dataclass
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 
+from ..core.engine_types import Sample
 from .models import (
     CommTopResult, HotspotsResult, CoreDistributionResult,
     AnomaliesResult, PathClustersResult, CallersResult,
@@ -73,7 +74,7 @@ class AnalysisFacade:
     
     # ========== 供 Composite 调用的接口 ==========
     
-    def analyze_comm_top(self, samples: List[Dict], top_n: int = 10,
+    def analyze_comm_top(self, samples: List[Sample], top_n: int = 10,
                          include_metrics: bool = False) -> CommTopResult:
         """
         进程组 CPU 分析（内部接口，不触发 Trace）
@@ -89,7 +90,7 @@ class AnalysisFacade:
         analyzer = self._get_analyzer("comm_top")
         return analyzer.analyze(samples, top_n=top_n, include_metrics=include_metrics)
     
-    def analyze_hotspots(self, samples: List[Dict],
+    def analyze_hotspots(self, samples: List[Sample],
                          comm: Optional[str] = None,
                          pid: Optional[int] = None,
                          top_n: int = 20,
@@ -110,7 +111,7 @@ class AnalysisFacade:
         analyzer = self._get_analyzer("hotspots")
         return analyzer.analyze(samples, comm=comm, pid=pid, top_n=top_n, sort_by=sort_by)
     
-    def analyze_core_distribution(self, samples: List[Dict], 
+    def analyze_core_distribution(self, samples: List[Sample], 
                                    top_n: int = 10) -> CoreDistributionResult:
         """
         核心分布分析（内部接口，不触发 Trace）
@@ -125,7 +126,7 @@ class AnalysisFacade:
         analyzer = self._get_analyzer("core_dist")
         return analyzer.analyze(samples, top_n=top_n)
     
-    def detect_anomalies(self, samples: List[Dict],
+    def detect_anomalies(self, samples: List[Sample],
                          window_size: float = 1.0,
                          spike_threshold: float = 0.5,
                          min_utilization: float = 0.3,
@@ -155,7 +156,7 @@ class AnalysisFacade:
             top_n=top_n
         )
     
-    def cluster_paths(self, samples: List[Dict],
+    def cluster_paths(self, samples: List[Sample],
                       min_depth: int = 2,
                       min_samples: int = 5,
                       top_n: int = 10,
@@ -185,7 +186,7 @@ class AnalysisFacade:
             pid=pid
         )
     
-    def analyze_callers(self, samples: List[Dict],
+    def analyze_callers(self, samples: List[Sample],
                         target_symbol: str,
                         comm: Optional[str] = None,
                         min_ratio: float = 0.5,

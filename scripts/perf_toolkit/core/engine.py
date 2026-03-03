@@ -15,12 +15,12 @@ import json
 import re
 from datetime import datetime, timezone
 from collections import defaultdict
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple, Union
 from .symbol import Symbol, SymbolStack
 from .engine_types import (
     UserKernelStats, CPUUtilization, ProcessCPUInfo, PidCPUInfo, CommCPUInfo,
     CoreCPUInfo, SymbolCPUInfo, ProcessLifecycle, LifecycleEvent,
-    LifecycleStats, CallerInfo, CallEdge, CallGraph, Sample
+    LifecycleStats, CallerInfo, CallEdge, CallGraph, Sample, FilterCriteria
 )
 
 
@@ -262,30 +262,62 @@ class PerfExpertEngine:
         # Set the detected flag after parsing all samples
         self._has_core_per_sec = detected_core_per_sec
 
-    def get_time_range(self):
-        """Get the time range of all samples"""
+    def get_time_range(self) -> Tuple[float, float]:
+        """获取数据时间范围
+        
+        Returns:
+            (开始时间戳, 结束时间戳)
+        """
         if not self.samples:
-            return (0, 0)
+            return (0.0, 0.0)
         return (self.samples[0].ts, self.samples[-1].ts)
 
-    def get_filtered_samples(self, start_time=None, end_time=None, cpu_id=None, pid=None, comm=None, comm_regex=None):
-        """
-        Get samples filtered by time range, CPU, PID, and/or comm.
-
-        Args:
-            start_time: Include samples with timestamp >= start_time.
-                       Supports: Unix timestamp, ISO 8601 (2024-01-15T10:30:00),
-                       common datetime (2024-01-15 10:30:00), or date only.
-            end_time: Include samples with timestamp <= end_time. Same formats as start_time.
-            cpu_id: Include samples from this CPU only
-            pid: Include samples from this process ID only
-            comm: Include samples with exact comm match (支持多值，逗号分隔)
-            comm_regex: Include samples matching comm regex pattern
-
+    def get_all_samples(self) -> List[Sample]:
+        """获取所有样本
+        
         Returns:
-            Filtered list of samples
+            所有 Sample 列表
+        """
+        return self.samples
+
+    def get_filtered_samples(
+        self,
+        criteria: Optional[FilterCriteria] = None,
+        start_time: Optional[Union[float, str]] = None,
+        end_time: Optional[Union[float, str]] = None,
+        cpu_id: Optional[int] = None,
+        pid: Optional[int] = None,
+        comm: Optional[str] = None,
+        comm_regex: Optional[str] = None
+    ) -> List[Sample]:
+        """获取过滤后的样本
+        
+        支持两种方式传递过滤条件：
+        1. 通过 criteria 参数传递 FilterCriteria 对象
+        2. 通过独立参数传递（优先级高于 criteria）
+        
+        Args:
+            criteria: 过滤条件对象
+            start_time: 开始时间戳
+            end_time: 结束时间戳
+            cpu_id: CPU ID
+            pid: 进程 ID
+            comm: 进程名（精确匹配，支持多值逗号分隔）
+            comm_regex: 进程名（正则匹配）
+            
+        Returns:
+            符合条件的 Sample 列表
         """
         filtered = self.samples
+
+        # 如果提供了 criteria，从中提取参数
+        if criteria is not None:
+            start_time = start_time if start_time is not None else criteria.start_time
+            end_time = end_time if end_time is not None else criteria.end_time
+            cpu_id = cpu_id if cpu_id is not None else criteria.cpu_id
+            pid = pid if pid is not None else criteria.pid
+            comm = comm if comm is not None else criteria.comm
+            comm_regex = comm_regex if comm_regex is not None else criteria.comm_regex
 
         # Parse time strings to timestamps
         start_ts = parse_time_string(start_time) if start_time is not None else None
@@ -314,14 +346,14 @@ class PerfExpertEngine:
 
         return filtered
 
-    def get_total_core_per_sec(self, samples=None):
-        """
-        Calculate total CPU utilization from samples.
-
+    def get_total_core_per_sec(self, samples=None) -> Tuple[float, int]:
+        """获取总核心秒数和样本数
+        
+        Args:
+            samples: 样本列表
+            
         Returns:
-            tuple: (total_core_sec, sample_count)
-            total_core_sec: Sum of sample weights
-            sample_count: Number of samples processed
+            (总核心秒数, 样本数)
         """
         if samples is None:
             samples = self.samples
@@ -750,26 +782,26 @@ class PerfExpertEngine:
                     pid_first_stack[pid] = []
             pid_last_seen[pid] = ts
 
-        # 生成 spawn/exit 事件（使用 dict 表示，包含 stack 信息）
+        # 生成 spawn/exit 事件
         spawn_events = [
-            {
-                "pid": pid,
-                "comm": pid_comm[pid],
-                "timestamp": first_ts,
-                "type": "spawn",
-                "stack": pid_first_stack.get(pid, [])
-            }
+            LifecycleEvent(
+                pid=pid,
+                comm=pid_comm[pid],
+                timestamp=first_ts,
+                type="spawn",
+                stack=pid_first_stack.get(pid, [])
+            )
             for pid, first_ts in pid_first_seen.items()
         ]
 
         exit_events = [
-            {
-                "pid": pid,
-                "comm": pid_comm[pid],
-                "timestamp": last_ts,
-                "type": "exit",
-                "stack": []  # exit 事件通常没有栈信息
-            }
+            LifecycleEvent(
+                pid=pid,
+                comm=pid_comm[pid],
+                timestamp=last_ts,
+                type="exit",
+                stack=[]  # exit 事件通常没有栈信息
+            )
             for pid, last_ts in pid_last_seen.items()
         ]
 
@@ -777,8 +809,8 @@ class PerfExpertEngine:
         spawn_rate = len(pid_first_seen) / duration if duration > 0 else 0.0
 
         # 按时间排序事件
-        spawn_events.sort(key=lambda e: e["timestamp"])
-        exit_events.sort(key=lambda e: e["timestamp"])
+        spawn_events.sort(key=lambda e: e.timestamp)
+        exit_events.sort(key=lambda e: e.timestamp)
 
         # 统计信息
         lifecycle_stats = LifecycleStats(

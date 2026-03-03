@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Protocol, runtime_checkable, Any
 from abc import ABC, abstractmethod
 
 # Import dataclass types from models
+from ..core.engine_types import Sample
 from .models import (
     Risk, AnalysisResult, AnomaliesResult, CommTopResult,
     CoreDistributionResult, HotspotsResult, PathClustersResult, CallersResult,
@@ -47,16 +48,16 @@ class BaseAnalyzer(ABC):
         self._engine = engine
     
     @abstractmethod
-    def analyze(self, samples: List[Dict], **kwargs) -> AnalysisResult:
+    def analyze(self, samples: List[Sample], **kwargs) -> Any:
         """
         执行分析
         
         Args:
-            samples: 样本数据列表
+            samples: 样本数据列表（Sample dataclass 列表）
             **kwargs: 分析特定参数
             
         Returns:
-            AnalysisResult: 标准分析结果结构
+            具体 Result dataclass，如 AnomaliesResult, CommTopResult 等
         """
         pass
 

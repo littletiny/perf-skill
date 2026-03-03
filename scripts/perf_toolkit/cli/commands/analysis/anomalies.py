@@ -6,15 +6,27 @@ detect-anomalies 命令实现
 从 analysis/anomalies.py 迁移而来
 """
 
+from typing import List, Dict, Any, TYPE_CHECKING
+
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import (
     RiskInfo, RiskLevel, AnomalyItem, AnomalySummary, AnomaliesOutput, TimeRange
 )
 from perf_toolkit.analysis.anomalies import AnomaliesAnalyzer
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("detect-anomalies")
-def cmd_detect_anomalies(builder, engine, args, samples):
+def cmd_detect_anomalies(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> AnomaliesOutput:
     """[Skill] Detect CPU utilization anomalies"""
     
     # 1. 调用 Analyzer

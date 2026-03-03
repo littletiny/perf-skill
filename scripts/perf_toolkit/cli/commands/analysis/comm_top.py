@@ -6,15 +6,27 @@ get-comm-top 命令实现
 从 analysis/comm_top.py 迁移而来
 """
 
+from typing import List, Dict, Any, TYPE_CHECKING
+
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import (
     RiskInfo, RiskLevel, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
 )
 from perf_toolkit.analysis.comm_top import CommTopAnalyzer
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("get-comm-top")
-def cmd_get_comm_top(builder, engine, args, samples):
+def cmd_get_comm_top(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> CommTopOutput:
     """[Skill] Get top N comm groups by aggregated CPU utilization"""
     
     # 1. 调用 Analyzer

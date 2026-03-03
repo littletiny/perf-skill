@@ -50,15 +50,10 @@ class Trace:
         return self.DEFAULT_PATH
 
     def _load(self) -> Dict:
-        """加载文档，自动迁移旧版本"""
+        """加载文档"""
         if os.path.exists(self.path):
             with open(self.path, 'r') as f:
-                data = json.load(f)
-                # 版本迁移
-                version = data.get('version', '1.0')
-                if version == '1.0':
-                    data = self._migrate_v1_to_v2(data)
-                return data
+                return json.load(f)
 
         # 新文档
         return self._create_new_dict()
@@ -74,44 +69,6 @@ class Trace:
             "timeline": [],
             "issues": {}
         }
-
-    def _migrate_v1_to_v2(self, v1_data: Dict) -> Dict:
-        """将 v1.0 issues 列表迁移到 v2.0 结构"""
-        v2_data = {
-            "version": self.CURRENT_VERSION,
-            "data_file": v1_data.get('data_file'),
-            "created_at": v1_data.get('created_at', self._now()),
-            "updated_at": self._now(),
-            "timeline": [],
-            "issues": {}
-        }
-
-        # 迁移 issues，但 timeline 为空（历史命令未记录）
-        for issue in v1_data.get('issues', []):
-            issue_id = issue['id']
-            v2_data['issues'][issue_id] = {
-                "id": issue_id,
-                "desc": issue['desc'],
-                "level": self._infer_level(issue.get('risk', '')),
-                "status": issue.get('status', 'open'),
-                "created_at": issue.get('created_at', self._now()),
-                "resolved_at": issue.get('completed_at'),
-                "result": issue.get('result', ''),
-                "hint": issue.get('hint', ''),
-                "created_by_seq": None,  # 历史数据无记录
-                "resolved_by_seq": None
-            }
-
-        return v2_data
-
-    def _infer_level(self, risk: str) -> str:
-        """从风险描述推断级别"""
-        risk_lower = risk.lower()
-        if 'critical' in risk_lower or '严重' in risk_lower:
-            return 'critical'
-        if 'warning' in risk_lower or '警告' in risk_lower:
-            return 'warning'
-        return 'info'
 
     def _now(self) -> str:
         """当前时间 ISO-8601"""
@@ -165,22 +122,12 @@ class Trace:
         return seq
     
     def _print_open_issues(self):
-        """输出 issue overflow warning（当 open_issues >= 2 时）"""
-        open_issues = self.get_open_issues()
-        # 触发条件: open_issues >= 2
-        if len(open_issues) < 2:
-            return
-        
-        # 分类统计
-        categories = self._categorize_issues(open_issues)
-        category_str = ", ".join([f"{cat}x{count}" for cat, count in categories.items()]) if categories else "未知类型"
-        
-        # 固定警告文案
-        warning = "⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状"
-        
-        # 输出格式: [!] {总数}问题未闭环: {分类统计} | {警告文案} | 现在执行: trace issues
-        print(f"[!] {len(open_issues)}问题未闭环: {category_str} | {warning} | 现在执行: trace issues")
-        print()  # 空行分割
+        """输出 issue overflow warning（统一入口）"""
+        self._print_issue_overflow_warning()
+    
+    def _print_issue_overflow_warning(self):
+        """统一的问题未闭环警告入口（当前禁用）"""
+        pass
     
     def _categorize_issues(self, issues) -> dict:
         """对 issues 进行分类统计"""

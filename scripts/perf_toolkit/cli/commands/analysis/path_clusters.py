@@ -4,15 +4,27 @@
 cluster-paths 命令实现
 """
 
+from typing import List, Dict, Any, TYPE_CHECKING
+
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import (
     RiskInfo, RiskLevel, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
 )
 from perf_toolkit.analysis.path_clusters import PathClustersAnalyzer
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("cluster-paths")
-def cmd_cluster_paths(builder, engine, args, samples):
+def cmd_cluster_paths(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> PathClustersOutput:
     """[Skill] Cluster samples by common call path prefixes"""
     
     analyzer = PathClustersAnalyzer(engine)

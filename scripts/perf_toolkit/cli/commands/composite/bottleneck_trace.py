@@ -6,7 +6,7 @@ bottleneck-trace 命令实现
 从 composite/bottleneck_trace.py 迁移而来
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import (
@@ -20,9 +20,19 @@ from perf_toolkit.composite.models import (
     HotspotData, HotspotsDetails, CallerData, CallersDetails
 )
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("bottleneck-trace")
-def cmd_bottleneck_trace(builder, engine, args, samples):
+def cmd_bottleneck_trace(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> BottleneckTraceOutput:
     """
     [Composite] 瓶颈追踪命令
     
@@ -70,14 +80,14 @@ def cmd_bottleneck_trace(builder, engine, args, samples):
     # ========== Phase 3: 热点分析 ==========
     
     hotspots_result = facade.analyze_hotspots(samples, comm=target_comm, top_n=top_n)
-    hotspots = HotspotsReport.from_dict(hotspots_result)
+    hotspots = HotspotsReport.from_analysis_result(hotspots_result)
     
     # ========== Phase 4: 调用链溯源 ==========
     
     callers: Optional[CallersReport] = None
     if hotspots.top_symbol:
         callers_result = facade.analyze_callers(samples, target_symbol=hotspots.top_symbol, comm=target_comm)
-        callers = CallersReport.from_dict(callers_result)
+        callers = CallersReport.from_analysis_result(callers_result)
     
     # ========== Phase 5: Risk聚合与输出 ==========
     

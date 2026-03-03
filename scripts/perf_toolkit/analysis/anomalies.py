@@ -11,8 +11,9 @@ V3 版本（三层架构）：
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional
+from typing import List, Any, Optional
 from .base import BaseAnalyzer
+from ..core.engine_types import Sample
 from .models import Risk, Anomaly, AnomaliesResult
 
 
@@ -45,7 +46,7 @@ class AnomaliesAnalyzer(BaseAnalyzer):
     检测 CPU 利用率的时序异常（尖峰、跌落）。
     """
     
-    def analyze(self, samples: List[Dict],
+    def analyze(self, samples: List[Sample],
                 window_size: float = 1.0,
                 spike_threshold: float = 0.5,
                 min_utilization: float = 0.3,
@@ -129,7 +130,7 @@ class AnomaliesAnalyzer(BaseAnalyzer):
             risks=risks
         )
     
-    def _build_windows(self, samples: List[Dict], window_size: float, 
+    def _build_windows(self, samples: List[Sample], window_size: float, 
                        cpu_id: int) -> List[WindowRawData]:
         """构建时间窗口"""
         from ..core.format_utils import format_timestamp

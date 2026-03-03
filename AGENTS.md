@@ -37,58 +37,22 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 
 ---
 
-## 目录结构
+## 项目结构
 
-```
-├── AGENTS.md              # 本文件 - 开发指南
-├── SKILL.md               # 用户入口文档
-├── docs/                  # 设计文档（⚠️ 新增文档必须更新此处）
-│   ├── CHANGELOG.md                          # 格式化的版本变更记录
-│   ├── LESSONS.md                            # 设计决策与经验教训（按主题组织）
-│   ├── agent-pipeline-design.md              # Agent 流水线架构设计 - 多轮诊断-审计-复查
-│   ├── agent-pipeline-usage.md               # Agent 流水线使用指南
-│   ├── audit-process.md                      # 审计流程 - 项目审计员验证 issues 分析质量指南
-│   ├── command-design.md                     # 诊断命令设计文档 - 功能矩阵与场景选择决策
-│   ├── design-analysis-directions.md         # 分析方向性设计 - Top-Down vs Bottom-Up 与分叉淹没问题
-│   ├── design-attention-steering.md          # Attention Steering 设计 - 基于 Flag 的诊断关注点引导机制
-│   ├── design-rationale-consolidated-toolchain.md  # 工具链整合设计 - 从12个到6个核心工具的精简与增强
-│   ├── design-rationale-trace-v1.md          # Trace v1.0 设计意图 - 基于 netstat 案例的问题追踪机制
-│   ├── design-rationale-trace-v2.md          # Trace v2.0 演进设计 - 从手动记录到全自动 Tracing
-│   ├── design-three-tier-architecture.md     # 三层架构设计 - Core/Analysis/Composite 分层架构与接口规范
-│   ├── team-division-three-tier.md           # 团队分工文档 - 3-4人开发分工与协作流程
-│   ├── output-format-spec.md                 # 工具输出格式规范 - 统一 JSON 标准（_risk、时间格式等）
-│   ├── output-system.md                      # Output System 快速参考 - 统一数据结构与代码复用
-│   ├── risk-display-customization.md         # Risk 消息展示自定义设计 - 可配置的 risk 输出格式与样式
-│   └── trace-interface.md                    # Trace 接口设计 - CLI 接口与技术规格
-├── pipeline/              # 多轮 Agent 流水线
-│   ├── __init__.py        # 包入口
-│   ├── controller.py      # 流水线控制器
-│   ├── agents.py          # Agent 实现（Diagnose/Audit/Recheck）
-│   └── cli.py             # 命令行接口
-├── references/            # 参考资料
-│   ├── methodology.md     # 分析方法论（三层架构驱动）
-│   ├── tools.md           # 工具命令参考
-│   ├── templates.md       # 文档模板
-│   ├── data-format.md     # 数据格式说明
-│   └── EVOLUTION.md       # 项目演进历史
-├── scripts/
-│   ├── shecr.py           # 主入口 CLI
-│   └── perf_toolkit/      # 核心工具包
-│       ├── core/          # 基础库
-│       │   ├── engine.py           # 核心引擎（PerfExpertEngine）
-│       │   ├── reliability.py      # 样本可靠性评估
-│       │   ├── symbol.py           # 符号处理
-│       │   ├── trace.py            # 诊断追踪（LiveDoc）
-│       │   ├── risk_mixin.py       # 风险信息标准化
-│       │   ├── format_utils.py     # 时间/格式工具
-│       │   ├── output_models.py    # 数据模型定义
-│       │   ├── output_adapter.py   # JSON 输出转换
-│       │   ├── text_output_adapter.py  # 文本输出转换
-│       │   ├── output_builder.py   # 输出构建器
-│       │   └── display_presets.py  # 显示配置预设
-│       └── analysis/      # 分析模块（各子命令实现）
-└── tests/                 # 测试数据与用例
-```
+### 目录与接口文档
+
+📁 **完整目录结构**: `docs/project-structure.md`
+
+📘 **分层接口规范**:
+- `docs/interface-core.md` - Core Layer 接口
+- `docs/interface-analysis.md` - Analysis Layer 接口  
+- `docs/interface-composite.md` - Composite Layer 接口
+- `docs/interface-cli.md` - CLI Layer 接口
+- `docs/interface-consistency-report.md` - 接口一致性检查报告
+
+> 开发前请先阅读上述文档，了解代码组织、文件命名和层间接口约定。
+> 
+> **重要原则**：禁止在层间传递裸 `dict`/`List[Dict]`，必须使用强类型 `dataclass`。
 
 ---
 
@@ -105,7 +69,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 1. 修改 `$repo/version` 文件
 2. 更新 `docs/CHANGELOG.md`（Keep a Changelog 格式）
 3. **如需要**，更新 `docs/LESSONS.md`（重大设计决策）
-4. **如新增 `docs/` 文档**，更新「目录结构」章节中的文件清单
+4. **如新增 `docs/` 文档**，同步更新 `docs/project-structure.md`
 5. git commit
 
 **CHANGELOG 格式：**
@@ -121,7 +85,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 **重要原则：**
 - 版本信息**不要**记录在 SKILL.md 或脚本中
 - LESSONS.md 按**主题**组织（方法论、架构、踩坑记录），不按版本
-- docs/ 下文件必须遵循「目录结构」中的文件清单格式
+- docs/ 下文件清单维护在 `docs/project-structure.md`
 
 ### 代码规范
 - 尽量少用 regex，尤其避免在对外参数中使用
@@ -190,39 +154,6 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 ```markdown
 📗 **分析方法论**: `references/methodology.md` - 三层架构驱动的完整方法论
 ```
-
----
-
-## 子命令清单
-
-### 核心分析工具（6个）
-
-| 子命令 | 层级 | 用途 | 所在文件 |
-|--------|------|------|----------|
-| `analyze-core-distribution` | 系统级 | 核心负载分析（整合原check-cpu-bottleneck） | `scripts/perf_toolkit/analysis/core_distribution.py` |
-| `detect-anomalies` | 时间级 | 检测时序异常 | `scripts/perf_toolkit/analysis/anomalies.py` |
-| `get-comm-top` | 实体级 | 进程组分析（增强版，整合原get-process-top + cluster-comm + count-process-variety） | `scripts/perf_toolkit/analysis/comm_top.py` |
-| `get-hotspots` | 函数级 | 识别热点函数 | `scripts/perf_toolkit/analysis/hotspots.py` |
-| `find-callers` | 关系级 | 热点溯源，调用链分析 | `scripts/perf_toolkit/analysis/trace.py` |
-| `cluster-paths` | 模式级 | 调用路径聚类（整合原cluster-symbols） | `scripts/perf_toolkit/analysis/path_clusters.py` |
-
-### 组合诊断工具（2个）
-
-| 子命令 | 链式触发 | 用途 | 所在文件 |
-|--------|----------|------|----------|
-| `sys-audit` | anomalies→core-dist→comm-top | 系统全景扫描，自动降噪 | `scripts/perf_toolkit/composite/sys_audit.py` |
-| `bottleneck-trace` | comm-top→hotspots→paths | 瓶颈深度追踪 | `scripts/perf_toolkit/composite/bottleneck_trace.py` |
-
-### 工具整合说明
-
-| 原工具 | 整合到 | 新能力 |
-|--------|--------|--------|
-| `check-cpu-bottleneck` | `analyze-core-distribution` | 单核饱和检测 |
-| `show-cpu-usage` | `analyze-core-distribution` | CPU利用率展示 |
-| `get-process-top` | `get-comm-top` | CV方差识别离群PID |
-| `cluster-comm` | `get-comm-top` | 进程组聚合 |
-| `count-process-variety` | `get-comm-top` | Spawn Rate检测 |
-| `cluster-symbols` | `cluster-paths` | 语义聚类 |
 
 ---
 

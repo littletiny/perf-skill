@@ -10,9 +10,10 @@ V3 版本（三层架构）：
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 from .base import BaseAnalyzer
+from ..core.engine_types import Sample
 from .models import Risk, PathCluster, PathClustersResult
 
 
@@ -88,7 +89,7 @@ class PathClustersAnalyzer(BaseAnalyzer):
     使用 Trie 对调用路径进行聚类，识别共同前缀模式。
     """
     
-    def analyze(self, samples: List[Dict],
+    def analyze(self, samples: List[Sample],
                 min_depth: int = 2,
                 min_samples: int = 5,
                 top_n: int = 10,

@@ -6,13 +6,25 @@ analyze-core-distribution 命令实现
 从 analysis/core_distribution.py 迁移而来
 """
 
+from typing import List, Dict, Any, TYPE_CHECKING
+
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import RiskInfo, RiskLevel, CoreItem, CoreDistributionOutput, TimeRange
 from perf_toolkit.analysis.core_distribution import CoreDistAnalyzer
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("analyze-core-distribution")
-def cmd_analyze_core_distribution(builder, engine, args, samples):
+def cmd_analyze_core_distribution(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> CoreDistributionOutput:
     """[Skill] Analyze CPU core utilization distribution"""
     
     # 1. 调用 Analyzer

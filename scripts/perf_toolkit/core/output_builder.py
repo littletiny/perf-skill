@@ -322,33 +322,8 @@ class OutputBuilder:
     # =====================================================================
 
     def print_issue_overflow_warning(self):
-        """
-        检查 pending issues 并输出 overflow warning
-
-        触发条件: open_issues >= 2
-        输出格式: [!] {总数}问题未闭环: {分类统计} | {警告文案} | 现在执行: trace issues
-        """
-        try:
-            # 如果没有 trace 实例，创建一个临时的
-            trace = self._trace if self._trace else Trace()
-            open_issues = trace.get_open_issues()
-
-            if len(open_issues) < 2:
-                return
-
-            # 分类统计
-            categories = self._categorize_issues(open_issues)
-            category_str = ", ".join([f"{cat}x{count}" for cat, count in categories.items()]) if categories else "未知类型"
-
-            # 固定警告文案
-            warning = "⚠️ 用户在质疑你的专业性，这是挑战底线的行为，务必重新反思整个问题的**全局**现状"
-
-            # 输出
-            print(f"[!] {len(open_issues)}问题未闭环: {category_str} | {warning} | 现在执行: trace issues")
-            print()  # 空行分割
-        except Exception:
-            # 提示失败不应影响主流程
-            pass
+        """统一入口：检查 pending issues 并输出 overflow warning（当前禁用）"""
+        pass
 
     def _categorize_issues(self, issues: List[Dict]) -> IssueCategories:
         """

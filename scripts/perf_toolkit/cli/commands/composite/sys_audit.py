@@ -6,7 +6,7 @@ sys-audit 命令实现
 从 composite/sys_audit.py 迁移而来
 """
 
-from typing import Optional
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import (
@@ -21,9 +21,19 @@ from perf_toolkit.composite.models import (
     AnomaliesDetails, CoreDistDetails, CommTopDetails, SysAuditDetails
 )
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("sys-audit")
-def cmd_sys_audit(builder, engine, args, samples):
+def cmd_sys_audit(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> SysAuditOutput:
     """
     [Composite] 系统审计组合命令
     
@@ -38,17 +48,17 @@ def cmd_sys_audit(builder, engine, args, samples):
     
     # 1.1 异常检测
     anomalies_result = facade.detect_anomalies(samples, window_size=10, spike_threshold=0.5)
-    anomalies = AnomaliesReport.from_dict(anomalies_result)
+    anomalies = AnomaliesReport.from_analysis_result(anomalies_result)
     
     # 1.2 核心分布分析
     core_dist_result = facade.analyze_core_distribution(samples)
-    core_dist = CoreDistributionReport.from_dict(core_dist_result)
+    core_dist = CoreDistributionReport.from_analysis_result(core_dist_result)
     
     # 1.3 CommTop分析（增强版，通过include_metrics获取详细指标）
     from perf_toolkit.analysis.comm_top import CommTopAnalyzer
     comm_top_analyzer = CommTopAnalyzer(engine)
     comm_top_result = comm_top_analyzer.analyze(samples, top_n=top_n, include_metrics=True)
-    comm_top = CommTopReport.from_result(comm_top_result)
+    comm_top = CommTopReport.from_analysis_result(comm_top_result)
     
     # ========== Phase 2: 收集Risks ==========
     

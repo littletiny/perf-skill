@@ -15,6 +15,7 @@ V3 版本（三层架构）：
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
 from .base import BaseAnalyzer
+from ..core.engine_types import Sample
 from .models import (
     Risk, CommGroup, CommTopResult, StormAnalysisResult, StormGroupDetail
 )
@@ -42,7 +43,7 @@ class CommTopAnalyzer(BaseAnalyzer):
     SIGNIFICANT_MONOPOLY_THRESHOLD = 0.8 # Monopoly > 0.8 认为显著
     SIGNIFICANT_SPAWN_RATE_THRESHOLD = 10.0 # SpawnRate > 10/s 认为显著
     
-    def analyze(self, samples: List[Dict], top_n: int = 10,
+    def analyze(self, samples: List[Sample], top_n: int = 10,
                 include_metrics: bool = False) -> CommTopResult:
         """
         分析进程组 CPU 利用率
@@ -285,7 +286,7 @@ class CommTopAnalyzer(BaseAnalyzer):
         
         return display, folded
     
-    def _analyze_storms(self, samples: List[Dict], groups: List[CommGroup]) -> Optional[StormAnalysisResult]:
+    def _analyze_storms(self, samples: List[Sample], groups: List[CommGroup]) -> Optional[StormAnalysisResult]:
         """
         分析所有 STORM 诊断的进程组的详细信息
         
@@ -323,15 +324,9 @@ class CommTopAnalyzer(BaseAnalyzer):
             # 分析创建热点（哪些函数在创建进程）
             creator_symbols: Dict[str, int] = defaultdict(int)
             for event in lifecycle.spawn_events:
-                if hasattr(event, 'stack') and event.stack:
-                    stack = event.stack
-                elif isinstance(event, dict):
-                    stack = event.get("stack", [])
-                else:
-                    stack = []
-                
-                if stack:
-                    creator_symbols[stack[0]] += 1
+                # LifecycleEvent 是 dataclass，stack 是 List[str]
+                if event.stack:
+                    creator_symbols[event.stack[0]] += 1
             
             top_creators = [
                 {"symbol": s, "count": c}

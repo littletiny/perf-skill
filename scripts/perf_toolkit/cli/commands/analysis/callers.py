@@ -6,15 +6,27 @@ find-callers 命令实现
 从 analysis/trace.py 迁移而来
 """
 
+from typing import List, Dict, Any, TYPE_CHECKING
 from collections import defaultdict
+
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import (
     RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput, TimeRange
 )
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("find-callers")
-def cmd_trace_attribution(builder, engine, args, samples):
+def cmd_trace_attribution(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> AttributionsOutput:
     """[Skill] Bottom-up attribution for specific bottleneck functions"""
 
     # 使用 engine 统一接口获取总量

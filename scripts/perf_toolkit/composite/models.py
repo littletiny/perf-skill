@@ -6,8 +6,9 @@ Composite Layer Data Models
 用 dataclass 替代 dict，提供类型安全和代码可维护性
 """
 
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from dataclasses import dataclass, field
+from datetime import datetime
 
 
 # =============================================================================
@@ -16,13 +17,18 @@ from dataclasses import dataclass, field
 
 @dataclass
 class RiskItem:
-    """单个Risk条目"""
+    """
+    Composite 层 Risk 内部表示
+    
+    从 Analysis 层的 Risk 转换而来，添加 Composite 层所需字段。
+    """
     level: str  # "critical" | "warning" | "info" | "none"
     message: str = ""
     hint: str = ""
     patterns: List[str] = field(default_factory=list)
     pending_targets: List[str] = field(default_factory=list)
     action_required: bool = False
+    source: str = ""  # 来源分析器（如 "comm_top", "anomalies"）
     
     def __post_init__(self):
         if not self.action_required:
@@ -37,7 +43,30 @@ class RiskItem:
             hint=d.get("hint", ""),
             patterns=d.get("patterns", []),
             pending_targets=d.get("pending_targets", []),
-            action_required=d.get("action_required", False)
+            action_required=d.get("action_required", False),
+            source=d.get("source", "")
+        )
+    
+    @classmethod
+    def from_analysis_risk(cls, risk: Any, source: str = "") -> 'RiskItem':
+        """
+        从 Analysis 层的 Risk 转换
+        
+        Args:
+            risk: Analysis 层的 Risk dataclass
+            source: 来源标识，用于追踪 risk 产生位置
+            
+        Returns:
+            RiskItem: Composite 层 Risk 表示
+        """
+        return cls(
+            level=risk.level,
+            message=risk.message,
+            hint=risk.hint,
+            patterns=list(risk.patterns) if hasattr(risk, 'patterns') else [],
+            pending_targets=list(risk.pending_targets) if hasattr(risk, 'pending_targets') else [],
+            action_required=getattr(risk, 'action_required', risk.level in ["critical", "warning"]),
+            source=source
         )
     
     def to_dict(self) -> Dict:
@@ -48,7 +77,8 @@ class RiskItem:
             "hint": self.hint,
             "patterns": self.patterns,
             "pending_targets": self.pending_targets,
-            "action_required": self.action_required
+            "action_required": self.action_required,
+            "source": self.source
         }
 
 
@@ -67,7 +97,11 @@ class TargetDetail:
 
 @dataclass
 class ProcessGroup:
-    """进程组数据（CommTop分析结果）"""
+    """
+    进程组数据（从 CommGroup 转换）
+    
+    包含 CV/Monopoly/SpawnRate 等增强指标，用于解决"A掩盖B"问题。
+    """
     comm: str
     total_cpu: float = 0.0
     kernel_cpu: float = 0.0
@@ -82,8 +116,33 @@ class ProcessGroup:
     
     @property
     def kernel_ratio(self) -> float:
-        """内核态占比"""
+        """内核态占比 (%)"""
         return (self.kernel_cpu / self.total_cpu * 100) if self.total_cpu > 0 else 0
+    
+    @classmethod
+    def from_analysis_comm_group(cls, group: Any) -> 'ProcessGroup':
+        """
+        从 Analysis 层的 CommGroup 转换
+        
+        Args:
+            group: Analysis 层的 CommGroup dataclass
+            
+        Returns:
+            ProcessGroup: Composite 层进程组表示
+        """
+        return cls(
+            comm=group.comm,
+            total_cpu=group.total_cpu,
+            kernel_cpu=group.kernel_cpu,
+            user_cpu=group.user_cpu,
+            pid_count=group.pid_count,
+            pids=list(group.pids) if hasattr(group, 'pids') else [],
+            cv=group.cv,
+            monopoly=group.monopoly,
+            spawn_rate=group.spawn_rate,
+            diagnosis=group.diagnosis,
+            impact_score=group.impact_score
+        )
 
 
 # =============================================================================
@@ -92,45 +151,97 @@ class ProcessGroup:
 
 @dataclass
 class AnomalyItem:
-    """单个异常点"""
+    """
+    异常点数据（从 Anomaly 转换）
+    
+    用于时间序列异常检测结果的内部表示。
+    """
     cpu_id: int
     timestamp: float
     change_magnitude: float
     utilization: float
+    anomaly_type: str = "SPIKE"  # SPIKE | DROP
+    z_score: float = 0.0
+    
+    @classmethod
+    def from_analysis_anomaly(cls, anomaly: Any) -> 'AnomalyItem':
+        """
+        从 Analysis 层的 Anomaly 转换
+        
+        Args:
+            anomaly: Analysis 层的 Anomaly dataclass
+            
+        Returns:
+            AnomalyItem: Composite 层异常点表示
+        """
+        return cls(
+            cpu_id=anomaly.cpu_id,
+            timestamp=cls._parse_timestamp(anomaly.time_range_start),
+            change_magnitude=abs(anomaly.curr_util - anomaly.prev_util),
+            utilization=anomaly.curr_util,
+            anomaly_type=anomaly.type,
+            z_score=anomaly.z_score
+        )
+    
+    @staticmethod
+    def _parse_timestamp(time_str: str) -> float:
+        """将 ISO 8601 时间字符串转换为时间戳"""
+        if isinstance(time_str, (int, float)):
+            return float(time_str)
+        dt = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
+        return dt.timestamp()
 
 
 @dataclass
 class AnomaliesReport:
-    """异常检测报告"""
+    """
+    异常检测报告（Composite 层）
+    
+    从 Analysis 层的 AnomaliesResult 转换而来。
+    """
     anomalies: List[AnomalyItem] = field(default_factory=list)
     mutation_detected: bool = False
+    spike_count: int = 0
+    drop_count: int = 0
     risks: List[RiskItem] = field(default_factory=list)
+    
+    @classmethod
+    def from_analysis_result(cls, result: Any) -> 'AnomaliesReport':
+        """
+        从 Analysis 层的 AnomaliesResult 转换
+        
+        Args:
+            result: Analysis 层的 AnomaliesResult dataclass
+            
+        Returns:
+            AnomaliesReport: Composite 层报告
+        """
+        anomalies = [
+            AnomalyItem.from_analysis_anomaly(a)
+            for a in result.anomalies
+        ]
+        
+        risks = [
+            RiskItem.from_analysis_risk(r, source="anomalies")
+            for r in result.risks
+        ]
+        
+        return cls(
+            anomalies=anomalies,
+            mutation_detected=result.mutation_detected,
+            spike_count=result.spike_count,
+            drop_count=result.drop_count,
+            risks=risks
+        )
     
     @classmethod
     def from_dict(cls, d: Dict) -> 'AnomaliesReport':
         """从Facade返回的dict或AnomaliesResult dataclass创建"""
         # 处理 dataclass 输入（AnomaliesResult 有 anomalies 属性）
         if hasattr(d, 'anomalies') and not isinstance(d, dict):
-            risks = [RiskItem.from_dict(r) if isinstance(r, dict) else r for r in (getattr(d, 'risks', None) or [])]
-            anomalies_data = d.anomalies
-            
-            anomalies = [
-                AnomalyItem(
-                    cpu_id=getattr(a, 'cpu_id', getattr(a, 'type', 0)),
-                    timestamp=getattr(a, 'timestamp', 0.0),
-                    change_magnitude=getattr(a, 'change_magnitude', 0.0),
-                    utilization=getattr(a, 'utilization', getattr(a, 'curr_util', 0.0))
-                )
-                for a in anomalies_data
-            ]
-            mutation = getattr(d, 'mutation_detected', False)
-            return cls(
-                anomalies=anomalies,
-                mutation_detected=mutation,
-                risks=risks
-            )
+            return cls.from_analysis_result(d)
         
-        # 处理 dict 输入（原始方式）
+        # 处理 dict 输入
         anomalies = [
             AnomalyItem(
                 cpu_id=a.get("cpu_id", 0),
@@ -166,36 +277,49 @@ class CoreDistributionReport:
     risks: List[RiskItem] = field(default_factory=list)
     
     @classmethod
+    def from_analysis_result(cls, result: Any) -> 'CoreDistributionReport':
+        """
+        从 Analysis 层的 CoreDistributionResult 转换
+        
+        Args:
+            result: Analysis 层的 CoreDistributionResult dataclass
+            
+        Returns:
+            CoreDistributionReport: Composite 层报告
+        """
+        core_stats = [
+            CoreStat(
+                cpu_id=c.cpu_id,
+                total_cpu=c.total_cpu,
+                kernel_cpu=c.kernel_cpu,
+                user_cpu=c.user_cpu
+            )
+            for c in result.cores
+        ]
+        
+        # saturated_cores 可能是 CoreStat 对象列表，提取 cpu_id
+        saturated = result.saturated_cores
+        if saturated and hasattr(saturated[0], 'cpu_id'):
+            saturated = [c.cpu_id for c in saturated]
+        
+        risks = [
+            RiskItem.from_analysis_risk(r, source="core_dist")
+            for r in result.risks
+        ]
+        
+        return cls(
+            core_stats=core_stats,
+            saturated_cores=saturated,
+            imbalance_level=result.imbalance_level,
+            risks=risks
+        )
+    
+    @classmethod
     def from_dict(cls, d: Dict) -> 'CoreDistributionReport':
         """从Facade返回的dict或CoreDistributionResult dataclass创建"""
-        # 处理 dataclass 输入（CoreDistributionResult 有 cores 属性）
+        # 处理 dataclass 输入
         if hasattr(d, 'cores') and not isinstance(d, dict):
-            risks = [RiskItem.from_dict(r) if isinstance(r, dict) else r for r in (getattr(d, 'risks', None) or [])]
-            cores_data = d.cores
-            
-            core_stats = [
-                CoreStat(
-                    cpu_id=getattr(c, 'cpu_id', getattr(c, 'core_id', 0)),
-                    total_cpu=getattr(c, 'total_cpu', getattr(c, 'total_cpu_util', 0.0)),
-                    kernel_cpu=getattr(c, 'kernel_cpu', getattr(c, 'kernel_cpu_util', 0.0)),
-                    user_cpu=getattr(c, 'user_cpu', getattr(c, 'user_cpu_util', 0.0))
-                )
-                for c in cores_data
-            ]
-            
-            saturated = getattr(d, 'saturated_cores', [])
-            # saturated_cores 可能是 CoreStat 对象列表，提取 cpu_id
-            if saturated and hasattr(saturated[0], 'cpu_id'):
-                saturated = [getattr(c, 'cpu_id', 0) for c in saturated]
-            
-            imbalance = getattr(d, 'imbalance_level', 'NORMAL')
-            
-            return cls(
-                core_stats=core_stats,
-                saturated_cores=saturated,
-                imbalance_level=imbalance,
-                risks=risks
-            )
+            return cls.from_analysis_result(d)
         
         # 处理 dict 输入
         cores = d.get("cores", d.get("core_stats", []))
@@ -251,19 +375,7 @@ class CommTopMetrics:
                 ))
             else:
                 # 处理 CommGroup dataclass
-                all_groups.append(ProcessGroup(
-                    comm=g.comm,
-                    total_cpu=getattr(g, 'total_cpu', 0.0),
-                    kernel_cpu=getattr(g, 'kernel_cpu', 0.0),
-                    user_cpu=getattr(g, 'user_cpu', 0.0),
-                    pid_count=getattr(g, 'pid_count', 0),
-                    pids=getattr(g, 'pids', []),
-                    cv=getattr(g, 'cv', 0.0),
-                    monopoly=getattr(g, 'monopoly', 0.0),
-                    spawn_rate=getattr(g, 'spawn_rate', 0.0),
-                    diagnosis=getattr(g, 'diagnosis', 'HEALTHY'),
-                    impact_score=getattr(g, 'impact_score', 0.0)
-                ))
+                all_groups.append(ProcessGroup.from_analysis_comm_group(g))
         
         folded_groups_raw = d.get("folded_groups", []) if isinstance(d, dict) else getattr(d, 'folded_groups', [])
         folded_groups = []
@@ -304,7 +416,11 @@ class CommTopMetrics:
 
 @dataclass
 class CommTopReport:
-    """CommTop分析报告"""
+    """
+    CommTop分析报告（Composite 层）
+    
+    从 Analysis 层的 CommTopResult 转换而来。
+    """
     groups: List[ProcessGroup] = field(default_factory=list)
     folded_count: int = 0
     total_groups: int = 0
@@ -312,46 +428,45 @@ class CommTopReport:
     metrics: Optional[CommTopMetrics] = None
     
     @classmethod
+    def from_analysis_result(cls, result: Any) -> 'CommTopReport':
+        """
+        从 Analysis 层的 CommTopResult 转换
+        
+        Args:
+            result: Analysis 层的 CommTopResult dataclass
+            
+        Returns:
+            CommTopReport: Composite 层报告
+        """
+        groups = [
+            ProcessGroup.from_analysis_comm_group(g)
+            for g in result.groups
+        ]
+        
+        risks = [
+            RiskItem.from_analysis_risk(r, source="comm_top")
+            for r in result.risks
+        ]
+        
+        # 转换 metrics（如果存在）
+        metrics = None
+        if result.metrics:
+            metrics = CommTopMetrics.from_dict(result.metrics)
+        
+        return cls(
+            groups=groups,
+            folded_count=result.folded_count,
+            total_groups=result.total_groups,
+            risks=risks,
+            metrics=metrics
+        )
+    
+    @classmethod
     def from_result(cls, result) -> 'CommTopReport':
         """从Analyzer返回的result创建（支持 dict 或 CommTopResult dataclass）"""
         # 处理 dataclass 输入（CommTopResult）
         if hasattr(result, 'groups') and not isinstance(result, dict):
-            # 直接处理 CommTopResult dataclass
-            groups_data = result.groups
-            risks_data = getattr(result, 'risks', [])
-            
-            groups = [
-                ProcessGroup(
-                    comm=g.comm,
-                    total_cpu=getattr(g, 'total_cpu', 0.0),
-                    kernel_cpu=getattr(g, 'kernel_cpu', 0.0),
-                    user_cpu=getattr(g, 'user_cpu', 0.0),
-                    pid_count=getattr(g, 'pid_count', 0),
-                    pids=getattr(g, 'pids', []),
-                    cv=getattr(g, 'cv', 0.0),
-                    monopoly=getattr(g, 'monopoly', 0.0),
-                    spawn_rate=getattr(g, 'spawn_rate', 0.0),
-                    diagnosis=getattr(g, 'diagnosis', 'HEALTHY'),
-                    impact_score=getattr(g, 'impact_score', 0.0)
-                )
-                for g in groups_data
-            ]
-            
-            risks = [RiskItem.from_dict(r) if isinstance(r, dict) else r for r in risks_data]
-            
-            metrics = None
-            metrics_data = getattr(result, 'metrics', None)
-            if metrics_data:
-                # metrics 是 dict，使用 from_dict 转换
-                metrics = CommTopMetrics.from_dict(metrics_data)
-            
-            return cls(
-                groups=groups,
-                folded_count=getattr(result, 'folded_count', 0),
-                total_groups=getattr(result, 'total_groups', len(groups)),
-                risks=risks,
-                metrics=metrics
-            )
+            return cls.from_analysis_result(result)
         
         # 处理 dict 输入（旧方式，保持兼容）
         result_data = result.get("result", result)
@@ -393,7 +508,12 @@ class CommTopReport:
 
 @dataclass
 class DiagnosisReport:
-    """综合诊断报告（sys-audit输出）"""
+    """
+    综合诊断报告（sys-audit输出）
+    
+    整合 anomalies、core_distribution、comm_top 三个分析器的结果，
+    解决"A（高Count亮眼数字）掩盖B（真瓶颈）"问题。
+    """
     primary_suspect: Optional[ProcessGroup] = None
     secondary_loads: List[ProcessGroup] = field(default_factory=list)
     background_noise: List[ProcessGroup] = field(default_factory=list)
@@ -401,7 +521,10 @@ class DiagnosisReport:
     mutation_detected: bool = False
     mutation_time: Optional[float] = None
     saturated_cores: List[int] = field(default_factory=list)
+    imbalance_level: str = "NORMAL"  # NORMAL/MODERATE/SEVERE
     root_cause_analysis: str = ""
+    recommendations: List[str] = field(default_factory=list)
+    risks: List[RiskItem] = field(default_factory=list)
 
 
 # =============================================================================
@@ -410,25 +533,76 @@ class DiagnosisReport:
 
 @dataclass
 class HotspotItem:
-    """热点函数项"""
+    """
+    热点函数数据（从 Hotspot 转换）
+    
+    用于瓶颈追踪中的热点分析结果。
+    """
     symbol: str
     cpu_percent: float
     inclusive_percent: float = 0.0
     call_count: int = 0
     resource_tag: str = "COMPUTE"  # LOCK/SYSCALL/SCHED/MEMORY/IO/COMPUTE
+    
+    @classmethod
+    def from_analysis_hotspot(cls, hotspot: Any, tag: str = "COMPUTE") -> 'HotspotItem':
+        """
+        从 Analysis 层的 Hotspot 转换
+        
+        Args:
+            hotspot: Analysis 层的 Hotspot dataclass
+            tag: 资源标签，由 Composite 层根据符号特征推断
+            
+        Returns:
+            HotspotItem: Composite 层热点函数表示
+        """
+        return cls(
+            symbol=hotspot.symbol,
+            cpu_percent=hotspot.self_pct,
+            inclusive_percent=hotspot.inclusive_pct,
+            call_count=getattr(hotspot, 'call_count', 0),
+            resource_tag=tag
+        )
 
 
 @dataclass
 class CallerInfo:
-    """调用者信息"""
+    """
+    调用者信息（从 CallerAttribution 转换）
+    
+    用于调用链溯源分析。
+    """
     symbol: str
     call_count: int = 0
     call_ratio: float = 0.0
+    total_weight: float = 0.0
+    
+    @classmethod
+    def from_analysis_caller(cls, caller: Any) -> 'CallerInfo':
+        """
+        从 Analysis 层的 CallerAttribution 转换
+        
+        Args:
+            caller: Analysis 层的 CallerAttribution dataclass
+            
+        Returns:
+            CallerInfo: Composite 层调用者表示
+        """
+        return cls(
+            symbol=caller.symbol,
+            call_count=caller.call_count,
+            call_ratio=caller.call_ratio,
+            total_weight=caller.total_weight
+        )
 
 
 @dataclass
 class HotspotsReport:
-    """热点分析报告"""
+    """
+    热点分析报告（Composite 层）
+    
+    从 Analysis 层的 HotspotsResult 转换而来。
+    """
     hotspots: List[HotspotItem] = field(default_factory=list)
     top_symbol: Optional[str] = None
     total_hotspots: int = 0
@@ -437,40 +611,58 @@ class HotspotsReport:
     risks: List[RiskItem] = field(default_factory=list)
     
     @classmethod
+    def from_analysis_result(cls, result: Any) -> 'HotspotsReport':
+        """
+        从 Analysis 层的 HotspotsResult 转换
+        
+        Args:
+            result: Analysis 层的 HotspotsResult dataclass
+            
+        Returns:
+            HotspotsReport: Composite 层报告
+        """
+        # 推断资源标签
+        def infer_tag(symbol: str) -> str:
+            symbol_lower = symbol.lower()
+            if any(k in symbol_lower for k in ['lock', 'mutex', 'spin', 'rwsem']):
+                return "LOCK"
+            if any(k in symbol_lower for k in ['syscall', 'sys_']):
+                return "SYSCALL"
+            if any(k in symbol_lower for k in ['schedule', 'switch']):
+                return "SCHED"
+            if any(k in symbol_lower for k in ['malloc', 'free', 'reclaim']):
+                return "MEMORY"
+            if any(k in symbol_lower for k in ['read', 'write', 'send', 'recv']):
+                return "IO"
+            return "COMPUTE"
+        
+        hotspots = [
+            HotspotItem.from_analysis_hotspot(h, tag=infer_tag(h.symbol))
+            for h in result.hotspots
+        ]
+        
+        risks = [
+            RiskItem.from_analysis_risk(r, source="hotspots")
+            for r in result.risks
+        ]
+        
+        top = result.hotspots[0].symbol if result.hotspots else None
+        
+        return cls(
+            hotspots=hotspots,
+            top_symbol=top,
+            total_hotspots=len(result.hotspots),
+            kernel_ratio=result.kernel_ratio,
+            user_ratio=result.user_ratio,
+            risks=risks
+        )
+    
+    @classmethod
     def from_dict(cls, d: Dict) -> 'HotspotsReport':
         """从Facade返回的dict或HotspotsResult dataclass创建"""
-        # 处理 dataclass 输入（HotspotsResult 有 hotspots 属性）
+        # 处理 dataclass 输入
         if hasattr(d, 'hotspots') and not isinstance(d, dict):
-            risks = [RiskItem.from_dict(r) if isinstance(r, dict) else r for r in (getattr(d, 'risks', None) or [])]
-            hotspots_data = d.hotspots
-            
-            hotspots = [
-                HotspotItem(
-                    symbol=getattr(h, 'symbol', ""),
-                    cpu_percent=getattr(h, 'cpu_percent', getattr(h, 'self_pct', 0.0)),
-                    inclusive_percent=getattr(h, 'inclusive_percent', getattr(h, 'inclusive_pct', 0.0)),
-                    call_count=getattr(h, 'call_count', getattr(h, 'count', 0)),
-                    resource_tag=getattr(h, 'resource_tag', "COMPUTE")
-                )
-                for h in hotspots_data
-            ]
-            
-            top = getattr(d, 'top_symbol', None)
-            if not top and hotspots:
-                top = hotspots[0].symbol
-            
-            total = getattr(d, 'total_hotspots', len(hotspots))
-            kernel = getattr(d, 'kernel_ratio', 0.0)
-            user = getattr(d, 'user_ratio', 0.0)
-            
-            return cls(
-                hotspots=hotspots,
-                top_symbol=top,
-                total_hotspots=total,
-                kernel_ratio=kernel,
-                user_ratio=user,
-                risks=risks
-            )
+            return cls.from_analysis_result(d)
         
         # 处理 dict 输入
         hotspots = [
@@ -502,17 +694,52 @@ class HotspotsReport:
 
 @dataclass
 class CallersReport:
-    """调用链分析报告"""
+    """
+    调用链溯源报告（Composite 层）
+    
+    从 Analysis 层的 CallersResult 转换而来。
+    """
     target: str = ""
     callers: List[CallerInfo] = field(default_factory=list)
     hot_paths: List[str] = field(default_factory=list)
     risks: List[RiskItem] = field(default_factory=list)
     
     @classmethod
+    def from_analysis_result(cls, result: Any) -> 'CallersReport':
+        """
+        从 Analysis 层的 CallersResult 转换
+        
+        Args:
+            result: Analysis 层的 CallersResult dataclass
+            
+        Returns:
+            CallersReport: Composite 层报告
+        """
+        callers = [
+            CallerInfo.from_analysis_caller(c)
+            for c in result.callers
+        ]
+        
+        risks = [
+            RiskItem.from_analysis_risk(r, source="callers")
+            for r in result.risks
+        ]
+        
+        # 提取热点路径（前3条）
+        hot_paths = [c.symbol for c in callers[:3]]
+        
+        return cls(
+            target=result.target,
+            callers=callers,
+            hot_paths=hot_paths,
+            risks=risks
+        )
+    
+    @classmethod
     def from_dict(cls, d: Dict) -> 'CallersReport':
         """从Facade返回的dict创建"""
-        # 处理 dataclass 输入（当 d 已经是 CallersReport 或类似结构时）
-        if hasattr(d, 'target'):
+        # 处理 dataclass 输入
+        if hasattr(d, 'target') and not isinstance(d, dict):
             callers_data = getattr(d, 'callers', [])
             risks = [RiskItem.from_dict(r) if isinstance(r, dict) else r for r in getattr(d, 'risks', [])]
             
@@ -520,7 +747,8 @@ class CallersReport:
                 CallerInfo(
                     symbol=getattr(c, 'symbol', ""),
                     call_count=getattr(c, 'call_count', getattr(c, 'count', 0)),
-                    call_ratio=getattr(c, 'call_ratio', getattr(c, 'ratio', 0.0))
+                    call_ratio=getattr(c, 'call_ratio', getattr(c, 'ratio', 0.0)),
+                    total_weight=getattr(c, 'total_weight', 0.0)
                 )
                 for c in callers_data
             ]
@@ -537,7 +765,8 @@ class CallersReport:
             CallerInfo(
                 symbol=c.get("symbol", ""),
                 call_count=c.get("call_count", c.get("count", 0)),
-                call_ratio=c.get("call_ratio", c.get("ratio", 0.0))
+                call_ratio=c.get("call_ratio", c.get("ratio", 0.0)),
+                total_weight=c.get("total_weight", 0.0)
             )
             for c in d.get("callers", [])
         ]
@@ -554,7 +783,11 @@ class CallersReport:
 
 @dataclass
 class BottleneckAnalysis:
-    """瓶颈分析结果"""
+    """
+    瓶颈分析结果
+    
+    bottleneck-trace 命令的核心输出。
+    """
     found: bool = False
     comm: str = ""
     total_cpu: float = 0.0

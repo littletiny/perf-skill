@@ -9,9 +9,10 @@ V3 版本（三层架构）：
 - Task-2.4.1: 返回 CoreDistributionResult dataclass
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from collections import defaultdict
 from .base import BaseAnalyzer
+from ..core.engine_types import Sample
 from .models import Risk, CoreStat, CoreDistributionResult
 
 
@@ -43,7 +44,7 @@ class CoreDistAnalyzer(BaseAnalyzer):
     IMBALANCE_MEDIUM = 2.0      # 中度不均衡
     SATURATION_THRESHOLD = 90.0  # 核心饱和阈值
     
-    def analyze(self, samples: List[Dict], top_n: int = 10) -> CoreDistributionResult:
+    def analyze(self, samples: List[Sample], top_n: int = 10) -> CoreDistributionResult:
         """
         分析核心级负载分布
         

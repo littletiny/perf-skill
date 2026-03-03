@@ -6,15 +6,27 @@ get-hotspots 命令实现
 从 analysis/hotspots.py 迁移而来
 """
 
+from typing import List, Dict, Any, TYPE_CHECKING
+
 from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.output_models import (
     RiskInfo, RiskLevel, HotspotItem, HotspotSummary, HotspotsOutput, TimeRange
 )
 from perf_toolkit.analysis.hotspots import HotspotsAnalyzer
 
+if TYPE_CHECKING:
+    from perf_toolkit.cli.builders import OutputBuilder
+    from perf_toolkit.core import PerfExpertEngine
+    from argparse import Namespace
+
 
 @command("get-hotspots")
-def cmd_get_hotspots(builder, engine, args, samples):
+def cmd_get_hotspots(
+    builder: 'OutputBuilder',
+    engine: 'PerfExpertEngine',
+    args: 'Namespace',
+    samples: List[Dict[str, Any]]
+) -> HotspotsOutput:
     """[Skill] Extract hotspot function rankings by self/inclusive time"""
     
     # 1. 调用 Analyzer

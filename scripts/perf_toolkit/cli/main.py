@@ -8,6 +8,8 @@ B 和 C 将在此注册自己的命令
 
 import argparse
 import sys
+from typing import Callable, Optional, Dict, Any
+
 from ..core import PerfExpertEngine
 
 
@@ -178,32 +180,78 @@ Use '<command> --help' for detailed help on each subcommand."""
     return parser
 
 
-def route_command(command_name: str, engine: PerfExpertEngine, args):
+def get_analysis_handler(command_name: str) -> Callable:
     """
-    命令路由 - B/C 填充具体路由逻辑
+    获取分析命令处理函数
+    
+    Args:
+        command_name: 命令名称，如 'get-hotspots'
+        
+    Returns:
+        装饰后的命令处理函数，签名为 (engine, args) -> BaseOutput
+    """
+    from .commands.analysis import get_command_handler
+    return get_command_handler(command_name)
+
+
+def get_composite_handler(command_name: str) -> Callable:
+    """
+    获取组合命令处理函数
+    
+    Args:
+        command_name: 命令名称，如 'sys-audit' 或 'bottleneck-trace'
+        
+    Returns:
+        装饰后的命令处理函数，签名为 (engine, args) -> BaseOutput
+    """
+    from .commands.composite import get_command_handler
+    return get_command_handler(command_name)
+
+
+def execute_analysis_command(
+    command_name: str,
+    engine: PerfExpertEngine,
+    args: argparse.Namespace
+) -> Optional[Any]:
+    """
+    执行分析命令
     
     Args:
         command_name: 命令名称
         engine: PerfExpertEngine 实例
-        args: argparse.Namespace
+        args: 解析后的参数
         
-    Note:
-        B 负责填充 analysis 命令路由
-        C 负责填充 trace/env 命令路由
+    Returns:
+        BaseOutput 子类实例或 None
+        
+    Raises:
+        ValueError: 未知命令
     """
-    # TODO: B 填充具体命令映射
-    # commands = {
-    #     # Analysis commands (B)
-    #     "get-hotspots": cmd_get_hotspots,
-    #     "find-callers": cmd_find_callers,
-    #     ...
-    # }
-    # 
-    # if command_name in commands:
-    #     commands[command_name](engine, args)
-    # else:
-    #     print(f"Unknown command: {command_name}", file=sys.stderr)
-    pass
+    handler = get_analysis_handler(command_name)
+    return handler(engine, args)
+
+
+def execute_composite_command(
+    command_name: str,
+    engine: PerfExpertEngine,
+    args: argparse.Namespace
+) -> Optional[Any]:
+    """
+    执行组合命令
+    
+    Args:
+        command_name: 命令名称
+        engine: PerfExpertEngine 实例
+        args: 解析后的参数
+        
+    Returns:
+        BaseOutput 子类实例或 None
+        
+    Raises:
+        ValueError: 未知命令
+    """
+    handler = get_composite_handler(command_name)
+    return handler(engine, args)
 
 
 def main():
@@ -232,17 +280,16 @@ def main():
     
     if args.command in analysis_commands or args.command in composite_commands:
         try:
-            if args.command in analysis_commands:
-                from .commands.analysis import get_command_handler
-            else:
-                from .commands.composite import get_command_handler
-            
-            handler = get_command_handler(args.command)
+            # 创建引擎
             freq = getattr(args, 'freq', 19)
             engine = PerfExpertEngine(args.data, freq=freq)
             
-            # 装饰器会处理 builder 和 samples 的创建
-            handler(engine, args)
+            # 执行命令（装饰器会处理 builder 和 samples 的创建）
+            if args.command in analysis_commands:
+                execute_analysis_command(args.command, engine, args)
+            else:
+                execute_composite_command(args.command, engine, args)
+                
         except ValueError as e:
             print(f"Command error: {e}", file=sys.stderr)
             raise

@@ -9,8 +9,9 @@ V3 版本（三层架构）：
 - Task-2.5.1: 返回 HotspotsResult dataclass
 """
 
-from typing import Dict, List, Any, Optional
+from typing import List, Optional
 from .base import BaseAnalyzer
+from ..core.engine_types import Sample
 from .models import Risk, Hotspot, HotspotsResult
 from ..core.output_models import RiskLevel
 
@@ -25,7 +26,7 @@ class HotspotsAnalyzer(BaseAnalyzer):
     # Risk 阈值
     KERNEL_HOTSPOT_THRESHOLD = 30.0  # 内核态热点占比阈值
     
-    def analyze(self, samples: List[Dict], 
+    def analyze(self, samples: List[Sample], 
                 comm: Optional[str] = None,
                 pid: Optional[int] = None,
                 top_n: int = 20,
