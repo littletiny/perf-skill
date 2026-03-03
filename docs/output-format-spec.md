@@ -448,40 +448,119 @@ shecr trace add --desc "<_risk.message>" \
 
 #### bottleneck-trace
 
-瓶颈深度追踪（Composite 层命令）。
+瓶颈深度追踪（Composite 层命令）。通过多维度聚合分析定位 CPU 瓶颈根因。
 
 **输出结构**:
 ```json
 {
   "_risk": {
     "level": "critical",
-    "message": "app_worker 存在明显瓶颈",
-    "hint": "查看 hotspots 和 callers 分析结果",
-    "patterns": ["BOTTLENECK_CONFIRMED"],
+    "message": "发现关键瓶颈: app_B (Monopoly=0.96, Throttle=82.5%)",
+    "hint": "查看 [CONVERGENCE_TRACE] 中的调用链分析",
+    "patterns": ["BOTTLENECK_CONFIRMED", "THROTTLE_VICTIM"],
     "action_required": true
   },
+  "entity_distribution": [
+    {
+      "comm": "app_B",
+      "count": 1,
+      "incl_saliency": 0.96,
+      "excl_saliency": 0.12,
+      "core_affinity": "Fixed: [Core_4]",
+      "throttle_rate": 0.825
+    }
+  ],
+  "common_hotspot": "_raw_spin_lock",
+  "common_hotspot_weight": 0.724,
+  "clusters": [
+    {
+      "cluster_id": "c_001",
+      "comm": "lsof",
+      "weight": 0.68,
+      "path": ["lsof", "vfs_read", "iterate_dir", "__d_lookup_rcu"],
+      "hotspot": "_raw_spin_lock",
+      "characteristic": "High_Frequency_Exclusive_CPU"
+    }
+  ],
+  "correlation_flags": [
+    {
+      "flag_type": "GLOBAL_LOCK_CONTENTION",
+      "target": "_raw_spin_lock",
+      "message": "_raw_spin_lock usage exceeds 40% of sys time",
+      "severity": "critical"
+    }
+  ],
+  "total_pids": 2421,
+  "total_sys_cpu": 165.2,
+  "top_bottlenecks": ["_raw_spin_lock", "cgroup_try_mem_free", "futex_wait"],
+  "duration_sec": 60.0,
+  "sample_count": 31500,
   "time_range": {
     "start_time": "2026-03-02T10:00:00",
-    "end_time": "2026-03-02T10:30:00",
-    "duration": 1800
-  },
-  "target_comm": "app_worker",
-  "bottleneck_analysis": {
-    "monopoly": 0.92,
-    "diagnosis": "BOTTLENECK",
-    "impact_score": 85.5
-  },
-  "hotspots": {
-    "top_symbol": "pthread_mutex_lock",
-    "kernel_ratio": 65.3,
-    "items": [...]
-  },
-  "callers": {
-    "target": "pthread_mutex_lock",
-    "attributions": [...]
+    "end_time": "2026-03-02T10:30:00"
   }
 }
 ```
+
+**数据项说明**:
+
+| 字段 | 类型 | 说明 | 来源 |
+|------|------|------|------|
+| `entity_distribution` | List[EntityDistribution] | 实体分布矩阵 | Composite 层聚合 |
+| `entity_distribution[].comm` | str | 进程组名称 | get-comm-top |
+| `entity_distribution[].count` | int | PID 数量 | get-comm-top |
+| `entity_distribution[].incl_saliency` | float | Inclusive CPU 显著度 | get-hotspots |
+| `entity_distribution[].excl_saliency` | float | Exclusive (Self) CPU 显著度 | get-hotspots |
+| `entity_distribution[].core_affinity` | str | 核心亲缘性模式 (Fixed/Uniform/Scattered) | analyze-core-distribution |
+| `entity_distribution[].throttle_rate` | float | CPU 节流比例 | Core 层计算 |
+| `common_hotspot` | str | 所有聚类共享的热点符号 | Composite 层聚合 |
+| `common_hotspot_weight` | float | 共同热点占比 | Composite 层聚合 |
+| `clusters` | List[CallPathCluster] | 调用路径聚类列表 | cluster-paths + find-callers |
+| `clusters[].cluster_id` | str | 聚类标识 | Composite 层生成 |
+| `clusters[].comm` | str | 所属进程 | cluster-paths |
+| `clusters[].weight` | float | 占总样本比例 | cluster-paths |
+| `clusters[].path` | List[str] | 调用链符号列表 | cluster-paths |
+| `clusters[].hotspot` | str | 汇聚热点符号 | cluster-paths |
+| `clusters[].characteristic` | str | 路径特征标签 | Composite 层分析 |
+| `correlation_flags` | List[CorrelationFlag] | 跨维度关联标志 | Composite 层检测 |
+| `correlation_flags[].flag_type` | str | Flag 类型 | Composite 层检测 |
+| `correlation_flags[].target` | str | 目标符号/进程 | Composite 层检测 |
+| `correlation_flags[].message` | str | 描述信息 | Composite 层生成 |
+| `correlation_flags[].severity` | str | 严重程度 (critical/warning/info) | Composite 层判定 |
+| `total_pids` | int | 采样期间唯一 PID 数 | Core 层 |
+| `total_sys_cpu` | float | 系统总 CPU 利用率(%) | Core 层 |
+| `top_bottlenecks` | List[str] | 排名前三的热点符号 | Composite 层聚合 |
+| `duration_sec` | float | 采样持续时间 | Core 层 |
+| `sample_count` | int | 总样本数 | Core 层 |
+
+**CorrelationFlag 类型**:
+
+| Flag | 检测条件 | 来源数据 |
+|------|----------|----------|
+| `GLOBAL_LOCK_CONTENTION` | 全局锁符号 inclusive% > 40% | get-hotspots |
+| `SINGLE_CORE_SATURATION` | 单核利用率 > 90% 且 Monopoly > 0.8 | analyze-core-distribution |
+| `THROTTLE_VICTIM` | Throttle_Rate > 50% | Core 层 + cgroup 分析 |
+| `STORM_PATTERN` | Spawn_Rate > 100/s 或 PID_Count > 1000 | get-comm-top |
+| `KERNEL_HEAVY` | 内核态占比 > 50% | get-hotspots |
+| `UNBALANCED_LOAD` | CV > 1.5 且 Monopoly < 0.5 | get-comm-top |
+
+**Path_Characteristic 标签**:
+
+| 标签 | 说明 | 触发条件 |
+|------|------|----------|
+| `High_Frequency_Exclusive_CPU` | 高频独占 CPU | Self% >> Inclusive% |
+| `Inclusive_Latency_Victim` | 包容性延迟受害者 | 等待资源/锁 |
+| `Syscall_Bound` | 系统调用密集 | 内核态占比 > 50% |
+| `Lock_Contention` | 锁竞争 | 热点为 lock/mutex/spinlock |
+| `IO_Wait_Dominant` | IO 等待主导 | io_schedule 高频 |
+
+**Core_Affinity 判定规则**:
+
+| 模式 | 判定条件 | 说明 |
+|------|----------|------|
+| Fixed | Entropy < 0.3, Monopoly > 0.8 | 单核心绑定 |
+| Uniform | Entropy > 2.0, CV < 0.5 | 均匀分布到多核 |
+| Scattered | 其他情况 | 分散无规律 |
 
 ---
 

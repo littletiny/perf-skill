@@ -137,17 +137,19 @@ shecr sys-audit [options]
 
 ### bottleneck-trace
 
-深度分析瓶颈进程。
+深度分析瓶颈进程。通过多维度聚合分析（Bottom-Up + Top-Down 双视角），定位 CPU 瓶颈根因。
 
 ```bash
 shecr bottleneck-trace --comm <name> [options]
-# 或
 shecr bottleneck-trace --pid <PID> [options]
-# 或
 shecr bottleneck-trace --auto-detect
 ```
 
-**特有参数**: `--comm`, `--pid`, `--auto-detect`
+**特有参数**: `--comm`, `--pid`, `--auto-detect`, `--hotspots-limit`, `--callers-limit`, `--max-depth`, `--verbose`
+
+**输出板块**: `[ENTITY_DISTRIBUTION_MATRIX]`, `[CONVERGENCE_TRACE]`, `[CORRELATION_FLAGS]`, `[DATA_SUMMARY]`
+
+📘 **详细规范**: [`docs/tool-bottleneck-trace.md`](../docs/tool-bottleneck-trace.md) - 完整输出格式、数据结构和分析流程
 
 ---
 

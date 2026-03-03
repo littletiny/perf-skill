@@ -552,15 +552,15 @@ class CallersReport:
         )
 ```
 
-### 3.6 BottleneckAnalysis - 瓶颈分析结果
+### 3.6 BottleneckAnalysis - 瓶颈分析中间结果
 
 ```python
 @dataclass
 class BottleneckAnalysis:
     """
-    瓶颈深度分析结果
+    瓶颈深度分析中间结果
     
-    bottleneck-trace 命令的核心输出。
+    用于内部分析的中间数据结构，非最终输出。
     """
     found: bool = False              # 是否发现瓶颈
     comm: str = ""                   # 瓶颈进程名
@@ -580,6 +580,94 @@ class BottleneckAnalysis:
     
     # 风险信息
     risks: List[RiskItem] = field(default_factory=list)
+```
+
+### 3.7 EntityDistribution - 实体分布矩阵行
+
+```python
+@dataclass
+class EntityDistribution:
+    """
+    实体分布矩阵行
+    
+    用于 [ENTITY_DISTRIBUTION_MATRIX] 输出区块。
+    """
+    comm: str                        # 进程组名称
+    count: int                       # PID 数量
+    incl_saliency: float             # Inclusive CPU 显著度
+    excl_saliency: float             # Exclusive (Self) CPU 显著度
+    core_affinity: str               # Fixed/Uniform/Scattered
+    throttle_rate: float             # 节流比例
+```
+
+### 3.8 CallPathCluster - 调用路径聚类
+
+```python
+@dataclass
+class CallPathCluster:
+    """
+    调用路径聚类
+    
+    用于 [CONVERGENCE_TRACE] 输出区块。
+    """
+    cluster_id: str                  # 聚类标识
+    comm: str                        # 所属进程
+    weight: float                    # 占总样本比例
+    path: List[str]                  # 调用链符号列表
+    hotspot: str                     # 汇聚热点符号
+    characteristic: str              # 路径特征标签
+```
+
+### 3.9 CorrelationFlag - 关联标志
+
+```python
+@dataclass
+class CorrelationFlag:
+    """
+    关联标志
+    
+    用于 [CORRELATION_FLAGS] 输出区块。
+    """
+    flag_type: str                   # GLOBAL_LOCK_CONTENTION, SINGLE_CORE_SATURATION, etc.
+    target: str                      # 目标符号/进程
+    message: str                     # 描述信息
+    severity: str                    # critical/warning/info
+```
+
+### 3.10 BottleneckTraceResult - bottleneck-trace 完整输出
+
+```python
+@dataclass
+class BottleneckTraceResult:
+    """
+    bottleneck-trace 完整输出
+    
+    对应 [ENTITY_DISTRIBUTION_MATRIX], [CONVERGENCE_TRACE], 
+    [CORRELATION_FLAGS], [DATA_SUMMARY] 四个输出区块。
+    """
+    # 风险信息（置顶）
+    _risk: RiskItem
+    
+    # 实体分布矩阵 [ENTITY_DISTRIBUTION_MATRIX]
+    entity_distribution: List[EntityDistribution]
+    
+    # 收敛追踪 [CONVERGENCE_TRACE]
+    common_hotspot: str              # 所有聚类共享的热点符号
+    common_hotspot_weight: float     # 共同热点占比
+    clusters: List[CallPathCluster]  # 调用路径聚类列表
+    
+    # 关联标志 [CORRELATION_FLAGS]
+    correlation_flags: List[CorrelationFlag]
+    
+    # 数据摘要 [DATA_SUMMARY]
+    total_pids: int                  # 采样期间唯一 PID 数
+    total_sys_cpu: float             # 系统总 CPU 利用率(%)
+    top_bottlenecks: List[str]       # 排名前三的热点符号
+    duration_sec: float              # 采样持续时间
+    sample_count: int                # 总样本数
+    
+    # 时间范围
+    time_range: TimeRange
 ```
 
 ---
@@ -1039,11 +1127,11 @@ class BottleneckTracer:
     
     自动识别 CPU 瓶颈进程并进行深度分析。
     
-    分析流程：
-    1. 识别瓶颈进程（通过 Monopoly 指标）
-    2. 热点函数分析
-    3. 调用链溯源
-    4. 生成诊断报告
+    分析流程（4 阶段）：
+    1. 预处理阶段：get-comm-top + analyze-core-distribution
+    2. 热点分析阶段：get-hotspots (sort-by=self)
+    3. 调用链分析阶段：find-callers (Bottom-Up) + cluster-paths (Top-Down)
+    4. 聚合输出阶段：CONVERGENCE + AFFINITY_PATTERN 判定
     
     使用示例：
         engine = PerfExpertEngine()
@@ -1051,7 +1139,12 @@ class BottleneckTracer:
         tracer = BottleneckTracer(facade)
         
         samples = engine.get_filtered_samples()
-        analysis, hotspots, callers = tracer.trace(samples, target_comm="my_app")
+        result = tracer.trace(samples, target_comm="my_app")
+        
+        # 访问结果
+        print(result.entity_distribution)
+        print(result.common_hotspot)
+        print(result.clusters)
     """
     
     def __init__(self, facade: 'AnalysisFacade'):
@@ -1065,9 +1158,7 @@ class BottleneckTracer:
         self._aggregator = RiskAggregator()
     
     def trace(self, samples: List[Dict],
-              target_comm: Optional[str] = None) -> Tuple[BottleneckAnalysis, 
-                                                         HotspotsReport,
-                                                         Optional[CallersReport]]:
+              target_comm: Optional[str] = None) -> BottleneckTraceResult:
         """
         执行瓶颈追踪
         
@@ -1076,8 +1167,8 @@ class BottleneckTracer:
             target_comm: 可选，指定目标进程。如为 None，自动识别瓶颈进程
             
         Returns:
-            Tuple[BottleneckAnalysis, HotspotsReport, Optional[CallersReport]]:
-                瓶颈分析结果、热点报告、调用链报告（可选）
+            BottleneckTraceResult: 包含 entity_distribution, clusters, 
+                                   correlation_flags, data_summary 的完整结果
         """
         # 1. 自动识别或验证目标进程
         if not target_comm:
