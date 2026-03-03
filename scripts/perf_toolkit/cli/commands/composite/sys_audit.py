@@ -204,21 +204,15 @@ def _build_expert_anchors(
 def _build_root_cause_chain(
     diagnosis: 'DiagnosisReport'
 ) -> Optional[RootCauseChain]:
-    """构建根因链（强类型）"""
-    if not diagnosis.primary_suspect:
-        return None
+    """构建根因链（强类型）
     
-    primary = diagnosis.primary_suspect
-    secondary_names = [g.comm for g in diagnosis.secondary_loads[:2]]
-    
-    return RootCauseChain(
-        primary_driver=f"{primary.comm} {primary.diagnosis}",
-        phenomenon=f"单进程独占 Monopoly={primary.monopoly:.2f}",
-        impact=f"{' + '.join(secondary_names) if secondary_names else '系统'} 受到影响" if secondary_names else "系统资源被独占",
-        victim=primary.comm,
-        recommendation=f"执行 bottleneck-trace --comm {primary.comm} 深度分析",
-        attention_flag=AttentionFlag.X0
-    )
+    NOTE: 已禁用。原因：
+    1. 信息重复：Primary/Secondary 已在"进程分层"中展示
+    2. 描述不准确：硬编码"单进程独占"但 Monopoly 低时是多进程
+    3. 受害者判断错误：primary 是加害人而非受害者
+    4. 建议操作已在"后续操作"中提供
+    """
+    return None
 
 
 @command("sys-audit")
