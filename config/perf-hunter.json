@@ -1,0 +1,100 @@
+{
+  "_comment": "perf-hunter 统一配置文件 - 合并 risk、rules 和 thresholds",
+  "_version": "1.2",
+
+  "risk": {
+    "_comment": "风险显示配置",
+    "colors": {
+      "critical": "\u001b[91m",
+      "warning": "\u001b[93m",
+      "info": "\u001b[94m",
+      "reset": "\u001b[0m"
+    },
+    "templates": {
+      "issue_open": "[OPEN] [{id}] [{level}] {desc}",
+      "issue_resolved": "[RESOLVED] [{id}] [{level}] {desc}",
+      "hint": "→ {hint}",
+      "result": "→ {result}",
+      "list_header_open": "[OPEN] {count} issues pending",
+      "list_header_resolved": "[RESOLVED] {count} issues",
+      "list_header_all": "[ALL] {open_count} open, {resolved_count} resolved",
+      "timeline_command": "[{seq}] {time} {command}",
+      "timeline_finding_created": "[{level}] {issue_id}: {desc}",
+      "timeline_finding_resolved": "[RESOLVED] {issue_id}: {result}",
+      "timeline_info": "[INFO] {message}"
+    },
+    "show": {
+      "hint": true,
+      "result": true
+    }
+  },
+
+  "modes": {
+    "_comment": "显示模式覆盖",
+    "ci": {
+      "colors": {
+        "critical": "",
+        "warning": "",
+        "info": "",
+        "reset": ""
+      }
+    },
+    "compact": {
+      "templates": {
+        "issue_open": "[OPEN] {id} [{level}] {desc}",
+        "issue_resolved": "[RESOLVED] {id} [{level}] {desc}"
+      },
+      "show": {
+        "hint": false,
+        "result": false
+      }
+    }
+  },
+
+  "rules": {
+    "_comment": "分析规则配置",
+    "expert_rules": {
+      "_description": "符号分类规则 - 用于 cluster-symbols 等命令",
+      "EVENT_IRQ_OFF": "irqoff|spin_unlock_irqrestore|ksoftirqd",
+      "EVENT_SCHEDULER": "sched_|pick_next_task|load_balance|idle_balance|dequeue_task|enqueue_task",
+      "EVENT_MEM_RECLAIM": "direct_reclaim|try_to_free_pages|tlb_flush|tlb_shootdown",
+      "EVENT_LOCK_CONTENTION": "spin_lock|mutex_lock|rwsem_down|queued_spin_lock",
+      "EVENT_SYNC_PRIMITIVE": "pthread_mutex|pthread_cond|pthread_sig|futex_wait|futex_wake"
+    },
+    "idle_detection": {
+      "_comment": "Idle 进程检测规则",
+      "enabled": true,
+      "pid_zero": true
+    }
+  },
+
+  "comm_thresholds": {
+    "_comment": "进程瓶颈判定阈值配置",
+    "_description": "支持全局默认值和 per-comm 定制。判定 BOTTLENECK 条件: (total > sensitive 且 sys_ratio > sys_high) 或 (total >= limit)",
+    "global": {
+      "sensitive": 200.0,
+      "limit": 200.0,
+      "sys_high": 50.0,
+      "sys_critical": 80.0,
+      "total_min": 10.0
+    },
+    "per_comm": {
+      "_comment": "特定进程的配置，未配置的进程使用 global 默认值",
+      "kubelet": {
+        "sensitive": 80.0,
+        "limit": 100.0,
+        "sys_high": 30.0
+      },
+      "telegraf": {
+        "sensitive": 80.0,
+        "limit": 100.0,
+        "sys_high": 50.0
+      },
+      "containerd": {
+        "sensitive": 80.0,
+        "limit": 100.0,
+        "sys_high": 50.0
+      }
+    }
+  }
+}

@@ -29,6 +29,7 @@ from config.defaults import (
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
 from ..core.models import RiskInfo
+from ..core.config_loader import get_config
 from .models import (
     CommGroup, CommTopResult, StormAnalysisResult, StormGroupDetail
 )
@@ -98,11 +99,11 @@ class CommTopAnalyzer(BaseAnalyzer):
             spawn_rate = lifecycle.spawn_rate
             
             # 诊断分级
-            diagnosis = self._classify(cv, monopoly, spawn_rate)
+            diagnosis = self._classify(comm, info.total_pct, info.kernel_pct, cv, monopoly, spawn_rate)
             
             # 计算危害指数
             impact_score = self._calculate_impact_score(
-                info.total_pct, cv, monopoly, spawn_rate
+                info.total_pct, info.kernel_pct, cv, monopoly, spawn_rate, diagnosis
             )
             
             group = CommGroup(
@@ -125,8 +126,14 @@ class CommTopAnalyzer(BaseAnalyzer):
             if risk:
                 risks.append(risk)
         
-        # 3. 按危害指数排序
+        # 3. 按危害指数排序（综合排序）
         groups.sort(key=lambda x: x.impact_score, reverse=True)
+        
+        # 3.1 按 total_cpu 排序（独立视图）
+        groups_by_total = sorted(groups, key=lambda x: x.total_cpu, reverse=True)
+        
+        # 3.2 按 kernel_cpu 排序（独立视图，用于发现高 sys 的进程）
+        groups_by_sys = sorted(groups, key=lambda x: x.kernel_cpu, reverse=True)
         
         # 4. 自动降噪：区分"值得关注"和"背景噪音"
         display_groups, folded_groups = self._auto_filter(groups)
@@ -159,7 +166,9 @@ class CommTopAnalyzer(BaseAnalyzer):
             total_groups=len(groups),
             risks=risks,
             storm_analysis=storm_analysis,
-            metrics=metrics
+            metrics=metrics,
+            groups_by_total_cpu=groups_by_total[:top_n],
+            groups_by_sys_cpu=groups_by_sys[:top_n]
         )
     
     def _calculate_cv(self, pid_dist: Dict[int, float]) -> float:
@@ -198,17 +207,25 @@ class CommTopAnalyzer(BaseAnalyzer):
         max_pid_cpu = max(pid_dist.values())
         return max_pid_cpu / total
     
-    def _classify(self, cv: float, monopoly: float, spawn_rate: float) -> str:
+    def _classify(self, comm: str, total_cpu: float, kernel_cpu: float,
+                  cv: float, monopoly: float, spawn_rate: float) -> str:
         """
         诊断分级
         
+        BOTTLENECK 判定（基于配置）：
+        1. total_cpu > sensitive 且 kernel_ratio > sys_high
+        2. total_cpu >= limit
+        
         Returns:
-            BOTTLENECK: 单进程瓶颈（Monopoly 高）
+            BOTTLENECK: 达到配置阈值
             STORM: 进程风暴（SpawnRate 高）
             UNBALANCED: 负载不均衡（CV 高）
             HEALTHY: 健康状态
         """
-        if monopoly > self.MONOPOLY_THRESHOLD:
+        config = get_config()
+        
+        # 基于配置的 BOTTLENECK 判定
+        if config.is_bottleneck(comm, total_cpu, kernel_cpu):
             return DiagnosisType.BOTTLENECK
         elif spawn_rate > self.SPAWN_RATE_THRESHOLD:
             return DiagnosisType.STORM
@@ -217,22 +234,41 @@ class CommTopAnalyzer(BaseAnalyzer):
         else:
             return DiagnosisType.HEALTHY
     
-    def _calculate_impact_score(self, total_cpu: float, cv: float, 
-                                 monopoly: float, spawn_rate: float) -> float:
+    def _calculate_impact_score(self, total_cpu: float, kernel_cpu: float,
+                                 cv: float, monopoly: float, spawn_rate: float,
+                                 diagnosis: str) -> float:
         """
         计算危害指数 (Impact Score)
         
-        公式: CPU*0.3 + CV*40 + Monopoly*50 + SpawnRate*5
+        新公式:
+        - BOTTLENECK 基础分: +100
+        - STORM 基础分: +50
+        - UNBALANCED 基础分: +20
+        - 加上: total*0.5 + kernel*0.8 + cv*10 + monopoly*5 + spawn_rate*0.5
         
-        用于综合排序，解决"A掩盖B"问题：
-        - 单纯 CPU 高不一定是瓶颈（可能是背景负载）
-        - CV 高、Monopoly 高才是真正的瓶颈信号
+        调整思路:
+        1. 降低基础分差距，避免分类过于绝对
+        2. 大幅提高 kernel_cpu 权重 (0.8)，sys 问题更突出
+        3. 降低 Monopoly 权重 (5→)，规则驱动，排序不过度强调
+        4. 降低 Spawn_rate 权重 (0.5)，风暴通常伴随 sys 问题
+        5. 降低 CV 权重 (10)，负载均衡问题优先级降低
         """
-        return (
-            total_cpu * 0.3 +
-            cv * 40 +
-            monopoly * 50 +
-            spawn_rate * 5
+        # 基础分：缩小差距
+        base_score = 0
+        if diagnosis == DiagnosisType.BOTTLENECK:
+            base_score = 100
+        elif diagnosis == DiagnosisType.STORM:
+            base_score = 50
+        elif diagnosis == DiagnosisType.UNBALANCED:
+            base_score = 20
+        
+        # 计算分项得分
+        return base_score + (
+            total_cpu * 0.5 +
+            kernel_cpu * 0.8 +      # 大幅提高 sys 权重
+            cv * 10 +
+            monopoly * 5 +          # 大幅降低，规则驱动
+            spawn_rate * 0.5        # 大幅降低，风暴看 sys
         )
     
     def _identify_risk(self, group: CommGroup) -> Optional[RiskInfo]:
@@ -245,7 +281,7 @@ class CommTopAnalyzer(BaseAnalyzer):
         if group.diagnosis == DiagnosisType.BOTTLENECK:
             return self._create_risk(
                 level="critical",
-                message=f"{group.comm} 单核饱和 (Monopoly={group.monopoly:.2f})",
+                message=f"{group.comm} 达到瓶颈阈值 (CPU={group.total_cpu:.1f}%, Sys={group.kernel_cpu:.1f}%)",
                 hint=f"bottleneck-trace --comm {group.comm}",
                 patterns=[RiskPattern.SINGLE_CORE_SATURATION],
                 pending_targets=[group.comm]
