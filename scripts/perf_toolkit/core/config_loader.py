@@ -51,10 +51,16 @@ class UnifiedConfig:
     _instance = None
     _config_data = None
 
-    # 默认配置路径 - 只加载项目配置
-    DEFAULT_PATHS = [
-        Path('config') / 'perf-hunter.json',
-    ]
+    # 默认配置路径 - 基于项目根目录
+    @classmethod
+    def _get_default_paths(cls):
+        """获取默认配置路径（基于项目根目录）"""
+        # 当前文件位置: scripts/perf_toolkit/core/config_loader.py
+        # 项目根目录: 向上3层
+        project_root = Path(__file__).parent.parent.parent.parent
+        return [
+            project_root / 'config' / 'perf-hunter.json',
+        ]
 
     def __new__(cls):
         if cls._instance is None:
@@ -70,7 +76,7 @@ class UnifiedConfig:
         self._config_data = self._get_default_config()
 
         # 按优先级加载配置
-        for path in self.DEFAULT_PATHS:
+        for path in self._get_default_paths():
             if path.exists():
                 self._merge_config(path)
                 break
@@ -147,7 +153,7 @@ class UnifiedConfig:
 
         条件1: total_cpu > sensitive 且 kernel_ratio > sys_high
         条件2: total_cpu >= limit
-        条件3: kernel_ratio > sys_critical（极高sys占比，单独触发）
+        条件3: kernel_cpu > sys_critical（绝对值，极高sys消耗）
 
         Args:
             comm: 进程名
@@ -166,8 +172,8 @@ class UnifiedConfig:
         # 条件2: 达到或超过limit
         condition2 = total_cpu >= threshold.limit
 
-        # 条件3: sys占比极高且 CPU 不低于门槛（加害人判定）
-        condition3 = total_cpu > threshold.total_min and kernel_ratio > threshold.sys_critical
+        # 条件3: sys绝对值极高且 CPU 不低于门槛（加害人判定）
+        condition3 = total_cpu > threshold.total_min and kernel_cpu > threshold.sys_critical
 
         return condition1 or condition2 or condition3
 

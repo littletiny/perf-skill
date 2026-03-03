@@ -75,7 +75,7 @@
       "sensitive": 100.0,
       "limit": 200.0,
       "sys_high": 50.0,
-      "sys_critical": 80.0,
+      "sys_critical": 50.0,
       "total_min": 10.0
     },
     "per_comm": {
