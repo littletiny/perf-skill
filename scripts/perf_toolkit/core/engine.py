@@ -670,6 +670,8 @@ class PerfExpertEngine:
     def get_symbol_cpu_util(self, samples=None, comm: Optional[str] = None, pid: Optional[int] = None) -> SymbolCPUInfo:
         """
         按符号聚合 CPU 利用率（self 和 inclusive）。
+        
+        自动排除 idle 进程（PID=0）的样本。
 
         Args:
             samples: 样本列表，默认使用 engine.samples
@@ -693,6 +695,10 @@ class PerfExpertEngine:
         incl_core_sec = defaultdict(float)
 
         for s in samples:
+            # 排除 idle 进程
+            if self.is_idle_sample(s):
+                continue
+                
             stack = s.stack
             if not stack or len(stack) == 0:
                 continue
