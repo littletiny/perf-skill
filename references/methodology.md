@@ -229,20 +229,17 @@ app_worker      12%     10       ← 平庸...
 ### 模式 A：单进程 CPU 高
 
 **场景**：用户明确反馈"某个 PID 的 CPU 异常高"
-**关键**：先整体后个体，区分是单点问题还是组内普遍问题
+**关键**：直接针对目标 PID 深度追踪，一步到位定位瓶颈
 
 ```bash
-# Step 1: 看组内分布（是否单点瓶颈）
-shecr get-comm-top --comm <name>
-# 关注: Monopoly/CV，判断是单点慢还是整体慢
-
-# Step 2: 整体深度追踪
-shecr bottleneck-trace --comm <name>
-
-# Step 3: 对比具体 PID（确认个体情况）
-shecr get-hotspots --pid <pid>
-# 对比：与整体结果是否一致，还是个体特有热点
+# 直接对目标 PID 进行深度分析
+shecr bottleneck-trace --pid <PID>
 ```
+
+**输出解读**：
+- `[ENTITY_DISTRIBUTION_MATRIX]` - 该 PID 的核心分布特征
+- `[CONVERGENCE_TRACE]` - 热点函数及调用链聚合
+- `[CORRELATION_FLAGS]` - 自动标记的系统性问题（如锁竞争、单核饱和）
 
 ### 模式 B：系统整体缓慢
 
