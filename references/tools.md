@@ -7,9 +7,20 @@
 ## 快速使用
 
 ```bash
+# ========== 环境命令 ==========
 # 初始化（只需一次）
-scripts/shecr init --data-path <perf.data>
+shecr init --data-path <perf.data>
 
+# 查看当前状态
+shecr status
+
+# 列出可用的数据文件
+shecr list
+
+# 切换数据文件
+shecr use <数据文件编号或路径>
+
+# ========== 分析命令 ==========
 # 两个综合诊断入口
 shecr sys-audit
 shecr bottleneck-trace --comm <name>
@@ -18,6 +29,15 @@ shecr bottleneck-trace --comm <name>
 ---
 
 ## 命令速查表
+
+### 环境命令（4个）
+
+| 命令 | 用途 | 示例 |
+|------|------|------|
+| `init` | 初始化配置 | `shecr init --data-path <perf.data>` |
+| `status` | 显示当前状态 | `shecr status` |
+| `list` | 列出数据文件 | `shecr list` |
+| `use` | 切换数据文件 | `shecr use 1` 或 `shecr use /path/to/perf.data` |
 
 ### 核心分析工具（6个）
 
@@ -159,17 +179,22 @@ shecr bottleneck-trace --auto-detect
 
 | 命令 | 用途 | 示例 |
 |------|------|------|
+| `trace init` | 初始化 Trace | `shecr trace init` |
 | `trace add` | 添加问题 | `shecr trace add --desc "CPU异常" --level critical` |
-| `trace complete` | 标记完成 | `shecr trace complete --id ISS-001 --result "根因: ..."` |
+| `trace timeline` | 查看时间线 | `shecr trace timeline` |
 | `trace issues` | 查看问题列表 | `shecr trace issues [--status open\|resolved]` |
+| `trace audit` | 审计问题 | `shecr trace audit --id ISS-001` |
+| `trace complete` | 标记完成 | `shecr trace complete --id ISS-001 --result "根因: ..."` |
+| `trace reopen` | 重新打开问题 | `shecr trace reopen --id ISS-001` |
 | `trace finalize` | 结束诊断 | `shecr trace finalize [--accept-risk "..."]` |
+| `trace export` | 导出报告 | `shecr trace export --output report.md` |
 
 ---
 
 ## 参数矩阵
 
 | 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start-time` | `--end-time` |
-|------|:--------:|:----------:|:-------:|:--------:|:--------------:|:--------------:|:------------:|
+|------|:--------:|:-------:|:--------:|:------------:|:--------------:|:------------:|
 | `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
 | `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |

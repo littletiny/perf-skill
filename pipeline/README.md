@@ -1,219 +1,254 @@
-# Pipeline 模块
+# Pipeline 模块（简化版）
 
-perf-hunter 的 pipeline 模块提供结构化的输出格式化和 CLI 命令实现。
+基于 Code Agent 的多阶段流水线，使用变量模板配置，支持灵活的 stage 定义。
+
+---
 
 ## 目录结构
 
 ```
 pipeline/
-├── output/                    # 输出格式化模块
-│   ├── __init__.py
-│   ├── bottleneck_trace_builder.py   # BottleneckTraceOutputBuilder
-│   └── example_usage.py       # 使用示例
-│
-└── cli/
-    └── commands/
-        ├── __init__.py
-        └── bottleneck_trace_cmd.py     # bottleneck-trace CLI 命令
+├── pipeline.py          # 简化版 Pipeline 运行器
+├── examples/            # 示例配置
+│   ├── config.yaml      # 完整 pipeline 配置示例
+│   └── prompts/         # prompt 模板文件
+│       ├── default_system.md
+│       ├── diagnose_system.md
+│       ├── audit_system.md
+│       ├── recheck_system.md
+│       ├── diagnose_input.txt
+│       ├── audit_input.txt
+│       └── recheck_input.txt
+└── README.md            # 本文档
 ```
 
-## 模块说明
+---
 
-### 1. bottleneck_trace_builder.py
+## 快速开始
 
-`BottleneckTraceOutputBuilder` 类实现 bottleneck-trace 工具的四段式输出格式化。
+### 1. 创建配置文件
 
-#### 数据结构字段名
+```yaml
+# config.yaml
+pipeline: diagnose - audit - recheck
 
-**EntityDistribution:**
-- `comm`: str - 进程组名称
-- `count`: int - PID 数量
-- `incl_saliency`: float - Inclusive CPU 显著度 (0-1)
-- `excl_saliency`: float - Exclusive CPU 显著度 (0-1)
-- `core_affinity`: str - 核心亲缘性模式 (Fixed/Uniform/Scattered)
-- `throttle_rate`: float - 节流比例 (%)
+vars:
+  DATA_FILE: "/path/to/perf.data"
+  WORK_DIR: "./output"
 
-**CallPathCluster:**
-- `cluster_id`: str - 聚类标识
-- `comm`: str - 所属进程
-- `weight`: float - 占总样本比例 (%)
-- `path`: List[str] - 调用链路径
-- `hotspot`: str - 汇聚热点符号
-- `characteristic`: str - 路径特征标签
+agent:
+  system_prompt: "prompts/system.md"
+  allowed_dirs:
+    - "${WORK_DIR}"
+  default_permissions: "read-write"
+  timeout: 300
 
-**CorrelationFlag:**
-- `flag_type`: str - 标志类型
-- `target`: str - 目标符号/进程
-- `message`: str - 描述信息
-- `severity`: str - 严重程度 (critical/warning/info)
+diagnose:
+  agent:
+    system_prompt: "prompts/diagnose_system.md"
+    timeout: 600
+  vars:
+    ROLE: "诊断专家"
+    input.template: "prompts/diagnose.txt"
+    output.report: "${WORK_DIR}/diagnose/report.md"
 
-**BottleneckTraceResult:**
-- `_risk`: RiskInfo - 风险信息
-- `entity_distribution`: List[EntityDistribution] - 实体分布矩阵
-- `common_hotspot`: str - 共享热点符号
-- `common_hotspot_weight`: float - 热点权重
-- `clusters`: List[CallPathCluster] - 调用路径聚类
-- `correlation_flags`: List[CorrelationFlag] - 关联标志
-- `total_pids`: int - PID 总数
-- `total_sys_cpu`: float - 系统总 CPU
-- `top_bottlenecks`: List[str] - 前三热点符号
-- `duration_sec`: float - 持续时间
-- `sample_count`: int - 样本数
-- `time_range`: TimeRange - 时间范围
-
-#### 输出格式
-
-**[ENTITY_DISTRIBUTION_MATRIX]**
-- Markdown 表格格式
-- 列：Comm_Group | Count | Incl_Saliency | Excl_Saliency | Core_Affinity | Throttle_Rate
-- 瓶颈进程行用 **粗体** 标注
-
-**[CONVERGENCE_TRACE]**
-- COMMON_HOTSPOT: 共享热点符号展示
-- 每个 Cluster 的路径展示：`comm` -> `func1` -> `func2` -> **[HOTSPOT]**
-- 显示 Characteristic 标签和 Weight
-
-**[CORRELATION_FLAGS]**
-- 根据 severity 显示不同样式：
-  - critical=🔴
-  - warning=🟡
-  - info=🟢
-- 格式：`[FLAG: TYPE] : target message`
-
-**[DATA_SUMMARY]**
-- YAML 格式
-- 字段：total_pids, total_sys_cpu, top_bottleneck, duration_sec, sample_count, data_quality
-
-#### 使用示例
-
-```python
-from output.bottleneck_trace_builder import (
-    BottleneckTraceOutputBuilder,
-    BottleneckTraceResult,
-    EntityDistribution,
-    CallPathCluster,
-    CorrelationFlag,
-)
-from perf_toolkit.core.models import RiskInfo, TimeRange
-
-# 构建数据
-result = BottleneckTraceResult(
-    _risk=RiskInfo(level="critical", message="发现瓶颈"),
-    entity_distribution=[
-        EntityDistribution(
-            comm="app_B",
-            count=1,
-            incl_saliency=0.96,
-            excl_saliency=0.12,
-            core_affinity="Fixed: [Core_4]",
-            throttle_rate=82.5
-        ),
-    ],
-    common_hotspot="_raw_spin_lock",
-    common_hotspot_weight=72.4,
-    clusters=[
-        CallPathCluster(
-            cluster_id="appB Cluster 68%",
-            comm="app_B",
-            weight=68.0,
-            path=["app_B", "handle_request"],
-            hotspot="_raw_spin_lock",
-            characteristic="Inclusive_Latency_Victim"
-        ),
-    ],
-    correlation_flags=[
-        CorrelationFlag(
-            flag_type="GLOBAL_LOCK_CONTENTION",
-            target="_raw_spin_lock",
-            message="usage exceeds 40%",
-            severity="critical"
-        ),
-    ],
-    total_pids=2421,
-    total_sys_cpu=165.2,
-    top_bottlenecks=["_raw_spin_lock"],
-    duration_sec=60.0,
-    sample_count=31500,
-    time_range=TimeRange()
-)
-
-# 生成输出
-builder = BottleneckTraceOutputBuilder(result)
-output = builder.build()
-print(output)
+audit:
+  agent:
+    default_permissions: "read-only"
+  vars:
+    ROLE: "审计员"
+    input.template: "prompts/audit.txt"
+    input.report: "${diagnose.output.report}"
+    output.report: "${WORK_DIR}/audit/report.md"
 ```
 
-### 2. bottleneck_trace_cmd.py
-
-`cmd_bottleneck_trace` 函数实现 `shecr bottleneck-trace` CLI 命令。
-
-#### 命令参数
-
-```
---data FILE            # 数据文件路径（必需）
---auto-detect          # 自动检测瓶颈进程
---comm COMM            # 分析指定进程
---pid PID              # 分析指定 PID
---start-time TIME      # 开始时间（ISO 8601）
---end-time TIME        # 结束时间
---hotspots-limit N     # 热点分析数量（默认 20）
---callers-limit N      # 调用链数量（默认 10）
---max-depth N          # 最大调用深度（默认 5）
---verbose              # 详细输出
-```
-
-#### 命令逻辑
-
-1. 解析参数（通过 @command 装饰器）
-2. 加载 samples 数据
-3. 调用 `BottleneckTracer.trace()` 执行分析
-4. 转换结果为 `BottleneckTraceResult`
-5. 使用 `BottleneckTraceOutputBuilder` 格式化输出
-6. 打印结果并记录风险到 Trace
-
-#### 使用示例
+### 2. 运行 Pipeline
 
 ```bash
-# 自动检测并分析瓶颈进程
-shecr bottleneck-trace --data perf.data --auto-detect
-
-# 分析指定进程
-shecr bottleneck-trace --data perf.data --comm app_B
-
-# 分析指定 PID
-shecr bottleneck-trace --data perf.data --pid 1234
-
-# 时间范围限定
-shecr bottleneck-trace --data perf.data --comm app_B \
-    --start-time "2026-03-01T10:00:00" \
-    --end-time "2026-03-01T10:05:00"
-
-# 调整热点分析数量
-shecr bottleneck-trace --data perf.data --comm app_B --hotspots-limit 30
-
-# 详细输出
-shecr bottleneck-trace --data perf.data --comm app_B --verbose
+python pipeline/pipeline.py examples/config.yaml
 ```
 
-## 依赖关系
+---
+
+## 配置格式详解
+
+### 顶层字段
+
+| 字段 | 必需 | 说明 |
+|------|------|------|
+| `pipeline` | 是 | Stage 定义，用 `-` 连接，如 `stage1 - stage2 - stage3` |
+| `vars` | 否 | 全局变量，所有 stage 可用 |
+| `agent` | 否 | 全局 Agent 配置，作为 stage 默认值 |
+
+### Agent 配置
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `system_prompt` | string | System prompt 文件路径 |
+| `allowed_dirs` | list | 允许访问的目录列表（支持 `${var}` 变量） |
+| `default_permissions` | string | 默认权限：`read-only` \| `read-write` \| `write-only` |
+| `timeout` | int | 超时时间（秒） |
+| `model` | string | 模型名称，默认 `kimi` |
+| `working_dir` | string | 工作目录 |
+
+### Stage 配置
+
+每个 stage 是一个与 stage 名同名的顶级字段：
+
+```yaml
+stage_name:
+  agent:          # Stage 级 Agent 配置（覆盖全局）
+    system_prompt: "..."
+    timeout: 600
+  vars:           # Stage 变量（覆盖全局同名变量）
+    ROLE: "专家"
+    input.template: "prompts/input.txt"
+    output.report: "${WORK_DIR}/report.md"
+```
+
+### 变量替换
+
+支持两种变量语法：
+
+| 语法 | 说明 | 示例 |
+|------|------|------|
+| `${var}` | 普通变量 | `${DATA_FILE}` → `/path/to/perf.data` |
+| `${stage.output.xxx}` | 引用其他 stage 输出 | `${diagnose.output.report}` → `./output/diagnose/report.md` |
+
+变量作用域：
+1. Stage 变量覆盖全局变量
+2. 变量值可以引用其他变量（递归解析）
+3. 支持 stage 输出引用形成数据流
+
+---
+
+## 示例：三阶段诊断流水线
+
+### 完整配置
+
+```yaml
+# diagnose - audit - recheck pipeline
+pipeline: diagnose - audit - recheck
+
+vars:
+  DATA_FILE: "./perf.data"
+  WORK_DIR: "./output"
+
+agent:
+  system_prompt: "prompts/default_system.md"
+  allowed_dirs:
+    - "${WORK_DIR}"
+  default_permissions: "read-write"
+
+diagnose:
+  agent:
+    system_prompt: "prompts/diagnose_system.md"
+    timeout: 600
+  vars:
+    ROLE: "性能诊断专家"
+    input.template: "prompts/diagnose_input.txt"
+    output.report: "${WORK_DIR}/diagnose/report.md"
+
+audit:
+  agent:
+    system_prompt: "prompts/audit_system.md"
+    default_permissions: "read-only"
+  vars:
+    ROLE: "诊断审计员"
+    input.template: "prompts/audit_input.txt"
+    input.report: "${diagnose.output.report}"
+    output.report: "${WORK_DIR}/audit/report.md"
+
+recheck:
+  agent:
+    system_prompt: "prompts/recheck_system.md"
+    timeout: 600
+  vars:
+    ROLE: "复查专家"
+    input.template: "prompts/recheck_input.txt"
+    input.diagnose: "${diagnose.output.report}"
+    input.audit: "${audit.output.report}"
+    output.report: "${WORK_DIR}/recheck/final_report.md"
+```
+
+### Input 模板示例
+
+**diagnose_input.txt:**
+```
+你是${ROLE}，请分析数据文件 ${DATA_FILE}。
+
+输出诊断报告到：${output.report}
+
+要求：
+1. 识别所有性能瓶颈
+2. 提供三候选假设验证
+3. 进行调用链溯源
+```
+
+**audit_input.txt:**
+```
+你是${ROLE}，请审计以下诊断报告：
+
+诊断报告：${input.report}
+
+输出审计报告到：${output.report}
+```
+
+**recheck_input.txt:**
+```
+你是${ROLE}，请根据审计结果复查：
+
+原始诊断：${input.diagnose}
+审计报告：${input.audit}
+
+以差异化视角补充分析，输出到：${output.report}
+```
+
+---
+
+## 工作原理
 
 ```
-pipeline/output/bottleneck_trace_builder.py
-    ├── perf_toolkit/core/models.py (RiskInfo, TimeRange)
-    └── dataclasses
-
-pipeline/cli/commands/bottleneck_trace_cmd.py
-    ├── perf_toolkit/cli/decorators.py (@command)
-    ├── perf_toolkit/core/models.py (RiskInfo, TimeRange)
-    ├── perf_toolkit/analysis/facade.py (AnalysisFacade)
-    ├── perf_toolkit/composite/bottleneck_trace.py (BottleneckTracer)
-    └── pipeline/output/bottleneck_trace_builder.py
+┌─────────────────────────────────────────────────────────────┐
+│                     Pipeline 执行流程                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. 解析 config.yaml                                        │
+│     - 读取 pipeline 定义 (stage 列表)                        │
+│     - 加载全局 vars 和 agent 配置                            │
+│                                                              │
+│  2. 对每个 stage：                                           │
+│     a. 合并全局和 stage 级配置                               │
+│     b. 解析所有变量（支持递归和跨 stage 引用）                │
+│     c. 读取 input.template                                   │
+│     d. 渲染模板（替换 ${var} 变量）                          │
+│     e. 构建 Agent 命令（含 system_prompt、权限等）           │
+│     f. 执行 Agent                                            │
+│     g. 记录输出到上下文（供后续 stage 引用）                  │
+│                                                              │
+│  3. 所有 stage 完成后，输出完成信息                          │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 与旧版 Pipeline 对比
+
+| 特性 | 旧版 Pipeline | 简化版 Pipeline |
+|------|--------------|-----------------|
+| Agent 实现 | 自定义 Agent 类 | Code Agent (coder subagent) |
+| 配置方式 | 代码内定义 | YAML 配置文件 |
+| 输入定义 | 复杂数据结构 | 模板文件 + 变量替换 |
+| 权限控制 | 内置 | Agent 配置 (allowed_dirs, permissions) |
+| 数据流 | 内部状态管理 | 文件 + 变量引用 |
+| 灵活性 | 低 | 高（可任意定义 stage） |
+
+---
 
 ## 代码规范
 
-- 不使用 regex
+- 不使用 regex（除变量替换外）
 - 错误处理简单（let it crash）
-- 输出格式 AI 友好
 - 强制静态类型（使用 dataclass）
-- 时间格式使用 ISO 8601
+- 配置文件使用 YAML 格式

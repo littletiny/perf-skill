@@ -1,0 +1,82 @@
+# Pipeline 配置示例
+# 演示 diagnose - audit - recheck 三阶段流程
+
+# Pipeline 定义：stage 名称用 " - " 连接
+pipeline: diagnose - audit - recheck
+
+# 全局变量（所有 stage 可用，stage 可覆盖）
+vars:
+  DATA_FILE: "/path/to/perf.data"
+  WORK_DIR: "./output"
+  DATA_DIR: "./data"
+  SYMPTOM: "系统响应慢，CPU使用率100%"
+
+# 全局 Agent 配置（作为 stage 的默认值）
+agent:
+  # system prompt 文件路径
+  system_prompt: "prompts/default_system.md"
+  
+  # 允许访问的目录列表（支持变量替换 ${var}）
+  allowed_dirs:
+    - "${WORK_DIR}"
+    - "${DATA_DIR}"
+  
+  # 默认权限: read-only | read-write | write-only
+  default_permissions: "read-write"
+  
+  # 其他参数
+  timeout: 300
+  model: "kimi"
+  working_dir: "${WORK_DIR}"
+
+# Stage 1: 诊断
+diagnose:
+  # Stage 级 Agent 配置（可选，覆盖全局配置）
+  agent:
+    system_prompt: "prompts/diagnose_system.md"
+    allowed_dirs:
+      - "${WORK_DIR}/diagnose"
+      - "${DATA_DIR}"
+    default_permissions: "read-write"
+    timeout: 600  # 诊断需要更多时间
+  
+  vars:
+    ROLE: "性能诊断专家"
+    input.template: "prompts/diagnose_input.txt"
+    output.report: "${WORK_DIR}/diagnose/report.md"
+    output.trace: "${WORK_DIR}/diagnose/.shecr.json"
+
+# Stage 2: 审计
+audit:
+  agent:
+    system_prompt: "prompts/audit_system.md"
+    allowed_dirs:
+      - "${WORK_DIR}"  # 需要读取 diagnose 的输出
+    default_permissions: "read-only"  # 审计只需读权限
+    timeout: 300
+  
+  vars:
+    ROLE: "诊断审计员"
+    input.template: "prompts/audit_input.txt"
+    input.report: "${diagnose.output.report}"  # 引用 diagnose stage 的输出
+    input.trace: "${diagnose.output.trace}"
+    output.report: "${WORK_DIR}/audit/report.md"
+
+# Stage 3: 复查
+recheck:
+  agent:
+    system_prompt: "prompts/recheck_system.md"
+    allowed_dirs:
+      - "${WORK_DIR}/recheck"
+      - "${WORK_DIR}/diagnose"  # 需要读取原始诊断
+      - "${WORK_DIR}/audit"     # 需要读取审计报告
+      - "${DATA_DIR}"
+    default_permissions: "read-write"
+    timeout: 600
+  
+  vars:
+    ROLE: "复查专家"
+    input.template: "prompts/recheck_input.txt"
+    input.diagnose: "${diagnose.output.report}"
+    input.audit: "${audit.output.report}"
+    output.report: "${WORK_DIR}/recheck/final_report.md"
