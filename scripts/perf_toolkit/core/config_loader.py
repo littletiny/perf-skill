@@ -42,6 +42,15 @@ class DisplayThreshold:
 
 
 @dataclass
+class CPUSpecs:
+    """CPU 规格配置"""
+    core_count: int = 8                    # 核心数
+    critical_utilization: float = 0.8      # 严重利用率阈值（相对于总容量）
+    moderate_utilization: float = 0.5      # 中度利用率阈值
+    critical_sys_per_core: float = 50.0    # 每核心严重 sys 阈值
+
+
+@dataclass
 class CommThresholdsConfig:
     """进程阈值配置"""
     global_threshold: CommThreshold = field(default_factory=CommThreshold)
@@ -195,6 +204,22 @@ class UnifiedConfig:
         return DisplayThreshold(
             display_min=display_cfg.get('display_min', 10.0),
             sys_display_min=display_cfg.get('sys_display_min', 10.0)
+        )
+
+    def get_cpu_specs(self) -> CPUSpecs:
+        """
+        获取 CPU 规格配置
+        
+        Returns:
+            CPUSpecs: CPU 规格配置
+        """
+        specs_cfg = self._config_data.get('cpu_specs', {})
+        thresholds = specs_cfg.get('thresholds', {})
+        return CPUSpecs(
+            core_count=specs_cfg.get('core_count', 8),
+            critical_utilization=thresholds.get('critical_utilization', 0.8),
+            moderate_utilization=thresholds.get('moderate_utilization', 0.5),
+            critical_sys_per_core=thresholds.get('critical_sys_per_core', 50.0)
         )
 
     @classmethod

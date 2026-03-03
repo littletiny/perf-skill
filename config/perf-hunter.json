@@ -75,6 +75,17 @@
     "sys_display_min": 10.0
   },
 
+  "cpu_specs": {
+    "_comment": "机器 CPU 规格配置",
+    "_description": "用于计算系统负载状态，总容量 = core_count * 100%",
+    "core_count": 8,
+    "thresholds": {
+      "critical_utilization": 0.8,
+      "moderate_utilization": 0.5,
+      "critical_sys_per_core": 50.0
+    }
+  },
+
   "comm_thresholds": {
     "_comment": "进程瓶颈判定阈值配置",
     "_description": "支持全局默认值和 per-comm 定制。判定 BOTTLENECK 条件: (total > sensitive 且 sys_ratio > sys_high) 或 (total >= limit)",

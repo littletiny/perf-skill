@@ -58,23 +58,29 @@ def _build_system_fingerprint(
     all_groups: List['ProcessGroup']
 ) -> SystemFingerprint:
     """构建系统指纹（强类型）"""
-    # 根据实际负载指标推断系统压力状态
+    from perf_toolkit.core.config_loader import get_config
+    
+    # 读取 CPU 规格配置
+    cpu_specs = get_config().get_cpu_specs()
+    core_count = cpu_specs.core_count
+    total_capacity = core_count * 100.0  # 总容量 = 核心数 * 100%
     
     # 指标1: 最高 sys 占比（系统级问题严重程度）
     max_sys = max((g.kernel_cpu for g in all_groups), default=0)
     
     # 指标2: 总 CPU 需求（系统负载）
     total_demand = sum(g.total_cpu for g in all_groups)
+    utilization = total_demand / total_capacity if total_capacity > 0 else 0
     
     # 指标3: BOTTLENECK 进程数量
     bottleneck_count = sum(1 for g in all_groups if g.diagnosis == DiagnosisType.BOTTLENECK)
     
-    # 判定逻辑
-    if max_sys > 100 or total_demand > 500:
-        # 极高 sys (>100%) 或总需求 >500%：系统级严重问题
+    # 判定逻辑（基于相对阈值）
+    # CRITICAL: 利用率 > critical_utilization 或 单核心 sys > critical_sys_per_core
+    if utilization > cpu_specs.critical_utilization or max_sys > cpu_specs.critical_sys_per_core:
         pressure_state = PressureState.CRITICAL_CONTENTION
-    elif max_sys > 50 or total_demand > 200 or bottleneck_count >= 2:
-        # 高 sys (>50%) 或总需求 >200% 或多个瓶颈：中度竞争
+    # MODERATE: 利用率 > moderate_utilization 或 多个瓶颈
+    elif utilization > cpu_specs.moderate_utilization or bottleneck_count >= 2:
         pressure_state = PressureState.MODERATE_CONTENTION
     else:
         pressure_state = PressureState.NORMAL
