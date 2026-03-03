@@ -214,6 +214,7 @@ class BottleneckAnalysis:
     pid_count: int = 0
     cv: float = 0.0
     monopoly: float = 0.0
+    spawn_rate: float = 0.0
     diagnosis: str = DiagnosisType.NORMAL
     impact_score: float = 0.0
     risks: List[RiskInfo] = field(default_factory=list)

@@ -159,7 +159,7 @@ def get_data_info(data_file):
 
 def test_data_file_exists(data_dir):
     """测试: 数据文件存在"""
-    data_file = TEST_DIR / data_dir / "case_test.data"
+    data_file = REPO_ROOT / "tests" / "data" / data_dir / "case_test.data"
     assert data_file.exists(), f"数据文件不存在: {data_file}"
     return data_file
 

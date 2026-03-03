@@ -251,6 +251,7 @@ class BottleneckTracer:
             pid_count=target_group.pid_count,
             cv=target_group.cv,
             monopoly=target_group.monopoly,
+            spawn_rate=target_group.spawn_rate,
             diagnosis=target_group.diagnosis,
             impact_score=target_group.impact_score,
             risks=risks
@@ -384,6 +385,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
         pid_count=target_group.pid_count,
         cv=target_group.cv,
         monopoly=target_group.monopoly,
+        spawn_rate=target_group.spawn_rate,
         diagnosis=target_group.diagnosis,
         impact_score=target_group.impact_score,
         risks=risks

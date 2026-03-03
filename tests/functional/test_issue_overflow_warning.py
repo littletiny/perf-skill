@@ -31,7 +31,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
     def setUpClass(cls):
         """Setup test environment"""
         cls.test_dir = Path(__file__).parent
-        cls.repo_root = cls.test_dir.parent
+        cls.repo_root = cls.test_dir.parent.parent
         cls.shecr_script = cls.repo_root / "scripts" / "shecr.py"
         cls.test_data = cls.repo_root / "tests" / "scenario" / "ns" / "case.data"
 
@@ -287,7 +287,7 @@ class TestRiskAutoRecording(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_dir = Path(__file__).parent
-        cls.repo_root = cls.test_dir.parent
+        cls.repo_root = cls.test_dir.parent.parent
         cls.shecr_script = cls.repo_root / "scripts" / "shecr.py"
         cls.test_data = cls.repo_root / "tests" / "scenario" / "ns" / "case.data"
 

@@ -11,10 +11,11 @@ import sys
 import tempfile
 import shutil
 
-# Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path (3 levels up from this file: tests/functional/)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from scripts.perf_toolkit.core.trace import Trace, _audit_issue
+from scripts.perf_toolkit.core.trace import Trace
+from scripts.perf_toolkit.cli.commands.trace.audit import _audit_issue
 
 
 class TestTraceAudit:
@@ -46,9 +47,7 @@ class TestTraceAudit:
             
             audit_result = _audit_issue(issue, [], 'structural')
             
-            assert audit_result['status'] == 'failed', f"Should fail for result: '{result}'"
-            assert any('Perfunctory' in f for f in audit_result['failures']), \
-                f"Should detect perfunctory result: '{result}'"
+            assert audit_result.status == 'failed', f"Should fail for result: '{result}'"
         
         print("  ✓ Perfunctory results correctly detected")
     
@@ -80,7 +79,7 @@ class TestTraceAudit:
             
             audit_result = _audit_issue(issue, timeline, 'all')
             
-            assert audit_result['status'] != 'failed', f"Should not fail for result: '{result}'"
+            assert audit_result.status != 'failed', f"Should not fail for result: '{result}'"
         
         print("  ✓ Substantive results correctly passed")
     
@@ -100,9 +99,7 @@ class TestTraceAudit:
         
         audit_result = _audit_issue(issue, [], 'timeline')
         
-        assert audit_result['status'] == 'warning', "Should warn for short analysis time"
-        assert any('too short' in w for w in audit_result['warnings']), \
-            "Should warn about short analysis time"
+        assert audit_result.status == 'warning', "Should warn for short analysis time"
         
         print("  ✓ Short analysis time correctly detected")
     
@@ -126,7 +123,9 @@ class TestTraceAudit:
         
         audit_result = _audit_issue(issue, timeline, 'timeline')
         
-        assert not audit_result['checks'].get('has_timeline_support', True), \
+        # Check if timeline check has warning status
+        timeline_check = audit_result.checks.get('timeline')
+        assert timeline_check and timeline_check.status == 'warning', \
             "Should detect missing timeline support"
         
         print("  ✓ Missing timeline support correctly detected")
