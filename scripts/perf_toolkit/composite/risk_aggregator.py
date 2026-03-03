@@ -17,8 +17,9 @@ Risk Aggregator - Composite层Risk聚合与分级
 from typing import List, Optional, Dict, Set, Tuple
 from dataclasses import dataclass, field
 
-from .models import RiskItem, TargetDetail
-from ..core.output_models import RiskInfo, RiskLevel
+from ..core.models import RiskInfo
+from ..core.output_models import RiskLevel
+from .models import TargetDetail
 
 
 # Risk级别优先级（数字越小优先级越高）- 使用 RiskLevel 枚举
@@ -48,22 +49,6 @@ class AggregatedRisk:
 
     def __post_init__(self):
         self.action_required = self.level in ["critical", "warning"]
-    
-    def to_risk_info(self) -> RiskInfo:
-        """
-        转换为RiskInfo dataclass（用于output_models）
-        
-        Returns:
-            RiskInfo: 标准风险信息结构
-        """
-        return RiskInfo(
-            level=self.level,
-            message=self.message,
-            hint=self.hint,
-            patterns=self.patterns,
-            pending_targets=self.pending_targets,
-            action_required=self.action_required
-        )
 
 
 class RiskAggregator:
@@ -91,10 +76,10 @@ class RiskAggregator:
     """
     
     def __init__(self):
-        self._risks: List[RiskItem] = []
-        self._target_map: Dict[str, RiskItem] = {}  # target -> 最高级别 risk
-    
-    def add_risk(self, risk: RiskItem, source: str = "") -> None:
+        self._risks: List[RiskInfo] = []
+        self._target_map: Dict[str, RiskInfo] = {}  # target -> 最高级别 risk
+
+    def add_risk(self, risk: RiskInfo, source: str = "") -> None:
         """
         添加单个 risk
         
@@ -102,7 +87,7 @@ class RiskAggregator:
             risk: RiskItem 实例
             source: 来源标识（如 "anomalies", "comm_top"）
         """
-        if not risk or not isinstance(risk, RiskItem):
+        if not risk or not isinstance(risk, RiskInfo):
             return
         
         risk.source = source or risk.source
@@ -125,7 +110,7 @@ class RiskAggregator:
                 if self._level_priority(risk.level) < self._level_priority(current.level):
                     self._target_map[target] = risk
     
-    def add_risks(self, risks: List[RiskItem], source: str = "") -> None:
+    def add_risks(self, risks: List[RiskInfo], source: str = "") -> None:
         """
         批量添加 risks
         
@@ -192,7 +177,6 @@ class RiskAggregator:
                 hint="; ".join(hints) if hints else "",
                 patterns=list(all_patterns),
                 pending_targets=list(self._target_map.keys()),
-                action_required=True,
                 critical_count=len(critical_targets),
                 warning_count=len(warning_targets),
                 info_count=len(info_targets),
@@ -212,7 +196,6 @@ class RiskAggregator:
                 hint="; ".join(hints) if hints else "",
                 patterns=list(all_patterns),
                 pending_targets=list(self._target_map.keys()),
-                action_required=True,
                 critical_count=0,
                 warning_count=len(warning_targets),
                 info_count=len(info_targets),
@@ -226,7 +209,6 @@ class RiskAggregator:
                 hint="",
                 patterns=list(all_patterns),
                 pending_targets=[],
-                action_required=False,
                 critical_count=0,
                 warning_count=0,
                 info_count=len(info_targets),
@@ -273,12 +255,12 @@ class RiskAggregator:
     
     # 属性访问器，兼容旧代码
     @property
-    def risks(self) -> List[RiskItem]:
+    def risks(self) -> List[RiskInfo]:
         """获取所有添加的 risks"""
         return self._risks
 
 
-def merge_risk_lists(risk_lists: List[List[RiskItem]], 
+def merge_risk_lists(risk_lists: List[List[RiskInfo]], 
                      sources: Optional[List[str]] = None) -> AggregatedRisk:
     """
     便捷函数：合并多个 risk 列表

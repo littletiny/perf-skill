@@ -16,8 +16,9 @@ Commands:
 Usage:
     from perf_toolkit.composite import SysAuditOutput, BottleneckTraceOutput, StormTraceOutput
     from perf_toolkit.composite.risk_aggregator import RiskAggregator
+    from perf_toolkit.core.models import RiskInfo
     from perf_toolkit.composite.models import (
-        RiskItem, ProcessGroup, DiagnosisReport,
+        ProcessGroup, DiagnosisReport,
         AnomaliesReport, CoreDistributionReport, CommTopReport
     )
 """

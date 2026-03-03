@@ -16,8 +16,9 @@ from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
+from ..core.models import RiskInfo
 from .models import (
-    Risk, CommGroup, CommTopResult, StormAnalysisResult, StormGroupDetail
+    CommGroup, CommTopResult, StormAnalysisResult, StormGroupDetail
 )
 
 
@@ -72,7 +73,7 @@ class CommTopAnalyzer(BaseAnalyzer):
         
         # 2. 计算增强指标
         groups: List[CommGroup] = []
-        risks: List[Risk] = []
+        risks: List[RiskInfo] = []
         
         for comm, info in comm_util.items():
             # 获取 PID 级分布用于计算 CV 和 Monopoly
@@ -222,12 +223,12 @@ class CommTopAnalyzer(BaseAnalyzer):
             spawn_rate * 5
         )
     
-    def _identify_risk(self, group: CommGroup) -> Optional[Risk]:
+    def _identify_risk(self, group: CommGroup) -> Optional[RiskInfo]:
         """
         根据诊断分级识别 risk
-        
+
         Returns:
-            Risk 对象 或 None
+            RiskInfo 对象 或 None
         """
         if group.diagnosis == "BOTTLENECK":
             return self._create_risk(

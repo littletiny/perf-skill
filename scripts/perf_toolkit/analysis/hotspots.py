@@ -12,7 +12,8 @@ V3 版本（三层架构）：
 from typing import List, Optional
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
-from .models import Risk, Hotspot, HotspotsResult
+from ..core.models import RiskInfo
+from .models import Hotspot, HotspotsResult
 from ..core.output_models import RiskLevel
 
 
@@ -58,7 +59,7 @@ class HotspotsAnalyzer(BaseAnalyzer):
         
         # 2. 构建热点列表
         hotspots: List[Hotspot] = []
-        risks: List[Risk] = []
+        risks: List[RiskInfo] = []
         top_kernel_hotspot = None
         top_kernel_ratio = 0.0
         

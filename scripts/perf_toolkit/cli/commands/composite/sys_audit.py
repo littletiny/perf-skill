@@ -9,13 +9,12 @@ sys-audit 命令实现
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
 from perf_toolkit.cli.decorators import command
-from perf_toolkit.core.output_models import (
-    RiskInfo, TimeRange, SysAuditOutput
-)
+from perf_toolkit.core.models import RiskInfo, TimeRange
+from perf_toolkit.core.output_models import SysAuditOutput
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.risk_aggregator import RiskAggregator, AggregatedRisk
 from perf_toolkit.composite.models import (
-    RiskItem, ProcessGroup, DiagnosisReport,
+    ProcessGroup, DiagnosisReport,
     AnomaliesReport, CoreDistributionReport, CommTopReport,
     PrimarySuspectData, SecondaryLoadData, DiagnosisDetails,
     AnomaliesDetails, CoreDistDetails, CommTopDetails, SysAuditDetails
@@ -48,17 +47,17 @@ def cmd_sys_audit(
     
     # 1.1 异常检测
     anomalies_result = facade.detect_anomalies(samples, window_size=10, spike_threshold=0.5)
-    anomalies = AnomaliesReport.from_analysis_result(anomalies_result)
-    
+    anomalies = _convert_anomalies_result(anomalies_result)
+
     # 1.2 核心分布分析
     core_dist_result = facade.analyze_core_distribution(samples)
-    core_dist = CoreDistributionReport.from_analysis_result(core_dist_result)
-    
+    core_dist = _convert_core_dist_result(core_dist_result)
+
     # 1.3 CommTop分析（增强版，通过include_metrics获取详细指标）
     from perf_toolkit.analysis.comm_top import CommTopAnalyzer
     comm_top_analyzer = CommTopAnalyzer(engine)
     comm_top_result = comm_top_analyzer.analyze(samples, top_n=top_n, include_metrics=True)
-    comm_top = CommTopReport.from_analysis_result(comm_top_result)
+    comm_top = _convert_comm_top_result(comm_top_result)
     
     # ========== Phase 2: 收集Risks ==========
     
@@ -74,12 +73,13 @@ def cmd_sys_audit(
     # 如果综合分析发现了额外风险，添加到aggregator
     if diagnosis.primary_suspect:
         primary = diagnosis.primary_suspect
-        aggregator.add_risk(RiskItem(
+        aggregator.add_risk(RiskInfo(
             level="critical",
             message=f"主要性能瓶颈: {primary.comm}",
             hint=f"bottleneck-trace --comm {primary.comm}",
             patterns=["PRIMARY_SUSPECT"],
-            pending_targets=[primary.comm]
+            pending_targets=[primary.comm],
+            source="sys_audit"
         ))
     
     # ========== Phase 4: 生成聚合Risk ==========
@@ -99,8 +99,7 @@ def cmd_sys_audit(
         message=aggregated_risk.message,
         hint=aggregated_risk.hint,
         patterns=aggregated_risk.patterns,
-        pending_targets=aggregated_risk.pending_targets,
-        action_required=aggregated_risk.action_required
+        pending_targets=aggregated_risk.pending_targets
     )
     
     # ========== Phase 5: 构建输出 ==========
@@ -265,4 +264,147 @@ def _comm_top_to_dataclass(c: CommTopReport) -> CommTopDetails:
         folded_count=c.folded_count,
         total_groups=c.total_groups,
         risks=c.risks
+    )
+
+
+
+# =============================================================================
+# Conversion Helpers - 显式字段映射（替代已删除的 from_analysis_* 方法）
+# =============================================================================
+
+def _convert_anomalies_result(result) -> AnomaliesReport:
+    """从 Analysis 层的 AnomaliesResult 转换为 Composite 层的 AnomaliesReport"""
+    from datetime import datetime
+    from perf_toolkit.composite.models import AnomalyItem
+
+    def _parse_timestamp(time_str: str) -> float:
+        """将 ISO 8601 时间字符串转换为时间戳"""
+        if isinstance(time_str, (int, float)):
+            return float(time_str)
+        dt = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
+        return dt.timestamp()
+
+    anomalies = [
+        AnomalyItem(
+            cpu_id=a.cpu_id,
+            timestamp=_parse_timestamp(a.time_range_start),
+            change_magnitude=abs(a.curr_util - a.prev_util),
+            utilization=a.curr_util,
+            anomaly_type=a.type,
+            z_score=a.z_score
+        )
+        for a in result.anomalies
+    ]
+
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="anomalies"
+        )
+        for r in result.risks
+    ]
+
+    return AnomaliesReport(
+        anomalies=anomalies,
+        mutation_detected=result.mutation_detected,
+        spike_count=result.spike_count,
+        drop_count=result.drop_count,
+        risks=risks
+    )
+
+
+def _convert_core_dist_result(result) -> CoreDistributionReport:
+    """从 Analysis 层的 CoreDistributionResult 转换为 Composite 层的 CoreDistributionReport"""
+    from perf_toolkit.composite.models import CoreStat
+
+    core_stats = [
+        CoreStat(
+            cpu_id=c.cpu_id,
+            total_cpu=c.total_cpu,
+            kernel_cpu=c.kernel_cpu,
+            user_cpu=c.user_cpu
+        )
+        for c in result.cores
+    ]
+
+    # saturated_cores 可能是 CoreStat 对象列表，提取 cpu_id
+    saturated = result.saturated_cores
+    if saturated and hasattr(saturated[0], 'cpu_id'):
+        saturated = [c.cpu_id for c in saturated]
+
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="core_dist"
+        )
+        for r in result.risks
+    ]
+
+    return CoreDistributionReport(
+        core_stats=core_stats,
+        saturated_cores=saturated,
+        imbalance_level=result.imbalance_level,
+        risks=risks
+    )
+
+
+def _convert_comm_top_result(result) -> CommTopReport:
+    """从 Analysis 层的 CommTopResult 转换为 Composite 层的 CommTopReport"""
+    from perf_toolkit.composite.models import CommTopMetrics
+
+    groups = [
+        ProcessGroup(
+            comm=g.comm,
+            total_cpu=g.total_cpu,
+            kernel_cpu=g.kernel_cpu,
+            user_cpu=g.user_cpu,
+            pid_count=g.pid_count,
+            pids=list(g.pids) if hasattr(g, 'pids') else [],
+            cv=g.cv,
+            monopoly=g.monopoly,
+            spawn_rate=g.spawn_rate,
+            diagnosis=g.diagnosis,
+            impact_score=g.impact_score
+        )
+        for g in result.groups
+    ]
+
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="comm_top"
+        )
+        for r in result.risks
+    ]
+
+    # 转换 metrics（如果存在）
+    metrics = None
+    if result.metrics:
+        metrics = CommTopMetrics(
+            cv_map=getattr(result.metrics, 'cv_map', {}),
+            monopoly_map=getattr(result.metrics, 'monopoly_map', {}),
+            spawn_rate_map=getattr(result.metrics, 'spawn_rate_map', {}),
+            impact_score_map=getattr(result.metrics, 'impact_score_map', {}),
+            folded_groups=[],
+            all_groups=groups
+        )
+
+    return CommTopReport(
+        groups=groups,
+        folded_count=result.folded_count,
+        total_groups=result.total_groups,
+        risks=risks,
+        metrics=metrics
     )

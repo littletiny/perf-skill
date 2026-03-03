@@ -17,10 +17,11 @@ from typing import Dict, List, Optional
 from collections import defaultdict
 
 from ..core.engine_types import Sample
+from ..core.models import RiskInfo
 from .models import (
     CommTopResult, HotspotsResult, CoreDistributionResult,
     AnomaliesResult, PathClustersResult, CallersResult,
-    Risk, CallerAttribution
+    CallerAttribution
 )
 
 
@@ -258,14 +259,15 @@ class AnalysisFacade:
         callers = callers[:top_n]
         
         # 识别 risk
-        risks: List[Risk] = []
+        risks: List[RiskInfo] = []
         if target_weight < 0.01:
-            risks.append(Risk(
+            risks.append(RiskInfo(
                 level="warning",
                 message=f"目标函数 '{target_symbol}' 几乎无 CPU 活动",
                 hint="检查目标函数名称是否正确",
                 patterns=["LOW_TARGET_ACTIVITY"],
-                pending_targets=[]
+                pending_targets=[],
+                source="analyze_callers"
             ))
         
         return CallersResult(

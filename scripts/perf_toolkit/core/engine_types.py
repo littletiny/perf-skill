@@ -380,58 +380,8 @@ class DataQualityMetrics:
 
 
 # =============================================================================
-# Risk and Time Types
+# Risk and Time Types - 已迁移至 core.models
 # =============================================================================
-
-@dataclass
-class RiskInfo:
-    """风险信息结构 - 所有输出的第一个字段
-    
-    遵循 output-format-spec.md 规范，风险置顶原则。
-    
-    Attributes:
-        level: 风险等级 ("critical" | "warning" | "info" | "none")
-        message: 风险描述信息
-        hint: 建议操作或提示
-        patterns: 匹配的 attention flags 列表 (X0, X1, X2, XA)
-        pending_targets: 待处理目标列表
-        action_required: 是否需要立即行动（自动计算）
-    """
-    level: str  # "critical" | "warning" | "info" | "none"
-    message: str = ""
-    hint: str = ""
-    patterns: List[str] = field(default_factory=list)
-    pending_targets: List[str] = field(default_factory=list)
-    action_required: bool = False
-
-    def __post_init__(self):
-        """验证 level 并自动计算 action_required"""
-        valid_levels = ["critical", "warning", "info", "none"]
-        if self.level not in valid_levels:
-            self.level = "info"
-        self.action_required = self.level in ["critical", "warning"]
-
-
-@dataclass(frozen=True)
-class TimeRange:
-    """时间范围结构 - ISO 8601 格式
-    
-    Attributes:
-        start_time: 开始时间（ISO 8601 格式）
-        end_time: 结束时间（ISO 8601 格式）
-        duration: 持续时间（秒）
-    """
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    duration: float = 0.0
-
-    @classmethod
-    def from_timestamps(cls, start_ts: Optional[float], end_ts: Optional[float]) -> 'TimeRange':
-        """从时间戳创建 TimeRange"""
-        if start_ts is None or end_ts is None:
-            return cls()
-        return cls(
-            start_time=datetime.fromtimestamp(start_ts).isoformat() if start_ts else None,
-            end_time=datetime.fromtimestamp(end_ts).isoformat() if end_ts else None,
-            duration=round(end_ts - start_ts, 2)
-        )
+# Note: RiskInfo 和 TimeRange 现已定义在 core.models 中，
+# 请从 core.models 导入以避免循环依赖
+# from .models import RiskInfo, TimeRange

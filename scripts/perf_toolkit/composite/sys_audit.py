@@ -18,11 +18,13 @@ from typing import Optional, List, Dict, Tuple
 
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.risk_aggregator import RiskAggregator, AggregatedRisk
+from perf_toolkit.core.models import RiskInfo
 from perf_toolkit.composite.models import (
-    RiskItem, ProcessGroup, DiagnosisReport,
+    ProcessGroup, DiagnosisReport,
     AnomaliesReport, CoreDistributionReport, CommTopReport,
     PrimarySuspectData, SecondaryLoadData, DiagnosisDetails,
-    AnomaliesDetails, CoreDistDetails, CommTopDetails, SysAuditDetails
+    AnomaliesDetails, CoreDistDetails, CommTopDetails, SysAuditDetails,
+    AnomalyItem, CoreStat
 )
 
 
@@ -74,9 +76,9 @@ class SysAuditor:
         core_dist_result = self._facade.analyze_core_distribution(samples)
         comm_top_result = self._facade.analyze_comm_top(samples, top_n=top_n)
         
-        # 2. 转换为 Composite 层类型
-        anomalies_report = AnomaliesReport.from_analysis_result(anomalies_result)
-        comm_top_report = CommTopReport.from_analysis_result(comm_top_result)
+        # 2. 转换为 Composite 层类型（显式字段映射）
+        anomalies_report = _convert_anomalies_result(anomalies_result)
+        comm_top_report = _convert_comm_top_result(comm_top_result)
         
         # 3. 聚合 risks
         self._aggregator.add_risks(anomalies_report.risks, source="anomalies")
@@ -345,4 +347,153 @@ def _comm_top_to_dataclass(c: CommTopReport) -> CommTopDetails:
         folded_count=c.folded_count,
         total_groups=c.total_groups,
         risks=c.risks
+    )
+
+
+
+# =============================================================================
+# Conversion Helpers - 显式字段映射（替代已删除的 from_analysis_result 方法）
+# =============================================================================
+
+def _convert_anomalies_result(result) -> AnomaliesReport:
+    """
+    从 Analysis 层的 AnomaliesResult 转换为 Composite 层的 AnomaliesReport
+    
+    Args:
+        result: Analysis 层的 AnomaliesResult dataclass
+        
+    Returns:
+        AnomaliesReport: Composite 层报告
+    """
+    from datetime import datetime
+    
+    def _parse_timestamp(time_str: str) -> float:
+        """将 ISO 8601 时间字符串转换为时间戳"""
+        if isinstance(time_str, (int, float)):
+            return float(time_str)
+        dt = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
+        return dt.timestamp()
+    
+    anomalies = [
+        AnomalyItem(
+            cpu_id=a.cpu_id,
+            timestamp=_parse_timestamp(a.time_range_start),
+            change_magnitude=abs(a.curr_util - a.prev_util),
+            utilization=a.curr_util,
+            anomaly_type=a.type,
+            z_score=a.z_score
+        )
+        for a in result.anomalies
+    ]
+    
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="anomalies"
+        )
+        for r in result.risks
+    ]
+    
+    return AnomaliesReport(
+        anomalies=anomalies,
+        mutation_detected=result.mutation_detected,
+        spike_count=result.spike_count,
+        drop_count=result.drop_count,
+        risks=risks
+    )
+
+
+def _convert_comm_top_result(result) -> CommTopReport:
+    """
+    从 Analysis 层的 CommTopResult 转换为 Composite 层的 CommTopReport
+    
+    Args:
+        result: Analysis 层的 CommTopResult dataclass
+        
+    Returns:
+        CommTopReport: Composite 层报告
+    """
+    groups = [
+        ProcessGroup(
+            comm=g.comm,
+            total_cpu=g.total_cpu,
+            kernel_cpu=g.kernel_cpu,
+            user_cpu=g.user_cpu,
+            pid_count=g.pid_count,
+            pids=list(g.pids) if hasattr(g, 'pids') else [],
+            cv=g.cv,
+            monopoly=g.monopoly,
+            spawn_rate=g.spawn_rate,
+            diagnosis=g.diagnosis,
+            impact_score=g.impact_score
+        )
+        for g in result.groups
+    ]
+    
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="comm_top"
+        )
+        for r in result.risks
+    ]
+    
+    return CommTopReport(
+        groups=groups,
+        folded_count=result.folded_count,
+        total_groups=result.total_groups,
+        risks=risks
+    )
+
+
+def _convert_core_dist_result(result) -> CoreDistributionReport:
+    """
+    从 Analysis 层的 CoreDistributionResult 转换为 Composite 层的 CoreDistributionReport
+    
+    Args:
+        result: Analysis 层的 CoreDistributionResult dataclass
+        
+    Returns:
+        CoreDistributionReport: Composite 层报告
+    """
+    core_stats = [
+        CoreStat(
+            cpu_id=c.cpu_id,
+            total_cpu=c.total_cpu,
+            kernel_cpu=c.kernel_cpu,
+            user_cpu=c.user_cpu
+        )
+        for c in result.cores
+    ]
+    
+    # saturated_cores 可能是 CoreStat 对象列表，提取 cpu_id
+    saturated = result.saturated_cores
+    if saturated and hasattr(saturated[0], 'cpu_id'):
+        saturated = [c.cpu_id for c in saturated]
+    
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="core_dist"
+        )
+        for r in result.risks
+    ]
+    
+    return CoreDistributionReport(
+        core_stats=core_stats,
+        saturated_cores=saturated,
+        imbalance_level=result.imbalance_level,
+        risks=risks
     )

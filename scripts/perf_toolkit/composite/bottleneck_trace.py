@@ -19,10 +19,11 @@ from typing import Optional, List, Dict, Tuple
 
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.risk_aggregator import RiskAggregator
+from perf_toolkit.core.models import RiskInfo
 from perf_toolkit.composite.models import (
-    RiskItem, ProcessGroup, BottleneckAnalysis,
-    HotspotsReport, CallersReport,
-    HotspotData, HotspotsDetails, CallerData, CallersDetails
+    ProcessGroup, BottleneckAnalysis,
+    HotspotData, HotspotsDetails, CallerData, CallersDetails,
+    HotspotsReport, CallersReport
 )
 
 
@@ -81,7 +82,7 @@ class BottleneckTracer:
             return (
                 BottleneckAnalysis(
                     found=False,
-                    risks=[RiskItem(
+                    risks=[RiskInfo(
                         level="info",
                         message="未检测到明显瓶颈进程",
                         hint="尝试使用 sys-audit 进行全景扫描"
@@ -96,17 +97,17 @@ class BottleneckTracer:
         
         # 3. 热点函数分析
         hotspots_result = self._facade.analyze_hotspots(samples, comm=target_comm)
-        hotspots_report = HotspotsReport.from_analysis_result(hotspots_result)
-        
+        hotspots_report = _convert_hotspots_result(hotspots_result)
+
         # 4. 调用链溯源（如果热点明确）
         callers_report = None
         if hotspots_report.top_symbol:
             callers_result = self._facade.analyze_callers(
-                samples, 
+                samples,
                 target_symbol=hotspots_report.top_symbol,
                 comm=target_comm
             )
-            callers_report = CallersReport.from_analysis_result(callers_result)
+            callers_report = _convert_callers_result(callers_result)
         
         # 5. 聚合 risks
         self._aggregator.add_risks(bottleneck.risks, source="bottleneck")
@@ -192,14 +193,14 @@ class BottleneckTracer:
         target_group = None
         for g in comm_top_result.groups:
             if g.comm == comm:
-                target_group = ProcessGroup.from_analysis_comm_group(g)
+                target_group = _convert_comm_group(g)
                 break
         
         if not target_group:
             return BottleneckAnalysis(
                 found=False,
                 comm=comm,
-                risks=[RiskItem(
+                risks=[RiskInfo(
                     level="warning",
                     message=f"未找到进程 {comm}",
                     hint="执行 get-comm-top 查看可用进程",
@@ -214,21 +215,23 @@ class BottleneckTracer:
         risks = []
         
         if target_group.monopoly > 0.8:
-            risks.append(RiskItem(
+            risks.append(RiskInfo(
                 level="critical",
                 message=f"{comm} 单核饱和 (Monopoly={target_group.monopoly:.2f})",
                 hint=f"get-hotspots --comm {comm}",
                 patterns=["SINGLE_CORE_SATURATION"],
-                pending_targets=[comm]
+                pending_targets=[comm],
+                source="bottleneck"
             ))
-        
+
         if kernel_ratio > 50:
-            risks.append(RiskItem(
+            risks.append(RiskInfo(
                 level="warning",
                 message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",
                 hint=f"cluster-paths --comm {comm}",
                 patterns=["HIGH_KERNEL"],
-                pending_targets=[comm]
+                pending_targets=[comm],
+                source="bottleneck"
             ))
         
         return BottleneckAnalysis(
@@ -321,7 +324,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
         return BottleneckAnalysis(
             found=False,
             comm=comm,
-            risks=[RiskItem(
+            risks=[RiskInfo(
                 level="warning",
                 message=f"未找到进程 {comm}",
                 hint="get-comm-top",
@@ -333,24 +336,26 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str) -> Bottlenec
     kernel_ratio = target_group.kernel_ratio
     
     # 生成risks
-    risks: list[RiskItem] = []
-    
+    risks: list[RiskInfo] = []
+
     if target_group.monopoly > 0.8:
-        risks.append(RiskItem(
+        risks.append(RiskInfo(
             level="critical",
             message=f"{comm} 单核饱和 (Monopoly={target_group.monopoly:.2f})",
             hint=f"get-hotspots --comm {comm}",
             patterns=["SINGLE_CORE_SATURATION"],
-            pending_targets=[comm]
+            pending_targets=[comm],
+            source="bottleneck"
         ))
-    
+
     if kernel_ratio > 50:
-        risks.append(RiskItem(
+        risks.append(RiskInfo(
             level="warning",
             message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",
             hint=f"cluster-paths --comm {comm}",
             patterns=["HIGH_KERNEL"],
-            pending_targets=[comm]
+            pending_targets=[comm],
+            source="bottleneck"
         ))
     
     return BottleneckAnalysis(
@@ -397,4 +402,116 @@ def _callers_to_dataclass(c: CallersReport) -> CallersDetails:
         target=c.target,
         callers=callers,
         risks=c.risks
+    )
+
+
+
+# =============================================================================
+# Conversion Helpers - 显式字段映射（替代已删除的 from_analysis_* 方法）
+# =============================================================================
+
+def _convert_comm_group(group) -> ProcessGroup:
+    """从 Analysis 层的 CommGroup 转换为 Composite 层的 ProcessGroup"""
+    return ProcessGroup(
+        comm=group.comm,
+        total_cpu=group.total_cpu,
+        kernel_cpu=group.kernel_cpu,
+        user_cpu=group.user_cpu,
+        pid_count=group.pid_count,
+        pids=list(group.pids) if hasattr(group, 'pids') else [],
+        cv=group.cv,
+        monopoly=group.monopoly,
+        spawn_rate=group.spawn_rate,
+        diagnosis=group.diagnosis,
+        impact_score=group.impact_score
+    )
+
+
+def _convert_hotspots_result(result) -> 'HotspotsReport':
+    """从 Analysis 层的 HotspotsResult 转换为 Composite 层的 HotspotsReport"""
+    from .models import HotspotItem, HotspotsReport
+
+    def infer_tag(symbol: str) -> str:
+        """推断资源标签"""
+        symbol_lower = symbol.lower()
+        if any(k in symbol_lower for k in ['lock', 'mutex', 'spin', 'rwsem']):
+            return "LOCK"
+        if any(k in symbol_lower for k in ['syscall', 'sys_']):
+            return "SYSCALL"
+        if any(k in symbol_lower for k in ['schedule', 'switch']):
+            return "SCHED"
+        if any(k in symbol_lower for k in ['malloc', 'free', 'reclaim']):
+            return "MEMORY"
+        if any(k in symbol_lower for k in ['read', 'write', 'send', 'recv']):
+            return "IO"
+        return "COMPUTE"
+
+    hotspots = [
+        HotspotItem(
+            symbol=h.symbol,
+            cpu_percent=h.self_pct,
+            inclusive_percent=h.inclusive_pct,
+            call_count=getattr(h, 'call_count', 0),
+            resource_tag=infer_tag(h.symbol)
+        )
+        for h in result.hotspots
+    ]
+
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="hotspots"
+        )
+        for r in result.risks
+    ]
+
+    top = result.hotspots[0].symbol if result.hotspots else None
+
+    return HotspotsReport(
+        hotspots=hotspots,
+        top_symbol=top,
+        total_hotspots=len(result.hotspots),
+        kernel_ratio=result.kernel_ratio,
+        user_ratio=result.user_ratio,
+        risks=risks
+    )
+
+
+def _convert_callers_result(result) -> 'CallersReport':
+    """从 Analysis 层的 CallersResult 转换为 Composite 层的 CallersReport"""
+    from .models import CallerInfo, CallersReport
+
+    callers = [
+        CallerInfo(
+            symbol=c.symbol,
+            call_count=c.call_count,
+            call_ratio=c.call_ratio,
+            total_weight=c.total_weight
+        )
+        for c in result.callers
+    ]
+
+    risks = [
+        RiskInfo(
+            level=r.level,
+            message=r.message,
+            hint=r.hint,
+            patterns=list(r.patterns) if hasattr(r, 'patterns') else [],
+            pending_targets=list(r.pending_targets) if hasattr(r, 'pending_targets') else [],
+            source="callers"
+        )
+        for r in result.risks
+    ]
+
+    hot_paths = [c.symbol for c in callers[:3]]
+
+    return CallersReport(
+        target=result.target,
+        callers=callers,
+        hot_paths=hot_paths,
+        risks=risks
     )

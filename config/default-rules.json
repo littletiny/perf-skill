@@ -1,11 +1,20 @@
 {
-  "_comment": "perf-hunter 默认专家规则 - 用于 cluster-symbols 命令",
-  "_description": "规则按性能事件类型分类，帮助识别系统瓶颈模式",
-  "_version": "1.0",
+  "_comment": "perf-hunter 统一规则配置",
+  "_description": "集中管理所有分析规则，避免散落在代码中",
+  "_version": "1.1",
 
-  "EVENT_IRQ_OFF": "irqoff|spin_unlock_irqrestore|ksoftirqd",
-  "EVENT_SCHEDULER": "sched_|pick_next_task|load_balance|idle_balance|dequeue_task|enqueue_task",
-  "EVENT_MEM_RECLAIM": "direct_reclaim|try_to_free_pages|tlb_flush|tlb_shootdown",
-  "EVENT_LOCK_CONTENTION": "spin_lock|mutex_lock|rwsem_down|queued_spin_lock",
-  "EVENT_SYNC_PRIMITIVE": "pthread_mutex|pthread_cond|pthread_sig|futex_wait|futex_wake"
+  "expert_rules": {
+    "_comment": "符号分类规则 - 用于 cluster-symbols 等命令",
+    "EVENT_IRQ_OFF": "irqoff|spin_unlock_irqrestore|ksoftirqd",
+    "EVENT_SCHEDULER": "sched_|pick_next_task|load_balance|idle_balance|dequeue_task|enqueue_task",
+    "EVENT_MEM_RECLAIM": "direct_reclaim|try_to_free_pages|tlb_flush|tlb_shootdown",
+    "EVENT_LOCK_CONTENTION": "spin_lock|mutex_lock|rwsem_down|queued_spin_lock",
+    "EVENT_SYNC_PRIMITIVE": "pthread_mutex|pthread_cond|pthread_sig|futex_wait|futex_wake"
+  },
+
+  "idle_detection": {
+    "_comment": "Idle 进程检测规则 - PID=0 是 Linux idle 进程的标准特征",
+    "enabled": true,
+    "pid_zero": true
+  }
 }

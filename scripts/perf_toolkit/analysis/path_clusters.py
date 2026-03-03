@@ -14,7 +14,8 @@ from typing import Dict, List, Optional
 from collections import defaultdict
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
-from .models import Risk, PathCluster, PathClustersResult
+from ..core.models import RiskInfo
+from .models import PathCluster, PathClustersResult
 
 
 # =============================================================================

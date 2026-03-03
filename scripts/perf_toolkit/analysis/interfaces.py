@@ -19,8 +19,9 @@ from abc import ABC, abstractmethod
 
 # Import dataclass types from models
 from ..core.engine_types import Sample
+from ..core.models import RiskInfo
 from .models import (
-    Risk, AnalysisResult, AnomaliesResult, CommTopResult,
+    AnalysisResult, AnomaliesResult, CommTopResult,
     CoreDistributionResult, HotspotsResult, PathClustersResult, CallersResult,
     LifecycleInfo, CallGraphInfo
 )
@@ -67,7 +68,7 @@ class BaseAnalyzer(ABC):
 # =============================================================================
 
 # Task-2.8.2: AnalyzerResult 类型别名已废弃，直接使用 AnalysisResult dataclass
-# Task-2.8.3: RiskItem 类型别名已废弃，直接使用 Risk dataclass
+# Task-2.8.3: RiskItem/Risk 类型别名已废弃，直接使用 RiskInfo from core.models
 
 
 # =============================================================================

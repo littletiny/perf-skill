@@ -13,7 +13,8 @@ from typing import Dict, List, Optional
 from collections import defaultdict
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
-from .models import Risk, CoreStat, CoreDistributionResult
+from ..core.models import RiskInfo
+from .models import CoreStat, CoreDistributionResult
 
 
 def parse_cpu_quota(value: str) -> float:
@@ -80,7 +81,7 @@ class CoreDistAnalyzer(BaseAnalyzer):
         # 3. 检测不均衡
         imbalance_level = "LOW"
         saturated_cores: List[CoreStat] = []
-        risks: List[Risk] = []
+        risks: List[RiskInfo] = []
         
         if len(cores) >= 2:
             max_util = cores[0].total_cpu

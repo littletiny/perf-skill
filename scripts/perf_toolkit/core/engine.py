@@ -501,6 +501,8 @@ class PerfExpertEngine:
     def get_process_cpu_util(self, samples=None) -> Dict[tuple, ProcessCPUInfo]:
         """
         按进程聚合 CPU 利用率。
+        
+        自动排除 idle 进程（PID=0）的样本。
 
         Returns:
             Dict[(comm, pid), ProcessCPUInfo]: 进程 CPU 信息映射
@@ -516,6 +518,10 @@ class PerfExpertEngine:
         stats = defaultdict(lambda: {'total': 0.0, 'user': 0.0, 'kernel': 0.0})
 
         for s in samples:
+            # 排除 idle 进程
+            if self.is_idle_sample(s):
+                continue
+                
             key = (s.comm, s.pid)
             weight = self.get_sample_weight(s)
             stats[key]['total'] += weight
@@ -541,6 +547,8 @@ class PerfExpertEngine:
     def get_pid_cpu_util(self, samples=None) -> Dict[int, PidCPUInfo]:
         """
         按 PID 聚合 CPU 利用率（合并相同 PID 的不同 comm）。
+        
+        自动排除 idle 进程（PID=0）的样本。
 
         Args:
             samples: 样本列表，默认使用 engine.samples
@@ -562,6 +570,10 @@ class PerfExpertEngine:
         })
 
         for s in samples:
+            # 排除 idle 进程
+            if self.is_idle_sample(s):
+                continue
+                
             pid = int(s.pid)
             weight = self.get_sample_weight(s)
             stats[pid]['total'] += weight
@@ -589,9 +601,29 @@ class PerfExpertEngine:
             )
         return result
 
+    def is_idle_sample(self, sample) -> bool:
+        """
+        判断样本是否为 idle 进程。
+        
+        规则：PID == 0 是 Linux idle 进程（swapper/*idle*）的标准特征。
+        这是最简单可靠的识别方式，避免了字符串匹配的误判风险。
+        
+        Args:
+            sample: Sample 对象
+            
+        Returns:
+            bool: 是否为 idle 样本
+        """
+        try:
+            return int(sample.pid) == 0
+        except (ValueError, TypeError, AttributeError):
+            return False
+
     def get_comm_cpu_util(self, samples=None) -> Dict[str, CommCPUInfo]:
         """
         按进程名(comm)聚合 CPU 利用率。
+        
+        自动排除 idle 进程（PID=0）的样本。
 
         Returns:
             Dict[str, CommCPUInfo]: 进程组 CPU 信息映射
@@ -607,6 +639,10 @@ class PerfExpertEngine:
         stats = defaultdict(lambda: {'total': 0.0, 'user': 0.0, 'kernel': 0.0, 'pids': set()})
 
         for s in samples:
+            # 排除 idle 进程
+            if self.is_idle_sample(s):
+                continue
+                
             comm = s.comm
             stats[comm]['pids'].add(s.pid)
             weight = self.get_sample_weight(s)
@@ -694,6 +730,8 @@ class PerfExpertEngine:
     def get_core_cpu_util(self, samples=None) -> Dict[int, CoreCPUInfo]:
         """
         按 CPU 核心聚合利用率。
+        
+        自动排除 idle 进程（PID=0）的样本，避免将空闲时间计算为利用率。
 
         Returns:
             Dict[int, CoreCPUInfo]: 核心 CPU 信息映射
@@ -709,6 +747,10 @@ class PerfExpertEngine:
         stats = defaultdict(lambda: {'total': 0.0, 'kernel': 0.0})
 
         for s in samples:
+            # 排除 idle 进程（idle 时间不应计入利用率）
+            if self.is_idle_sample(s):
+                continue
+                
             cpu_id = s.cpu
             if cpu_id is None:
                 continue

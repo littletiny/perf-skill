@@ -33,8 +33,9 @@ import sys
 from typing import List, Dict, Optional, Any, Type, TypeVar, Generic
 from dataclasses import dataclass
 
+from .models import RiskInfo, TimeRange
 from .output_models import (
-    RiskInfo, TimeRange, BaseSummary, BaseOutput,
+    BaseSummary, BaseOutput,
     ProcessItem, CommGroupItem, HotspotItem, ClusterItem,
     ProcessSummary, CommGroupSummary, HotspotSummary, ClusterSummary,
     ProcessTopOutput, CommTopOutput, HotspotsOutput, ClustersOutput,

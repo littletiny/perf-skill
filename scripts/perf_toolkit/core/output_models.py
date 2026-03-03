@@ -19,6 +19,7 @@ from datetime import datetime
 from enum import IntEnum
 
 from .display_presets import get_display_preset
+from .models import RiskInfo, TimeRange, Summary
 
 
 # =============================================================================
@@ -102,58 +103,11 @@ class TemplateConfig:
 
 
 # =============================================================================
-# Risk Data Structures
+# Summary Structures - 使用 core.models.Summary 作为基类
 # =============================================================================
 
-@dataclass
-class RiskInfo:
-    """风险信息结构 - 所有输出的第一个字段"""
-    level: str  # "critical" | "warning" | "info" | "none"
-    message: str = ""
-    hint: str = ""
-    patterns: List[str] = field(default_factory=list)
-    pending_targets: List[str] = field(default_factory=list)
-    action_required: bool = False
-
-    def __post_init__(self):
-        # Validate level
-        valid_levels = ["critical", "warning", "info", "none"]
-        if self.level not in valid_levels:
-            self.level = "info"
-        # Auto-calculate action_required
-        self.action_required = self.level in ["critical", "warning"]
-
-
-# =============================================================================
-# Time Range Structure
-# =============================================================================
-
-@dataclass
-class TimeRange:
-    """时间范围结构 - ISO 8601 格式"""
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    duration: float = 0.0  # seconds
-
-    @classmethod
-    def from_timestamps(cls, start_ts: Optional[float], end_ts: Optional[float]) -> 'TimeRange':
-        """从时间戳创建 TimeRange"""
-        if start_ts is None or end_ts is None:
-            return cls()
-        return cls(
-            start_time=datetime.fromtimestamp(start_ts).isoformat() if start_ts else None,
-            end_time=datetime.fromtimestamp(end_ts).isoformat() if end_ts else None,
-            duration=round(end_ts - start_ts, 2)
-        )
-
-
-# =============================================================================
-# Summary Structures
-# =============================================================================
-
-@dataclass
-class BaseSummary:
-    """基础摘要结构"""
+class BaseSummary(Summary):
+    """基础摘要结构（兼容旧代码，继承自 core.models.Summary）"""
     pass
 
 

@@ -12,8 +12,9 @@ Base Analyzer - Analysis 层抽象基类
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 from ..core.engine_types import Sample
+from ..core.models import RiskInfo
 from .models import (
-    Risk, AnalysisResult, AnomaliesResult, CommTopResult,
+    AnalysisResult, AnomaliesResult, CommTopResult,
     CoreDistributionResult, HotspotsResult, PathClustersResult, CallersResult
 )
 
@@ -43,25 +44,26 @@ class BaseAnalyzer(ABC):
         pass
     
     def _create_risk(self, level: str, message: str, hint: str = "",
-                     patterns: List[str] = None, 
-                     pending_targets: List[str] = None) -> Risk:
+                     patterns: List[str] = None,
+                     pending_targets: List[str] = None) -> RiskInfo:
         """
-        创建标准化的 Risk 对象
-        
+        创建标准化的 RiskInfo 对象
+
         Args:
             level: 风险级别 - critical | warning | info | none
             message: 风险描述
             hint: 建议操作
             patterns: 检测到的模式标签
             pending_targets: 待处理目标列表
-            
+
         Returns:
-            Risk 对象
+            RiskInfo 对象
         """
-        return Risk(
+        return RiskInfo(
             level=level,
             message=message,
             hint=hint,
             patterns=patterns or [],
-            pending_targets=pending_targets or []
+            pending_targets=pending_targets or [],
+            source=self.__class__.__name__
         )

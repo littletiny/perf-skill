@@ -16,8 +16,9 @@ from typing import List, Dict, Optional, Any, Type, TypeVar, Generic
 from dataclasses import dataclass
 
 # 注意: import 路径从 core 改为相对导入
+from ..core.models import RiskInfo, TimeRange
 from ..core.output_models import (
-    RiskInfo, TimeRange, BaseSummary, BaseOutput,
+    BaseSummary, BaseOutput,
     ProcessItem, CommGroupItem, HotspotItem, ClusterItem,
     ProcessSummary, CommGroupSummary, HotspotSummary, ClusterSummary,
     ProcessTopOutput, CommTopOutput, HotspotsOutput, ClustersOutput,
@@ -37,7 +38,6 @@ from ..core.output_models import (
 )
 from ..core.output_adapter import OutputAdapter, CompactOutputAdapter
 from ..core.text_output_adapter import TextOutputAdapter
-from ..core.output_models import RiskInfo
 from ..core.format_utils import format_time_range, safe_time_range
 from ..core.reliability import assess_data_quality
 from ..core.trace import Trace

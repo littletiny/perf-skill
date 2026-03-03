@@ -9,7 +9,8 @@ analyze-core-distribution 命令实现
 from typing import List, Dict, Any, TYPE_CHECKING
 
 from perf_toolkit.cli.decorators import command
-from perf_toolkit.core.output_models import RiskInfo, RiskLevel, CoreItem, CoreDistributionOutput, TimeRange
+from perf_toolkit.core.models import RiskInfo, TimeRange
+from perf_toolkit.core.output_models import RiskLevel, CoreItem, CoreDistributionOutput
 from perf_toolkit.analysis.core_distribution import CoreDistAnalyzer
 
 if TYPE_CHECKING:

@@ -14,7 +14,8 @@ from dataclasses import dataclass
 from typing import List, Any, Optional
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
-from .models import Risk, Anomaly, AnomaliesResult
+from ..core.models import RiskInfo
+from .models import Anomaly, AnomaliesResult
 
 
 # =============================================================================
@@ -111,7 +112,7 @@ class AnomaliesAnalyzer(BaseAnalyzer):
         all_anomalies.sort(key=lambda x: x.change_magnitude, reverse=True)
         
         # 4. 识别 risk
-        risks: List[Risk] = []
+        risks: List[RiskInfo] = []
         spike_count = sum(1 for a in all_anomalies if a.type == "SPIKE")
         
         if spike_count > 0:
