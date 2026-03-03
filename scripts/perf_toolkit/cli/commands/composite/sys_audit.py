@@ -192,18 +192,11 @@ def _build_expert_anchors(
                 recommendation=f"检查 {g.comm} 的进程创建源头"
             ))
     
-    # Quota Victim 检测 - 只有 CPU 高的主嫌疑人才展示
-    if (diagnosis.primary_suspect 
-        and diagnosis.primary_suspect.diagnosis == DiagnosisType.BOTTLENECK
-        and (diagnosis.primary_suspect.total_cpu > CPU_MIN or diagnosis.primary_suspect.kernel_cpu > SYS_MIN)):
-        anchors.append(ExpertAnchor(
-            type=ExpertAnchorType.QUOTA_VICTIM,
-            target=diagnosis.primary_suspect.comm,
-            description="业务逻辑健康但执行被资源限制阻塞",
-            impact="CPU 被其他进程抢占",
-            attention_flag=AttentionFlag.X0,
-            recommendation="调整 CPU quota 或优化 noisy neighbor"
-        ))
+    # NOTE: QUOTA_VICTIM 检测已移除
+    # 原因：
+    # 1. 无法获取真实 cgroup limit，无法准确判断谁是受害者
+    # 2. 真正的受害者（被抢占 CPU 的进程）已在"进程分层"中体现
+    # 3. 主嫌疑人（如 netstat）实际上是加害人而非受害者
     
     return anchors
 
