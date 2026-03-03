@@ -4,71 +4,84 @@
 > 更新日期: 2026-03-03
 > 设计目标: 解决工具冗余、trace污染、职责边界不清问题
 > 
-> **本次更新**: 整合命令瘦身结论（12个工具 → 6个核心工具 + 3个组合命令）
+> **本次更新**: 整合命令瘦身结论（6个分析工具 + 2个组合命令 + 4个环境命令 + 9个trace子命令）
 
 ---
 
 ## 1. 背景与问题
 
-### 1.1 当前架构问题
+### 1.1 当前架构
 
 ```
-当前架构（问题版本）:
+三层架构实现:
 ┌─────────────────────────────────────────────────────────────┐
-│  CLI Layer (shecr.py)                                       │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│  Analysis Layer (analysis/*.py)                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │get-comm-top │  │ get-hotspots│  │find-callers │  ...     │
-│  │  (@command) │  │  (@command) │  │  (@command) │         │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
-└─────────┼────────────────┼────────────────┼────────────────┘
-          │                │                │
-          └────────────────┴────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│  Core Layer (core/*.py)                                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │engine.py    │  │trace.py     │  │output_builder│        │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
+│  Layer 4: CLI Layer (cli/)                                  │
+│  ├─ commands/analysis/  (6个分析命令)                       │
+│  ├─ commands/composite/ (2个组合命令)                       │
+│  ├─ commands/trace/     (9个trace子命令)                    │
+│  └─ commands/env/       (4个环境命令)                       │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 3: Composite (composite/*.py)                        │
+│  ├─ sys_audit.py         (sys-audit 命令)                  │
+│  └─ bottleneck_trace.py  (bottleneck-trace 命令)           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 2: Analysis (analysis/*.py)                          │
+│  ├─ facade.py            (对外接口封装)                     │
+│  ├─ hotspots.py          (get-hotspots)                     │
+│  ├─ comm_top.py          (get-comm-top)                     │
+│  ├─ anomalies.py         (detect-anomalies)                 │
+│  ├─ core_distribution.py (analyze-core-distribution)        │
+│  ├─ path_clusters.py     (cluster-paths)                    │
+│  └─ trace.py             (find-callers)                     │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 1: Core (core/*.py)                                  │
+│  ├─ engine.py            (PerfExpertEngine)                 │
+│  ├─ output_builder.py    (输出构建器)                       │
+│  ├─ trace.py             (诊断过程追踪)                     │
+│  ├─ output_models.py     (数据模型)                         │
+│  └─ engine_types.py      (类型定义)                         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**存在的问题**:
+**解决的问题**:
 
-1. **工具冗余**: 12个工具存在功能重叠，如`check-cpu-bottleneck`/`show-cpu-usage`/`analyze-core-distribution`都在看CPU利用率
-2. **数字噪音**: `get-process-top`输出成百上千个PID，高Count低CPU的进程淹没真正的问题
-3. **职责边界模糊**: analysis工具通过`@command`装饰器直接与trace耦合，composite命令调用analysis时会产生双重trace记录
-4. **缺乏分层接口**: composite命令需要调用analysis工具，但只能通过模拟CLI调用或重复实现逻辑
-5. **trace污染**: 当composite命令调用多个analysis工具时，每个子调用都会被记录到timeline，导致诊断流程混乱
+1. **职责边界清晰**: Core负责数据，Analysis负责分析，Composite负责编排，CLI负责命令接口
+2. **Trace隔离**: Composite调用Analysis内部接口时，不触发Trace记录
+3. **分层接口**: 通过AnalysisFacade暴露干净接口供Composite调用
+4. **可测试性**: 每层可独立测试，Mock下层依赖
 
-### 1.2 命令瘦身结论
+### 1.2 命令结构
 
-基于1.md中的深入讨论，将工具集从**12个精简为6个核心工具 + 3个组合命令**：
+**实际命令清单**（共21个命令/子命令）：
 
-| 原工具 | 处理方式 | 说明 |
-|--------|----------|------|
-| `check-cpu-bottleneck` | 合并 → `analyze-core-distribution` | 单核饱和检测整合进核心分布分析 |
-| `show-cpu-usage` | 合并 → `analyze-core-distribution` | 基础CPU利用率展示整合 |
-| `get-process-top` | 合并 → `get-comm-top` | 通过CV/Monopoly实现单进程定位 |
-| `cluster-comm` | 合并 → `get-comm-top` | 进程组聚合能力内置 |
-| `count-process-variety` | 合并 → `get-comm-top` | 作为Spawn Rate指标 |
-| `cluster-symbols` | 可选合并 → `cluster-paths` | 语义聚类整合到路径聚类 |
+| 类别 | 数量 | 命令 |
+|------|------|------|
+| **环境命令** | 4 | `init`, `use`, `list`, `status` |
+| **分析命令** | 6 | `get-hotspots`, `find-callers`, `detect-anomalies`, `cluster-paths`, `analyze-core-distribution`, `get-comm-top` |
+| **组合命令** | 2 | `sys-audit`, `bottleneck-trace` |
+| **Trace子命令** | 9 | `init`, `add`, `timeline`, `issues`, `audit`, `complete`, `reopen`, `finalize`, `export` |
 
-**保留的6个核心工具**：
+**6个核心分析工具**：
 
 | 层级 | 工具 | 职责 |
 |------|------|------|
 | 系统级 | `analyze-core-distribution` | 核心热力图、单核饱和、中断不均 |
 | 时间级 | `detect-anomalies` | 趋势突变检测 |
-| 实体级 | `get-comm-top` (增强版) | 聚合 + 离群检测(CV) + 进程风暴(Spawn Rate) |
+| 实体级 | `get-comm-top` | 进程组聚合 + 离群检测(CV) |
 | 函数级 | `get-hotspots` | 热点函数识别 |
 | 关系级 | `find-callers` | 调用链溯源 |
 | 模式级 | `cluster-paths` | 业务逻辑路径聚类 |
 
-**新增3个组合命令**（解决"高噪音掩盖真问题"）：
+**2个组合命令**（解决"高噪音掩盖真问题"）：
 
 | 组合命令 | 链式触发 | 用途 |
 |----------|----------|------|
@@ -153,11 +166,36 @@ Impact = (CPU% × 0.3) + (CV × 40) + (Monopoly × 50) + (Mutation_Rate × 30)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│  Layer 4: CLI (命令层)                                       │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │ cli/commands/                                           ││
+│  │   ├── analysis/       (6个分析命令)                     ││
+│  │   │   ├── get_hotspots.py                               ││
+│  │   │   ├── find_callers.py                               ││
+│  │   │   ├── detect_anomalies.py                           ││
+│  │   │   ├── cluster_paths.py                              ││
+│  │   │   ├── analyze_core_distribution.py                  ││
+│  │   │   └── get_comm_top.py                               ││
+│  │   ├── composite/      (2个组合命令)                     ││
+│  │   │   ├── sys_audit.py                                  ││
+│  │   │   └── bottleneck_trace.py                           ││
+│  │   ├── env/            (4个环境命令)                     ││
+│  │   │   ├── init.py, use.py, list.py, status.py           ││
+│  │   └── trace/          (9个trace子命令)                  ││
+│  │       ├── init.py, add.py, timeline.py, ...             ││
+│  └─────────────────────────────────────────────────────────┘│
+│  职责: 命令行接口，处理用户输入和输出格式化                      │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ 调用 Composite / Analysis
+┌─────────────────────────────────────────────────────────────┐
 │  Layer 3: Composite (组合层)                                 │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ composite/                                              ││
 │  │   ├── sys_audit.py      (sys-audit 命令)               ││
-│  │   └── bottleneck_trace.py (bottleneck-trace 命令)      ││
+│  │   ├── bottleneck_trace.py (bottleneck-trace 命令)      ││
+│  │   ├── bottleneck_tracer.py (BottleneckTracer)          ││
+│  │   └── risk_aggregator.py (Risk聚合)                    ││
 │  └─────────────────────────────────────────────────────────┘│
 │  职责: 编排多个analysis工具，生成综合诊断报告                   │
 │  Trace: 记录顶层命令，不记录内部analysis调用                   │
@@ -169,10 +207,16 @@ Impact = (CPU% × 0.3) + (CV × 40) + (Monopoly × 50) + (Mutation_Rate × 30)
 │  Layer 2: Analysis (分析层)                                  │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ analysis/                                               ││
-│  │   ├── facade.py         (对外接口封装)                  ││
-│  │   ├── comm_top.py       (get-comm-top 实现)            ││
+│  │   ├── facade.py         (AnalysisFacade)               ││
+│  │   ├── base.py           (分析器基类)                   ││
+│  │   ├── interfaces.py     (分析接口)                     ││
+│  │   ├── models.py         (分析数据模型)                 ││
 │  │   ├── hotspots.py       (get-hotspots 实现)            ││
-│  │   └── ...                                               ││
+│  │   ├── comm_top.py       (get-comm-top 实现)            ││
+│  │   ├── anomalies.py      (detect-anomalies 实现)        ││
+│  │   ├── core_distribution.py (analyze-core-distribution) ││
+│  │   ├── path_clusters.py  (cluster-paths 实现)           ││
+│  │   └── trace.py          (find-callers 实现)            ││
 │  └─────────────────────────────────────────────────────────┘│
 │  职责: 实现具体诊断逻辑，提供CLI和内部两种接口                  │
 │  约束: 所有数据解析必须从core.engine获取                       │
@@ -183,10 +227,11 @@ Impact = (CPU% × 0.3) + (CV × 40) + (Monopoly × 50) + (Mutation_Rate × 30)
 │  Layer 1: Core (核心层)                                      │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ core/                                                   ││
-│  │   ├── engine.py         (数据解析与管理)                ││
-│  │   ├── trace.py          (诊断过程追踪)                  ││
-│  │   ├── output_builder.py (输出构建器)                    ││
-│  │   └── command_decorator.py (CLI装饰器)                 ││
+│  │   ├── engine.py         (PerfExpertEngine)             ││
+│  │   ├── output_builder.py (OutputBuilder)                ││
+│  │   ├── trace.py          (诊断过程追踪)                 ││
+│  │   ├── output_models.py  (数据模型)                     ││
+│  │   └── engine_types.py   (类型定义)                     ││
 │  └─────────────────────────────────────────────────────────┘│
 │  职责: 数据解析、Trace记录、基础输出能力                       │
 │  约束: 不依赖上层，提供纯粹的基础能力                          │
@@ -1215,30 +1260,29 @@ def test_cli_records_to_timeline():
 
 ### 10.1 关键设计点回顾
 
-1. **工具瘦身**: 12个工具 → 6个核心工具 + 3个组合命令
-   - `get-comm-top`整合原get-process-top + cluster-comm + count-process-variety
-   - `analyze-core-distribution`整合原check-cpu-bottleneck + show-cpu-usage
-   
-2. **三层架构**: Core（数据）→ Analysis（分析）→ Composite（编排）
+1. **四层架构**: Core（数据）→ Analysis（分析）→ Composite（编排）→ CLI（命令接口）
+   - 6个分析命令: get-hotspots, find-callers, detect-anomalies, cluster-paths, analyze-core-distribution, get-comm-top
+   - 2个组合命令: sys-audit, bottleneck-trace
+   - 4个环境命令: init, use, list, status
+   - 9个trace子命令: init, add, timeline, issues, audit, complete, reopen, finalize, export
 
-3. **Facade模式**: Analysis层通过Facade暴露内部接口，供Composite调用
+2. **Facade模式**: Analysis层通过Facade暴露内部接口，供Composite调用
 
-4. **双接口设计**: 每个analysis工具提供CLI接口（记录Trace）和内部接口（不记录）
+3. **双接口设计**: 每个analysis工具提供CLI接口（记录Trace）和内部接口（不记录）
 
-5. **数据边界**: 所有数据解析必须在Core层完成，Analysis层禁止自行解析
+4. **数据边界**: 所有数据解析必须在Core层完成，Analysis层禁止自行解析
 
-6. **自动降噪**: 通过CV/Monopoly/Impact Score识别并折叠背景噪音
+5. **自动降噪**: 通过CV/Monopoly/Impact Score识别并折叠背景噪音
 
-7. **危害排序**: 按Impact Score排序，解决"A（亮眼数字）掩盖B（真瓶颈）"问题
+6. **危害排序**: 按Impact Score排序，解决"A（亮眼数字）掩盖B（真瓶颈）"问题
 
 ### 10.2 收益
 
 | 收益 | 说明 |
 |------|------|
-| **工具精简** | 从12个工具精简为9个（6核心+3组合），消除冗余 |
+| **职责清晰** | Core(数据) → Analysis(分析) → Composite(编排) → CLI(接口)，每层只关注自己的核心职责 |
 | **降噪能力** | 自动折叠高Count低CPU的背景进程，聚焦真问题 |
 | **智能排序** | Impact Score算法确保真瓶颈优先展示 |
-| **职责清晰** | 每层只关注自己的核心职责 |
 | **可测试** | 每层可独立Mock和测试 |
 | **Trace干净** | Composite调用不污染诊断记录 |
 | **可扩展** | 新增组合命令无需修改底层工具 |

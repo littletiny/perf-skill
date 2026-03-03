@@ -1,6 +1,5 @@
 # Trace v1.0 机制设计意图文档
 
-> 记录从问题发现到方案设计的完整思考过程
 > 创建时间: 2026-02-28
 > 相关案例: netstat/containerd-shim 性能诊断案例
 
@@ -146,14 +145,16 @@ $ perf-exp hints --show
 ```
 诊断流程:
   1. shecr trace init              # 初始化文档
-  2. 分析工具执行                # 发现问题
+  2. 分析工具执行                  # 发现问题
   3. shecr trace add --id ...      # 记录问题
-  4. shecr trace list              # 查看待办
-  5. 继续分析                    # 处理问题
-  6. shecr trace complete --id ... # 标记完成
-  7. shecr trace list              # 检查是否还有遗留
-  8. shecr trace finalize          # 最终审计
-  9. 生成报告                    # 结束
+  4. shecr trace issues            # 查看待办问题列表
+  5. shecr trace timeline          # 查看时间线（诊断过程记录）
+  6. 继续分析                      # 处理问题
+  7. shecr trace complete --id ... # 标记完成
+  8. shecr trace issues            # 检查是否还有遗留
+  9. shecr trace finalize          # 最终审计
+ 10. shecr trace export            # 导出报告
+ 11. 生成报告                      # 结束
 ```
 
 ### 4.2 数据结构（极简扁平）
@@ -278,7 +279,7 @@ ISS-002  containerd-shim 高内核态 89.9%
 **⚠️ 非常重要**: 每次执行 2-3 个工具后，必须运行审计。
 
 ```bash
-shecr trace list
+shecr trace issues
 ```
 
 **不审计的后果**:
@@ -288,7 +289,7 @@ shecr trace list
 
 ### 禁止行为
 
-- ❌ 未执行 `shecr trace list` 直接给出结论
+- ❌ 未执行 `shecr trace issues` 直接给出结论
 - ❌ `pending` 列表不为空时生成最终报告
 - ❌ 未执行 `shecr trace finalize` 结束诊断
 ```
@@ -310,16 +311,21 @@ $ shecr trace add --id ISS-002 --desc "containerd-shim 高内核态 89.9%" --ris
 $ shecr trace add --id ISS-003 --desc "sh 高内核态 86.8%" --risk "未知" --hint "cluster-symbols --comm sh"
 
 # Step 3: 查看待办
-$ shecr trace list
+$ shecr trace issues
 输出:
   ⚠️  PENDING: ISS-001, ISS-002, ISS-003
+
+# Step 3b: 查看时间线
+$ shecr trace timeline
+输出:
+  显示诊断过程的时间线，包括每个问题的添加、完成时间
 
 # Step 4: 分析 netstat
 $ perf-exp cluster-symbols --comm netstat
 $ shecr trace complete --id ISS-001 --result "LOCK_CONTENTION 38.36%"
 
 # Step 5: 再次检查
-$ shecr trace list
+$ shecr trace issues
 输出:
   ✅ COMPLETED: ISS-001
   ⚠️  PENDING: ISS-002, ISS-003  ← 明确提示还有遗留

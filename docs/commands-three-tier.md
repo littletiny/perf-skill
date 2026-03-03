@@ -1,8 +1,6 @@
 # Perf Hunter 命令手册（三层架构版）
 
-> 基于 Core-Analysis-Composite 三层架构的命令说明
-> 
-> 文档版本: 与 v2.0 架构对应
+基于 Core-Analysis-Composite 三层架构的命令说明
 
 ---
 
@@ -68,6 +66,137 @@ Core 层提供数据解析和管理能力，不直接暴露给用户，通过 En
 
 ---
 
+## 环境管理命令
+
+环境命令用于管理数据文件配置和当前会话状态。
+
+### init
+
+初始化配置，添加并切换到新的数据文件。
+
+```bash
+shecr init --data-path <perf.data> [--script-path <path>] [--freq <hz>] [--risk-config <path>] [--rules-file <path>]
+```
+
+**参数**:
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `--data-path` | string | **必需**，perf 数据文件路径 |
+| `--script-path` | string | shecr.py 脚本路径 |
+| `--freq` | string | 采样频率（Hz）|
+| `--risk-config` | string | Risk 显示配置文件 |
+| `--rules-file` | string | 专家规则文件 |
+
+**输出示例**:
+```
+✓ 数据文件已添加: /path/to/perf.data
+✓ Trace 文档已创建: .shecr.trace.json
+
+=== shecr (perf-hunter) 环境配置 ===
+
+配置文件: /path/to/.shecr.json
+Trace 文件: /path/to/.shecr.trace.json
+
+已配置 1 个数据文件:
+
+▶ /path/to/perf.data
+
+▶ 当前默认数据文件
+
+提示: 使用 'shecr use <path>' 切换默认数据文件
+```
+
+---
+
+### use
+
+切换默认数据文件。
+
+```bash
+shecr use <data_path|index>
+```
+
+**参数**:
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `data_path` | string/int | 数据文件路径或索引（从 1 开始）|
+
+**使用示例**:
+```bash
+# 通过路径切换
+shecr use /path/to/perf.data
+
+# 通过索引切换
+shecr use 1
+```
+
+**输出示例**:
+```
+✓ 已切换到: /path/to/perf.data
+  初始化时间: 2026-03-04T10:30:00
+  采样频率: 99Hz
+```
+
+---
+
+### list
+
+列出所有已配置的数据文件。
+
+```bash
+shecr list
+```
+
+**输出示例**:
+```
+=== 已配置的数据文件 ===
+
+▶ [1] /path/to/perf.data [✓]
+       Freq: 99Hz
+
+  [2] /another/path/data.txt [ ]
+
+图例: ▶ 当前默认  ✓ 已在 trace 中使用
+
+提示: 使用 'shecr use <path|index>' 切换默认数据文件
+```
+
+---
+
+### status
+
+显示当前配置和 trace 状态。
+
+```bash
+shecr status
+```
+
+**输出示例**:
+```
+=== shecr (perf-hunter) 环境配置 ===
+
+配置文件: /path/to/.shecr.json
+Trace 文件: /path/to/.shecr.trace.json
+
+Timeline: 5 条命令记录
+Issues: 2 个 (1 个待处理)
+涉及数据文件: 1 个
+
+已配置 2 个数据文件:
+
+▶ /path/to/perf.data
+    Freq: 99Hz
+
+  /another/path/data.txt
+    Freq: 99Hz
+
+▶ 当前默认数据文件
+
+提示: 使用 'shecr use <path>' 切换默认数据文件
+```
+
+---
+
 ## Layer 2: Analysis 层（分析层）
 
 Analysis 层实现具体诊断逻辑，通过 **Facade 模式** 提供双接口：
@@ -79,120 +208,20 @@ Analysis 层实现具体诊断逻辑，通过 **Facade 模式** 提供双接口�
 
 | 方法 | 对应 CLI 命令 | 用途 |
 |------|--------------|------|
-| `analyze_comm_top()` | `get-comm-top` | 进程组 CPU 分析（增强版） |
+| `analyze_comm_top()` | `get-comm-top` | 进程组 CPU 分析 |
 | `analyze_hotspots()` | `get-hotspots` | 热点函数分析 |
 | `analyze_core_distribution()` | `analyze-core-distribution` | 核心级负载分布 |
 | `detect_anomalies()` | `detect-anomalies` | 时序异常检测 |
 | `analyze_callers()` | `find-callers` | 调用链溯源 |
 | `cluster_paths()` | `cluster-paths` | 调用路径聚类 |
-| `cluster_symbols()` | `cluster-symbols` | 符号语义聚类 |
-| `count_process_variety()` | `count-process-variety` | 进程多样性分析 |
 
 ### CLI 命令详解
-
-#### 环境评估工具
-
-##### check-cpu-bottleneck
-
-检查资源限制和单核饱和。
-
-```bash
-shecr check-cpu-bottleneck \
-  --data <perf.script.txt> \
-  [--cpu-limit <cores>] \
-  [--threshold <pct>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--cpu-limit` | float | 0 | CPU 限制（核数），如 `0.1c`, `2c` |
-| `--threshold` | float | 80 | 单核饱和检测阈值（%） |
-
-**检测事件**:
-| 事件 | 优先级 | 说明 |
-|------|--------|------|
-| `CPU_LIMIT_SATURATION` | 1 | CPU 限制接近饱和 |
-| `HIGH_SYS_CORES` | 2 | 单核 sys 利用率过高 |
-| `SINGLE_CORE_SATURATION` | 3 | 单核满载（串行化瓶颈） |
-| `HIGH_CORES` | 4 | 多核高负载 |
-| `HEALTHY` | 5 | 健康状态 |
-
----
-
-##### detect-anomalies
-
-时序异常检测与窗口定位。
-
-```bash
-shecr detect-anomalies \
-  --data <perf.script.txt> \
-  [--window-size <sec>] \
-  [--spike-threshold <ratio>] \
-  [--min-utilization <ratio>] \
-  [--cpu-id <ID>] \
-  [--top-n <N>]
-```
-
-**检测类型**:
-| 类型 | 说明 |
-|------|------|
-| `SPIKE` | 利用率突增 |
-| `DROP` | 利用率突降 |
-| `LEVEL_SHIFT` | 水平迁移 |
-| `BURST` | 短时爆发 |
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--window-size` | float | 1.0 | 滑动窗口大小（秒） |
-| `--spike-threshold` | float | 0.5 | 变化倍数阈值 |
-| `--min-utilization` | float | 0.3 | 最小利用率阈值 |
-| `--cpu-id` | int | - | 仅分析指定 CPU |
-| `--top-n` | int | 10 | 显示的异常数 |
-| `--export-mode` | flag | - | 导出所有窗口数据 |
-
----
-
-##### analyze-core-distribution
-
-核心级负载分布与均衡性分析。
-
-```bash
-shecr analyze-core-distribution \
-  --data <perf.script.txt> \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>] \
-  [--top-n <N>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
-
-**输出字段**:
-| 字段 | 说明 |
-|------|------|
-| `imbalance_level` | 不均衡等级: LOW/MEDIUM/HIGH/CRITICAL |
-| `max_utilization_pct` | 最高核心利用率 |
-| `min_utilization_pct` | 最低核心利用率 |
-| `patterns` | 检测到的模式数组 |
-
-**检测模式**:
-| 模式 | 说明 |
-|------|------|
-| `SINGLE_CORE_SATURATION` | 单核满载，其他核心空闲 |
-| `WIDE_DISTRIBUTION_LOW_UTIL` | 广泛分布但利用率低 |
-
----
 
 #### 进程分析工具
 
 ##### get-comm-top
 
-识别高消耗进程组（增强版，支持 CV/Monopoly/SpawnRate 指标）。
+识别高消耗进程组。
 
 ```bash
 shecr get-comm-top \
@@ -205,22 +234,6 @@ shecr get-comm-top \
   [--end-time <ts>]
 ```
 
-**增强版指标**:
-| 指标 | 说明 | 用途 |
-|------|------|------|
-| `cv` | 变异系数 | 检测负载不均衡 |
-| `monopoly` | 核心独占率 | 识别瓶颈进程 |
-| `spawn_rate` | 进程产生速率 | 检测进程风暴 |
-| `impact_score` | 危害指数 | 综合排序依据 |
-
-**诊断分级**:
-| 级别 | 条件 | 含义 |
-|------|------|------|
-| `HEALTHY` | CV < 0.3, Monopoly < 0.5 | 健康状态 |
-| `UNBALANCED` | CV >= 0.5 | 负载不均衡 |
-| `BOTTLENECK` | Monopoly >= 0.7 | 单进程瓶颈 |
-| `STORM` | SpawnRate > 10/min | 进程风暴 |
-
 **输出字段**:
 | 字段 | 说明 |
 |------|------|
@@ -228,11 +241,7 @@ shecr get-comm-top \
 | `pid_count` | 进程数量 |
 | `aggregate_cpu_pct` | 聚合 CPU 利用率 |
 | `kernel_pct` | 平均内核态占比 |
-| `density_index` | 密度指数（总CPU/进程数） |
-| `cv` | 变异系数 |
-| `monopoly` | 核心独占率 |
-| `spawn_rate` | 产生速率（每秒） |
-| `diagnosis` | HEALTHY/UNBALANCED/BOTTLENECK/STORM |
+| `density_index` | 密度指数（总CPU/进程数）|
 
 ---
 
@@ -268,7 +277,6 @@ shecr get-hotspots \
 | `self_pct` | 自身消耗百分比 |
 | `inclusive_pct` | 包含子调用百分比 |
 | `core_sec` | core/s 值 |
-| `resource_tag` | LOCK_CONTENTION/SYSCALL/... |
 
 ---
 
@@ -302,6 +310,73 @@ shecr find-callers \
 
 ---
 
+#### 环境评估工具
+
+##### detect-anomalies
+
+时序异常检测与窗口定位。
+
+```bash
+shecr detect-anomalies \
+  --data <perf.script.txt> \
+  [--window-size <sec>] \
+  [--spike-threshold <ratio>] \
+  [--min-utilization <ratio>] \
+  [--cpu-id <ID>] \
+  [--top-n <N>]
+```
+
+**检测类型**:
+| 类型 | 说明 |
+|------|------|
+| `SPIKE` | 利用率突增 |
+| `DROP` | 利用率突降 |
+| `LEVEL_SHIFT` | 水平迁移 |
+| `BURST` | 短时爆发 |
+
+**参数**:
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `--window-size` | float | 1.0 | 滑动窗口大小（秒）|
+| `--spike-threshold` | float | 0.5 | 变化倍数阈值 |
+| `--min-utilization` | float | 0.3 | 最小利用率阈值 |
+| `--cpu-id` | int | - | 仅分析指定 CPU |
+| `--top-n` | int | 10 | 显示的异常数 |
+
+---
+
+##### analyze-core-distribution
+
+核心级负载分布与均衡性分析。
+
+```bash
+shecr analyze-core-distribution \
+  --data <perf.script.txt> \
+  [--cpu-id <ID>] \
+  [--pid <PID>] \
+  [--comm <name>] \
+  [--comm-regex <pattern>] \
+  [--top-n <N>] \
+  [--start-time <ts>] \
+  [--end-time <ts>]
+```
+
+**输出字段**:
+| 字段 | 说明 |
+|------|------|
+| `imbalance_level` | 不均衡等级: LOW/MEDIUM/HIGH/CRITICAL |
+| `max_utilization_pct` | 最高核心利用率 |
+| `min_utilization_pct` | 最低核心利用率 |
+| `patterns` | 检测到的模式数组 |
+
+**检测模式**:
+| 模式 | 说明 |
+|------|------|
+| `SINGLE_CORE_SATURATION` | 单核满载，其他核心空闲 |
+| `WIDE_DISTRIBUTION_LOW_UTIL` | 广泛分布但利用率低 |
+
+---
+
 ##### cluster-paths
 
 调用路径聚类，识别共同前缀模式。
@@ -327,91 +402,6 @@ shecr cluster-paths \
 
 ---
 
-#### 语义聚类工具
-
-##### cluster-symbols
-
-按专家规则语义聚类。
-
-```bash
-shecr cluster-symbols \
-  --data <perf.script.txt> \
-  [--no-include-experts] \
-  [--custom-rules <json>] \
-  [--rules-file <path>] \
-  [--top-n <N>] \
-  [--cpu-id <ID>] \
-  [--pid <PID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>]
-```
-
-**规则优先级**（从高到低）：
-1. `--custom-rules` 命令行参数
-2. `--rules-file` 外部文件规则
-3. 内置专家规则（默认启用）
-
-**内置规则分类**:
-| 类别 | 匹配模式 | 含义 |
-|------|---------|------|
-| `EVENT_IRQ_OFF` | IRQ off, spin_unlock | 长临界区 |
-| `EVENT_SCHEDULER` | schedule, yield | 调度器活动 |
-| `EVENT_MEM_RECLAIM` | reclaim, TLB, page | 内存回收 |
-| `EVENT_LOCK_CONTENTION` | mutex, spinlock, futex | 锁竞争 |
-| `EVENT_SYNC_PRIMITIVE` | pthread_cond, barrier | 同步原语 |
-
-**外部规则文件** (`--rules-file`):
-```bash
-# 使用外部规则文件
-shecr cluster-symbols --data perf.data --rules-file my_rules.json --no-include-experts
-
-# 扩展内置规则
-shecr cluster-symbols --data perf.data --rules-file extra_rules.json
-```
-
-规则文件格式（JSON）：
-```json
-{
-  "EVENT_NETWORK": "sock_|tcp_|udp_|sk_",
-  "EVENT_IO_WAIT": ["blk_", "scsi_", "nvme_"],
-  "EVENT_CUSTOM": "my_pattern.*"
-}
-```
-
----
-
-#### 领域定位工具
-
-##### count-process-variety
-
-检测进程风暴/短生命周期进程。
-
-```bash
-shecr count-process-variety \
-  --data <perf.script.txt> \
-  [--top-n <N>] \
-  [--storm-pid-threshold <N>] \
-  [--storm-ratio-threshold <ratio>] \
-  [--cpu-id <ID>] \
-  [--comm <name>] \
-  [--comm-regex <pattern>]
-```
-
-**参数**:
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--top-n` | int | 20 | 显示进程名数 |
-| `--storm-pid-threshold` | int | 50 | PID 数量阈值 |
-| `--storm-ratio-threshold` | float | 2.0 | samples/PID 阈值 |
-
-**检测模式**:
-| 模式 | 条件 | 说明 |
-|------|------|------|
-| `PROCESS_STORM` | PID 数≥10 且 samples_per_pid≤2 | 大量短生命周期进程 |
-| `LONG_RUNNING` | 单 PID 主导 | 长运行进程 |
-
----
-
 ## Layer 3: Composite 层（组合层）
 
 Composite 层通过编排多个 Analysis 工具，生成综合诊断报告。内部调用 Analysis Facade 时不触发 Trace 记录，仅顶层命令被记录到 timeline。
@@ -422,7 +412,6 @@ Composite 层通过编排多个 Analysis 工具，生成综合诊断报告。内
 |------|------|----------|
 | `sys-audit` | 系统全面审计 | detect-anomalies + analyze-core-distribution + get-comm-top |
 | `bottleneck-trace` | 瓶颈追踪分析 | get-comm-top + get-hotspots + find-callers |
-| `storm-trace` | 进程风暴追踪 | count-process-variety + get-comm-top |
 
 ---
 
@@ -442,7 +431,7 @@ shecr sys-audit \
 **编排逻辑**:
 1. `detect-anomalies` → 发现突变时刻
 2. `analyze-core-distribution` → 分析核心分布
-3. `get-comm-top` → 分析进程组（使用危害指数排序）
+3. `get-comm-top` → 分析进程组
 4. 综合分析，生成诊断报告
 
 **诊断报告结构**:
@@ -472,10 +461,7 @@ shecr sys-audit \
         "primary_suspect": {
             "comm": "netstat",
             "total_cpu": 12.5,
-            "cv": 0.8,
-            "monopoly": 0.85,
-            "impact_score": 75.3,
-            "diagnosis": "BOTTLENECK"
+            "impact_score": 75.3
         },
         "root_cause_chain": "单进程垄断 CPU 资源，疑似串行化处理"
     }
@@ -499,7 +485,7 @@ shecr bottleneck-trace \
 ```
 
 **编排逻辑**:
-1. `get-comm-top` → 识别瓶颈进程（按 impact_score 排序）
+1. `get-comm-top` → 识别瓶颈进程
 2. `get-hotspots --comm <target>` → 分析热点函数
 3. `find-callers --target <hotspot>` → 热点溯源
 
@@ -511,25 +497,6 @@ shecr bottleneck-trace --comm netstat
 # 场景 2: 自动检测瓶颈（不指定 --comm）
 shecr bottleneck-trace --data <perf.script.txt>
 ```
-
----
-
-### storm-trace
-
-进程风暴追踪，分析短生命周期进程问题。
-
-```bash
-shecr storm-trace \
-  --data <perf.script.txt> \
-  [--comm <name>] \
-  [--cpu-id <ID>] \
-  [--start-time <ts>] \
-  [--end-time <ts>]
-```
-
-**编排逻辑**:
-1. `count-process-variety` → 检测进程风暴
-2. `get-comm-top` → 分析风暴进程组指标
 
 ---
 
@@ -682,18 +649,18 @@ shecr trace timeline [--format text|json]
 
 | 工具 | `--data` | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start/end-time` |
 |------|:--------:|:----------:|:-------:|:--------:|:--------------:|:------------------:|
-| `check-cpu-bottleneck` | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `detect-anomalies` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `init` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `use` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `list` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `status` | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | `get-comm-top` | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
 | `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `cluster-symbols` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `count-process-variety` | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ |
+| `detect-anomalies` | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `sys-audit` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
 | `bottleneck-trace` | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
-| `storm-trace` | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
 
 ---
 
@@ -760,7 +727,7 @@ Trace 记录:
 
 ```bash
 # 1. 初始化（配置数据路径，只需一次）
-scripts/shecr init --data-path <perf.data> [--freq <hz>]
+shecr init --data-path <perf.data> [--freq <hz>]
 
 # 2. 后续命令大幅简化
 shecr get-hotspots --comm myapp
@@ -773,10 +740,10 @@ shecr find-callers --target pthread_mutex_lock
 # 1. 系统审计（推荐）
 shecr sys-audit
 
-# 3. 如发现瓶颈，深度追踪
+# 2. 如发现瓶颈，深度追踪
 shecr bottleneck-trace --comm <target>
 
-# 4. 查看诊断记录
+# 3. 查看诊断记录
 shecr trace timeline
 shecr trace issues
 ```

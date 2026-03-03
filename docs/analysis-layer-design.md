@@ -1,23 +1,23 @@
 # Analysis 层设计文档
 
-> 角色: Analysis 工程师（人员B）
-> 目标: 将现有 analysis 工具重构为三层架构中的 Analysis 层
-> 依赖: Core Engine 接口（人员A Week 1 交付）
+> 角色: Analysis 工程师
+> 目标: 三层架构中的 Analysis 层
+> 依赖: Core Engine 接口
 
 ---
 
-## 1. 设计目标
+## 设计目标
 
-### 1.1 核心原则
+### 核心原则
 
 | 原则 | 说明 | 约束 |
 |------|------|------|
 | 职责分离 | Analyzer 只负责纯分析逻辑 | 不处理 CLI/Trace/输出格式 |
 | 数据边界 | 所有数据通过 Engine 接口获取 | 禁止直接访问原始样本数据 |
 | 双接口设计 | 提供内部接口（Facade）和 CLI 接口 | CLI 接口通过 @command 包装 |
-| Risk 内聚 | Analyzer 识别风险并返回 _risk 数据 | 由上层决定如何记录 |
+| Risk 内聚 | Analyzer 识别风险并返回 risks 数据 | 由上层决定如何记录 |
 
-### 1.2 重构前后对比
+### 重构前后对比
 
 ```
 重构前（混合职责）:
@@ -36,7 +36,7 @@
 │ class CommTopAnalyzer:                  │
 │     def analyze(self, ...):             │
 │         # 纯分析逻辑                    │
-│         # 返回 {result, risks}          │
+│         # 返回 Result dataclass         │
 ├─────────────────────────────────────────┤
 │ @command("get-comm-top")                │
 │ def cmd_get_comm_top(...):              │
@@ -48,58 +48,64 @@
 
 ---
 
-## 2. 架构设计
+## 架构设计
 
-### 2.1 目录结构
+### 目录结构
 
 ```
 analysis/
 ├── __init__.py                 # 包入口
-├── facade.py                   # Facade 接口（由人员A提供框架）
+├── facade.py                   # Facade 接口 - AnalysisFacade
 ├── interfaces.py               # 类型定义和接口契约
 ├── base.py                     # BaseAnalyzer 抽象基类
+├── models.py                   # 分析数据模型 (dataclass)
 │
-├── comm_top.py                 # CommTopAnalyzer + CLI
-├── hotspots.py                 # HotspotsAnalyzer + CLI
-├── core_distribution.py        # CoreDistAnalyzer + CLI
-├── anomalies.py                # AnomaliesAnalyzer + CLI
-├── path_clusters.py            # PathClusterAnalyzer + CLI
-├── clusters.py                 # SymbolClusterAnalyzer + CLI
-├── process_variety.py          # ProcessVarietyAnalyzer + CLI
-└── trace.py                    # 保持现状（Trace 命令）
+├── comm_top.py                 # CommTopAnalyzer
+├── hotspots.py                 # HotspotsAnalyzer
+├── core_distribution.py        # CoreDistAnalyzer
+├── anomalies.py                # AnomaliesAnalyzer
+├── path_clusters.py            # PathClustersAnalyzer
+└── trace.py                    # TraceAnalyzer (调用链分析)
 ```
 
-### 2.2 类层次结构
+### 类层次结构
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    BaseAnalyzer (抽象基类)                   │
 │  - engine: PerfExpertEngine                                 │
-│  - analyze(samples, **kwargs) -> Dict                       │
+│  - analyze(samples, **kwargs) -> Result dataclass           │
+│  - _create_risk() -> RiskInfo                               │
 └─────────────────────────────────────────────────────────────┘
                               │
         ┌─────────────────────┼─────────────────────┐
         │                     │                     │
         ▼                     ▼                     ▼
 ┌───────────────┐    ┌───────────────┐    ┌───────────────┐
-│ CommTopAnalyzer       │    │ HotspotsAnalyzer      │    │ CoreDistAnalyzer      │
-│ - _calculate_cv()     │    │ - _classify_hotspot() │    │ - _detect_imbalance() │
-│ - _calculate_monopoly()    │    └───────────────┘    └───────────────┘
-│ - _classify()         │
-└───────────────┘
+│CommTopAnalyzer│    │HotspotsAnalyzer      │    │CoreDistAnalyzer      │
+│- analyze()    │    │- analyze()           │    │- analyze()           │
+└───────────────┘    └───────────────┘    └───────────────┘
+        │                     │                     │
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌───────────────┐    ┌───────────────┐
+│AnomaliesAnalyzer     │    │PathClustersAnalyzer  │    │TraceAnalyzer         │
+│- analyze()           │    │- analyze()           │    │- analyze()           │
+└───────────────┘    └───────────────┘    └───────────────┘
 ```
 
 ---
 
-## 3. 核心类设计
+## 核心类设计
 
-### 3.1 BaseAnalyzer 抽象基类
+### BaseAnalyzer 抽象基类
 
 ```python
 # analysis/base.py
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional
+from typing import List, Any
+from ..core.engine_types import Sample
+from ..core.models import RiskInfo
 
 
 class BaseAnalyzer(ABC):
@@ -109,470 +115,290 @@ class BaseAnalyzer(ABC):
     设计约束:
     1. 只依赖 engine 接口获取数据
     2. 不直接操作 trace
-    3. 返回原始 dict，包含 result 和 risks
+    3. 返回具体 Result dataclass（非裸 dict）
     """
     
-    def __init__(self, engine: 'PerfExpertEngine'):
+    def __init__(self, engine):
         self._engine = engine
     
     @abstractmethod
-    def analyze(self, samples: List[Dict], **kwargs) -> Dict[str, Any]:
+    def analyze(self, samples: List[Sample], **kwargs) -> Any:
         """
         执行分析
         
         Args:
-            samples: 样本数据（由 engine 过滤后提供）
+            samples: 样本数据列表（Sample dataclass 列表）
             **kwargs: 分析特定参数
             
         Returns:
-            {
-                "result": Any,           # 分析结果（工具特定）
-                "risks": List[Dict],     # 识别到的风险列表
-                "metrics": Dict          # 中间指标（可选，供 Composite 使用）
-            }
+            具体 Result dataclass，如 AnomaliesResult, CommTopResult 等
         """
         pass
     
     def _create_risk(self, level: str, message: str, hint: str = "",
-                     patterns: List[str] = None, 
-                     pending_targets: List[str] = None) -> Dict:
-        """创建标准化的 risk 数据结构"""
-        return {
-            "level": level,  # critical | warning | info | none
-            "message": message,
-            "hint": hint,
-            "patterns": patterns or [],
-            "pending_targets": pending_targets or [],
-            "action_required": level in ["critical", "warning"]
-        }
-```
-
-### 3.2 Analyzer 统一返回格式
-
-```python
-# 所有 Analyzer 遵循的返回格式
-
-AnalysisResult = {
-    # ===== 分析结果（工具特定） =====
-    "result": {
-        # get-comm-top: {"groups": [...]}
-        # get-hotspots: {"hotspots": [...]}
-        # detect-anomalies: {"anomalies": [...]}
-    },
-    
-    # ===== Risk 列表（供 Composite 聚合） =====
-    "risks": [
-        {
-            "level": "critical",
-            "message": "xxx 单核饱和",
-            "hint": "bottleneck-trace --comm xxx",
-            "patterns": ["SINGLE_CORE_SATURATION"],
-            "pending_targets": ["xxx"],
-            "action_required": True
-        }
-    ],
-    
-    # ===== 中间指标（供 Composite 综合判断） =====
-    "metrics": {
-        # 工具特定的中间指标
-    }
-}
+                     patterns: List[str] = None,
+                     pending_targets: List[str] = None) -> RiskInfo:
+        """创建标准化的 RiskInfo 对象"""
+        return RiskInfo(
+            level=level,
+            message=message,
+            hint=hint,
+            patterns=patterns or [],
+            pending_targets=pending_targets or [],
+            source=self.__class__.__name__
+        )
 ```
 
 ---
 
-## 4. 具体 Analyzer 设计
+## 实际实现的分析器（6个）
 
-### 4.1 CommTopAnalyzer（最复杂，Week 2 重点）
+### 1. HotspotsAnalyzer - hotspots.py
+
+热点函数分析器，分析自研/包含 CPU 利用率最高的符号。
 
 ```python
-# analysis/comm_top.py
+class HotspotsAnalyzer(BaseAnalyzer):
+    """热点函数分析器"""
+    
+    def analyze(self, samples: List[Sample],
+                comm: Optional[str] = None,
+                pid: Optional[int] = None,
+                top_n: int = 20,
+                sort_by: str = "self") -> HotspotsResult:
+        """
+        分析热点函数
+        
+        Returns:
+            HotspotsResult dataclass with hotspots, kernel_ratio, user_ratio
+        """
+```
 
-from typing import Dict, List
-from .base import BaseAnalyzer
+**返回类型**: `HotspotsResult`
+```python
+@dataclass
+class HotspotsResult:
+    hotspots: List[Hotspot]
+    kernel_ratio: float
+    user_ratio: float
+    sort_by: str
+    risks: List[RiskInfo]
 
+@dataclass  
+class Hotspot:
+    symbol: str
+    self_pct: float
+    inclusive_pct: float
+    is_kernel: bool
+```
 
+### 2. CommTopAnalyzer - comm_top.py
+
+进程组 CPU 分析器（增强版），支持 CV、Monopoly、Storm 检测。
+
+```python
 class CommTopAnalyzer(BaseAnalyzer):
     """
     CommTop 分析器 - 进程组 CPU 分析（增强版）
     
     新增指标:
     - CV (变异系数): 检测负载不均衡
-    - Monopoly (独占率): 识别单进程瓶颈
+    - Monopoly (独占率): 识别单进程瓶颈  
     - SpawnRate (产生速率): 检测进程风暴
     - Impact Score (危害指数): 综合排序依据
     """
     
-    # 诊断分级阈值
-    CV_THRESHOLD = 1.0              # CV > 1.0 认为不均衡
-    MONOPOLY_THRESHOLD = 0.8        # Monopoly > 0.8 认为单点瓶颈
-    SPAWN_RATE_THRESHOLD = 10.0     # > 10/s 认为进程风暴
+    CV_THRESHOLD = 1.0
+    MONOPOLY_THRESHOLD = 0.8
+    SPAWN_RATE_THRESHOLD = 10.0
     
-    def analyze(self, samples: List[Dict], top_n: int = 10,
-                include_metrics: bool = False) -> Dict:
+    def analyze(self, samples: List[Sample], top_n: int = 10,
+                include_metrics: bool = False) -> CommTopResult:
         """
         分析进程组 CPU 利用率
         
-        Args:
-            samples: 样本数据
-            top_n: 返回前 N 个进程组
-            include_metrics: 是否包含中间指标（Composite 使用）
-            
         Returns:
-            {
-                "result": {"groups": [...]},
-                "risks": [...],
-                "metrics": {"cv_map": ..., "monopoly_map": ...}  # if include_metrics
-            }
+            CommTopResult dataclass
         """
-        # 1. 从 engine 获取数据
-        comm_util = self._engine.get_comm_cpu_util(samples)
-        
-        # 2. 计算增强指标
-        groups = []
-        risks = []
-        
-        for comm, info in comm_util.items():
-            # 获取 PID 级分布用于计算 CV 和 Monopoly
-            pid_dist = self._engine.get_pid_cpu_distribution(samples, comm)
-            cv = self._calculate_cv(pid_dist)
-            monopoly = self._calculate_monopoly(pid_dist)
-            
-            # 获取生命周期信息
-            lifecycle = self._engine.get_process_lifecycle(samples, comm)
-            spawn_rate = lifecycle.get("spawn_rate", 0)
-            
-            # 诊断分级
-            diagnosis = self._classify(cv, monopoly, spawn_rate)
-            
-            # 计算危害指数
-            impact_score = self._calculate_impact_score(
-                info["total_pct"], cv, monopoly, spawn_rate
-            )
-            
-            group = {
-                "comm": comm,
-                "total_cpu": info["total_pct"],
-                "kernel_cpu": info["kernel_pct"],
-                "pid_count": info["pid_count"],
-                "cv": cv,
-                "monopoly": monopoly,
-                "spawn_rate": spawn_rate,
-                "diagnosis": diagnosis,
-                "impact_score": impact_score
-            }
-            groups.append(group)
-            
-            # 识别 risk
-            risk = self._identify_risk(group)
-            if risk:
-                risks.append(risk)
-        
-        # 3. 按危害指数排序
-        groups.sort(key=lambda x: x["impact_score"], reverse=True)
-        
-        # 4. 自动降噪：区分"值得关注"和"背景噪音"
-        display_groups, folded_groups = self._auto_filter(groups)
-        
-        result = {
-            "result": {
-                "groups": display_groups[:top_n],
-                "folded_count": len(folded_groups),
-                "total_groups": len(groups)
-            },
-            "risks": risks
-        }
-        
-        if include_metrics:
-            result["metrics"] = {
-                "cv_map": {g["comm"]: g["cv"] for g in groups},
-                "monopoly_map": {g["comm"]: g["monopoly"] for g in groups},
-                "spawn_rate_map": {g["comm"]: g["spawn_rate"] for g in groups},
-                "folded_groups": folded_groups
-            }
-        
-        return result
-    
-    def _calculate_cv(self, pid_dist: Dict[int, float]) -> float:
-        """计算变异系数 (Coefficient of Variation)"""
-        values = list(pid_dist.values())
-        if not values:
-            return 0.0
-        mean = sum(values) / len(values)
-        if mean == 0:
-            return 0.0
-        variance = sum((x - mean) ** 2 for x in values) / len(values)
-        return (variance ** 0.5) / mean
-    
-    def _calculate_monopoly(self, pid_dist: Dict[int, float]) -> float:
-        """计算核心独占率 (Monopoly Ratio)"""
-        if not pid_dist:
-            return 0.0
-        total = sum(pid_dist.values())
-        if total == 0:
-            return 0.0
-        max_pid_cpu = max(pid_dist.values())
-        return max_pid_cpu / total
-    
-    def _classify(self, cv: float, monopoly: float, spawn_rate: float) -> str:
-        """诊断分级"""
-        if monopoly > self.MONOPOLY_THRESHOLD:
-            return "BOTTLENECK"
-        elif spawn_rate > self.SPAWN_RATE_THRESHOLD:
-            return "STORM"
-        elif cv > self.CV_THRESHOLD:
-            return "UNBALANCED"
-        else:
-            return "HEALTHY"
-    
-    def _calculate_impact_score(self, total_cpu: float, cv: float, 
-                                 monopoly: float, spawn_rate: float) -> float:
-        """计算危害指数"""
-        return (
-            total_cpu * 0.3 +
-            cv * 40 +
-            monopoly * 50 +
-            spawn_rate * 5
-        )
-    
-    def _identify_risk(self, group: Dict) -> Optional[Dict]:
-        """根据诊断分级识别 risk"""
-        if group["diagnosis"] == "BOTTLENECK":
-            return self._create_risk(
-                level="critical",
-                message=f"{group['comm']} 单核饱和 (Monopoly={group['monopoly']:.2f})",
-                hint=f"bottleneck-trace --comm {group['comm']}",
-                patterns=["SINGLE_CORE_SATURATION"],
-                pending_targets=[group["comm"]]
-            )
-        elif group["diagnosis"] == "STORM":
-            return self._create_risk(
-                level="warning",
-                message=f"{group['comm']} 进程风暴 ({group['spawn_rate']:.1f}/s)",
-                hint=f"storm-trace --comm {group['comm']}",
-                patterns=["PROCESS_STORM"],
-                pending_targets=[group["comm"]]
-            )
-        elif group["diagnosis"] == "UNBALANCED":
-            return self._create_risk(
-                level="warning",
-                message=f"{group['comm']} 负载不均衡 (CV={group['cv']:.2f})",
-                hint=f"get-hotspots --comm {group['comm']}",
-                patterns=["UNBALANCED_LOAD"],
-                pending_targets=[group["comm"]]
-            )
-        return None
-    
-    def _auto_filter(self, groups: List[Dict]) -> tuple:
-        """自动降噪，区分值得关注和背景噪音"""
-        display = []
-        folded = []
-        
-        for g in groups:
-            is_significant = (
-                g["total_cpu"] > 5 or
-                g["cv"] > 1.0 or
-                g["monopoly"] > 0.8 or
-                g["spawn_rate"] > 10
-            )
-            if is_significant:
-                display.append(g)
-            else:
-                folded.append(g)
-        
-        return display, folded
-
-
-# ========== CLI 适配层（保持向后兼容） ==========
-
-from ..core.command_decorator import command
-from ..core.output_builder import create_risk_info
-from ..core.output_models import CommTopOutput, CommGroupItem, CommGroupSummary, TimeRange
-
-@command("get-comm-top")
-def cmd_get_comm_top(builder, engine, args, samples):
-    """[Skill] Get top N comm groups by aggregated CPU utilization"""
-    
-    # 1. 调用 Analyzer（内部接口，不触发 Trace）
-    analyzer = CommTopAnalyzer(engine)
-    result = analyzer.analyze(
-        samples, 
-        top_n=getattr(args, 'top_n', 10),
-        include_metrics=False
-    )
-    
-    # 2. 记录所有 risks 到 Trace（CLI 层负责）
-    for risk in result["risks"]:
-        builder.record_risk(
-            risk["level"],
-            risk["message"],
-            risk["hint"]
-        )
-    
-    # 3. 取最高级别 risk 放入 _risk 字段
-    top_risk = None
-    if result["risks"]:
-        priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        top_risk = min(result["risks"], key=lambda r: priority.get(r["level"], 3))
-    
-    # 4. 转换为 Output 模型
-    groups = [
-        CommGroupItem.from_stats(
-            comm=g["comm"],
-            pid_count=g["pid_count"],
-            aggregate_cpu=g["total_cpu"],
-            kernel_ratio=g["kernel_cpu"] / g["total_cpu"] * 100 if g["total_cpu"] > 0 else 0,
-            event_desc=g["diagnosis"]
-        )
-        for g in result["result"]["groups"]
-    ]
-    
-    risk_output = create_risk_info(**top_risk) if top_risk else create_risk_info(level="none")
-    
-    output = CommTopOutput(
-        _risk=risk_output,
-        comm_groups=groups,
-        summary=CommGroupSummary(
-            total_comm_groups=result["result"]["total_groups"],
-            folded_groups=result["result"]["folded_count"]
-        ),
-        time_range=TimeRange.from_timestamps(
-            samples[0].get('ts') if samples else None,
-            samples[-1].get('ts') if samples else None
-        )
-    )
-    
-    return output
 ```
 
-### 4.2 其他 Analyzer 概要
-
-#### HotspotsAnalyzer
-
+**返回类型**: `CommTopResult`
 ```python
-class HotspotsAnalyzer(BaseAnalyzer):
-    """热点函数分析器"""
-    
-    def analyze(self, samples, comm=None, pid=None, top_n=20) -> Dict:
-        symbol_util = self._engine.get_symbol_cpu_util(samples, comm=comm, pid=pid)
-        
-        hotspots = []
-        risks = []
-        
-        for sym in symbol_util['inclusive'].keys():
-            self_pct = symbol_util['self'].get(sym, 0)
-            incl_pct = symbol_util['inclusive'][sym]
-            
-            # 识别内核态热点 risk
-            if sym.endswith('_[k]') and incl_pct > 30:
-                risks.append(self._create_risk(
-                    level="warning",
-                    message=f"热点函数 {sym} 内核态占比 {incl_pct:.2f}%",
-                    hint=f"find-callers --target {sym}",
-                    patterns=["HIGH_KERNEL_HOTSPOT"]
-                ))
-            
-            hotspots.append({
-                "symbol": sym,
-                "self_pct": self_pct,
-                "inclusive_pct": incl_pct
-            })
-        
-        hotspots.sort(key=lambda x: x["self_pct"], reverse=True)
-        
-        return {
-            "result": {"hotspots": hotspots[:top_n]},
-            "risks": risks
-        }
+@dataclass
+class CommTopResult:
+    groups: List[CommGroup]
+    folded_count: int
+    total_groups: int
+    risks: List[RiskInfo]
+    storm_analysis: Optional[StormAnalysisResult]
+    metrics: Optional[dict]
+    groups_by_total_cpu: Optional[List[CommGroup]]
+    groups_by_sys_cpu: Optional[List[CommGroup]]
+
+@dataclass
+class CommGroup:
+    comm: str
+    total_cpu: float
+    kernel_cpu: float
+    user_cpu: float
+    pid_count: int
+    pids: List[int]
+    cv: float
+    monopoly: float
+    spawn_rate: float
+    diagnosis: str  # BOTTLENECK/STORM/UNBALANCED/HEALTHY
+    impact_score: float
 ```
 
-#### CoreDistAnalyzer
+### 3. CoreDistAnalyzer - core_distribution.py
+
+核心分布分析器，检测 CPU 负载不均衡。
 
 ```python
 class CoreDistAnalyzer(BaseAnalyzer):
     """核心分布分析器"""
     
-    def analyze(self, samples) -> Dict:
-        core_util = self._engine.get_core_cpu_util(samples)
+    def analyze(self, samples: List[Sample], top_n: int = 10) -> CoreDistributionResult:
+        """
+        分析核心级负载分布
         
-        cores = []
-        risks = []
-        
-        for cpu_id, info in sorted(core_util.items(), key=lambda x: x[1]['total_pct'], reverse=True):
-            cores.append({
-                "cpu_id": cpu_id,
-                "total_cpu": info["total_pct"],
-                "kernel_cpu": info["kernel_pct"]
-            })
-        
-        # 检测负载不均衡
-        if len(cores) >= 2:
-            max_util = cores[0]["total_cpu"]
-            min_util = cores[-1]["total_cpu"]
-            avg_util = sum(c["total_cpu"] for c in cores) / len(cores)
-            
-            imbalance_ratio = max_util / avg_util if avg_util > 0 else 0
-            
-            if imbalance_ratio > 10 and max_util > 50:
-                risks.append(self._create_risk(
-                    level="critical",
-                    message="负载严重不均衡: 单核满载，其他核心空闲",
-                    hint="使用 sys-audit 进行系统审计",
-                    patterns=["SINGLE_CORE_SATURATION"]
-                ))
-        
-        return {
-            "result": {"cores": cores, "imbalance_ratio": imbalance_ratio},
-            "risks": risks
-        }
+        Returns:
+            CoreDistributionResult dataclass
+        """
 ```
 
-#### AnomaliesAnalyzer
+**返回类型**: `CoreDistributionResult`
+```python
+@dataclass
+class CoreDistributionResult:
+    cores: List[CoreStat]
+    imbalance_level: str
+    saturated_cores: List[CoreStat]
+    total_cores: int
+    risks: List[RiskInfo]
+
+@dataclass
+class CoreStat:
+    cpu_id: int
+    total_cpu: float
+    kernel_cpu: float
+    user_cpu: float
+```
+
+### 4. AnomaliesAnalyzer - anomalies.py
+
+异常检测分析器，检测时序异常和突变。
 
 ```python
 class AnomaliesAnalyzer(BaseAnalyzer):
     """异常检测分析器"""
     
-    def analyze(self, samples, window_size=10, threshold=2.0) -> Dict:
-        # 异常检测逻辑
-        anomalies = self._detect_anomalies(samples, window_size, threshold)
+    def analyze(self, samples: List[Sample],
+                window_size: float = 1.0,
+                spike_threshold: float = 0.5,
+                min_utilization: float = 0.3,
+                cpu_id: Optional[int] = None,
+                top_n: int = 10) -> AnomaliesResult:
+        """
+        检测时序异常
         
-        risks = []
-        if anomalies:
-            risks.append(self._create_risk(
-                level="warning",
-                message=f"检测到 {len(anomalies)} 个时序异常",
-                hint="查看异常时间点，分析对应时间段",
-                patterns=["ANOMALY_DETECTED"]
-            ))
-        
-        return {
-            "result": {
-                "anomalies": anomalies,
-                "mutation_detected": len(anomalies) > 0
-            },
-            "risks": risks
-        }
+        Returns:
+            AnomaliesResult dataclass
+        """
 ```
+
+**返回类型**: `AnomaliesResult`
+```python
+@dataclass
+class AnomaliesResult:
+    anomalies: List[Anomaly]
+    mutation_detected: bool
+    spike_count: int
+    drop_count: int
+    risks: List[RiskInfo]
+
+@dataclass
+class Anomaly:
+    type: str  # "SPIKE" | "DROP"
+    cpu_id: int
+    time_range_start: str
+    time_range_end: str
+    prev_util: float
+    curr_util: float
+    next_util: float
+    z_score: float
+```
+
+### 5. PathClustersAnalyzer - path_clusters.py
+
+路径聚类分析器，按调用路径聚类分析。
+
+```python
+class PathClustersAnalyzer(BaseAnalyzer):
+    """路径聚类分析器"""
+    
+    def analyze(self, samples: List[Sample],
+                min_depth: int = 2,
+                min_samples: int = 5,
+                top_n: int = 10,
+                comm: Optional[str] = None,
+                pid: Optional[int] = None) -> PathClustersResult:
+        """
+        路径聚类分析
+        
+        Returns:
+            PathClustersResult dataclass
+        """
+```
+
+**返回类型**: `PathClustersResult`
+```python
+@dataclass
+class PathClustersResult:
+    clusters: List[PathCluster]
+    total_clusters: int
+    shown_clusters: int
+    total_weight: float
+    clustered_weight: float
+    risks: List[RiskInfo]
+
+@dataclass
+class PathCluster:
+    cluster_id: str
+    path_signature: str
+    depth: int
+    weight: float
+    cpu_util: float
+```
+
+### 6. TraceAnalyzer - trace.py
+
+调用链分析器，分析函数调用关系和溯源。
+
+**注意**: 调用链分析功能已整合到 AnalysisFacade.analyze_callers() 方法中，但 TraceAnalyzer 类仍然保留用于其他 trace 相关分析。
 
 ---
 
-## 5. Facade 集成
+## AnalysisFacade 接口
 
-### 5.1 Facade 调用方式
+### Facade 设计
 
 ```python
-# analysis/facade.py（由人员A提供框架）
+# analysis/facade.py
 
 class AnalysisFacade:
-    """Analysis Facade - 对外暴露的干净接口"""
+    """
+    Analysis Facade - 对外暴露的干净接口
     
-    def __init__(self, engine: PerfExpertEngine):
+    供 Composite 层调用，不触发 Trace 记录。
+    """
+    
+    def __init__(self, engine):
         self._engine = engine
-        self._analyzers = {}
+        self._analyzers = {}  # 延迟加载缓存
     
-    def _get_analyzer(self, name: str) -> BaseAnalyzer:
-        """延迟加载 Analyzer"""
+    def _get_analyzer(self, name: str):
+        """延迟获取 Analyzer 实例"""
         if name not in self._analyzers:
             if name == "comm_top":
                 from .comm_top import CommTopAnalyzer
@@ -580,184 +406,191 @@ class AnalysisFacade:
             elif name == "hotspots":
                 from .hotspots import HotspotsAnalyzer
                 self._analyzers[name] = HotspotsAnalyzer(self._engine)
-            # ... 其他 analyzer
+            elif name == "core_dist":
+                from .core_distribution import CoreDistAnalyzer
+                self._analyzers[name] = CoreDistAnalyzer(self._engine)
+            elif name == "anomalies":
+                from .anomalies import AnomaliesAnalyzer
+                self._analyzers[name] = AnomaliesAnalyzer(self._engine)
+            elif name == "path_clusters":
+                from .path_clusters import PathClustersAnalyzer
+                self._analyzers[name] = PathClustersAnalyzer(self._engine)
         return self._analyzers[name]
+```
+
+### Facade 接口方法
+
+| 方法 | 参数 | 返回类型 | 说明 |
+|------|------|----------|------|
+| `analyze_comm_top()` | samples, top_n=10, include_metrics=False | `CommTopResult` | 进程组 CPU 分析 |
+| `analyze_hotspots()` | samples, comm=None, pid=None, top_n=20, sort_by="self" | `HotspotsResult` | 热点函数分析 |
+| `analyze_core_distribution()` | samples, top_n=10 | `CoreDistributionResult` | 核心分布分析 |
+| `detect_anomalies()` | samples, window_size=1.0, spike_threshold=0.5, min_utilization=0.3, cpu_id=None, top_n=10 | `AnomaliesResult` | 异常检测 |
+| `cluster_paths()` | samples, min_depth=2, min_samples=5, top_n=10, comm=None, pid=None | `PathClustersResult` | 路径聚类 |
+| `analyze_callers()` | samples, target_symbol, comm=None, min_ratio=0.5, top_n=10 | `CallersResult` | 调用链溯源分析 |
+
+### analyze_callers 详细说明
+
+```python
+def analyze_callers(self, samples: List[Sample],
+                    target_symbol: str,
+                    comm: Optional[str] = None,
+                    min_ratio: float = 0.5,
+                    top_n: int = 10) -> CallersResult:
+    """
+    调用链溯源分析（内部接口，不触发 Trace）
     
-    # ========== 供 Composite 调用的接口 ==========
-    
-    def analyze_comm_top(self, samples, top_n=10) -> Dict:
-        """进程组 CPU 分析（内部接口，不触发 Trace）"""
-        analyzer = self._get_analyzer("comm_top")
-        return analyzer.analyze(samples, top_n=top_n, include_metrics=True)
-    
-    def analyze_hotspots(self, samples, comm=None, pid=None, top_n=20) -> Dict:
-        """热点函数分析（内部接口）"""
-        analyzer = self._get_analyzer("hotspots")
-        return analyzer.analyze(samples, comm=comm, pid=pid, top_n=top_n)
-    
-    def analyze_core_distribution(self, samples) -> Dict:
-        """核心分布分析（内部接口）"""
-        analyzer = self._get_analyzer("core_dist")
-        return analyzer.analyze(samples)
-    
-    def detect_anomalies(self, samples, window_size=10, threshold=2.0) -> Dict:
-        """异常检测（内部接口）"""
-        analyzer = self._get_analyzer("anomalies")
-        return analyzer.analyze(samples, window_size=window_size, threshold=threshold)
+    Args:
+        samples: 样本数据
+        target_symbol: 目标符号名
+        comm: 可选，按进程名过滤
+        min_ratio: 最小占比阈值（百分比）
+        top_n: 返回前 N 个调用者
+        
+    Returns:
+        CallersResult dataclass
+    """
+```
+
+**返回类型**: `CallersResult`
+```python
+@dataclass
+class CallersResult:
+    target: str
+    callers: List[CallerAttribution]
+    total_weight: float
+    risks: List[RiskInfo]
+
+@dataclass
+class CallerAttribution:
+    symbol: str
+    call_count: int
+    call_ratio: float
+    total_weight: float
+```
+
+### Facade Factory
+
+```python
+_facade_cache: Dict[int, AnalysisFacade] = {}
+
+
+def get_facade(engine) -> AnalysisFacade:
+    """获取或创建 Facade 实例（带缓存）"""
+    engine_id = id(engine)
+    if engine_id not in _facade_cache:
+        _facade_cache[engine_id] = AnalysisFacade(engine)
+    return _facade_cache[engine_id]
+
+
+def clear_facade_cache():
+    """清除 Facade 缓存（主要用于测试）"""
+    global _facade_cache
+    _facade_cache = {}
 ```
 
 ---
 
-## 6. 测试策略
+## 数据模型
 
-### 6.1 单元测试结构
+### 统一返回格式
+
+所有 Analyzer 返回具体 dataclass（非裸 dict）：
+
+```python
+# analysis/models.py
+
+@dataclass
+class AnalysisResult:
+    """统一分析结果结构"""
+    result: dict = field(default_factory=dict)
+    risks: List[RiskInfo] = field(default_factory=list)
+    metrics: Optional[dict] = None
+```
+
+### 风险信息模型
+
+```python
+# core/models.py
+
+@dataclass
+class RiskInfo:
+    level: str                    # critical | warning | info | none
+    message: str
+    hint: str
+    patterns: List[str]
+    pending_targets: List[str]
+    source: str                   # 产生风险的 Analyzer 名称
+    action_required: bool = False
+```
+
+### 诊断类型常量
+
+```python
+# config/defaults.py
+
+class DiagnosisType:
+    """诊断类型"""
+    BOTTLENECK = "BOTTLENECK"      # 单点瓶颈
+    STORM = "STORM"                # 进程风暴
+    UNBALANCED = "UNBALANCED"      # 负载不均衡
+    HEALTHY = "HEALTHY"            # 健康
+```
+
+---
+
+## 测试策略
+
+### 测试路径规范
+
+| 测试类型 | 路径 | 说明 |
+|----------|------|------|
+| 三层架构测试 | `tests/three_tier/` | Core/Analysis/Composite 接口测试 |
+| 分析器单元测试 | `tests/analysis/` | 各 Analyzer 独立测试 |
+
+### 单元测试示例
 
 ```python
 # tests/analysis/test_comm_top.py
 
 import unittest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from scripts.perf_toolkit.analysis.comm_top import CommTopAnalyzer
 
 
 class TestCommTopAnalyzer(unittest.TestCase):
-    """CommTopAnalyzer 单元测试"""
-    
     def setUp(self):
-        """设置 Mock Engine"""
         self.engine = Mock()
         self.analyzer = CommTopAnalyzer(self.engine)
     
-    def test_calculate_cv(self):
-        """测试 CV 计算"""
-        pid_dist = {1: 10.0, 2: 10.0, 3: 10.0}  # 均匀分布
+    def test_calculate_cv_uniform(self):
+        """测试均匀分布 CV"""
+        pid_dist = {1: 10.0, 2: 10.0, 3: 10.0}
         cv = self.analyzer._calculate_cv(pid_dist)
         self.assertAlmostEqual(cv, 0.0, places=2)
-        
-        pid_dist = {1: 30.0, 2: 0.0, 3: 0.0}  # 极度不均衡
+    
+    def test_calculate_cv_imbalanced(self):
+        """测试不均衡分布 CV"""
+        pid_dist = {1: 30.0, 2: 0.0, 3: 0.0}
         cv = self.analyzer._calculate_cv(pid_dist)
         self.assertGreater(cv, 1.0)
-    
-    def test_calculate_monopoly(self):
-        """测试 Monopoly 计算"""
-        pid_dist = {1: 50.0, 2: 30.0, 3: 20.0}
-        monopoly = self.analyzer._calculate_monopoly(pid_dist)
-        self.assertAlmostEqual(monopoly, 0.5, places=2)
-    
-    def test_classify_bottleneck(self):
-        """测试 BOTTLENECK 诊断"""
-        diagnosis = self.analyzer._classify(cv=0.5, monopoly=0.9, spawn_rate=1.0)
-        self.assertEqual(diagnosis, "BOTTLENECK")
-    
-    def test_classify_storm(self):
-        """测试 STORM 诊断"""
-        diagnosis = self.analyzer._classify(cv=0.5, monopoly=0.5, spawn_rate=15.0)
-        self.assertEqual(diagnosis, "STORM")
-    
-    def test_analyze_with_mock_data(self):
-        """使用 Mock 数据测试完整分析流程"""
-        # Setup mock
-        self.engine.get_comm_cpu_util.return_value = {
-            "nginx": {"total_pct": 45.0, "kernel_pct": 10.0, "pid_count": 4}
-        }
-        self.engine.get_pid_cpu_distribution.return_value = {
-            1: 40.0, 2: 3.0, 3: 1.0, 4: 1.0
-        }
-        self.engine.get_process_lifecycle.return_value = {
-            "spawn_rate": 0.1
-        }
-        
-        samples = [{"ts": 1000.0, "comm": "nginx"}]
-        
-        # Execute
-        result = self.analyzer.analyze(samples, top_n=10)
-        
-        # Assert
-        self.assertIn("result", result)
-        self.assertIn("risks", result)
-        self.assertEqual(len(result["result"]["groups"]), 1)
 ```
 
-### 6.2 测试覆盖计划
+### 运行测试
 
-| 测试类型 | 覆盖内容 | 预计工时 |
-|----------|----------|----------|
-| 单元测试 | 每个 Analyzer 的核心方法 | 8h |
-| 集成测试 | Facade 调用链 | 4h |
-| Mock 测试 | 使用 Mock Engine 隔离测试 | 4h |
-| 向后兼容 | 验证 CLI 行为不变 | 4h |
+```bash
+# 运行所有自动化测试
+python3 tests/run_tests.py
 
----
-
-## 7. 交付计划
-
-### 7.1 Week 2 里程碑
-
-| 天数 | 任务 | 交付物 |
-|------|------|--------|
-| Day 1-2 | CommTopAnalyzer 实现 | comm_top.py（Analyzer + CLI） |
-| Day 3 | HotspotsAnalyzer + CoreDistAnalyzer | hotspots.py, core_distribution.py |
-| Day 4 | AnomaliesAnalyzer + 其他工具 | anomalies.py, 其他小工具 |
-| Day 5 | 单元测试编写 | tests/analysis/ 测试文件 |
-
-### 7.2 Week 3 里程碑
-
-| 天数 | 任务 | 交付物 |
-|------|------|--------|
-| Day 1-2 | Facade 适配 | 与人员A联调 Facade 接口 |
-| Day 3 | 向后兼容验证 | 验证所有 CLI 命令行为不变 |
-| Day 4-5 | 问题修复 | 修复测试中发现的问题 |
-
-### 7.3 协作检查点
-
-```
-Week 2 每日站会:
-- 与人员A对齐 Engine 接口使用
-- 反馈接口问题
-
-Week 3 联调:
-- Day 1: 与人员A进行 Facade 集成
-- Day 3: 与人员C对接，提供 Analyzer 使用培训
-- Day 5: 三方联调（A+B+C）
+# 详细输出
+python3 tests/run_tests.py -v
 ```
 
 ---
 
-## 8. 风险与应对
+## 附录
 
-| 风险 | 可能性 | 影响 | 应对 |
-|------|--------|------|------|
-| Engine 接口延迟 | 中 | 高 | 先使用 Mock 实现 Analyzer 逻辑 |
-| CV/Monopoly 计算复杂 | 低 | 中 | 使用标准统计公式，已有示例代码 |
-| 向后兼容性问题 | 中 | 高 | Week 3 专门安排兼容测试 |
-| 性能问题 | 低 | 中 | Analyzer 纯计算，无 IO，性能应在可接受范围 |
-
----
-
-## 9. 附录
-
-### 9.1 需要 Core 层提供的接口
-
-```python
-# 人员A Week 1 需交付
-
-class PerfExpertEngine:
-    # 已有接口（保持兼容）
-    def get_comm_cpu_util(self, samples) -> Dict: ...
-    def get_core_cpu_util(self, samples) -> Dict: ...
-    def get_symbol_cpu_util(self, samples, comm=None, pid=None) -> Dict: ...
-    
-    # 新增接口（Week 1 交付）
-    def get_pid_cpu_distribution(self, samples, comm) -> Dict[int, float]:
-        """获取指定 comm 下各 PID 的 CPU 分布"""
-        pass
-    
-    def get_process_lifecycle(self, samples, comm=None) -> Dict:
-        """获取进程生命周期信息"""
-        pass
-```
-
-### 9.2 关键公式参考
+### 关键公式参考
 
 **变异系数 (CV)**:
 ```

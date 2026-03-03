@@ -1,14 +1,14 @@
 # 工具链整合与增强设计意图文档
 
-> 记录从工具冗余问题到精简整合的完整思考过程  
-> 创建时间: 2026-03-02  
-> 核心问题: 工具冗余、A掩盖B现象、诊断效率低下
+记录从工具冗余问题到精简整合的完整思考过程  
+创建时间: 2026-03-02  
+核心问题: 工具冗余、A掩盖B现象、诊断效率低下
 
 ---
 
-## 1. 背景与问题发现 (What Happened)
+## 背景与问题发现 (What Happened)
 
-### 1.1 原始工具链的问题
+### 原始工具链的问题
 
 perf-hunter 原始提供了 12 个诊断工具：
 
@@ -26,7 +26,7 @@ perf-hunter 原始提供了 12 个诊断工具：
 3. **信息噪音大**: `lsof` 有 2000 个进程但负载均匀，`app_B` 只有 10 个进程但锁死单核，前者会完全掩盖后者
 4. **缺乏诊断引导**: 工具输出原始数据，没有给出下一步该做什么的建议
 
-### 1.2 典型案例: A掩盖B现象
+### 典型案例: A掩盖B现象
 
 ```
 [场景]
@@ -44,7 +44,7 @@ app_worker     100%    10
 却忽略了真正导致业务延迟的 B (单核饱和造成请求排队)。
 ```
 
-### 1.3 造成的后果
+### 造成的后果
 
 - **诊断方向错误**: 被大数字误导，排查无关的进程
 - **时间浪费**: 需要手动运行多个工具才能拼凑完整画面
@@ -52,9 +52,9 @@ app_worker     100%    10
 
 ---
 
-## 2. 问题分析 (Why It Happened)
+## 问题分析 (Why It Happened)
 
-### 2.1 根本原因: 工具设计过于"原子化"
+### 根本原因: 工具设计过于"原子化"
 
 原始设计将每个诊断维度拆分为独立工具：
 
@@ -70,7 +70,7 @@ app_worker     100%    10
 2. **缺乏智能**: 工具只输出数据，不做判断，用户需要自己解读
 3. **联动困难**: 发现异常后需要手动复制 PID 去跑下一个工具
 
-### 2.2 排序逻辑缺陷: 信任"总量"
+### 排序逻辑缺陷: 信任"总量"
 
 ```python
 # 传统排序方式 (有问题)
@@ -83,7 +83,7 @@ sorted(processes, key=lambda x: x.cpu_percent, reverse=True)
 - **总量 ≠ 危害**: A 的 400% 是均匀分布的，不影响响应延迟；B 的 100% 是独占单核，直接阻塞请求
 - **缺乏上下文**: 单纯看 CPU% 无法区分 "正常负载" 和 "异常竞争"
 
-### 2.3 输出缺乏"专家洞察"
+### 输出缺乏"专家洞察"
 
 传统工具输出:
 ```
@@ -103,9 +103,9 @@ PID    COMM        CPU%
 
 ---
 
-## 3. 设计目标 (Design Goals)
+## 设计目标 (Design Goals)
 
-### 3.1 核心目标
+### 核心目标
 
 | 目标 | 描述 |
 |------|------|
@@ -114,7 +114,7 @@ PID    COMM        CPU%
 | **危害优先** | 按"危害指数"而非"绝对数值"排序 |
 | **智能引导** | 自动推荐下一步诊断命令 |
 
-### 3.2 设计原则
+### 设计原则
 
 1. **由面到点**: 先给全景，再引导深入
 2. **异常驱动**: 只高亮异常，隐藏正常状态
@@ -122,9 +122,9 @@ PID    COMM        CPU%
 
 ---
 
-## 4. 方案设计 (Solution Design)
+## 方案设计 (Solution Design)
 
-### 4.1 工具精简: 从 12 个到 6 个
+### 工具精简: 从 12 个到 6 个分析 + 2 个组合
 
 | 原工具 | 处理方式 | 说明 |
 |--------|----------|------|
@@ -133,22 +133,37 @@ PID    COMM        CPU%
 | get-process-top | 合并到 get-comm-top | 通过方差分析识别离群PID |
 | cluster-comm | 合并到 get-comm-top | 聚合能力已内置 |
 | count-process-variety | 合并到 get-comm-top | 转化为 Spawn_Rate 指标 |
-| cluster-symbols | 保留 | 语义聚类仍有价值 |
+| cluster-symbols | 合并到 cluster-paths | 符号聚类功能已整合到路径聚类 |
 
 **精简后工具链**:
 
 ```
-系统层:   analyze-core-distribution (核心分布 + 中断分析)
-时间层:   detect-anomalies (趋势突变检测)
-实体层:   get-comm-top (Enhanced) ← 核心增强点
-函数层:   get-hotspots (热点函数)
-关系层:   find-callers (调用链溯源)
-模式层:   cluster-paths (业务路径聚类)
+分析层核心工具（6个）:
+├── get-hotspots              # 热点函数识别
+├── find-callers              # 调用链溯源
+├── detect-anomalies          # 时序异常检测
+├── cluster-paths             # 调用路径聚类（含原 cluster-symbols）
+├── analyze-core-distribution # 核心级负载分布
+└── get-comm-top              # 进程组CPU分析（整合版）
+
+组合层工具（2个）:
+├── sys-audit                 # 系统审计
+└── bottleneck-trace          # 瓶颈追踪
+
+环境命令（4个）:
+├── init                      # 初始化分析环境
+├── use                       # 切换/指定分析目标
+├── list                      # 列出可用资源
+└── status                    # 查看当前状态
+
+Trace系统（9个子命令）:
+├── init, add, timeline, issues, audit
+├── complete, reopen, finalize, export
 ```
 
-### 4.2 Enhanced get-comm-top 设计
+### Enhanced get-comm-top 设计
 
-#### 4.2.1 三维分析模型
+#### 三维分析模型
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -162,7 +177,7 @@ PID    COMM        CPU%
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### 4.2.2 核心指标定义
+#### 核心指标定义
 
 **CV (变异系数)**:
 ```
@@ -193,7 +208,7 @@ Spawn_Rate 1-10/s: 活跃
 Spawn_Rate > 10/s: 进程风暴 (Storm)
 ```
 
-#### 4.2.3 危害指数评分 (Impact Score)
+#### 危害指数评分 (Impact Score)
 
 ```python
 def calculate_impact_score(group):
@@ -209,7 +224,7 @@ def calculate_impact_score(group):
 
 **排序策略**: 按 Impact Score 降序，而非单纯按 CPU% 排序
 
-#### 4.2.4 自动降噪逻辑
+#### 自动降噪逻辑
 
 ```python
 def should_display(group):
@@ -235,11 +250,11 @@ def classify_group(group):
         return "HEALTHY", "Balanced workload"
 ```
 
-### 4.3 组合诊断流设计
+### 组合诊断流设计
 
-为了进一步降低使用门槛，设计三个"超级诊断流"：
+为了进一步降低使用门槛，设计两个"超级诊断流"：
 
-#### 4.3.1 sys-audit (系统审计)
+#### sys-audit (系统审计)
 
 **用途**: 快速画出全景图，识别"谁在变"和"谁在占核"
 
@@ -277,19 +292,19 @@ detect-anomalies → analyze-core-distribution → get-comm-top
 ================================================================================
 ```
 
-#### 4.3.2 bottleneck-trace (瓶颈追踪)
+#### bottleneck-trace (瓶颈追踪)
 
 **用途**: 自动定位瓶颈进程并分析其行为
 
 **工具链**:
 ```
-get-comm-top → get-hotspots → cluster-symbols
+get-comm-top → get-hotspots → cluster-paths
 ```
 
 **自动触发条件**:
 - 当 get-comm-top 发现 Monopoly > 0.8 或 CV > 1.0 时
 - 自动对离群 PID 执行 get-hotspots
-- 自动对热点函数执行 cluster-symbols
+- 自动对热点函数执行 cluster-paths
 
 **输出示例**:
 ```
@@ -321,53 +336,11 @@ PID: 5678 | CPU: 98% (Core #7) | Status: Running
 ================================================================================
 ```
 
-#### 4.3.3 storm-trace (风暴溯源)
-
-**用途**: 分析短生命周期进程风暴的来源
-
-**工具链**:
-```
-get-comm-top → find-callers → cluster-paths
-```
-
-**自动触发条件**:
-- 当 get-comm-top 发现 Spawn_Rate > 10/s 时
-
-**输出示例**:
-```
-🌪️ 风暴溯源报告 (storm-trace --comm lsof)
-================================================================================
-[风暴概况]
-COMM: lsof | Spawn Rate: 85/s | Active: 2000
-诊断: 进程风暴正在进行中
-
-[父进程分析]
-PPID: 1234 (python3) 产生了 98% 的 lsof 进程
-
-[调用链溯源]
-┌────────────────────────────────────────────────────────────────┐
-│ Entry Point: main.py:245 in worker_thread()                    │
-│ ↓                                                              │
-│ -> subprocess.run(["lsof", "-i", ":8080"])                     │
-│    每次请求都调用 lsof，在循环中重复执行                         │
-└────────────────────────────────────────────────────────────────┘
-
-[根因]
-app_worker (PID 1234) 在处理每个请求时都调用 lsof，
-而 lsof 执行较慢，导致进程堆积。
-
-[建议]
-1. 将 lsof 结果缓存，避免重复执行
-2. 使用更轻量的方式获取端口信息 (如读取 /proc/net/tcp)
-3. 检查 app_worker 的逻辑，为什么需要频繁调用 lsof
-================================================================================
-```
-
 ---
 
-## 5. 输出规范 (Output Specification)
+## 输出规范 (Output Specification)
 
-### 5.1 JSON 输出格式
+### JSON 输出格式
 
 ```json
 {
@@ -415,7 +388,7 @@ app_worker (PID 1234) 在处理每个请求时都调用 lsof，
 }
 ```
 
-### 5.2 文本输出格式
+### 文本输出格式
 
 ```
 [COMM GROUP RANKING]  Sorted by: Impact Score
@@ -444,24 +417,28 @@ Action: Run 'bottleneck-trace --comm app_worker' for detailed analysis
 
 ---
 
-## 6. 实施路径 (Implementation Roadmap)
+## 实施路径 (Implementation Roadmap)
 
 ### Phase 1: Enhanced get-comm-top (1-2 周)
 
-- [ ] 添加 CV (变异系数) 计算
-- [ ] 添加 Monopoly (独占率) 计算
-- [ ] 添加 Spawn_Rate (产生速率) 计算
-- [ ] 添加 Impact Score 排序
-- [ ] 添加自动降噪逻辑
-- [ ] 添加诊断标签和推荐命令
+- [x] 添加 CV (变异系数) 计算
+- [x] 添加 Monopoly (独占率) 计算
+- [x] 添加 Spawn_Rate (产生速率) 计算
+- [x] 添加 Impact Score 排序
+- [x] 添加自动降噪逻辑
+- [x] 添加诊断标签和推荐命令
 
 ### Phase 2: 组合命令 (1 周)
 
-- [ ] 实现 `sys-audit` 命令
-- [ ] 实现 `bottleneck-trace` 命令
-- [ ] 实现 `storm-trace` 命令
+- [x] 实现 `sys-audit` 命令
+- [x] 实现 `bottleneck-trace` 命令
 
-### Phase 3: 文档与测试 (1 周)
+### Phase 3: 环境命令与 Trace 系统 (1 周)
+
+- [x] 实现 `init`, `use`, `list`, `status` 环境命令
+- [x] 实现 Trace 系统（9个子命令）
+
+### Phase 4: 文档与测试 (1 周)
 
 - [ ] 更新 SKILL.md 和 references/tools.md
 - [ ] 编写测试用例
@@ -469,20 +446,20 @@ Action: Run 'bottleneck-trace --comm app_worker' for detailed analysis
 
 ---
 
-## 7. 验证方式 (Validation)
+## 验证方式 (Validation)
 
-### 7.1 功能验证
+### 功能验证
 
 使用测试数据验证以下场景:
 
 | 场景 | 输入特征 | 期望输出 |
 |------|----------|----------|
 | A掩盖B | A:2000PIDs/400%CPU均匀, B:10PIDs/100%单核 | B排在首位，标记为BOTTLENECK |
-| 进程风暴 | 某COMM的Spawn_Rate=100/s | 标记为STORM，触发storm-trace建议 |
+| 进程风暴 | 某COMM的Spawn_Rate=100/s | 标记为STORM |
 | 负载均衡 | 8个nginx进程，CPU均匀分布 | 标记为HEALTHY，不输出详细PID |
 | 单点离群 | 10个python进程，1个占90% | 标记为UNBALANCED，输出离群PID |
 
-### 7.2 效果验证
+### 效果验证
 
 对比传统工具链和整合后的诊断效率:
 
@@ -494,14 +471,28 @@ Action: Run 'bottleneck-trace --comm app_worker' for detailed analysis
 
 ---
 
-## 8. 总结 (Summary)
+## 总结 (Summary)
 
 本设计通过以下方式解决原始工具链的问题:
 
-1. **精简工具**: 从 12 个工具减少到 6 个核心工具 + 3 个组合命令
+1. **精简工具**: 从 12 个工具减少到 6 个核心分析工具 + 2 个组合命令
 2. **增强核心**: Enhanced get-comm-top 通过 CV、Monopoly、Spawn_Rate 实现三维分析
 3. **危害优先**: 引入 Impact Score 评分，解决 A 掩盖 B 的问题
 4. **自动降噪**: 自动折叠"平庸的大多数"，只显示值得关注的进程组
 5. **智能引导**: 每个输出都包含诊断结论和下一步建议
+6. **完善生态**: 添加环境命令 (init/use/list/status) 和 Trace 系统支持完整工作流
 
 最终目标: 让性能诊断从"数据堆砌"进化为"专家洞察"。
+
+---
+
+## 附录: 命令整合对照表
+
+| 已移除命令 | 整合目标 | 说明 |
+|-----------|----------|------|
+| check-cpu-bottleneck | analyze-core-distribution | 整体CPU利用率检测已包含在核心分布分析中 |
+| show-cpu-usage | analyze-core-distribution | CPU使用率展示已包含在核心分布分析中 |
+| get-process-top | get-comm-top | 进程排行功能通过离群PID识别实现 |
+| cluster-comm | get-comm-top | 进程组聚合能力已内置 |
+| count-process-variety | get-comm-top | 进程多样性统计转化为 Spawn_Rate 指标 |
+| cluster-symbols | cluster-paths | 符号聚类功能已整合到调用路径聚类 |

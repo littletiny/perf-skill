@@ -1,9 +1,9 @@
 # CLI Layer 接口设计文档
 
-> CLI Layer 是 perf-hunter 的三层架构中的最上层，负责参数解析、命令路由、Trace 记录触发和输出渲染。
->
-> 版本: 1.0  
-> 更新日期: 2026-03-03
+CLI Layer 是 perf-hunter 的三层架构中的最上层，负责参数解析、命令路由、Trace 记录触发和输出渲染。
+
+版本: 1.1  
+更新日期: 2026-03-04
 
 ---
 
@@ -20,7 +20,8 @@
 │  │   └── commands/                                         │    │
 │  │       ├── analysis/     (6个分析命令注册)                │    │
 │  │       ├── composite/    (2个组合命令注册)                │    │
-│  │       └── trace/        (9个trace命令注册)               │    │
+│  │       ├── trace/        (9个trace命令注册)               │    │
+│  │       └── env/          (4个环境命令注册)                │    │
 │  └─────────────────────────────────────────────────────────┘    │
 │  职责: 参数解析、命令路由、Trace触发、输出渲染                     │
 │  原则: CLI层是Trace记录的唯一触发点                              │
@@ -185,6 +186,20 @@ def get_command_handler(command_name: str) -> CompositeCommandHandler:
         组合命令的处理函数
     """
     pass
+```
+
+### 3.3 Env 层命令注册
+
+**文件**: `cli/commands/env/__init__.py`
+
+```python
+# 环境命令映射
+COMMANDS: Dict[str, str] = {
+    'init': 'cli.commands.env.init.cmd_init',
+    'use': 'cli.commands.env.use.cmd_use',
+    'list': 'cli.commands.env.list.cmd_list',
+    'status': 'cli.commands.env.status.cmd_status',
+}
 ```
 
 ---
@@ -357,14 +372,19 @@ BaseOutput (core/output_models.py)
     ├── attributions: List[AttributionItem]
 
     SysAuditOutput                   # sys-audit (Composite)
-    ├── diagnosis: Dict
-    └── details: Dict
+    ├── system_fingerprint: SystemFingerprint
+    ├── primary_suspect: PrimarySuspectOutput
+    ├── secondary_load: SecondaryLoadOutput
+    ├── background_noise: BackgroundNoiseOutput
+    ├── anomaly_summary: AnomalySummaryOutput
+    └── root_cause_chain: RootCauseChain
 
     BottleneckTraceOutput            # bottleneck-trace (Composite)
     ├── target_comm: str
-    ├── bottleneck_analysis: Dict
-    ├── hotspots: Dict
-    └── callers: Optional[Dict]
+    ├── profile: BottleneckProfile
+    ├── hotspots: HotspotsOutputData
+    ├── call_chain: CallChainAnalysis
+    └── root_cause: RootCauseAnalysis
 ```
 
 ### 5.2 渲染流程
@@ -428,8 +448,8 @@ class OutputBuilder:
 
 | 命令 | 链式触发 | 输出类型 | 所在文件 |
 |------|----------|----------|----------|
-| `sys-audit` | anomalies→core-dist→comm-top | `SysAuditOutput` | `cli/commands/composite/sys_audit.py` |
-| `bottleneck-trace` | comm-top→hotspots→paths | `BottleneckTraceOutput` | `cli/commands/composite/bottleneck_trace.py` |
+| `sys-audit` | detect-anomalies→analyze-core-distribution→get-comm-top | `SysAuditOutput` | `cli/commands/composite/sys_audit.py` |
+| `bottleneck-trace` | get-comm-top→get-hotspots→find-callers | `BottleneckTraceOutput` | `cli/commands/composite/bottleneck_trace.py` |
 
 ### 6.3 Trace 命令（9个）
 
@@ -444,6 +464,15 @@ class OutputBuilder:
 | `trace reopen` | 重新打开 Issue | `cli/commands/trace/reopen.py` |
 | `trace finalize` | 完成诊断 | `cli/commands/trace/finalize.py` |
 | `trace export` | 导出 Trace | `cli/commands/trace/export.py` |
+
+### 6.4 环境命令（4个）
+
+| 命令 | 功能 | 所在文件 |
+|------|------|----------|
+| `init` | 初始化环境配置 | `cli/commands/env/init.py` |
+| `use` | 切换/设置当前环境 | `cli/commands/env/use.py` |
+| `list` | 列出所有环境 | `cli/commands/env/list.py` |
+| `status` | 查看当前环境状态 | `cli/commands/env/status.py` |
 
 ---
 
@@ -497,7 +526,7 @@ def cmd_sys_audit(builder, engine, args, samples):
             f"执行 bottleneck-trace --comm {diagnosis['primary_suspect']['comm']}"
         )
     
-    return SysAuditOutput(_risk=risk, diagnosis=diagnosis, details=...)
+    return SysAuditOutput(_risk=risk, system_fingerprint=..., ...)
 ```
 
 **关键原则**:
@@ -612,4 +641,5 @@ def get_command_handler(command_name: str):
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| 1.1 | 2026-03-04 | 更新与实际代码一致，添加环境命令表格，修正输出类型 |
 | 1.0 | 2026-03-03 | 初始版本，定义 CLI Layer 完整接口规范 |

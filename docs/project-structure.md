@@ -2,8 +2,6 @@
 
 本文档记录 perf-hunter 项目的完整目录结构，按模块组织。
 
-> 本文档为自动生成，如需更新请使用 `tree -L 4` 或重新扫描目录。
-
 ---
 
 ## 根目录
@@ -26,6 +24,8 @@
 
 | 文件 | 说明 |
 |------|------|
+| `defaults.py` | 默认配置（Python 常量定义） |
+| `perf-hunter.json` | Perf Hunter 主配置 |
 | `default-rules.json` | 默认规则配置 |
 | `risk-default.json` | 默认 Risk 显示配置 |
 
@@ -59,6 +59,7 @@
 | `design-rationale-consolidated-toolchain.md` | 工具链整合设计 - 从12个到6个核心工具 |
 | `output-format-spec.md` | 工具输出格式规范 - 统一 JSON 标准 |
 | `output-system.md` | Output System 快速参考 |
+| `output-design-composite.md` | 组合层输出设计 |
 | `risk-display-customization.md` | Risk 消息展示自定义设计 |
 | `analysis-implementation-summary.md` | 分析层实现总结 |
 
@@ -75,10 +76,11 @@
 | 文件 | 说明 |
 |------|------|
 | `interface-core.md` | Core Layer 接口规范 - Engine、数据模型、Risk 结构 |
-| `interface-analysis.md` | Analysis Layer 接口规范 - Analyzer、Facade、结果类型 |
-| `interface-composite.md` | Composite Layer 接口规范 - 聚合器、诊断器、报告 |
+| `interface-analysis.md` | Analysis Layer 接口规范 - Analyzer、Facade、分析结果类型 |
+| `interface-composite.md` | Composite Layer 接口规范 - 聚合器、诊断器、报告结构 |
 | `interface-cli.md` | CLI Layer 接口规范 - 命令处理器、装饰器 |
 | `interface-consistency-report.md` | 接口一致性检查报告 |
+| `interface-implementation-report.md` | 接口实现报告 |
 | `component-interfaces.md` | 组件接口总览 - 三层架构接口全景 |
 
 ### 项目维护
@@ -88,6 +90,15 @@
 | `LESSONS.md` | 设计决策与经验教训 |
 | `EVOLUTION.md` | 项目演进历史 |
 | `project-structure.md` | 项目目录结构（本文档） |
+
+### 重构与计划
+| 文件 | 说明 |
+|------|------|
+| `plan-absorb-core-distribution.md` | 吸收 core-distribution 功能计划 |
+| `refactoring-plan-redundancy.md` | 冗余代码重构计划 |
+| `refactoring-plan-redundancy-v2.md` | 冗余代码重构计划 v2 |
+| `sys-audit-refactoring-report.md` | sys-audit 重构报告 |
+| `tool-bottleneck-trace.md` | bottleneck-trace 工具文档 |
 
 ---
 
@@ -114,7 +125,6 @@ pipeline/
 | `tools.md` | 工具命令参考 |
 | `templates.md` | 文档模板 |
 | `data-format.md` | 数据格式说明 |
-| `EVOLUTION.md` | 项目演进历史（旧版） |
 | `example-rules.json` | 规则示例 |
 
 ---
@@ -138,31 +148,35 @@ cli/
 ├── decorators.py          # 命令装饰器
 ├── builders.py            # 输出构建器
 ├── commands/              # 命令实现
-│   ├── analysis/          # 分析命令
+│   ├── analysis/          # 分析命令 (6个)
+│   │   ├── __init__.py
 │   │   ├── anomalies.py   # detect-anomalies
-│   │   ├── core_dist.py   # analyze-core-distribution
-│   │   ├── comm_top.py    # get-comm-top
-│   │   ├── hotspots.py    # get-hotspots
 │   │   ├── callers.py     # find-callers
+│   │   ├── comm_top.py    # get-comm-top
+│   │   ├── core_dist.py   # analyze-core-distribution
+│   │   ├── hotspots.py    # get-hotspots
 │   │   └── path_clusters.py # cluster-paths
-│   ├── composite/         # 组合命令
+│   ├── composite/         # 组合命令 (2个)
+│   │   ├── __init__.py
 │   │   ├── sys_audit.py   # sys-audit
 │   │   └── bottleneck_trace.py # bottleneck-trace
-│   ├── env/               # 环境命令
+│   ├── env/               # 环境命令 (4个)
+│   │   ├── __init__.py
 │   │   ├── init.py        # env init
-│   │   ├── use.py         # env use
+│   │   ├── list.py        # env list
 │   │   ├── status.py      # env status
-│   │   └── list.py        # env list
-│   └── trace/             # Trace 命令
-│       ├── init.py        # trace init
+│   │   └── use.py         # env use
+│   └── trace/             # Trace 命令 (9个)
+│       ├── __init__.py
 │       ├── add.py         # trace add
-│       ├── timeline.py    # trace timeline
-│       ├── issues.py      # trace issues
 │       ├── audit.py       # trace audit
-│       ├── finalize.py    # trace finalize
 │       ├── complete.py    # trace complete
+│       ├── export.py      # trace export
+│       ├── finalize.py    # trace finalize
+│       ├── init.py        # trace init
+│       ├── issues.py      # trace issues
 │       ├── reopen.py      # trace reopen
-│       └── export.py      # trace export
+│       └── timeline.py    # trace timeline
 ```
 
 #### core/ - 基础核心层
@@ -170,6 +184,7 @@ cli/
 |------|------|
 | `engine.py` | 核心引擎（PerfExpertEngine） |
 | `engine_types.py` | 引擎类型定义 |
+| `models.py` | 核心数据模型 |
 | `symbol.py` | 符号处理 |
 | `trace.py` | 诊断追踪（LiveDoc） |
 | `reliability.py` | 样本可靠性评估 |
@@ -177,7 +192,9 @@ cli/
 | `attention_tags_examples.py` | Attention Tags 示例 |
 | `risk_config.py` | Risk 配置管理 |
 | `command_decorator.py` | 命令装饰器 |
-| `output_models.py` | 数据模型定义 |
+| `config_loader.py` | 配置加载器 |
+| `core_distribution_builder.py` | Core 分布构建器 |
+| `output_models.py` | 输出数据模型定义 |
 | `output_builder.py` | 输出构建器 |
 | `output_adapter.py` | JSON 输出转换 |
 | `text_output_adapter.py` | 文本输出转换 |
@@ -203,6 +220,7 @@ cli/
 |------|------|
 | `sys_audit.py` | 系统全景扫描 |
 | `bottleneck_trace.py` | 瓶颈深度追踪 |
+| `bottleneck_tracer.py` | 瓶颈追踪器实现 |
 | `risk_aggregator.py` | Risk 聚合器 |
 | `models.py` | 组合诊断数据模型 |
 
@@ -218,26 +236,33 @@ tests/
 │   │   └── case_huge_samples.data
 │   ├── perf_format/       # perf 格式数据
 │   │   └── case_test.data
-│   └── test_perfdata.py
+│   ├── test_perfdata.py   # 数据格式测试
+│   └── ...                # 其他测试数据文件
 ├── three_tier/            # 三层架构测试
+│   ├── __init__.py
+│   ├── QUICKSTART.md      # 快速开始指南
+│   ├── TEST_GUIDE.md      # 测试指南
+│   ├── quick_test.py      # 快速测试
+│   ├── run_all_tests.py   # 运行所有测试
+│   ├── verify_interfaces.py # 接口验证
 │   ├── test_core_interfaces.py
 │   ├── test_facade_interfaces.py
 │   ├── test_composite_commands.py
 │   ├── test_three_tier_e2e.py
 │   ├── test_risk_integration.py
 │   ├── test_trace_boundary.py
-│   ├── QUICKSTART.md
-│   └── TEST_GUIDE.md
+│   └── test_bottleneck_tracer.py
 ├── risk/                  # Risk 配置测试
 │   └── test_risk_display_config.py
 ├── shecr_wrap/            # CLI 包装测试
 │   └── test_shecr_wrap.py
 ├── scenario/              # 场景测试
+│   ├── expect/            # 预期结果
+│   ├── run_tests.sh       # 场景测试运行脚本
 │   ├── ns/                # netstat 场景
 │   └── ps/                # 进程场景
-├── trace_boundary/        # Trace 边界测试
-├── test_issue_overflow_warning.py
-├── test_trace_audit.py
+├── test_issue_overflow_warning.py  # Issue 溢出警告测试
+├── test_trace_audit.py    # Trace 审计测试
 └── run_tests.py           # 统一测试入口
 ```
 
@@ -250,7 +275,6 @@ tests/
 | `tests/risk/` | Risk 显示配置测试 |
 | `tests/shecr_wrap/` | CLI 包装脚本测试 |
 | `tests/scenario/` | 真实场景测试（人工验证） |
-| `tests/trace_boundary/` | Trace 边界条件测试 |
 
 ---
 
@@ -262,6 +286,7 @@ tests/
 │  scripts/perf_toolkit/composite/                         │
 │  - sys_audit.py                                          │
 │  - bottleneck_trace.py                                   │
+│  - bottleneck_tracer.py                                  │
 ├─────────────────────────────────────────────────────────┤
 │  Analysis Layer (分析层)                                   │
 │  scripts/perf_toolkit/analysis/                          │
@@ -271,8 +296,9 @@ tests/
 ├─────────────────────────────────────────────────────────┤
 │  Core Layer (核心层)                                       │
 │  scripts/perf_toolkit/core/                              │
-│  - engine.py, symbol.py, trace.py                        │
+│  - engine.py, models.py, symbol.py, trace.py             │
 │  - output_*.py, risk_config.py                           │
+│  - config_loader.py, core_distribution_builder.py        │
 └─────────────────────────────────────────────────────────┘
 ```
 
