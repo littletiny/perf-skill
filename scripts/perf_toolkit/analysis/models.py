@@ -152,12 +152,14 @@ class StormAnalysisResult:
 @dataclass
 class CommTopResult:
     """进程组分析结果"""
-    groups: List[CommGroup]
+    groups: List[CommGroup]  # 按 impact_score 排序（综合危害）
     folded_count: int
     total_groups: int
     risks: List[RiskInfo] = field(default_factory=list)
     storm_analysis: Optional[StormAnalysisResult] = None
     metrics: Optional[dict] = None
+    groups_by_total_cpu: Optional[List[CommGroup]] = None  # 按 total_cpu 排序
+    groups_by_sys_cpu: Optional[List[CommGroup]] = None    # 按 kernel_cpu 排序
 
 
 @dataclass

@@ -27,7 +27,8 @@ from perf_toolkit.core.output_models import (
     SysAuditOutput, SystemFingerprint, ContentionItem,
     PrimarySuspectOutput, SecondaryLoadOutput, BackgroundNoiseOutput,
     ProcessHierarchy, CoreDistributionData, CoreSaturationItem,
-    AnomalySummaryOutput, ExpertAnchor, RootCauseChain
+    AnomalySummaryOutput, ExpertAnchor, RootCauseChain,
+    CommTopItem
 )
 from perf_toolkit.core.core_distribution_builder import (
     build_core_distribution_for_sys_audit
@@ -320,6 +321,40 @@ def cmd_sys_audit(
     expert_anchors = _build_expert_anchors(diagnosis, comm_top)
     root_cause_chain = _build_root_cause_chain(diagnosis)
     
+    # 构建 Top By Total CPU 和 Top By Sys CPU 列表
+    top_by_total = []
+    top_by_sys = []
+    
+    if hasattr(comm_top_result, 'groups_by_total_cpu') and comm_top_result.groups_by_total_cpu:
+        top_by_total = [
+            CommTopItem(
+                comm=g.comm,
+                total_cpu=g.total_cpu,
+                kernel_cpu=g.kernel_cpu,
+                user_cpu=g.user_cpu,
+                pid_count=g.pid_count,
+                monopoly=g.monopoly,
+                diagnosis=g.diagnosis,
+                attention_flag=AttentionFlag.X0 if g.monopoly > Thresholds.MONOPOLY_HIGH else ""
+            )
+            for g in comm_top_result.groups_by_total_cpu[:top_n]
+        ]
+    
+    if hasattr(comm_top_result, 'groups_by_sys_cpu') and comm_top_result.groups_by_sys_cpu:
+        top_by_sys = [
+            CommTopItem(
+                comm=g.comm,
+                total_cpu=g.total_cpu,
+                kernel_cpu=g.kernel_cpu,
+                user_cpu=g.user_cpu,
+                pid_count=g.pid_count,
+                monopoly=g.monopoly,
+                diagnosis=g.diagnosis,
+                attention_flag=AttentionFlag.X0 if g.monopoly > Thresholds.MONOPOLY_HIGH else ""
+            )
+            for g in comm_top_result.groups_by_sys_cpu[:top_n]
+        ]
+    
     # 构建建议
     recommendations = []
     if diagnosis.primary_suspect:
@@ -339,7 +374,9 @@ def cmd_sys_audit(
         expert_anchors=expert_anchors,
         root_cause_chain=root_cause_chain,
         recommendations=recommendations,
-        time_range=time_range
+        time_range=time_range,
+        top_by_total_cpu=top_by_total,
+        top_by_sys_cpu=top_by_sys
     )
     
     return output

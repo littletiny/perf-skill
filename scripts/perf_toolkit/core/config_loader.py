@@ -51,10 +51,8 @@ class UnifiedConfig:
     _instance = None
     _config_data = None
 
-    # 默认配置路径（按优先级排序）
+    # 默认配置路径 - 只加载项目配置
     DEFAULT_PATHS = [
-        Path.home() / '.config' / 'perf-hunter' / 'perf-hunter.json',
-        Path('.perf-hunter.json'),
         Path('config') / 'perf-hunter.json',
     ]
 

@@ -2,38 +2,26 @@
 
 ## 项目简介
 
-perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning）方法论的性能诊断工具集，用于分析 Linux 性能数据，适用于 Cgroup 约束、低频采样（19Hz）或复杂多线程环境。
+perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning）方法论的性能诊断工具集，用于分析 Linux 性能数据。
 
 ---
 
 ## 核心原则
 
-- **修改前确认**：先简要说明方案，等确认后再修改
-- **简单优先**：let it crash，不做复杂错误处理
-- **AI 友好**：输出格式便于人类/AI 阅读
-- **数据文件规范**：只使用本工具读取 `.data` 文件，特殊情况一次最多读取 20 行
+- **修改前确认**: 先简要说明方案，等确认后再修改
+- **简单优先**: let it crash，不做复杂错误处理
+- **AI 友好**: 输出格式便于人类/AI 阅读
+- **先设计再编码, 强制静态类型，不使用python的动态类型**
 
 ### 输出设计原则
 
 所有工具输出必须遵循以下原则，确保 AI 和人类都能快速理解：
 
-**风险置顶**
-所有输出必须包含 _risk 字段，放在最前面。包含 level/message/hint/action_required 四个字段，不要有其他嵌套。
-
-**扁平结构**
-JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结构，避免多级 children 嵌套。
-
 **时间格式**
 时间字段统一用 ISO 8601 字符串格式，如 "2026-03-02T10:30:00+08:00"。不要自定义格式。
 
-**简单列表**
-列表输出用简单数组，每个元素是平面对象。不要用表格边框字符，不要用缩进对齐，不要加装饰性分隔线。
-
 **命名直接**
 字段名用直白英文，如 symbol/comm/pid/util。不要用缩写或前缀，如 sym/c/p/util_pct 等。
-
-**数值原始**
-数值字段存原始值，格式化交给渲染层。百分比存 0.15 而不是 "15%"，时间存时间戳而不是格式化字符串。
 
 ---
 
@@ -45,13 +33,13 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 
 📘 **分层接口规范**:
 - `docs/interface-core.md` - Core Layer 接口
-- `docs/interface-analysis.md` - Analysis Layer 接口  
+- `docs/interface-analysis.md` - Analysis Layer 接口
 - `docs/interface-composite.md` - Composite Layer 接口
 - `docs/interface-cli.md` - CLI Layer 接口
 - `docs/interface-consistency-report.md` - 接口一致性检查报告
 
 > 开发前请先阅读上述文档，了解代码组织、文件命名和层间接口约定。
-> 
+>
 > **重要原则**：禁止在层间传递裸 `dict`/`List[Dict]`，必须使用强类型 `dataclass`。
 
 ---
@@ -88,7 +76,7 @@ JSON 嵌套不超过 2 层。不要用深层嵌套对象，列表项用简单结
 - docs/ 下文件清单维护在 `docs/project-structure.md`
 
 ### 代码规范
-- 尽量少用 regex，尤其避免在对外参数中使用
+- 不要用regex
 - 修改工具代码后**必须**同步更新相关文档
 
 ### 命令与文档同步规范
@@ -158,21 +146,6 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 ---
 
 ### Attention Steering (SHECR 核心机制)
-
-本项目基于 **SHECR** 方法论使用 Attention Steering 机制防止诊断过程中的"信息权重衰减"：
-
-| 缩写 | 原则 | 机制体现 |
-|------|------|----------|
-| **S** | Systematic | 三层架构（Core/Analysis/Composite） |
-| **H** | Hypothesis | `<X0>` 必须追踪到根因才能收敛（延迟收敛）|
-| **E** | Evidence-driven | `<XA>` 基于证据的行动建议 |
-| **C** | Controlled | 多轮 Pipeline 控制收敛节奏 |
-| **R** | Reasoning | 因果关系追踪与逻辑推理 |
-
-- **定义位置**: `SKILL.md` 的 `SHECR Attention Flags` 章节
-- **加载方式**: Skill 触发后自动进入 System Prompt
-- **匹配机制**: Tool 输出的 `_risk.patterns` 字段触发 Flag 匹配
-- **开发要求**: 新增工具时，如检测到关键线索，应在 `patterns` 中标记对应 Flag
 
 详见设计文档: `docs/design-attention-steering.md`
 

@@ -802,6 +802,19 @@ class BackgroundNoiseOutput:
 
 
 @dataclass
+class CommTopItem:
+    """Comm 排序项（用于多视图展示）"""
+    comm: str
+    total_cpu: float
+    kernel_cpu: float
+    user_cpu: float
+    pid_count: int
+    monopoly: float
+    diagnosis: str = ""
+    attention_flag: str = ""
+
+
+@dataclass
 class ProcessHierarchy:
     """进程分层结构"""
     primary_suspect: Optional[PrimarySuspectOutput] = None
@@ -875,6 +888,8 @@ class SysAuditOutput(BaseOutput):
     - core_distribution: CoreDistributionData
     - expert_anchors: List[ExpertAnchor]
     - root_cause_chain: RootCauseChain
+    - top_by_total_cpu: 按 total CPU 排序的 Top comms
+    - top_by_sys_cpu: 按 sys CPU 排序的 Top comms
     """
     system_fingerprint: SystemFingerprint = field(default_factory=SystemFingerprint)
     contention_matrix: List[ContentionItem] = field(default_factory=list)
@@ -884,6 +899,8 @@ class SysAuditOutput(BaseOutput):
     expert_anchors: List[ExpertAnchor] = field(default_factory=list)
     root_cause_chain: Optional[RootCauseChain] = None
     recommendations: List[str] = field(default_factory=list)
+    top_by_total_cpu: List[CommTopItem] = field(default_factory=list)
+    top_by_sys_cpu: List[CommTopItem] = field(default_factory=list)
 
     def __init__(self,
                  _risk: RiskInfo,
@@ -895,7 +912,9 @@ class SysAuditOutput(BaseOutput):
                  expert_anchors: List[ExpertAnchor],
                  root_cause_chain: Optional[RootCauseChain] = None,
                  recommendations: Optional[List[str]] = None,
-                 time_range: Optional[TimeRange] = None):
+                 time_range: Optional[TimeRange] = None,
+                 top_by_total_cpu: Optional[List[CommTopItem]] = None,
+                 top_by_sys_cpu: Optional[List[CommTopItem]] = None):
         super().__init__(_risk=_risk, summary=None, time_range=time_range)
         self.system_fingerprint = system_fingerprint
         self.contention_matrix = contention_matrix
@@ -905,6 +924,8 @@ class SysAuditOutput(BaseOutput):
         self.expert_anchors = expert_anchors
         self.root_cause_chain = root_cause_chain
         self.recommendations = recommendations or []
+        self.top_by_total_cpu = top_by_total_cpu or []
+        self.top_by_sys_cpu = top_by_sys_cpu or []
         self._template_config = TemplateConfig(
             template_type="custom",
             custom_renderer="sys_audit_renderer_v2"

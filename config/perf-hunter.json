@@ -72,7 +72,7 @@
     "_comment": "进程瓶颈判定阈值配置",
     "_description": "支持全局默认值和 per-comm 定制。判定 BOTTLENECK 条件: (total > sensitive 且 sys_ratio > sys_high) 或 (total >= limit)",
     "global": {
-      "sensitive": 200.0,
+      "sensitive": 100.0,
       "limit": 200.0,
       "sys_high": 50.0,
       "sys_critical": 80.0,

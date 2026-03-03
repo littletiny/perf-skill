@@ -828,6 +828,42 @@ class CustomTemplate(Template):
                 lines.append(f"  {tree_end} others ({count} procs): {cpu:.1f}% (已折叠)")
                 lines.append("")
         
+        # Top By Total CPU
+        top_by_total = data_dict.get('top_by_total_cpu', [])
+        if top_by_total:
+            lines.append("### Top By Total CPU (按总 CPU 排序)")
+            lines.append("")
+            for i, item in enumerate(top_by_total[:10], 1):
+                comm = item.get('comm', 'N/A')
+                total = item.get('total_cpu', 0)
+                kernel = item.get('kernel_cpu', 0)
+                user = item.get('user_cpu', 0)
+                pids = item.get('pid_count', 0)
+                mono = item.get('monopoly', 0)
+                diagnosis = item.get('diagnosis', '')
+                attention = item.get('attention_flag', '')
+                diag_str = f" [{diagnosis}]" if diagnosis else ""
+                lines.append(f"  {i:2d}. {attention}{comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%, usr: {user:6.2f}%) pids: {pids:4d} mono: {mono:.2f}{diag_str}")
+            lines.append("")
+        
+        # Top By Sys CPU
+        top_by_sys = data_dict.get('top_by_sys_cpu', [])
+        if top_by_sys:
+            lines.append("### Top By Sys CPU (按内核态 CPU 排序)")
+            lines.append("")
+            for i, item in enumerate(top_by_sys[:10], 1):
+                comm = item.get('comm', 'N/A')
+                total = item.get('total_cpu', 0)
+                kernel = item.get('kernel_cpu', 0)
+                user = item.get('user_cpu', 0)
+                pids = item.get('pid_count', 0)
+                mono = item.get('monopoly', 0)
+                diagnosis = item.get('diagnosis', '')
+                attention = item.get('attention_flag', '')
+                diag_str = f" [{diagnosis}]" if diagnosis else ""
+                lines.append(f"  {i:2d}. {attention}{comm:20s}: sys: {kernel:6.2f}% total: {total:6.2f}% (usr: {user:6.2f}%) pids: {pids:4d} mono: {mono:.2f}{diag_str}")
+            lines.append("")
+        
         # 核心分布
         core_dist = data_dict.get('core_distribution', {})
         if core_dist:
