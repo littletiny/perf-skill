@@ -10,7 +10,7 @@ RiskMixin - Standardized risk hints for tool output
 """
 
 from typing import List, Dict, Optional
-from .output_models import RiskInfo
+from .output_models import RiskInfo, RiskLevel
 
 
 class RiskMixin:
@@ -18,8 +18,13 @@ class RiskMixin:
 
     RISK_LEVELS = ["critical", "warning", "info", "none"]
 
-    # Risk level priority for comparison
-    PRIORITY = {"critical": 0, "warning": 1, "info": 2, "none": 3}
+    # Risk level priority for comparison (使用 RiskLevel 枚举)
+    PRIORITY = {
+        RiskLevel.CRITICAL.to_string(): RiskLevel.CRITICAL.value,
+        RiskLevel.WARNING.to_string(): RiskLevel.WARNING.value,
+        RiskLevel.INFO.to_string(): RiskLevel.INFO.value,
+        RiskLevel.NONE.to_string(): RiskLevel.NONE.value,
+    }
 
     def __init__(self):
         self.risks: List[RiskInfo] = []
@@ -67,7 +72,7 @@ class RiskMixin:
             )
 
         # Find highest priority (lowest number) risk
-        top = min(self.risks, key=lambda r: self.PRIORITY.get(r.level, 3))
+        top = min(self.risks, key=lambda r: RiskLevel.from_string(r.level).value)
         return top
 
     def get_all_risks(self) -> List[RiskInfo]:

@@ -475,25 +475,25 @@ class PerfExpertEngine:
         end_ts = parse_time_string(end_time) if end_time is not None else None
 
         if start_ts is not None:
-            filtered = [s for s in filtered if s['ts'] >= start_ts]
+            filtered = [s for s in filtered if s.ts >= start_ts]
 
         if end_ts is not None:
-            filtered = [s for s in filtered if s['ts'] <= end_ts]
+            filtered = [s for s in filtered if s.ts <= end_ts]
 
         if cpu_id is not None:
-            filtered = [s for s in filtered if s['cpu'] == cpu_id]
+            filtered = [s for s in filtered if s.cpu == cpu_id]
 
         if pid is not None:
-            filtered = [s for s in filtered if int(s['pid']) == pid]
+            filtered = [s for s in filtered if int(s.pid) == pid]
 
         if comm is not None:
             # 支持多值，逗号分隔
             comm_list = [c.strip() for c in comm.split(',')]
-            filtered = [s for s in filtered if s['comm'] in comm_list]
+            filtered = [s for s in filtered if s.comm in comm_list]
 
         if comm_regex is not None:
             pattern = re.compile(comm_regex)
-            filtered = [s for s in filtered if pattern.search(s['comm'])]
+            filtered = [s for s in filtered if pattern.search(s.comm)]
 
         return filtered
 
@@ -536,7 +536,7 @@ class PerfExpertEngine:
 
         for s in samples:
             core_val = self.get_sample_weight(s)
-            stack = s.get('stack')
+            stack = s.stack
 
             # 使用 SymbolStack.is_leaf_kernel 准确判断
             if stack and stack.is_leaf_kernel:
@@ -667,7 +667,7 @@ class PerfExpertEngine:
             samples = self.samples
         if len(samples) < 2:
             return 0.0
-        return samples[-1]['ts'] - samples[0]['ts']
+        return samples[-1].ts - samples[0].ts
 
     def get_process_cpu_util(self, samples=None) -> Dict[tuple, ProcessCPUInfo]:
         """

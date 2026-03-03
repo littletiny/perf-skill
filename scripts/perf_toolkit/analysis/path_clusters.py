@@ -121,9 +121,9 @@ class PathClustersAnalyzer(BaseAnalyzer):
         # 1. 过滤样本
         filtered_samples = samples
         if comm:
-            filtered_samples = [s for s in filtered_samples if s.get('comm') == comm]
+            filtered_samples = [s for s in filtered_samples if s.comm == comm]
         if pid:
-            filtered_samples = [s for s in filtered_samples if s.get('pid') == pid]
+            filtered_samples = [s for s in filtered_samples if s.pid == pid]
         
         # 2. 获取总量
         total_weight, _ = self._engine.get_total_core_per_sec(filtered_samples)
@@ -134,10 +134,9 @@ class PathClustersAnalyzer(BaseAnalyzer):
         cluster_builder = PathClusterTrie(min_depth=min_depth, min_weight=min_weight)
         
         for s in filtered_samples:
-            stack = s.get('stack')
-            if stack and len(stack) > 0:
+            if s.stack and len(s.stack) > 0:
                 weight = self._engine.get_sample_weight(s)
-                cluster_builder.add_sample(stack, weight)
+                cluster_builder.add_sample(s.stack, weight)
         
         clusters = cluster_builder.extract_clusters()
         
@@ -161,68 +160,3 @@ class PathClustersAnalyzer(BaseAnalyzer):
             clustered_weight=clustered_weight,
             risks=[]  # 路径聚类通常不产生 risk
         )
-
-
-# =============================================================================
-# CLI 适配层（保持向后兼容）
-# =============================================================================
-
-from ..core.command_decorator import command
-from ..core.output_builder import create_risk_info
-from ..core.output_models import (
-    RiskInfo, PathClusterItem, PathClusterSummary, PathClustersOutput, TimeRange
-)
-
-
-@command("cluster-paths")
-def cmd_cluster_paths(builder, engine, args, samples):
-    """[Skill] Cluster samples by common call path prefixes using Trie"""
-    
-    # 1. 调用 Analyzer
-    analyzer = PathClustersAnalyzer(engine)
-    result = analyzer.analyze(
-        samples,
-        min_depth=getattr(args, 'min_depth', 2),
-        min_samples=getattr(args, 'min_samples', 5),
-        top_n=getattr(args, 'top_n', 10),
-        comm=getattr(args, 'comm', None),
-        pid=getattr(args, 'pid', None)
-    )
-    
-    # 2. 路径聚类通常不产生 risk
-    risk = create_risk_info(level="none")
-    
-    # 3. 转换为 Output 模型
-    duration = engine.get_duration(samples)
-    total_weight = result.total_weight
-    
-    results = [
-        PathClusterItem.from_raw(
-            cluster_id=c.cluster_id,
-            path_signature=c.path_signature,
-            weight=c.weight,
-            total_weight=total_weight,
-            duration=duration
-        )
-        for c in result.clusters
-    ]
-    
-    time_range = TimeRange.from_timestamps(
-        samples[0].get('ts') if samples else None,
-        samples[-1].get('ts') if len(samples) > 1 else None
-    )
-    
-    summary = PathClusterSummary(
-        total_clusters=result.total_clusters,
-        shown_clusters=result.shown_clusters,
-        clustered_weight=result.clustered_weight
-    )
-    
-    output = PathClustersOutput(
-        _risk=risk,
-        path_clusters=results,
-        summary=summary,
-        time_range=time_range
-    )
-    
-    return output

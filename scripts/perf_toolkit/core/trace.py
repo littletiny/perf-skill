@@ -20,7 +20,7 @@ from typing import List, Dict, Optional, Any
 from dataclasses import asdict
 
 from .risk_config import RiskDisplayConfig, get_risk_config
-from .output_models import TimelineRecord, Issue, ResolutionResult, ReopenRecord, TraceSummary
+from .output_models import TimelineRecord, Issue, ResolutionResult, ReopenRecord, TraceSummary, FinalizeResult
 
 
 class Trace:
@@ -216,19 +216,7 @@ class Trace:
         Returns:
             issue_id: 自动生成的 ID (ISS-001, ISS-002, ...)
         """
-        # 检查是否已存在类似 issue（简单去重）
-        existing_id = self._find_similar_issue(desc)
-        if existing_id:
-            # 添加到当前命令的 findings
-            self._add_finding_to_current({
-                "type": "risk_duplicate",
-                "level": level,
-                "desc": desc,
-                "issue_id": existing_id
-            })
-            return existing_id
-
-        # 创建新 issue
+        # 创建新 issue（不检查重复，由用户自行管理）
         issue_id = self._generate_issue_id()
         now = self._now()
 
@@ -395,15 +383,6 @@ class Trace:
             return identifier
         return None
 
-    def _find_similar_issue(self, desc: str) -> Optional[str]:
-        """查找描述相似的已存在 issue（简单实现）"""
-        # 提取关键词（简单：取前10个字符）
-        key = desc[:10].lower()
-        for issue_id, issue in self.data['issues'].items():
-            if issue['status'] == 'open' and key in issue['desc'].lower():
-                return issue_id
-        return None
-
     def _fuzzy_find_issue(self, identifier: str) -> Optional[str]:
         """模糊查找 issue"""
         # 直接匹配
@@ -459,39 +438,35 @@ class Trace:
     # 最终审计
     # =====================================================================
 
-    def finalize(self, accept_risk: Optional[str] = None) -> Dict:
+    def finalize(self, accept_risk: Optional[str] = None) -> FinalizeResult:
         """
         最终审计 - 检查是否可以结束诊断
 
         Returns:
-            {
-                "status": "ready" | "accepted" | "blocked",
-                "message": str,
-                "open_issues": [...]
-            }
+            FinalizeResult dataclass
         """
         open_issues = self.get_open_issues()
 
         if not open_issues:
-            return {
-                "status": "ready",
-                "message": "所有问题已处理，可以生成报告",
-                "resolved_count": len(self.get_resolved_issues())
-            }
+            return FinalizeResult(
+                status="ready",
+                message="所有问题已处理，可以生成报告",
+                resolved_count=len(self.get_resolved_issues())
+            )
 
         if accept_risk:
-            return {
-                "status": "accepted",
-                "message": f"已接受风险: {accept_risk}",
-                "open_count": len(open_issues),
-                "resolved_count": len(self.get_resolved_issues())
-            }
+            return FinalizeResult(
+                status="accepted",
+                message=f"已接受风险: {accept_risk}",
+                open_count=len(open_issues),
+                resolved_count=len(self.get_resolved_issues())
+            )
 
-        return {
-            "status": "blocked",
-            "message": f"存在 {len(open_issues)} 个未处理问题",
-            "open_issues": open_issues
-        }
+        return FinalizeResult(
+            status="blocked",
+            message=f"存在 {len(open_issues)} 个未处理问题",
+            open_issues=open_issues
+        )
 
     # =====================================================================
     # 格式化方法（使用 RiskDisplayConfig）
@@ -566,10 +541,10 @@ class Trace:
                     last_reopen = reopen_history[-1]
                     last_reason = last_reopen.get('reason', '')
                     lines.append(f"[重开] {last_reason} → [待解决]")
-        
-        # 兼容旧数据：只有 result 字符串没有 results 列表
-        if not results and issue.get('result') and cfg.show.get('result', True):
-            lines.append(f"[创建] {desc} → [解决] {issue['result']}")
+
+            # 兼容旧数据：只有 result 字符串没有 results 列表
+            if not results and issue.get('result') and cfg.show.get('result', True):
+                lines.append(f"[创建] {desc} → [解决] {issue['result']}")
 
         return '\n'.join(lines)
 
@@ -751,252 +726,5 @@ class Trace:
         return '\n'.join(lines)
 
 
-# =============================================================================
-# CLI 命令
-# =============================================================================
 
-def cmd_doc_init(args):
-    """初始化诊断文档"""
-    doc = Trace()
-    doc.init(args.data)
-    print(f"[INIT] Created: {doc.path}")
-    print(f"→ Data file: {args.data}")
-
-
-def cmd_doc_add(args):
-    """手动添加 issue（自动生成 ID）"""
-    doc = Trace()
-    level = getattr(args, 'level', 'warning')
-    issue_id = doc.add(
-        desc=args.desc,
-        risk=getattr(args, 'risk', ''),
-        hint=getattr(args, 'hint', ''),
-        level=level
-    )
-    print(f"[ADDED] {issue_id}")
-    print(f"→ Desc: {args.desc}")
-    if args.hint:
-        print(f"→ Hint: {args.hint}")
-
-
-def cmd_doc_timeline(args):
-    """查看时间线（使用 RiskDisplayConfig 格式化）"""
-    cfg = _load_risk_config_from_args(args)
-    doc = Trace(config=cfg)
-
-    print(doc.format_timeline(cfg))
-
-
-def _load_risk_config_from_args(args) -> RiskDisplayConfig:
-    """从 args 加载 Risk 配置"""
-    cfg = get_risk_config(explicit_path=getattr(args, 'risk_config', None))
-
-    if style := getattr(args, 'risk_style', None):
-        cfg.apply_mode(style)
-
-    # CI 环境禁用颜色
-    if os.getenv('NO_COLOR') or os.getenv('SPEAR_NO_COLOR'):
-        cfg.colors = {k: '' for k in cfg.colors}
-
-    return cfg
-
-
-def cmd_doc_issues(args):
-    """查看 issues 状态（使用 RiskDisplayConfig 格式化）"""
-    cfg = _load_risk_config_from_args(args)
-    doc = Trace(config=cfg)
-
-    status_filter = getattr(args, 'status', 'all')
-
-    # 获取 issues
-    if status_filter == 'open':
-        issues = doc.get_open_issues()
-    elif status_filter == 'resolved':
-        issues = doc.get_resolved_issues()
-    else:
-        issues = doc.get_open_issues() + doc.get_resolved_issues()
-
-    # 格式化输出
-    print(doc.format_issue_list(issues, status_filter, cfg))
-
-    # 提示用法
-    if status_filter in ['all', 'open'] and doc.get_open_issues():
-        print(f"Usage: shecr trace complete --id ISS-001 --result '分析结果'")
-
-
-def cmd_doc_complete(args):
-    """标记 issue 为已完成（人工执行）"""
-    doc = Trace()
-
-    try:
-        doc.complete(args.id, args.result)
-        print(f"[COMPLETED] {args.id}")
-        print(f"→ Result: {args.result}")
-
-        # 显示剩余 open issues
-        open_issues = doc.get_open_issues()
-        if open_issues:
-            print(f"\n→ {len(open_issues)} issues remaining")
-        else:
-            print("\n[ALL DONE] No more issues")
-    except ValueError as e:
-        print(f"[ERROR] {e}")
-
-
-def cmd_doc_reopen(args):
-    """重新打开已解决的 issue"""
-    doc = Trace()
-
-    # 检查参数：--id 或 --all 必须指定其一
-    if not args.id and not args.all:
-        print("[ERROR] Must specify --id or --all")
-        return
-
-    if args.all:
-        # 重新打开所有已解决的 issue
-        resolved_issues = doc.get_resolved_issues()
-        if not resolved_issues:
-            print("[INFO] No resolved issues to reopen")
-            return
-
-        reopened_count = 0
-        for issue in resolved_issues:
-            try:
-                doc.reopen(issue['id'], getattr(args, 'reason', ''))
-                reopened_count += 1
-            except ValueError as e:
-                print(f"[WARNING] Failed to reopen {issue['id']}: {e}")
-
-        print(f"[REOPENED] {reopened_count} issues")
-        if args.reason:
-            print(f"→ Reason: {args.reason}")
-
-        # 显示当前 open issues
-        open_issues = doc.get_open_issues()
-        print(f"\n→ {len(open_issues)} issues now open")
-    else:
-        # 重新打开单个 issue
-        try:
-            issue_id = doc.reopen(args.id, getattr(args, 'reason', ''))
-            print(f"[REOPENED] {issue_id}")
-            if args.reason:
-                print(f"→ Reason: {args.reason}")
-
-            # 显示当前 open issues
-            open_issues = doc.get_open_issues()
-            print(f"\n→ {len(open_issues)} issues now open")
-        except ValueError as e:
-            print(f"[ERROR] {e}")
-
-
-def cmd_doc_finalize(args):
-    """最终确认（检查 open issues，准备生成报告）"""
-    cfg = _load_risk_config_from_args(args)
-    doc = Trace(config=cfg)
-    result = doc.finalize(getattr(args, 'accept_risk', None))
-
-    print("=" * 65)
-    print("FINALIZE - Ready to generate report?")
-    print("=" * 65)
-    print()
-
-    if result['status'] == 'ready':
-        print("[READY] All issues resolved")
-        print(f"→ Total resolved: {result['resolved_count']}")
-        print()
-        print("=" * 65)
-        print("Report can be generated")
-        print("=" * 65)
-
-    elif result['status'] == 'accepted':
-        print(f"[ACCEPTED] Risk accepted: {args.accept_risk}")
-        print(f"→ Resolved: {result['resolved_count']}, Accepted: {result['open_count']}")
-        print()
-        print("=" * 65)
-        print("Report can be generated")
-        print("=" * 65)
-
-    else:  # blocked
-        print(f"[BLOCKED] {len(result['open_issues'])} open issues remaining")
-        print()
-        print("Note: This is NOT an audit. Use 'shecr trace audit' for quality review.")
-        print()
-        for issue in result['open_issues']:
-            color = cfg.colors.get(issue['level'], '')
-            reset = cfg.colors.get('reset', '')
-            line = f"[{issue['level'].upper()}] {issue['id']}: {issue['desc']}"
-            if color:
-                line = f"{color}{line}{reset}"
-            print(line)
-            if issue.get('hint'):
-                print(f"→ {issue['hint']}")
-            print()
-        print("-" * 65)
-        print("[A] Continue analysis (recommended)")
-        print("[B] Accept risk and finalize: --accept-risk 'reason'")
-        print("=" * 65)
-        import sys
-        sys.exit(1)
-
-
-def cmd_doc_export(args):
-    """导出报告"""
-    doc = Trace()
-    fmt = getattr(args, 'format', 'markdown')
-    output = getattr(args, 'output', None)
-
-    if fmt == 'markdown':
-        content = doc.export_markdown()
-    else:
-        content = json.dumps(doc.data, indent=2, ensure_ascii=False)
-
-    if output:
-        with open(output, 'w') as f:
-            f.write(content)
-        print(f"[EXPORTED] {output}")
-    else:
-        print(content)
-
-
-# =============================================================================
-# 审计功能
-# =============================================================================
-
-def cmd_doc_audit(args):
-    """
-    审计 resolved issues 的分析质量
-    
-    检查项：
-    1. 结构完整性：result 非空、非敷衍
-    2. Timeline 关联：有分析命令支撑
-    3. 分析深度：result 包含因果推导
-    """
-    cfg = _load_risk_config_from_args(args)
-    doc = Trace(config=cfg)
-    
-    phase = getattr(args, 'phase', 'all')
-    output = getattr(args, 'output', None)
-    
-    # 获取所有 resolved issues
-    resolved_issues = doc.get_resolved_issues()
-    
-    if not resolved_issues:
-        print("[AUDIT] No resolved issues to audit")
-        return
-    
-    # 执行审计检查
-    audit_results = []
-    failed_count = 0
-    warning_count = 0
-    passed_count = 0
-    
-    for issue in resolved_issues:
-        result = _audit_issue(issue, doc.data.get('timeline', []), phase)
-        audit_results.append(result)
-        
-        if result['status'] == 'failed':
-            failed_count += 1
-        elif result['status'] == 'warning':
-            warning_count += 1
-        else:
-            passed_count += 1
+# NOTE: CLI commands have been migrated to cli/commands/trace/*.py

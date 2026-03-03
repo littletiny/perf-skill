@@ -18,11 +18,16 @@ from typing import List, Optional
 from dataclasses import dataclass, field
 
 from .models import RiskItem, TargetDetail
-from ..core.output_models import RiskInfo
+from ..core.output_models import RiskInfo, RiskLevel
 
 
-# Risk级别优先级（数字越小优先级越高）
-PRIORITY = {"critical": 0, "warning": 1, "info": 2, "none": 3}
+# Risk级别优先级（数字越小优先级越高）- 使用 RiskLevel 枚举
+PRIORITY = {
+    RiskLevel.CRITICAL.to_string(): RiskLevel.CRITICAL.value,
+    RiskLevel.WARNING.to_string(): RiskLevel.WARNING.value,
+    RiskLevel.INFO.to_string(): RiskLevel.INFO.value,
+    RiskLevel.NONE.to_string(): RiskLevel.NONE.value,
+}
 
 
 @dataclass
@@ -126,7 +131,7 @@ class RiskAggregator:
             for target in targets:
                 if target not in target_risks:
                     target_risks[target] = risk
-                elif PRIORITY[risk.level] < PRIORITY[target_risks[target].level]:
+                elif RiskLevel.from_string(risk.level).value < RiskLevel.from_string(target_risks[target].level).value:
                     target_risks[target] = risk
         
         # 分类统计

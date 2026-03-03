@@ -8,24 +8,6 @@ OutputBuilder - 基于统一数据模型的输出构建器
 - 统一的数据结构管理
 - 自动转换到 JSON
 - Trace 自动记录 (v2.0)
-
-使用方式:
-    from output_builder import OutputBuilder
-    from output_models import RiskInfo, ProcessItem, ProcessSummary, ProcessTopOutput
-
-    builder = OutputBuilder(engine, args)
-    builder.begin_command("get-comm-top")
-
-    # ... 分析逻辑 ...
-
-    # 检测到风险时自动记录
-    builder.record_risk("warning", "高内核态", "cluster-symbols --comm xxx")
-
-    # 分析完成时自动标记解决
-    builder.record_resolution("ISS-001", "LOCK_CONTENTION 38.36%")
-
-    builder.end_command()
-    builder.print_output(output)
 """
 
 import os
@@ -33,7 +15,8 @@ import sys
 from typing import List, Dict, Optional, Any, Type, TypeVar, Generic
 from dataclasses import dataclass
 
-from .output_models import (
+# 注意: import 路径从 core 改为相对导入
+from ..core.output_models import (
     RiskInfo, TimeRange, BaseSummary, BaseOutput,
     ProcessItem, CommGroupItem, HotspotItem, ClusterItem,
     ProcessSummary, CommGroupSummary, HotspotSummary, ClusterSummary,
@@ -52,12 +35,12 @@ from .output_models import (
     # Dict Refactor 新增模型
     TraceSummary, ErrorData, QualityMetrics, IssueCategories,
 )
-from .output_adapter import OutputAdapter, CompactOutputAdapter
-from .text_output_adapter import TextOutputAdapter
-from .risk_mixin import RiskAwareOutput
-from .format_utils import format_time_range, safe_time_range
-from .reliability import assess_data_quality
-from .trace import Trace
+from ..core.output_adapter import OutputAdapter, CompactOutputAdapter
+from ..core.text_output_adapter import TextOutputAdapter
+from ..core.risk_mixin import RiskAwareOutput
+from ..core.format_utils import format_time_range, safe_time_range
+from ..core.reliability import assess_data_quality
+from ..core.trace import Trace
 
 
 T = TypeVar('T', bound=BaseOutput)
@@ -450,30 +433,13 @@ class OutputBuilder:
         return self.adapter.to_dict(output)
 
 
-# =============================================================================
-# Legacy Compatibility
-# =============================================================================
-
 def create_risk_info(level: str, message: str = "", hint: str = "",
-                     patterns: List[str] = None,
-                     pending_targets: List[str] = None,
-                     action_required: bool = None) -> RiskInfo:
-    """
-    快速创建 RiskInfo
-
-    兼容旧版 RiskMixin 的使用方式
-    
-    Args:
-        action_required: 可选，如果为 None 则根据 level 自动计算
-    """
-    if action_required is None:
-        action_required = level in ["critical", "warning"]
-    
+                     patterns: list = None, pending_targets: list = None) -> RiskInfo:
+    """创建 RiskInfo 对象的便捷函数"""
     return RiskInfo(
         level=level,
         message=message,
         hint=hint,
         patterns=patterns or [],
-        pending_targets=pending_targets or [],
-        action_required=action_required
+        pending_targets=pending_targets or []
     )

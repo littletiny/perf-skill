@@ -123,15 +123,21 @@ class CommTopAnalyzer(BaseAnalyzer):
         # 构建 metrics
         metrics = None
         if include_metrics:
-            metrics = {
-                "cv_map": {g.comm: g.cv for g in groups},
-                "monopoly_map": {g.comm: g.monopoly for g in groups},
-                "spawn_rate_map": {g.comm: g.spawn_rate for g in groups},
-                "impact_score_map": {g.comm: g.impact_score for g in groups},
-                "folded_groups": [g.to_dict() for g in folded_groups],
-                "all_groups": [g.to_dict() for g in groups],
-                "storm_analysis": storm_analysis.to_dict() if storm_analysis else None
-            }
+            from ..composite.models import CommTopMetrics, ProcessGroup as PG
+            metrics = CommTopMetrics(
+                cv_map={g.comm: g.cv for g in groups},
+                monopoly_map={g.comm: g.monopoly for g in groups},
+                spawn_rate_map={g.comm: g.spawn_rate for g in groups},
+                impact_score_map={g.comm: g.impact_score for g in groups},
+                folded_groups=[
+                    PG(comm=g.comm, total_cpu=g.total_cpu, diagnosis=g.diagnosis)
+                    for g in folded_groups
+                ],
+                all_groups=[
+                    PG(comm=g.comm, total_cpu=g.total_cpu, diagnosis=g.diagnosis)
+                    for g in groups
+                ]
+            )
         
         return CommTopResult(
             groups=display_groups[:top_n],
@@ -356,87 +362,3 @@ class CommTopAnalyzer(BaseAnalyzer):
             total_storm_comms=len(storm_groups),
             max_spawn_rate=max_spawn_rate
         )
-
-
-# =============================================================================
-# CLI 适配层（保持向后兼容）
-# =============================================================================
-
-from ..core.command_decorator import command
-from ..core.output_builder import create_risk_info
-from ..core.output_models import (
-    RiskInfo, CommGroupItem, CommGroupSummary, CommTopOutput, TimeRange
-)
-
-
-@command("get-comm-top")
-def cmd_get_comm_top(builder, engine, args, samples):
-    """[Skill] Get top N comm groups by aggregated CPU utilization"""
-    
-    # 1. 调用 Analyzer（内部接口，不触发 Trace）
-    analyzer = CommTopAnalyzer(engine)
-    result = analyzer.analyze(
-        samples, 
-        top_n=getattr(args, 'top_n', 10),
-        include_metrics=False
-    )
-    
-    # 2. 记录所有 risks 到 Trace（CLI 层负责）
-    for risk in result.risks:
-        builder.record_risk(
-            risk.level,
-            risk.message,
-            risk.hint
-        )
-    
-    # 3. 取最高级别 risk 放入 _risk 字段
-    top_risk = None
-    if result.risks:
-        priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        top_risk = min(result.risks, key=lambda r: priority.get(r.level, 3))
-    
-    # 4. 转换为 Output 模型
-    groups = []
-    for g in result.groups:
-        kernel_ratio = (g.kernel_cpu / g.total_cpu * 100) if g.total_cpu > 0 else 0
-        
-        # 构建 event 描述
-        if g.diagnosis == "BOTTLENECK":
-            event = f"BOTTLENECK(M={g.monopoly:.2f})"
-        elif g.diagnosis == "STORM":
-            event = f"STORM({g.spawn_rate:.1f}/s)"
-        elif g.diagnosis == "UNBALANCED":
-            event = f"UNBALANCED(CV={g.cv:.2f})"
-        else:
-            event = "normal"
-        
-        groups.append(CommGroupItem.from_stats(
-            comm=g.comm,
-            pid_count=g.pid_count,
-            aggregate_cpu=g.total_cpu,
-            kernel_ratio=kernel_ratio,
-            event_desc=event
-        ))
-    
-    risk_output = create_risk_info(
-        level=top_risk.level,
-        message=top_risk.message,
-        hint=top_risk.hint,
-        patterns=top_risk.patterns,
-        pending_targets=top_risk.pending_targets
-    ) if top_risk else create_risk_info(level="none")
-    
-    output = CommTopOutput(
-        _risk=risk_output,
-        comm_groups=groups,
-        summary=CommGroupSummary(
-            total_comm_groups=result.total_groups,
-            high_kernel_groups=len([r for r in result.risks if "HIGH_KERNEL" in str(r.patterns)])
-        ),
-        time_range=TimeRange.from_timestamps(
-            samples[0].get('ts') if samples else None,
-            samples[-1].get('ts') if len(samples) > 1 else None
-        )
-    )
-    
-    return output

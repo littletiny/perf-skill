@@ -12,6 +12,7 @@ V3 版本（三层架构）：
 from typing import Dict, List, Any, Optional
 from .base import BaseAnalyzer
 from .models import Risk, Hotspot, HotspotsResult
+from ..core.output_models import RiskLevel
 
 
 class HotspotsAnalyzer(BaseAnalyzer):
@@ -148,8 +149,7 @@ def cmd_get_hotspots(builder, engine, args, samples):
     # 3. 取最高级别 risk
     top_risk = None
     if result.risks:
-        priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        top_risk = min(result.risks, key=lambda r: priority.get(r.level, 3))
+        top_risk = min(result.risks, key=lambda r: RiskLevel.from_string(r.level).value)
     
     # 4. 转换为 Output 模型
     hotspots = [
@@ -177,8 +177,8 @@ def cmd_get_hotspots(builder, engine, args, samples):
             shown_hotspots=len(hotspots)
         ),
         time_range=TimeRange.from_timestamps(
-            samples[0].get('ts') if samples else None,
-            samples[-1].get('ts') if len(samples) > 1 else None
+            samples[0].ts if samples else None if samples else None,
+            samples[-1].ts if len(samples) > 1 else None if len(samples) > 1 else None
         )
     )
     

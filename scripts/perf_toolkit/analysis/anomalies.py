@@ -77,8 +77,8 @@ class AnomaliesAnalyzer(BaseAnalyzer):
         # 1. 按 CPU 分组样本
         cpu_samples = defaultdict(list)
         for s in samples:
-            if cpu_id is None or s['cpu'] == cpu_id:
-                cpu_samples[s['cpu']].append(s)
+            if cpu_id is None or s.cpu == cpu_id:
+                cpu_samples[s.cpu].append(s)
         
         all_anomalies: List[Anomaly] = []
         
@@ -87,9 +87,9 @@ class AnomaliesAnalyzer(BaseAnalyzer):
             if not cpu_samples_list:
                 continue
             
-            cpu_samples_list.sort(key=lambda x: x['ts'])
-            start_ts = cpu_samples_list[0]['ts']
-            end_ts = cpu_samples_list[-1]['ts']
+            cpu_samples_list.sort(key=lambda x: x.ts)
+            start_ts = cpu_samples_list[0].ts
+            end_ts = cpu_samples_list[-1].ts
             cpu_duration = end_ts - start_ts
             
             if cpu_duration < window_size:
@@ -134,8 +134,8 @@ class AnomaliesAnalyzer(BaseAnalyzer):
         """构建时间窗口"""
         from ..core.format_utils import format_timestamp
         
-        start_ts = samples[0]['ts']
-        end_ts = samples[-1]['ts']
+        start_ts = samples[0].ts
+        end_ts = samples[-1].ts
         duration = end_ts - start_ts
         
         n_windows = int(duration / window_size) + 1
@@ -144,7 +144,7 @@ class AnomaliesAnalyzer(BaseAnalyzer):
         for i in range(n_windows):
             win_start = start_ts + i * window_size
             win_end = win_start + window_size
-            win_samples = [s for s in samples if win_start <= s['ts'] < win_end]
+            win_samples = [s for s in samples if win_start <= s.ts < win_end]
             
             weight = sum(self._engine.get_sample_weight(s) for s in win_samples)
             utilization = weight / window_size if window_size > 0 else 0
@@ -219,83 +219,3 @@ class AnomaliesAnalyzer(BaseAnalyzer):
                 ))
         
         return anomalies
-
-
-# =============================================================================
-# CLI 适配层（保持向后兼容）
-# =============================================================================
-
-from ..core.command_decorator import command
-from ..core.output_builder import create_risk_info
-from ..core.output_models import (
-    RiskInfo, AnomalyItem, AnomalySummary, AnomaliesOutput, TimeRange
-)
-
-
-@command("detect-anomalies")
-def cmd_detect_anomalies(builder, engine, args, samples):
-    """[Skill] Detect CPU utilization anomalies"""
-    
-    # 1. 调用 Analyzer
-    analyzer = AnomaliesAnalyzer(engine)
-    result = analyzer.analyze(
-        samples,
-        window_size=getattr(args, 'window_size', 1.0),
-        spike_threshold=getattr(args, 'spike_threshold', 0.5),
-        min_utilization=getattr(args, 'min_utilization', 0.3),
-        cpu_id=getattr(args, 'cpu_id', None),
-        top_n=getattr(args, 'top_n', 10)
-    )
-    
-    # 2. 记录 risks 到 Trace
-    for risk in result.risks:
-        builder.record_risk(
-            risk.level,
-            risk.message,
-            risk.hint
-        )
-    
-    # 3. 取最高级别 risk
-    top_risk = None
-    if result.risks:
-        priority = {"critical": 0, "warning": 1, "info": 2, "none": 3}
-        top_risk = min(result.risks, key=lambda r: priority.get(r.level, 3))
-    
-    # 4. 转换为 Output 模型
-    anomaly_items = [
-        AnomalyItem.from_raw(
-            type=a.type,
-            cpu_id=a.cpu_id,
-            start=a.time_range_start,
-            end=a.time_range_end,
-            prev=a.prev_util,
-            curr=a.curr_util,
-            next=a.next_util,
-            z_score=a.z_score
-        )
-        for a in result.anomalies
-    ]
-    
-    risk_output = create_risk_info(
-        level=top_risk.level,
-        message=top_risk.message,
-        hint=top_risk.hint,
-        patterns=top_risk.patterns,
-        pending_targets=top_risk.pending_targets
-    ) if top_risk else create_risk_info(level="none")
-    
-    output = AnomaliesOutput(
-        _risk=risk_output,
-        anomalies=anomaly_items,
-        summary=AnomalySummary(
-            total_anomalies=result.spike_count + result.drop_count,
-            spike_count=result.spike_count,
-            drop_count=result.drop_count
-        ),
-        time_range=TimeRange.from_timestamps(
-            samples[0].get('ts') if samples else None,
-            samples[-1].get('ts') if len(samples) > 1 else None
-        )
-    )
-    
-    return output

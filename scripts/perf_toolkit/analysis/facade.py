@@ -208,7 +208,7 @@ class AnalysisFacade:
         # 过滤样本
         filtered_samples = samples
         if comm:
-            filtered_samples = [s for s in filtered_samples if s['comm'] == comm]
+            filtered_samples = [s for s in filtered_samples if s.comm == comm]
         
         if not filtered_samples:
             return CallersResult(
@@ -226,7 +226,7 @@ class AnalysisFacade:
         target_weight = 0.0
         
         for s in filtered_samples:
-            stack = s.get('stack')
+            stack = s.stack
             if not stack:
                 continue
             

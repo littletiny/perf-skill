@@ -360,12 +360,18 @@ class TestRiskFlowAcrossLayers(unittest.TestCase):
     
     def test_risk_level_priority(self):
         """测试risk级别优先级"""
-        PRIORITY = {"critical": 0, "warning": 1, "info": 2, "none": 3}
+        from perf_toolkit.core.output_models import RiskLevel
         
-        # 验证优先级顺序
-        self.assertLess(PRIORITY["critical"], PRIORITY["warning"])
-        self.assertLess(PRIORITY["warning"], PRIORITY["info"])
-        self.assertLess(PRIORITY["info"], PRIORITY["none"])
+        # 验证优先级顺序（使用 RiskLevel 枚举）
+        self.assertLess(RiskLevel.CRITICAL.value, RiskLevel.WARNING.value)
+        self.assertLess(RiskLevel.WARNING.value, RiskLevel.INFO.value)
+        self.assertLess(RiskLevel.INFO.value, RiskLevel.NONE.value)
+        
+        # 验证字符串转换
+        self.assertEqual(RiskLevel.from_string("critical"), RiskLevel.CRITICAL)
+        self.assertEqual(RiskLevel.from_string("warning"), RiskLevel.WARNING)
+        self.assertEqual(RiskLevel.from_string("info"), RiskLevel.INFO)
+        self.assertEqual(RiskLevel.from_string("none"), RiskLevel.NONE)
 
 
 class TestRiskOutputFormat(unittest.TestCase):

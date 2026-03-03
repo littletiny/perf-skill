@@ -10,6 +10,9 @@ Format Utilities - Time formatting and helper functions for standardized output
 """
 
 from datetime import datetime
+from typing import Optional, List
+
+from .output_models import TimeRange
 
 
 def format_timestamp(ts: float) -> str:
@@ -19,19 +22,15 @@ def format_timestamp(ts: float) -> str:
     return datetime.fromtimestamp(ts).isoformat()
 
 
-def format_time_range(start_ts: float, end_ts: float) -> dict:
+def format_time_range(start_ts: float, end_ts: float) -> TimeRange:
     """Format time range with readable string and duration"""
     if start_ts is None or end_ts is None:
-        return {
-            "start_time": None,
-            "end_time": None,
-            "duration": 0
-        }
-    return {
-        "start_time": format_timestamp(start_ts),
-        "end_time": format_timestamp(end_ts),
-        "duration": round(end_ts - start_ts, 2)
-    }
+        return TimeRange()
+    return TimeRange(
+        start_time=format_timestamp(start_ts),
+        end_time=format_timestamp(end_ts),
+        duration=round(end_ts - start_ts, 2)
+    )
 
 
 def format_duration(seconds: float) -> str:
@@ -54,7 +53,7 @@ def format_weight(value: float) -> float:
     return round(value, 4)
 
 
-def safe_time_range(samples: list) -> dict:
+def safe_time_range(samples: list) -> TimeRange:
     """
     Safely extract and format time range from samples list.
 
@@ -62,14 +61,10 @@ def safe_time_range(samples: list) -> dict:
         samples: List of sample dicts with 'ts' field
 
     Returns:
-        Formatted time range dict
+        TimeRange dataclass
     """
     if not samples:
-        return {
-            "start_time": None,
-            "end_time": None,
-            "duration": 0
-        }
+        return TimeRange()
 
     start_ts = samples[0].get('ts')
     end_ts = samples[-1].get('ts')

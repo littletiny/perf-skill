@@ -180,15 +180,4 @@ class ConfigurationError(AnalysisError):
     pass
 
 
-# =============================================================================
-# Type Aliases (Task-2.8.1 - Deprecated)
-# =============================================================================
 
-# Note: Sample type alias kept for backward compatibility
-# In the future, use Sample dataclass from engine_types
-Sample = Dict[str, Any]  # 单个样本数据结构
-Samples = List[Sample]   # 样本列表
-CPUUtil = Dict[str, float]  # CPU 利用率数据
-
-# RiskList is deprecated - use List[Risk] directly
-RiskList = List[Risk]   # Risk 列表

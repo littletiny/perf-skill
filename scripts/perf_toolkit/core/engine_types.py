@@ -172,31 +172,4 @@ class Sample:
     core_per_sec: Optional[float]
     stack: Optional[Any] = None  # SymbolStack 对象，延迟导入避免循环依赖
     
-    def __getitem__(self, key: str):
-        """支持 dict 风格的访问，兼容现有代码"""
-        return getattr(self, key)
-    
-    def __contains__(self, key: str) -> bool:
-        """支持 'in' 操作符"""
-        return hasattr(self, key) and getattr(self, key) is not None
-    
-    def get(self, key: str, default=None):
-        """支持 dict 风格的 get 方法"""
-        return getattr(self, key, default)
 
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-def to_dict(obj) -> Dict:
-    """将 dataclass 转换为 dict（用于需要 JSON 序列化的场景）"""
-    from dataclasses import asdict, is_dataclass
-    
-    if is_dataclass(obj):
-        return asdict(obj)
-    if isinstance(obj, list):
-        return [to_dict(item) for item in obj]
-    if isinstance(obj, dict):
-        return {k: to_dict(v) for k, v in obj.items()}
-    return obj

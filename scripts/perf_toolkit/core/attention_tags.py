@@ -37,7 +37,7 @@ def xa(text: str, cmd: str = "") -> str:
     return f"<XA> {text}"
 
 
-# 兼容旧名称的别名（推荐使用新的 x0/x1/x2/xa）
+# 别名（推荐使用新的 x0/x1/x2/xa）
 p0 = x0
 p1 = x1
 p2 = x2

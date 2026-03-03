@@ -16,8 +16,39 @@ Output Models - Unified data structures for all analysis tool outputs
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional, Any, Union
 from datetime import datetime
+from enum import IntEnum
 
 from .display_presets import get_display_preset
+
+
+# =============================================================================
+# Risk Level Enum
+# =============================================================================
+
+class RiskLevel(IntEnum):
+    """Risk level enumeration with priority values
+    
+    Lower value = higher priority
+    """
+    CRITICAL = 0
+    WARNING = 1
+    INFO = 2
+    NONE = 3
+    
+    @classmethod
+    def from_string(cls, level: str) -> 'RiskLevel':
+        """从字符串创建 RiskLevel"""
+        mapping = {
+            "critical": cls.CRITICAL,
+            "warning": cls.WARNING,
+            "info": cls.INFO,
+            "none": cls.NONE,
+        }
+        return mapping.get(level.lower(), cls.INFO)
+    
+    def to_string(self) -> str:
+        """转换为字符串"""
+        return self.name.lower()
 
 
 # =============================================================================
@@ -57,7 +88,17 @@ class TemplateConfig:
         preset = get_display_preset(preset_name)
         if not preset:
             raise ValueError(f"Unknown preset: {preset_name}")
-        return cls(**preset)
+        return cls(
+            template_type=preset.template_type,
+            list_field=preset.list_field,
+            header=preset.header,
+            display_fields=preset.display_fields,
+            index_format=preset.index_format,
+            custom_renderer=preset.custom_renderer,
+            empty_message=preset.empty_message,
+            total_field=preset.total_field,
+            shown_field=preset.shown_field
+        )
 
 
 # =============================================================================
@@ -768,6 +809,48 @@ class TraceDocument:
     issues: Dict[str, Issue] = field(default_factory=dict)
 
 
+@dataclass
+class TraceData:
+    """Trace 数据根结构（用于 trace.py 内部操作）
+    
+    替代原有的裸 dict，提供类型安全
+    """
+    version: str = "2.0"
+    data_file: Optional[str] = None
+    created_at: str = ""
+    updated_at: str = ""
+    timeline: List[Dict[str, Any]] = field(default_factory=list)
+    issues: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    profiles_used: List[str] = field(default_factory=list)
+    
+    @classmethod
+    def create_new(cls, data_file: Optional[str] = None) -> 'TraceData':
+        """创建新的 TraceData 实例"""
+        from datetime import datetime
+        now = datetime.utcnow().isoformat() + "Z"
+        return cls(
+            version="2.0",
+            data_file=data_file,
+            created_at=now,
+            updated_at=now,
+            timeline=[],
+            issues={},
+            profiles_used=[data_file] if data_file else []
+        )
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 dict 用于 JSON 序列化"""
+        return {
+            "version": self.version,
+            "data_file": self.data_file,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "timeline": self.timeline,
+            "issues": self.issues,
+            "profiles_used": self.profiles_used
+        }
+
+
 # =============================================================================
 # OutputBuilder Module Data Models (Dict Refactor)
 # =============================================================================
@@ -803,6 +886,70 @@ class IssueCategories:
     kernel_anomaly: int = 0
     lock_contention: int = 0
     process_storm: int = 0
+
+
+# =============================================================================
+# Trace Module Result Dataclasses (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class FinalizeResult:
+    """Trace finalize 结果结构 - trace.py finalize"""
+    status: str  # "ready" | "accepted" | "blocked"
+    message: str
+    resolved_count: Optional[int] = None
+    open_count: Optional[int] = None
+    open_issues: Optional[List[Dict[str, Any]]] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为 dict 用于 JSON 序列化"""
+        result = {
+            "status": self.status,
+            "message": self.message,
+        }
+        if self.resolved_count is not None:
+            result["resolved_count"] = self.resolved_count
+        if self.open_count is not None:
+            result["open_count"] = self.open_count
+        if self.open_issues is not None:
+            result["open_issues"] = self.open_issues
+        return result
+
+
+# =============================================================================
+# Audit Module Dataclasses (Dict Refactor)
+# =============================================================================
+
+@dataclass
+class CheckResult:
+    """审计检查结果 - audit.py 检查项结果"""
+    status: str  # "passed" | "warning" | "failed"
+    message: str = ""
+
+
+@dataclass
+class IssueAuditResult:
+    """单个 Issue 的审计结果 - audit.py _audit_issue"""
+    issue_id: str
+    desc: str
+    status: str  # "passed" | "warning" | "failed"
+    checks: Dict[str, CheckResult] = field(default_factory=dict)
+
+
+@dataclass
+class AuditSummary:
+    """审计摘要统计 - audit.py 输出"""
+    total: int = 0
+    passed: int = 0
+    warning: int = 0
+    failed: int = 0
+
+
+@dataclass
+class AuditOutput:
+    """审计输出结构 - audit.py 最终输出"""
+    summary: AuditSummary
+    results: List[IssueAuditResult]
 
 
 # =============================================================================
@@ -865,19 +1012,6 @@ class ProfileConfig:
             "risk_config": self.risk_config,
             "rules_file": self.rules_file
         }
-    
-    @classmethod
-    def from_dict(cls, name: str, data: Dict[str, Any]) -> 'ProfileConfig':
-        """从 dict 创建 ProfileConfig"""
-        return cls(
-            name=name,
-            data_file=name,  # name is the data_file path
-            init_time=data.get("init_time", ""),
-            script_path=data.get("script_path", ""),
-            freq=data.get("freq"),
-            risk_config=data.get("risk_config"),
-            rules_file=data.get("rules_file")
-        )
 
 
 @dataclass
@@ -888,29 +1022,37 @@ class EnvironmentConfig:
     """
     profiles: Dict[str, ProfileConfig] = field(default_factory=dict)
     default: Optional[str] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """转换为 dict 用于 JSON 序列化"""
         return {
             "profiles": {
-                name: profile.to_dict() 
+                name: profile.to_dict()
                 for name, profile in self.profiles.items()
             },
             "default": self.default
         }
-    
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'EnvironmentConfig':
         """从 dict 创建 EnvironmentConfig"""
         profiles_data = data.get("profiles", {})
         profiles = {
-            name: ProfileConfig.from_dict(name, profile_data)
-            for name, profile_data in profiles_data.items()
+            name: ProfileConfig(
+                name=name,
+                data_file=name,
+                init_time=pdata.get("init_time", ""),
+                script_path=pdata.get("script_path", ""),
+                freq=pdata.get("freq"),
+                risk_config=pdata.get("risk_config"),
+                rules_file=pdata.get("rules_file")
+            )
+            for name, pdata in profiles_data.items()
         }
         return cls(
             profiles=profiles,
             default=data.get("default")
         )
+
 
 
 @dataclass
@@ -927,6 +1069,7 @@ class TraceConfig:
     issues: Dict[str, Any] = field(default_factory=dict)
     profiles_used: List[str] = field(default_factory=list)
     
+
     def to_dict(self) -> Dict[str, Any]:
         """转换为 dict 用于 JSON 序列化"""
         return {
@@ -938,7 +1081,11 @@ class TraceConfig:
             "issues": self.issues,
             "profiles_used": self.profiles_used
         }
-    
+
+
+
+
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TraceConfig':
         """从 dict 创建 TraceConfig"""
@@ -951,10 +1098,11 @@ class TraceConfig:
             issues=data.get("issues", {}),
             profiles_used=data.get("profiles_used", [])
         )
-    
+
     @classmethod
     def create_new(cls, data_file: str) -> 'TraceConfig':
         """创建新的 TraceConfig 实例"""
+        from datetime import datetime
         now = datetime.now().isoformat()
         return cls(
             version="2.0",
@@ -965,51 +1113,6 @@ class TraceConfig:
             issues={},
             profiles_used=[data_file]
         )
-
-
-# =============================================================================
-# Risk Config Module Data Models (Dict Refactor)
-# =============================================================================
-
-@dataclass
-class RiskConfigColors:
-    """Risk 配置颜色"""
-    critical: str = "\033[91m"
-    warning: str = "\033[93m"
-    info: str = "\033[94m"
-    reset: str = "\033[0m"
-
-
-@dataclass
-class RiskConfigTemplates:
-    """Risk 配置模板"""
-    issue_open: str = "[OPEN] [{id}] [{level}] {desc}"
-    issue_resolved: str = "[RESOLVED] [{id}] [{level}] {desc}"
-    hint: str = "→ {hint}"
-    result: str = "→ {result}"
-    list_header_open: str = "[OPEN] {count} issues pending"
-    list_header_resolved: str = "[RESOLVED] {count} issues"
-    list_header_all: str = "[ALL] {open_count} open, {resolved_count} resolved"
-    timeline_command: str = "[{seq}] {time} {command}"
-    timeline_finding_created: str = "[{level}] {issue_id}: {desc}"
-    timeline_finding_resolved: str = "[RESOLVED] {issue_id}: {result}"
-    timeline_info: str = "[INFO] {message}"
-
-
-@dataclass
-class RiskConfigShow:
-    """Risk 配置显示开关"""
-    hint: bool = True
-    result: bool = True
-
-
-@dataclass
-class RiskConfigData:
-    """Risk 配置完整结构 - risk_config.py DEFAULT_CONFIG"""
-    colors: RiskConfigColors = field(default_factory=RiskConfigColors)
-    templates: RiskConfigTemplates = field(default_factory=RiskConfigTemplates)
-    show: RiskConfigShow = field(default_factory=RiskConfigShow)
-
 
 # =============================================================================
 # Type Registry
