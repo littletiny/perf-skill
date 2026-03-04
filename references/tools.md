@@ -124,7 +124,13 @@ shecr find-callers --target <function> [options]
 shecr find-callers --auto-target [options]
 ```
 
-**特有参数**: `--target` (目标函数), `--auto-target` (自动追踪), `--min-ratio` (最小占比%)  
+**特有参数**: `--target` (目标函数), `--auto-target` (自动追踪 top N 热点), `--min-ratio` (最小占比%)
+
+**--auto-target 行为**:
+- 根据 `get-hotspots --sort-by self` 获取 top N 热点函数
+- 为每个热点函数追踪其调用者（显示前 5 个主要调用路径）
+- 输出包含所有热点函数的调用栈溯源信息
+
 **常用 target**: `schedule`, `pthread_mutex_lock`, `epoll_wait`, `nanosleep`
 
 ---
