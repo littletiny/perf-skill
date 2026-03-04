@@ -452,7 +452,9 @@ def cmd_sys_audit(
     if diagnosis.primary_suspect:
         recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {diagnosis.primary_suspect.comm} 深度分析")
     for g in diagnosis.secondary_loads:
-        if g.diagnosis == DiagnosisType.STORM:
+        if g.diagnosis == DiagnosisType.BOTTLENECK:
+            recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {g.comm} 深度分析")
+        elif g.diagnosis == DiagnosisType.STORM:
             recommendations.append(f"{AttentionFlag.XA} 检查 {g.comm} 的进程创建源头")
     recommendations.append(f"{AttentionFlag.XA} trace issues 查看所有待处理 issue")
     

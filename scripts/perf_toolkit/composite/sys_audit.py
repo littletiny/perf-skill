@@ -209,7 +209,11 @@ class SysAuditor:
             )
         
         for g in secondary:
-            if g.diagnosis == DiagnosisType.STORM:
+            if g.diagnosis == DiagnosisType.BOTTLENECK:
+                recommendations.append(
+                    f"执行 bottleneck-trace --comm {g.comm} 深入分析"
+                )
+            elif g.diagnosis == DiagnosisType.STORM:
                 recommendations.append(
                     f"进程 {g.comm} 可能存在进程风暴，建议检查进程生命周期"
                 )
