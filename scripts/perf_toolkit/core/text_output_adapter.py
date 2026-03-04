@@ -15,6 +15,7 @@ from config.defaults import (
     DiagnosisType
 )
 from perf_toolkit.core.config_loader import get_config
+from perf_toolkit.core.callchain_formatter import CallChainFormatter
 
 
 def _get_attr(item: Any, field: str, default: Any = None) -> Any:
@@ -348,22 +349,26 @@ class CustomTemplate(Template):
 
     def _render_bottleneck_trace(self, data: Any) -> List[str]:
         """
-        渲染 bottleneck-trace 四段式 Markdown 输出
-        
-        输出四段:
-        - [ENTITY_DISTRIBUTION_MATRIX]: 实体分布矩阵
-        - [CONVERGENCE_TRACE]: 收敛追踪
-        - [CORRELATION_FLAGS]: 关联标志
-        - [DATA_SUMMARY]: 数据摘要
+        渲染 bottleneck-trace 精简输出 - 仅 GLOBAL 完整调用链
         """
         data_dict = asdict(data) if is_dataclass(data) else data
         lines = []
         
-        # 四段式输出
-        lines.extend(self._build_entity_distribution_section(data_dict))
-        lines.extend(self._build_convergence_trace_section(data_dict))
-        lines.extend(self._build_correlation_flags_section(data_dict))
-        lines.extend(self._build_data_summary_section(data_dict))
+        # 只保留 BIDIRECTIONAL_VIEW (GLOBAL 完整路径)
+        lines.extend(self._build_bidirectional_view_section(data_dict))
+        
+        return lines
+
+    def _build_bidirectional_view_section(self, data: Dict) -> List[str]:
+        """构建 [BIDIRECTIONAL_VIEW] 段"""
+        lines = []
+        bidirectional_view = data.get('bidirectional_view', '')
+        
+        if bidirectional_view:
+            # bidirectional_view 已经包含标题，直接追加
+            lines.append("")
+            lines.append(bidirectional_view)
+            lines.append("")
         
         return lines
 
@@ -434,35 +439,42 @@ class CustomTemplate(Template):
             # 路径展示：comm -> func1 -> func2 -> **[HOTSPOT]**
             path = cluster.get('path', [])
             hotspot = cluster.get('hotspot', 'N/A')
-            path_str = self._format_call_path(path, hotspot)
+            weight = cluster.get('weight', 0)
+            direction = cluster.get('direction', 'top_down')
+            path_str = self._format_call_path(path, hotspot, direction=direction, ratio=weight)
             lines.append(path_str)
             lines.append("")
             
             # Characteristic 标签
             characteristic = cluster.get('characteristic', 'N/A')
-            weight = cluster.get('weight', 0)
+            weight_val = cluster.get('weight', 0) or 0
             lines.append(f"* **Characteristic**: `{characteristic}`")
-            lines.append(f"* **Weight**: {weight:.1f}%（占总样本比例）")
+            lines.append(f"* **Weight**: {weight_val:.1f}%（占总样本比例）")
             lines.append("")
             lines.append("---")
             lines.append("")
         
         return lines
 
-    def _format_call_path(self, path: List[str], hotspot: str) -> str:
-        """格式化调用路径: `comm` -> `func1` -> `func2` -> **[HOTSPOT]**"""
-        if not path:
-            return f"**[{hotspot}]**"
+    def _format_call_path(self, path: List[str], hotspot: str, direction: str = "top_down", ratio: Optional[float] = None) -> str:
+        """格式化调用路径: `comm` → `func1` → `func2` → **[HOTSPOT]**
         
-        parts = []
-        for i, node in enumerate(path):
-            if i == 0:
-                parts.append(f"`{node}`")
-            else:
-                parts.append(f"-> `{node}`")
+        Args:
+            path: 调用路径 (函数名列表)
+            hotspot: 热点函数名
+            direction: 调用链方向 "top_down" 或 "bottom_up"
+            ratio: 占比百分比 (可选)，如果提供则显示在路径前
+        """
+        path_str = CallChainFormatter.format(
+            path=path,
+            hotspot=hotspot,
+            direction=direction,
+            style="markdown"
+        )
         
-        parts.append(f"-> **[{hotspot}]**")
-        return " ".join(parts)
+        if ratio is not None and ratio > 0:
+            return f"{ratio:.1f}%  {path_str}"
+        return path_str
 
     def _build_correlation_flags_section(self, data: Dict) -> List[str]:
         """构建 [CORRELATION_FLAGS] 段"""
