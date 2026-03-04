@@ -328,7 +328,6 @@ class CustomTemplate(Template):
                 "=== Storm Analysis ===",
                 f"  Spawn Rate: {storm.get('spawn_rate', 0):.1f} procs/sec",
                 f"  Severity: {storm.get('severity', 'N/A')}",
-                f"  PID Count: {storm.get('pid_count', 0)}",
                 f"  Total CPU: {storm.get('total_cpu', 0):.2f}%",
             ])
         lifecycle = data_dict.get('lifecycle', {})
@@ -336,9 +335,6 @@ class CustomTemplate(Template):
             lines.extend(["", "=== Lifecycle Analysis ===",
                          f"  Sample Count: {lifecycle.get('sample_count', 0)}",
                          f"  Time Range: {lifecycle.get('time_range_sec', 0):.1f} sec"])
-            unique_pids = lifecycle.get('unique_pids', [])
-            if unique_pids:
-                lines.append(f"  Unique PIDs: {len(unique_pids)}")
         callers = data_dict.get('callers')
         if callers:
             lines.extend(["", "=== Callers ===", f"Target: {callers.get('target', 'N/A')}"])
@@ -426,8 +422,8 @@ class CustomTemplate(Template):
         thresholds = get_analysis_thresholds()
         
         # 表头
-        lines.append("| Comm_Group | Count | Incl_Saliency | Excl_Saliency | Core_Affinity | Throttle_Rate |")
-        lines.append("|------------|-------|---------------|---------------|---------------|---------------|")
+        lines.append("| Comm_Group | Incl_Saliency | Excl_Saliency | Core_Affinity | Throttle_Rate |")
+        lines.append("|------------|---------------|---------------|---------------|---------------|")
         
         # 数据行
         entity_distribution = data.get('entity_distribution', [])
@@ -439,8 +435,6 @@ class CustomTemplate(Template):
             comm = entity.get('comm', 'N/A')
             comm_str = f"**`{comm}`**" if is_bottleneck else f"`{comm}`"
             
-            count_str = str(entity.get('count', 0))
-            
             incl_str = f"**{incl_saliency:.2f}**" if (is_bottleneck and incl_saliency > thresholds.monopoly_high) else f"{incl_saliency:.2f}"
             excl_str = f"**{excl_saliency:.2f}**" if (is_bottleneck and excl_saliency > thresholds.monopoly_high) else f"{excl_saliency:.2f}"
             
@@ -450,11 +444,11 @@ class CustomTemplate(Template):
             throttle_rate = entity.get('throttle_rate', 0)
             throttle_str = f"**{throttle_rate:.1f}%**" if (is_bottleneck and throttle_rate > thresholds.throttle_rate_min) else f"{throttle_rate:.1f}%"
             
-            row = f"| {comm_str} | {count_str} | {incl_str} | {excl_str} | {affinity_str} | {throttle_str} |"
+            row = f"| {comm_str} | {incl_str} | {excl_str} | {affinity_str} | {throttle_str} |"
             lines.append(row)
         
         if not entity_distribution:
-            lines.append("| *(无数据)* | - | - | - | - | - |")
+            lines.append("| *(无数据)* | - | - | - | - |")
         
         lines.append("")
         return lines
@@ -557,7 +551,6 @@ class CustomTemplate(Template):
         
         # YAML 格式
         lines.append("```yaml")
-        lines.append(f"total_pids: {data.get('total_pids', 0)}")
         lines.append(f"total_sys_cpu: {data.get('total_sys_cpu', 0.0):.1f}")
         
         top_bottlenecks = data.get('top_bottlenecks', [])

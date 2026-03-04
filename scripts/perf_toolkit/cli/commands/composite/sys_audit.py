@@ -262,7 +262,7 @@ def _build_expert_anchors(
             anchors.append(ExpertAnchor(
                 type=ExpertAnchorType.NOISY_NEIGHBOR,
                 target=g.comm,
-                description=f"{g.pid_count} 个进程高频活动，可能触发系统级资源竞争",
+                description=f"高频活动进程，可能触发系统级资源竞争",
                 impact="影响其他正常业务进程",
                 attention_flag=AttentionFlag.X0,
                 recommendation=f"检查 {g.comm} 的进程创建源头"
@@ -369,7 +369,7 @@ def cmd_sys_audit(
             details.append(
                 f"#{i} {g.comm}: {g.total_cpu:.1f}% CPU "
                 f"(sys: {g.kernel_cpu:.1f}%/{sys_ratio:.0f}%, "
-                f"pids: {g.pid_count}, score: {g.impact_score:.1f}, "
+                f"score: {g.impact_score:.1f}, "
                 f"type: {g.diagnosis})"
             )
         if len(all_bottlenecks) > 5:
