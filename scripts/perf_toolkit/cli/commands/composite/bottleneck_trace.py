@@ -30,7 +30,7 @@ from perf_toolkit.core.output_models import (
     CallPathCluster,
     CorrelationFlag,
 )
-from perf_toolkit.core.bidirectional_view_v2 import (
+from perf_toolkit.core.bidirectional_view import (
     UpstreamBranch, DownstreamEntry, build_and_render_v2
 )
 from perf_toolkit.analysis.facade import AnalysisFacade
