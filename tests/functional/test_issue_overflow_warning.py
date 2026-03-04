@@ -136,7 +136,7 @@ class TestIssueOverflowWarning(unittest.TestCase):
         ])
         self.assertEqual(result.returncode, 0)
 
-        # Run show-cpu-usage (should not trigger warning with only 1 issue)
+        # Run analyze-core-distribution (should not trigger warning with only 1 issue)
         result = self._run_shecr([
             "analyze-core-distribution",
             "--data", str(self.test_data)

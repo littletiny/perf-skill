@@ -424,13 +424,12 @@ perf-hunter 包装脚本 - 多数据文件全局跟踪
   cluster-symbols         按专家规则聚类符号
   find-callers            热点溯源，调用链分析
   detect-anomalies        检测时序异常
-  show-cpu-usage          查看 CPU 利用率
+  analyze-core-distribution  核心级负载分布分析
   get-process-top         进程 CPU 排行
   get-comm-top            按进程组统计 CPU
   cluster-comm            按进程名聚类
   cluster-paths           按调用路径聚类
   count-process-variety   检测进程风暴
-  analyze-core-distribution  核心级负载分布分析
   trace                   Trace 诊断追踪管理
 
 Trace 管理命令:

@@ -37,7 +37,10 @@ def cmd_detect_anomalies(
         spike_threshold=getattr(args, 'spike_threshold', 0.5),
         min_utilization=getattr(args, 'min_utilization', 0.3),
         cpu_id=getattr(args, 'cpu_id', None),
-        top_n=getattr(args, 'top_n', 10)
+        top_n=getattr(args, 'top_n', 10),
+        pid=getattr(args, 'pid', None),
+        comm=getattr(args, 'comm', None),
+        comm_regex=getattr(args, 'comm_regex', None)
     )
     
     # 2. 记录 risks 到 Trace

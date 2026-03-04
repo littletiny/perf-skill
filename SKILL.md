@@ -192,8 +192,9 @@ shecr trace export --format markdown --output report.md
 # 第一轮：系统全景扫描（自动降噪 + 危害排序）
 shecr sys-audit
 
-# 第二轮：深度追踪瓶颈进程（根据第一轮输出选择）
+# 第二轮：深度追踪瓶颈进程（根据原始问题/第一轮输出选择）
 shecr bottleneck-trace --comm <瓶颈进程名>
+shecr bottleneck-trace --pid <pid>
 ```
 
 ---

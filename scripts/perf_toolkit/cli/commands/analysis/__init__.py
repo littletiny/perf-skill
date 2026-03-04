@@ -61,7 +61,7 @@ def register_commands(subparsers):
     p.add_argument("--data", required=True, help="Path to perf script output file")
     p.add_argument("--freq", type=int, default=19, metavar="HZ",
                    help="Sampling frequency in Hz for raw perf format (default: 19)")
-    p.add_argument("--sort-by", choices=['inclusive', 'self'], default='inclusive',
+    p.add_argument("--sort-by", choices=['inclusive', 'self'], default='self',
                    help="Sort by 'inclusive' or 'self'")
     p.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top hotspots")
@@ -83,6 +83,8 @@ def register_commands(subparsers):
     p.add_argument("--top-n", "--limit", type=int, default=10, help="Number of top results")
     p.add_argument("--min-ratio", type=float, default=0.5, metavar="PERCENT",
                    dest="min_ratio", help="Minimum ratio %% of total samples")
+    p.add_argument("--max-depth", type=int, default=0, metavar="DEPTH",
+                   dest="max_depth", help="Maximum caller chain depth (0=unlimited, default: 0)")
     p.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p.add_argument("--start-time", type=str, help="Filter samples after this time")
     p.add_argument("--end-time", type=str, help="Filter samples before this time")
@@ -104,6 +106,9 @@ def register_commands(subparsers):
                    help="Minimum utilization threshold")
     p.add_argument("--cpu-id", type=int, help="Analyze specific CPU only")
     p.add_argument("--top-n", "--limit", type=int, default=10, help="Top N anomalies")
+    p.add_argument("--pid", type=int, help="Filter by process ID")
+    p.add_argument("--comm", type=str, help="Filter by process name")
+    p.add_argument("--comm-regex", type=str, help="Filter by process name regex pattern")
     p.add_argument("--export-mode", action="store_true",
                    help="Export all window data")
     p.add_argument("--export-samples", action="store_true",

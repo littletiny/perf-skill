@@ -9,6 +9,7 @@ V3 版本（三层架构）：
 - Task-2.2.1: 返回 AnomaliesResult dataclass
 """
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List, Any, Optional
@@ -52,7 +53,10 @@ class AnomaliesAnalyzer(BaseAnalyzer):
                 spike_threshold: float = 0.5,
                 min_utilization: float = 0.3,
                 cpu_id: Optional[int] = None,
-                top_n: int = 10) -> AnomaliesResult:
+                top_n: int = 10,
+                pid: Optional[int] = None,
+                comm: Optional[str] = None,
+                comm_regex: Optional[str] = None) -> AnomaliesResult:
         """
         分析时序异常
         
@@ -63,6 +67,9 @@ class AnomaliesAnalyzer(BaseAnalyzer):
             min_utilization: 最小利用率阈值
             cpu_id: 可选，仅分析指定 CPU
             top_n: 返回前 N 个异常
+            pid: 可选，按 PID 过滤
+            comm: 可选，按进程名过滤
+            comm_regex: 可选，按进程名正则表达式过滤
             
         Returns:
             AnomaliesResult dataclass
@@ -76,9 +83,18 @@ class AnomaliesAnalyzer(BaseAnalyzer):
                 risks=[]
             )
         
-        # 1. 按 CPU 分组样本
+        # 1. 过滤样本并按 CPU 分组
+        filtered_samples = samples
+        if comm:
+            filtered_samples = [s for s in filtered_samples if s.comm == comm]
+        if comm_regex:
+            pattern = re.compile(comm_regex)
+            filtered_samples = [s for s in filtered_samples if pattern.search(s.comm)]
+        if pid:
+            filtered_samples = [s for s in filtered_samples if s.pid == str(pid)]
+        
         cpu_samples = defaultdict(list)
-        for s in samples:
+        for s in filtered_samples:
             if cpu_id is None or s.cpu == cpu_id:
                 cpu_samples[s.cpu].append(s)
         

@@ -17,9 +17,9 @@
 Phase 1: 资源定界 ──► Phase 2: 模式识别 ──► Phase 3: 热点溯源
     │                      │                      │
     ▼                      ▼                      ▼
-check-cpu-bottleneck   cluster-symbols        get-hotspots
-show-cpu-usage         cluster-paths          find-callers
-analyze-core-distribution count-process-variety
+analyze-core-distribution  cluster-symbols        get-hotspots
+                           cluster-paths          find-callers
+                           count-process-variety
 ```
 
 **核心问题**：所谓的"分层"只是线性流水线的包装，缺乏层次间的递进关系。
@@ -30,9 +30,7 @@ Phase 1 "资源定界"仅关注 CPU 维度：
 
 | 检查项 | 覆盖范围 | 缺失维度 |
 |--------|----------|----------|
-| `check-cpu-bottleneck` | CPU 限制/饱和 | 内存瓶颈、IO 阻塞 |
-| `show-cpu-usage` | user/kernel 分解 | 调度延迟、上下文切换 |
-| `analyze-core-distribution` | 核心负载分布 | NUMA 影响、缓存亲和性 |
+| `analyze-core-distribution` | CPU 限制/饱和、user/kernel 分解、核心负载分布 | 内存瓶颈、IO 阻塞、调度延迟、NUMA 影响、缓存亲和性 |
 
 **后果**：如果在 Phase 1 未发现 CPU 异常，诊断路径即中断，无法自动扩展到其他资源维度。
 
@@ -347,8 +345,8 @@ Level 3-4: 组件/代码层 ─┘ (Bottom-Up 验证)
 
 | Top-Down 假设 | Bottom-Up 证据 | 一致性判断 |
 |--------------|----------------|-----------|
-| H1: CPU 瓶颈主导 | `show-cpu-usage` user%+sys% > 80% | ✓ 支持 |
-| H2: IO 瓶颈主导 | `show-cpu-usage` iowait% > 20% | ? 待确认 |
+| H1: CPU 瓶颈主导 | `analyze-core-distribution` user%+sys% > 80% | ✓ 支持 |
+| H2: IO 瓶颈主导 | `analyze-core-distribution` iowait% > 20% | ? 待确认 |
 | H3: Mem 瓶颈主导 | `cluster-symbols` MEM_RECLAIM 高 | ✗ 不支持 |
 
 **决策**: 如果 H1 有 ≥2 个证据支持，H2/H3 证据不足，则进入 L2 CPU 分析。
@@ -404,8 +402,7 @@ Level 3-4: 组件/代码层 ─┘ (Bottom-Up 验证)
 
 | 工具 | 当前定位 | 方法论定位 | 层次贡献 |
 |------|----------|-----------|----------|
-| `check-cpu-bottleneck` | Phase 1 | L2 Resource 定界 | 确认 CPU 是否为瓶颈 |
-| `show-cpu-usage` | Phase 1 | L2 Resource 分析 | 资源利用率分解 |
+| `analyze-core-distribution` | Phase 1 | L2 Resource 分析 | CPU 利用率分解、单核饱和检测 |
 | `detect-anomalies` | Phase 2 | L0-L1 时序分析 | 现象层特征提取 |
 | `get-process-top` | Phase 2 | L2-L3 组件识别 | 进程级资源归属 |
 | `get-comm-top` | Phase 2 | L2-L3 组件识别 | 服务级聚合 |
@@ -424,8 +421,7 @@ Level 3-4: 组件/代码层 ─┘ (Bottom-Up 验证)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 # 维度1: 系统资源 (L2 预检查)
-shecr check-cpu-bottleneck --data perf.data &
-shecr show-cpu-usage --data perf.data &
+shecr analyze-core-distribution --data perf.data &
 
 # 维度2: 时序特征 (L0 分析)
 shecr detect-anomalies --data perf.data &
@@ -440,14 +436,10 @@ wait
 # L2: 资源瓶颈深入 (如果 CP-1-1 确认是 CPU 主导)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# 维度1: 利用率分解
-shecr show-cpu-usage --data perf.data &
-
-# 维度2: 核心分布 (均衡性)
+# 维度1: 利用率分解 + 核心分布
 shecr analyze-core-distribution --data perf.data &
 
-# 维度3: 进程归属
-shecr get-process-top --data perf.data &
+# 维度2: 进程归属
 shecr get-comm-top --data perf.data &
 
 wait

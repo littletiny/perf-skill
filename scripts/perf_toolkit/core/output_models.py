@@ -486,7 +486,7 @@ class BottleneckOutput(BaseOutput):
 
 @dataclass
 class CPUUsageOutput(BaseOutput):
-    """show-cpu-usage 输出结构"""
+    """CPU使用率输出结构（遗留，功能已合并至 analyze-core-distribution）"""
     data: CPUUsageData = field(default_factory=dict)
 
     def __init__(self, _risk: RiskInfo, data: CPUUsageData,

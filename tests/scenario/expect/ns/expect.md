@@ -23,7 +23,7 @@
 
 | 假设路径 | 机制评估 | 预期指纹 | 验证结果 | 状态 |
 |---------|---------|---------|---------|------|
-| **主动消耗**: MySQL自身计算密集型负载 | **机制**: SQL查询复杂度高<br>**副作用**: 用户态CPU高，mysqld进程热点在查询执行 | `show-cpu-usage`: user%高<br>`get-hotspots`: MySQL相关函数高 | MySQL进程未进入TOP消耗，user%=48.5%, kernel%=51.5% | ❌ 证伪 |
+| **主动消耗**: MySQL自身计算密集型负载 | **机制**: SQL查询复杂度高<br>**副作用**: 用户态CPU高，mysqld进程热点在查询执行 | `analyze-core-distribution`: user%高<br>`get-hotspots`: MySQL相关函数高 | MySQL进程未进入TOP消耗，user%=48.5%, kernel%=51.5% | ❌ 证伪 |
 | **主动消耗**: 系统级进程风暴 | **机制**: 短生命周期进程频繁创建销毁，系统调用开销激增<br>**副作用**: 内核态消耗高，大量不同PID | `count-process-variety`: PROCESS_STORM检测<br>`cluster-comm`: 同类进程聚合消耗高 | netstat: 2623 PIDs, CPU/PID=0.056, storm_detected=true<br>netstat总消耗244%，内核态94.7% | ✅ 确认 |
 | **被动压制**: 内核锁竞争 (netstat相关) | **机制**: 并发访问/proc/net/tcp触发tcp_hashinfo锁竞争<br>**副作用**: established_get_first和_raw_spin_lock_bh占比高 | `cluster-symbols`: LOCK_CONTENTION>10%<br>`find-callers`: 指向seq_read/proc_reg_read | LOCK_CONTENTION=14.43%(系统级), 38.36%(netstat)<br>调用链确认来自/proc/net/tcp读取 | ✅ 确认 |
 | **被动压制**: cgroup文件系统锁竞争 (containerd-shim相关) | **机制**: 高频访问cgroup/kernfs触发mutex锁竞争<br>**副作用**: osq_lock和kernfs函数占比高 | `cluster-symbols`(containerd-shim): LOCK_CONTENTION>50%<br>`find-callers`: kernfs相关调用链 | LOCK_CONTENTION=79.84%(containerd-shim)<br>osq_lock=63.06%, 调用链指向kernfs_iop_permission | ✅ 确认 |
@@ -245,7 +245,7 @@ python3 $SKILL_DIR/scripts/shecr cluster-symbols --data perf.script.fixed --pid 
 # 预期: EVENT_LOCK_CONTENTION<20%
 
 # 验证3: 整体CPU利用率下降
-python3 $SKILL_DIR/scripts/shecr show-cpu-usage --data perf.script.fixed
+python3 $SKILL_DIR/scripts/shecr sys-audit --data perf.script.fixed
 # 预期: 总CPU<500%，内核态比例<30%
 
 # 验证4: 系统级锁竞争消除
@@ -268,7 +268,7 @@ python3 $SKILL_DIR/scripts/shecr cluster-symbols --data perf.script.fixed
 }
 ```
 
-**show-cpu-usage:**
+**sys-audit:**
 ```json
 {
   "cpu_utilization": {

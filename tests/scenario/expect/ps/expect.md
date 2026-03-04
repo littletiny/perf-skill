@@ -14,7 +14,7 @@
 | 版本 | 问题描述 | 关键证据引用 (工具/数据) |
 |------|----------|------------------------|
 | V1 | PID 2573405 CPU使用率上不去 | 用户反馈 |
-| V2 | 进程仅使用1.45核，系统整体使用9核 | `show-cpu-usage --pid 2573405`: 145.2%, 系统: 903.71% (EXCELLENT) |
+| V2 | 进程仅使用1.45核，系统整体使用9核 | `get-comm-top --pid 2573405`: 145.2%, 系统: 903.71% (EXCELLENT) |
 | V3 | **发现严重单核瓶颈**: CPU 62满载99.6%，其他126核几乎空闲 | `analyze-core-distribution --pid 2573405`: imbalance_level=CRITICAL, imbalance_ratio=87.09 |
 | V4 | 确认瓶颈为模型参数更新路径，存在串行化热点 | `get-hotspots`: AdamOptimizer::Optimize占15.24%(inclusive), 集中在CPU 62 |
 
@@ -24,7 +24,7 @@
 
 | 假设路径 | 机制评估 | 预期指纹 | 验证结果 | 状态 |
 |---------|---------|---------|---------|------|
-| **主动消耗**: 业务代码计算密集型 | **机制**: 用户态CPU占用主导<br>**副作用**: 内核态比例<30%，热点为业务函数 | `show-cpu-usage --pid 2573405`: user% 高 | user%=约68.5%, 业务函数AdamOptimizer::Optimize占主导 | ⚠️ 部分匹配 |
+| **主动消耗**: 业务代码计算密集型 | **机制**: 用户态CPU占用主导<br>**副作用**: 内核态比例<30%，热点为业务函数 | `get-comm-top --pid 2573405`: user% 高 | user%=约68.5%, 业务函数AdamOptimizer::Optimize占主导 | ⚠️ 部分匹配 |
 | **被动压制**: Cgroup CPU限流 | **机制**: throttling触发调度延迟<br>**副作用**: check-cpu-bottleneck报告CPU_LIMIT_SATURATION | `check-cpu-bottleneck`: verdict=CPU_LIMIT_SATURATION | verdict=SINGLE_CORE_SATURATION, cpu_limit_detected=false | ❌ 证伪 |
 | **被动压制**: 调度器问题(主动休眠过多) | **机制**: 应用主动sleep/wait<br>**副作用**: schedule/nanosleep/epoll_wait高 | `cluster-symbols --pid 2573405`: EVENT_SCHEDULER高 | EVENT_SCHEDULER=0.28%(正常), finish_task_switch中86.96%来自nanosleep(正常业务行为) | ❌ 证伪 |
 | **被动压制**: 锁竞争串行化 | **机制**: 粗粒度锁导致串行执行<br>**副作用**: 锁函数占比高，负载不均衡 | `cluster-symbols --pid 2573405`: EVENT_LOCK_CONTENTION高 | EVENT_LOCK_CONTENTION=2.91%(中等), 单核饱和更严重 | ⚠️ 次要因素 |
@@ -36,7 +36,7 @@
 
 ### 记录 1: 宏观资源评估
 
-- **工具**: `show-cpu-usage --pid 2573405`
+- **工具**: `get-comm-top --pid 2573405`
 - **关键输出**:
   ```json
   {
@@ -161,7 +161,7 @@
   - ✅ 内核态占比31.5%: 包含网络栈和内存管理开销，正常
 
 - [x] **证据链是否闭环？**
-  - ✅ 宏观评估(show-cpu-usage) → 核心分布(analyze-core-distribution) → 热点识别(get-hotspots) → 调用溯源(find-callers) → 语义聚类(cluster-symbols)
+  - ✅ 宏观评估(get-comm-top) → 核心分布(analyze-core-distribution) → 热点识别(get-hotspots) → 调用溯源(find-callers) → 语义聚类(cluster-paths)
   - ✅ 各工具结论相互印证：单核饱和是主要瓶颈
 
 - [x] **是否存在无法解释的孤证？**
@@ -226,7 +226,7 @@ python3 $SKILL_DIR/scripts/shecr analyze-core-distribution \
 # 预期: imbalance_level从CRITICAL降至LOW/MEDIUM，多核利用率均衡
 
 # 验证总CPU利用率提升
-python3 $SKILL_DIR/scripts/shecr show-cpu-usage \
+python3 $SKILL_DIR/scripts/shecr get-comm-top \
     --data perf.script.optimized --pid 2573405
 # 预期: total_pct从145%提升到800%+(按8核并行)
 
