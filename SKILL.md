@@ -89,7 +89,12 @@ shecr status
 | 模式级 | `cluster-paths` | 调用模式、业务语义 |
 
 ### H - Hypothesis（假设驱动）
-**三候选准则（强制执行）**：任何分析必须同时维护 ≥3 条竞争性假设，延迟收敛
+**Catastrophe requires multiple failures – single point failures are not enough.**
+**Catastrophe requires multiple failures – single point failures are not enough.**
+**Catastrophe requires multiple failures – single point failures are not enough.**
+**最少分析3个可能性**: 必须分析最少3个可能性，没有single point
+**最少分析3个可能性**: 必须分析最少3个可能性，没有single point
+**最少分析3个可能性**: 必须分析最少3个可能性，没有single point
 
 | 维度 | 示例假设 | 验证方式 |
 |------|---------|---------|
@@ -149,7 +154,7 @@ shecr trace init --data perf.data
 
 # H - Hypothesis: 执行分析，维护 ≥3 条假设
 shecr sys-audit           # 系统级假设验证
-shecr bottleneck-trace    # 深度假设追踪
+shecr bottleneck-trace [--pid <pid>]  # 深度假设追踪
 
 # E - Evidence: 自动/手动记录 issues（基于证据）
 shecr trace add --desc "<X0> 锁竞争证据..." --level critical

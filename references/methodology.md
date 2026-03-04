@@ -23,10 +23,7 @@ symptom                          → 推荐入口命令
 不知道从何入手                    → sys-audit
 单进程/进程组 CPU 异常             → bottleneck-trace --comm <name>
 突发性能下降/异常窗口              → detect-anomalies
-大量小进程/疑似进程风暴            → get-comm-top（关注 CV、Spawn Rate）
-单核满载/负载不均衡                → analyze-core-distribution
 已知热点函数，需调用链             → find-callers --target <func>
-需业务语义聚类/模式识别            → cluster-paths
 ```
 
 ### 1.1 综合诊断入口
@@ -51,7 +48,6 @@ shecr bottleneck-trace --comm <瓶颈进程名>
 |------|------|------|---------|
 | **CV** (变异系数) | 组内 PID 负载离散程度 | >1.0 异常 | 识别离群进程，组内负载不均 |
 | **Monopoly** | 核心独占率 | >0.8 高危 | 单点瓶颈，可能引发调度延迟 |
-| **Spawn Rate** | 进程产生速率 | >10/s 风暴 | 短生命周期进程风暴，资源浪费 |
 | **Impact Score** | 危害指数 | 降序排列 | 综合评估，高分优先关注 |
 
 ### 2.2 System 层指标（analyze-core-distribution）
@@ -221,88 +217,6 @@ app_worker      12%     10       ← 平庸...
 | 单进程 CPU 异常高 | 对比：是否符合其角色定位 | `get-hotspots --pid <pid>` |
 | 系统 CPU 高但无明显高耗进程 | 检查：大量小进程集体消耗 | `get-comm-top` |
 | 疑似内核瓶颈 | 检查：全局锁、中断、调度器 | `get-hotspots` / `cluster-paths` |
-
----
-
-## 附录 A：典型分析模式
-
-### 模式 A：单进程 CPU 高
-
-**场景**：用户明确反馈"某个 PID 的 CPU 异常高"
-**关键**：直接针对目标 PID 深度追踪，一步到位定位瓶颈
-
-```bash
-# 直接对目标 PID 进行深度分析
-shecr bottleneck-trace --pid <PID>
-```
-
-**输出解读**：
-- `[ENTITY_DISTRIBUTION_MATRIX]` - 该 PID 的核心分布特征
-- `[CONVERGENCE_TRACE]` - 热点函数及调用链聚合
-- `[CORRELATION_FLAGS]` - 自动标记的系统性问题（如锁竞争、单核饱和）
-
-### 模式 B：系统整体缓慢
-
-**场景**：整个系统响应慢，无明确目标
-
-```bash
-# Step 1: 系统全景扫描
-shecr sys-audit
-
-# Step 2: 根据输出选择方向
-# - 发现 Monopoly 高危 → bottleneck-trace
-# - 发现异常窗口 → detect-anomalies 提取时段深入
-# - 发现进程风暴 → get-comm-top 看 Spawn Rate
-```
-
-### 模式 C：进程风暴
-
-**场景**：疑似短生命周期进程大量创建
-
-```bash
-# Step 1: 检测风暴
-shecr get-comm-top
-# 关注: Spawn Rate 列，>10/s 为风暴
-
-# Step 2: 溯源父进程
-shecr find-callers --target fork --comm <storm-comm>
-
-# Step 3: 分析触发源
-shecr cluster-paths --comm <storm-comm>
-```
-
-### 模式 D：负载不均衡
-
-**场景**：`analyze-core-distribution` 显示 `imbalance_level=HIGH/CRITICAL`
-
-```bash
-# Step 1: 确认单核瓶颈
-shecr analyze-core-distribution --comm <name>
-
-# Step 2: 分析原因
-# sleeping 多 → 主动休眠问题
-# active 多 → 锁竞争问题
-
-# Step 3: 定向溯源
-shecr find-callers --target <调度函数或锁函数> --comm <name>
-```
-
-### 模式 E：高内核态分析
-
-**场景**：kernel% 占比高
-
-```bash
-# Step 1: 内核热点识别
-shecr get-hotspots --comm <name>
-# 关注: 内核空间热点函数
-
-# Step 2: 语义聚类
-shecr cluster-paths --comm <name>
-# 关注: Scheduling/Lock/Memory 相关模式
-
-# Step 3: 溯源
-shecr find-callers --target <内核热点函数> --comm <name>
-```
 
 ---
 

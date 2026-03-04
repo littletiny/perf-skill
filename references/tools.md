@@ -91,13 +91,13 @@ shecr detect-anomalies [options]
 
 ### get-comm-top
 
-进程组资源分析。识别离群进程和进程风暴。
+进程组资源分析。识别离群进程
 
 ```bash
 shecr get-comm-top [options]
 ```
 
-**特有参数**: `--show-all` (显示全部), `--cv-threshold` (CV异常阈值), `--monopoly-threshold` (核心独占阈值), `--spawn-threshold` (风暴检测阈值)  
+**特有参数**: `--show-all` (显示全部), `--cv-threshold` (CV异常阈值), `--monopoly-threshold` (核心独占阈值)
 **诊断标签**: `HEALTHY`, `UNBALANCED`, `BOTTLENECK`, `STORM`
 
 ---
