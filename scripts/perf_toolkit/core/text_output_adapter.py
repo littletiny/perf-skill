@@ -351,13 +351,55 @@ class CustomTemplate(Template):
 
     def _render_bottleneck_trace(self, data: Any) -> List[str]:
         """
-        渲染 bottleneck-trace 精简输出 - 仅 GLOBAL 完整调用链
+        渲染 bottleneck-trace 输出 - 包含资源利用率和双向调用链
         """
         data_dict = asdict(data) if is_dataclass(data) else data
         lines = []
         
-        # 只保留 BIDIRECTIONAL_VIEW (GLOBAL 完整路径)
+        # [RESOURCE_UTILIZATION] - 被诊断进程/进程组资源利用率
+        lines.extend(self._build_resource_utilization_section(data_dict))
+        
+        # [BIDIRECTIONAL_VIEW] - 双向调用链视图
         lines.extend(self._build_bidirectional_view_section(data_dict))
+        
+        return lines
+
+    def _build_resource_utilization_section(self, data: Dict) -> List[str]:
+        """构建 [RESOURCE_UTILIZATION] 段 - 展示被诊断进程/进程组的资源利用率"""
+        lines = []
+        
+        resource_util = data.get('target_resource_util')
+        if resource_util:
+            lines.append("## [RESOURCE_UTILIZATION]")
+            lines.append("")
+            
+            comm = resource_util.get('comm', 'N/A')
+            total_cpu = resource_util.get('total_cpu', 0.0)
+            kernel_cpu = resource_util.get('kernel_cpu', 0.0)
+            user_cpu = resource_util.get('user_cpu', 0.0)
+            kernel_ratio = resource_util.get('kernel_ratio', 0.0)
+            monopoly = resource_util.get('monopoly', 0.0)
+            cv = resource_util.get('cv', 0.0)
+            impact_score = resource_util.get('impact_score', 0.0)
+            diagnosis = resource_util.get('diagnosis', 'N/A')
+            
+            lines.append(f"Target: `{comm}`")
+            lines.append("")
+            lines.append(f"  Total CPU:   {total_cpu:.2f}%")
+            lines.append(f"  Kernel:      {kernel_cpu:.2f}% ({kernel_ratio:.1f}%)")
+            lines.append(f"  User:        {user_cpu:.2f}%")
+            
+            # Monopoly 警告标记 (>0.8 单核饱和)
+            monopoly_warning = " ⚠️ 单核饱和" if monopoly > 0.8 else ""
+            lines.append(f"  Monopoly:    {monopoly:.2f} (threshold=0.8){monopoly_warning}")
+            
+            # Coefficient of Variation 警告标记 (>1.0 分布不均)
+            cv_warning = " ⚠️ 分布不均" if cv > 1.0 else ""
+            lines.append(f"  Coefficient_of_Variation: {cv:.2f} (threshold=1.0){cv_warning}")
+            
+            lines.append(f"  Impact:      {impact_score:.1f}")
+            lines.append(f"  Diagnosis:   {diagnosis}")
+            lines.append("")
         
         return lines
 
@@ -590,12 +632,12 @@ class CustomTemplate(Template):
             for i, (item, score) in enumerate(filtered[:TOP_N_DISPLAY], 1):
                 comm = item.get('comm', 'N/A')
                 total, kernel = item.get('total_cpu', 0), item.get('kernel_cpu', 0)
-                pids, diagnosis = item.get('pid_count', 0), item.get('diagnosis', '')
+                diagnosis = item.get('diagnosis', '')
                 monopoly, spawn_rate = item.get('monopoly', 0), item.get('spawn_rate', 0)
                 attention = _get_attention_flag(diagnosis, monopoly, spawn_rate)
                 attention_str = f"{attention}" if attention else ""
                 diag_str = f" [{diagnosis}]" if diagnosis else ""
-                lines.append(f"  {i:2d}. {attention_str:<4} {comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) pids: {pids:4d} score: {score:.1f}{diag_str}")
+                lines.append(f"  {i:2d}. {attention_str:<4} {comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) score: {score:.1f}{diag_str}")
             lines.append("")
             lines.append(f"  共显示 {min(TOP_N_DISPLAY, len(filtered))} / {len(filtered)} 个进程")
             lines.append(f"  未显示进程 CPU: {hidden_cpu:.2f}% / {total_all_cpu:.2f}%")

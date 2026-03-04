@@ -628,10 +628,28 @@ class CorrelationFlag:
 
 
 @dataclass
+class ResourceUtilization:
+    """资源利用率数据 - 用于 bottleneck-trace 展示被诊断进程/进程组 [RESOURCE_UTILIZATION]"""
+    comm: str                    # 进程组名称
+    pid_count: int               # PID 数量
+    total_cpu: float             # 总 CPU 利用率 (%)
+    kernel_cpu: float            # 内核态 CPU (%)
+    user_cpu: float              # 用户态 CPU (%)
+    kernel_ratio: float          # 内核态占比 (%)
+    monopoly: float              # 核心独占率 (0-1)
+    cv: float                    # 变异系数
+    impact_score: float          # 危害指数
+    diagnosis: str               # 诊断类型
+
+
+@dataclass
 class BottleneckTraceResult:
     """bottleneck-trace 完整四段式输出结果"""
     # 风险信息（置顶）
     _risk: RiskInfo
+    
+    # [RESOURCE_UTILIZATION] - 被诊断进程/进程组资源利用率
+    target_resource_util: Optional[ResourceUtilization] = None
     
     # [ENTITY_DISTRIBUTION_MATRIX] - 实体分布矩阵
     entity_distribution: List[EntityDistribution] = field(default_factory=list)
@@ -658,6 +676,7 @@ class BottleneckTraceResult:
 
     def __init__(self,
                  _risk: RiskInfo,
+                 target_resource_util: Optional[ResourceUtilization] = None,
                  entity_distribution: Optional[List[EntityDistribution]] = None,
                  common_hotspot: str = "",
                  common_hotspot_weight: float = 0.0,
@@ -671,6 +690,7 @@ class BottleneckTraceResult:
                  time_range: Optional[TimeRange] = None,
                  bidirectional_view: str = ""):
         self._risk = _risk
+        self.target_resource_util = target_resource_util
         self.entity_distribution = entity_distribution or []
         self.common_hotspot = common_hotspot
         self.common_hotspot_weight = common_hotspot_weight

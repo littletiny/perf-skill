@@ -30,6 +30,7 @@ from perf_toolkit.core.output_models import (
     EntityDistribution,
     CallPathCluster,
     CorrelationFlag,
+    ResourceUtilization,
 )
 from perf_toolkit.core.bidirectional_view import (
     UpstreamBranch, DownstreamEntry, build_and_render_v2
@@ -113,6 +114,40 @@ def _convert_to_entity_distribution(
         core_affinity=core_affinity,
         throttle_rate=throttle_rate
     )]
+
+
+def _convert_to_resource_utilization(
+    bottleneck: BottleneckAnalysis
+) -> Optional[ResourceUtilization]:
+    """
+    将瓶颈分析结果转换为 ResourceUtilization
+    
+    用于展示被诊断进程/进程组的资源利用率。
+    
+    Args:
+        bottleneck: 瓶颈分析结果
+        
+    Returns:
+        Optional[ResourceUtilization]: 资源利用率数据，未找到瓶颈时返回 None
+    """
+    if not bottleneck.found:
+        return None
+    
+    total_cpu = bottleneck.total_cpu
+    kernel_ratio = bottleneck.kernel_ratio
+    
+    return ResourceUtilization(
+        comm=bottleneck.comm,
+        pid_count=bottleneck.pid_count,
+        total_cpu=total_cpu,
+        kernel_cpu=total_cpu * kernel_ratio / 100.0,
+        user_cpu=total_cpu * (100.0 - kernel_ratio) / 100.0,
+        kernel_ratio=kernel_ratio,
+        monopoly=bottleneck.monopoly,
+        cv=bottleneck.cv,
+        impact_score=bottleneck.impact_score,
+        diagnosis=bottleneck.diagnosis
+    )
 
 
 def _convert_to_call_path_clusters(
@@ -785,9 +820,16 @@ def cmd_bottleneck_trace(
     for clusters in all_clusters_per_comm.values():
         all_clusters.extend(clusters)
     
+    # 构建 ResourceUtilization（取主要瓶颈进程）
+    target_resource_util = None
+    if all_analyses:
+        primary_analysis = max(all_analyses, key=lambda a: a.impact_score)
+        target_resource_util = _convert_to_resource_utilization(primary_analysis)
+    
     # 7. 返回聚合结果
     return BottleneckTraceResult(
         _risk=risk,
+        target_resource_util=target_resource_util,
         entity_distribution=all_entity_distributions,
         common_hotspot=primary_hotspots.top_symbol if primary_hotspots else "",
         common_hotspot_weight=primary_hotspots.hotspots[0].inclusive_percent if primary_hotspots and primary_hotspots.hotspots else 0.0,
