@@ -194,15 +194,32 @@ class PerfExpertEngine:
             # Example: "0x64c4b3(containerd-shim-runc-v2)" or "_IO_getline_info" or "_IO_getline_info+0x1f"
             token = parts[0]
             if '(' in token and token.endswith(')'):
-                # Keep as-is, it's an address or symbol with module embedded
+                # Extract module from "address(module)" format
+                # Example: "0x64c4b3(containerd-shim-runc-v2)" -> sym_str="0x64c4b3(containerd-shim-runc-v2)", module="containerd-shim-runc-v2"
                 sym_str = token
+                module_start = token.find('(')
+                if module_start > 0:
+                    module = token[module_start + 1:-1]  # Extract content between parens
             else:
                 # Pure symbol or symbol+offset (no module)
                 sym_str = Symbol._strip_offset(token)
 
         if sym_str:
             # Create Symbol object - it will automatically detect kernel symbols
-            return Symbol.parse(sym_str, module)
+            symbol = Symbol.parse(sym_str, module)
+            
+            # 如果是未解析符号（如 0x424266），聚合成 unknown_func[module]
+            if self._UNRESOLVED_SYMBOL_PATTERN.match(symbol.normalized_name):
+                if module:
+                    aggregated_name = f"unknown_func[{module}]"
+                    return Symbol(
+                        raw_name=aggregated_name,
+                        normalized_name=aggregated_name,
+                        is_kernel=symbol.is_kernel,
+                        module=module
+                    )
+            
+            return symbol
 
         return None
 
@@ -667,6 +684,9 @@ class PerfExpertEngine:
             )
         return result
 
+    # 未解析符号的正则匹配模式（如 0x424266 或 0x424266(kubelet)）
+    _UNRESOLVED_SYMBOL_PATTERN = re.compile(r'^0x[0-9a-fA-F]+(\([^)]*\))?$')
+    
     def get_symbol_cpu_util(self, samples=None, comm: Optional[str] = None, pid: Optional[int] = None) -> SymbolCPUInfo:
         """
         按符号聚合 CPU 利用率（self 和 inclusive）。

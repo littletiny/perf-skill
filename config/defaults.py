@@ -457,7 +457,7 @@ class CallChainFormat:
     """CallChain 输出格式配置"""
     
     # 分隔符
-    SEPARATOR_TOP_DOWN = " -> "      # 正向: 入口 -> 热点
+    SEPARATOR_TOP_DOWN = " → "      # 正向: 入口 → 热点
     SEPARATOR_BOTTOM_UP = " <- "     # 反向: 热点 <- 入口
     
     # 标记

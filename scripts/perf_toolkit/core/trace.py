@@ -152,7 +152,7 @@ class Trace:
         """
         添加新 issue（自动生成 ID）
         
-        命令指纹去重：如果相同指纹的 open issue 已存在，则不创建新 issue，
+        命令指纹去重：如果相同指纹且相同描述的 open issue 已存在，则不创建新 issue，
         而是在 timeline 中记录为关联风险。
 
         Args:
@@ -164,13 +164,14 @@ class Trace:
         Returns:
             issue_id: 创建的 issue ID，如果去重跳过则返回 None
         """
-        # 检查是否有相同指纹的 open issue
+        # 检查是否有相同指纹和相同描述的 open issue
         fingerprint = getattr(self, '_current_fingerprint', None)
         if fingerprint:
             for existing_id, existing_issue in self.data['issues'].items():
                 if (existing_issue.get('status') == 'open' and
-                    existing_issue.get('command_fingerprint') == fingerprint):
-                    # 存在相同指纹的 open issue，记录为关联风险而非新建
+                    existing_issue.get('command_fingerprint') == fingerprint and
+                    existing_issue.get('desc') == desc):
+                    # 存在相同指纹且相同描述的 open issue，记录为关联风险而非新建
                     self._add_finding_to_current({
                         "type": "risk_duplicate",
                         "level": level,
