@@ -22,6 +22,7 @@ from config.defaults import (
 )
 
 from perf_toolkit.cli.decorators import command
+from perf_toolkit.core.config_loader import get_analysis_thresholds
 from perf_toolkit.core.models import RiskInfo, TimeRange
 from perf_toolkit.core.output_models import (
     SysAuditOutput, SystemFingerprint, ContentionItem,
@@ -165,6 +166,9 @@ def _build_core_distribution(
     core_dist: CoreDistributionReport
 ) -> CoreDistributionData:
     """构建核心分布输出（强类型）"""
+    # 获取分析阈值配置
+    thresholds = get_analysis_thresholds()
+    
     top_saturated = [
         CoreSaturationItem(
             cpu_id=c.cpu_id,
@@ -172,7 +176,7 @@ def _build_core_distribution(
             kernel_util=c.kernel_cpu
         )
         for c in core_dist.core_stats[:5]
-        if c.total_cpu > Thresholds.CPU_UTIL_MEDIUM  # 只显示高负载核心
+        if c.total_cpu > thresholds.cpu_util_medium  # 只显示高负载核心
     ]
     
     return CoreDistributionData(

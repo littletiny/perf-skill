@@ -10,6 +10,7 @@ Data Quality Assessment Module
 import math
 from typing import Tuple, Optional
 from .output_models import DataQualityMetrics
+from .config_loader import get_analysis_thresholds
 
 
 def calculate_wilson_score_interval(successes, total, confidence=0.95):
@@ -49,6 +50,9 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
     Returns: (quality_level, warning_message, DataQualityMetrics)
         quality_level: CRITICAL / WARNING / ACCEPTABLE / GOOD / EXCELLENT
     """
+    # 获取阈值配置
+    thresholds = get_analysis_thresholds()
+    
     if duration <= 0:
         duration = 1.0  # Avoid division by zero
 
@@ -78,10 +82,10 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
 
     # === CRITICAL: No CPU utilization data available ===
     if total_weight is None or utilization_source == "unknown":
-        if duration < 1.0:
+        if duration < thresholds.reliability_min_duration:
             return (
                 "CRITICAL",
-                f"无 CPU 利用率数据且数据覆盖时长过短 ({duration:.1f}s < 1s)，无法评估数据质量。"
+                f"无 CPU 利用率数据且数据覆盖时长过短 ({duration:.1f}s < {thresholds.reliability_min_duration}s)，无法评估数据质量。"
                 f"请确认 perf script 输出格式正确。",
                 metrics
             )
@@ -93,24 +97,25 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
 
     # === CRITICAL: Very short duration (< 2s) ===
     # 数据覆盖时长太短，可能无法捕获完整行为模式
-    if duration < 2.0:
-        if avg_cpu_utilization < 5.0:
+    if duration < thresholds.reliability_short_duration:
+        if avg_cpu_utilization < thresholds.reliability_low_cpu_threshold:
             return (
                 "CRITICAL",
-                f"数据覆盖时长过短 ({duration:.1f}s < 2s) 且 CPU 利用率极低 ({avg_cpu_utilization:.2f}% < 5%)，"
+                f"数据覆盖时长过短 ({duration:.1f}s < {thresholds.reliability_short_duration}s) 且 CPU 利用率极低 ({avg_cpu_utilization:.2f}% < {thresholds.reliability_low_cpu_threshold}%)，"
                 f"目标几乎无活动，无法得出有效结论。",
                 metrics
             )
         else:
             return (
                 "WARNING",
-                f"数据覆盖时长较短 ({duration:.1f}s < 2s)，尽管 CPU 利用率尚可。"
+                f"数据覆盖时长较短 ({duration:.1f}s < {thresholds.reliability_short_duration}s)，尽管 CPU 利用率尚可。"
                 f"可能遗漏长周期行为模式。",
                 metrics
             )
 
     # === CRITICAL: Very low CPU utilization (< 3%) ===
     # Low CPU activity means data may not be representative
+    # 3% 是业务判定极低的绝对阈值，保留硬编码
     if avg_cpu_utilization < 3.0:
         return (
             "CRITICAL",
@@ -120,33 +125,33 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
         )
 
     # === WARNING: Short duration (2-5s) ===
-    if duration < 5.0:
-        if avg_cpu_utilization < 10.0:
+    if duration < thresholds.reliability_medium_duration:
+        if avg_cpu_utilization < thresholds.reliability_medium_cpu_threshold:
             return (
                 "WARNING",
-                f"数据覆盖时长较短 ({duration:.1f}s < 5s) 且 CPU 利用率较低 ({avg_cpu_utilization:.1f}% < 10%)。"
+                f"数据覆盖时长较短 ({duration:.1f}s < {thresholds.reliability_medium_duration}s) 且 CPU 利用率较低 ({avg_cpu_utilization:.1f}% < {thresholds.reliability_medium_cpu_threshold}%)。"
                 f"可能遗漏短时活动，观测百分比误差可能 > ±25%。",
                 metrics
             )
         else:
             return (
                 "ACCEPTABLE",
-                f"数据覆盖时长较短 ({duration:.1f}s < 5s)，但 CPU 利用率尚可 ({avg_cpu_utilization:.1f}%)。"
+                f"数据覆盖时长较短 ({duration:.1f}s < {thresholds.reliability_medium_duration}s)，但 CPU 利用率尚可 ({avg_cpu_utilization:.1f}%)。"
                 f"可用于粗略趋势分析，精确百分比误差约 ±15-20%。",
                 metrics
             )
 
     # === WARNING: Low CPU utilization (3-10%) ===
-    if avg_cpu_utilization < 10.0:
+    if avg_cpu_utilization < thresholds.reliability_medium_cpu_threshold:
         return (
             "WARNING",
-            f"CPU 利用率较低 ({avg_cpu_utilization:.1f}% < 10%)。"
+            f"CPU 利用率较低 ({avg_cpu_utilization:.1f}% < {thresholds.reliability_medium_cpu_threshold}%)。"
             f"可能遗漏短时活动，观测百分比误差可能 > ±20%。",
             metrics
         )
 
     # === ACCEPTABLE: Moderate CPU utilization (10-30%) ===
-    if avg_cpu_utilization < 30.0:
+    if avg_cpu_utilization < thresholds.reliability_high_cpu_threshold:
         return (
             "ACCEPTABLE",
             f"CPU 利用率中等 ({avg_cpu_utilization:.1f}%)。"
@@ -155,6 +160,7 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
         )
 
     # === GOOD: Good CPU utilization (30-60%) ===
+    # 60% 是业务判定 GOOD 区间的上限，保留硬编码
     if avg_cpu_utilization < 60.0:
         return (
             "GOOD",
@@ -165,10 +171,10 @@ def assess_data_quality(duration, cpu_id=None, total_weight=None, record_count=N
 
     # === EXCELLENT: High CPU utilization (> 60%) ===
     if avg_cpu_utilization >= 60.0:
-        if duration < 10.0:
+        if duration < thresholds.reliability_long_duration:
             return (
                 "GOOD",
-                f"CPU 利用率很高 ({avg_cpu_utilization:.1f}%)，但数据覆盖时长 ({duration:.1f}s < 10s) 中等。"
+                f"CPU 利用率很高 ({avg_cpu_utilization:.1f}%)，但数据覆盖时长 ({duration:.1f}s < {thresholds.reliability_long_duration}s) 中等。"
                 f"结论可信，百分比误差约 ±5%。",
                 metrics
             )

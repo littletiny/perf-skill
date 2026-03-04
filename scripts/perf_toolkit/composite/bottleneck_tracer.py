@@ -33,6 +33,7 @@ from scripts.perf_toolkit.composite.bottleneck_trace import (
     BottleneckTracer, BottleneckAnalysis, HotspotsReport, CallersReport
 )
 from config.defaults import DiagnosisType, Thresholds, StringConstants, DiagnosisThresholds
+from perf_toolkit.core.config_loader import get_analysis_thresholds
 
 
 # =============================================================================
@@ -295,10 +296,11 @@ class BottleneckTraceAdapter:
         
         # 判定模式
         # Fixed: 低熵(高度集中), 高垄断度
-        if entropy < 1.0 and monopoly > Thresholds.MONOPOLY_HIGH:
+        thresholds = get_analysis_thresholds()
+        if entropy < thresholds.entropy_fixed_threshold and monopoly > Thresholds.MONOPOLY_HIGH:
             return StringConstants.AFFINITY_FIXED
         # Uniform: 高熵(分布均匀), 低变异系数
-        elif entropy > 1.8 and cv < Thresholds.CV_AFFINITY_UNIFORM:
+        elif entropy > thresholds.entropy_uniform_threshold and cv < thresholds.cv_affinity_uniform:
             return StringConstants.AFFINITY_UNIFORM
         else:
             return StringConstants.AFFINITY_SCATTERED

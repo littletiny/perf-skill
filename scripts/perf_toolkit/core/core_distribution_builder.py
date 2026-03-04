@@ -19,6 +19,7 @@ from dataclasses import dataclass
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from config.defaults import AttentionFlag, ImbalanceLevel, Thresholds
+from .config_loader import get_analysis_thresholds
 
 from ..analysis.models import CoreDistributionResult
 from ..composite.models import CoreDistributionReport, CoreStat
@@ -34,7 +35,13 @@ class CoreDistributionBuildOptions:
     """构建选项"""
     include_details: bool = False  # 是否包含详细信息（饱和核心列表）
     max_cores: int = 10  # 最大返回核心数
-    saturation_threshold: float = 50.0  # 饱和阈值
+    saturation_threshold: float = None  # 饱和阈值，None 表示从配置获取
+    
+    def __post_init__(self):
+        """初始化后处理，设置默认值"""
+        if self.saturation_threshold is None:
+            thresholds = get_analysis_thresholds()
+            self.saturation_threshold = thresholds.core_saturated_threshold
 
 
 class CoreDistributionBuilder:

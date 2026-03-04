@@ -137,5 +137,75 @@
         "sys_high": 50.0
       }
     }
+  },
+
+  "analysis_thresholds": {
+    "_comment": "分析阈值配置 - 所有分析模块使用的阈值",
+    "_description": "这些阈值用于控制各种分析算法的敏感度",
+    
+    "monopoly": {
+      "high": 0.8,
+      "critical": 0.9
+    },
+    
+    "cv": {
+      "unbalanced": 1.0,
+      "high": 2.0,
+      "affinity_uniform": 0.5,
+      "unbalanced_load": 1.5
+    },
+    
+    "cpu_util": {
+      "low": 30.0,
+      "medium": 50.0,
+      "high": 80.0,
+      "critical": 100.0
+    },
+    
+    "kernel_ratio": {
+      "high": 50.0,
+      "critical": 70.0
+    },
+    
+    "core_distribution": {
+      "saturated_threshold": 50.0,
+      "imbalance_critical": 10.0,
+      "imbalance_high": 5.0,
+      "imbalance_medium": 2.0
+    },
+    
+    "storm": {
+      "spawn_rate": 100.0,
+      "severity_high": 50.0,
+      "severity_medium": 20.0,
+      "severity_low": 10.0
+    },
+    
+    "correlation_flags": {
+      "lock_contention_inclusive_pct": 40.0,
+      "throttle_victim_cpu_max": 80.0,
+      "throttle_rate_min": 50.0
+    },
+    
+    "reliability": {
+      "min_duration": 1.0,
+      "short_duration": 2.0,
+      "medium_duration": 5.0,
+      "long_duration": 10.0,
+      "low_cpu_threshold": 5.0,
+      "medium_cpu_threshold": 10.0,
+      "high_cpu_threshold": 30.0
+    },
+    
+    "other": {
+      "z_score_medium": 2.0,
+      "z_score_high": 2.5,
+      "min_sample_count_low": 1000,
+      "min_sample_count_medium": 5000,
+      "entropy_fixed_threshold": 1.0,
+      "entropy_uniform_threshold": 1.8,
+      "aggregated_ratio_threshold": 50.0,
+      "impact_score_saliency_threshold": 0.5
+    }
   }
 }

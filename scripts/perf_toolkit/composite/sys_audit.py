@@ -24,6 +24,7 @@ from typing import Optional, List, Dict, Tuple
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from config.defaults import DiagnosisType
+from perf_toolkit.core.config_loader import get_analysis_thresholds
 
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.risk_aggregator import RiskAggregator, AggregatedRisk
@@ -132,9 +133,10 @@ class SysAuditor:
             mutation_time = anomalies.anomalies[0].timestamp
         
         # 2. 获取核心饱和情况
+        thresholds = get_analysis_thresholds()
         saturated_cores = [
             c.cpu_id for c in core_dist.cores 
-            if c.total_cpu > 80  # 阈值可配置
+            if c.total_cpu > thresholds.cpu_util_high
         ]
         
         # 3. 获取所有进程组（包括被折叠的）
@@ -151,7 +153,7 @@ class SysAuditor:
                     primary = g
                 else:
                     secondary.append(g)
-            elif g.total_cpu > 10 or g.diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
+            elif g.total_cpu > thresholds.cpu_secondary_min or g.diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
                 secondary.append(g)
             else:
                 background.append(g)
@@ -254,6 +256,7 @@ def _synthesize_diagnosis(anomalies: AnomaliesReport,
     secondary: list[ProcessGroup] = []
     background: list[ProcessGroup] = []
     
+    thresholds = get_analysis_thresholds()
     for g in all_groups:
         diagnosis = g.diagnosis
         total_cpu = g.total_cpu
@@ -263,7 +266,7 @@ def _synthesize_diagnosis(anomalies: AnomaliesReport,
                 primary = g
             else:
                 secondary.append(g)
-        elif total_cpu > 10 or diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
+        elif total_cpu > thresholds.cpu_secondary_min or diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
             secondary.append(g)
         else:
             background.append(g)

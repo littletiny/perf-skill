@@ -23,6 +23,7 @@ from config.defaults import (
 )
 
 from perf_toolkit.cli.decorators import command
+from perf_toolkit.core.config_loader import get_analysis_thresholds
 from perf_toolkit.core.models import RiskInfo, TimeRange
 from perf_toolkit.core.output_models import (
     BottleneckTraceResult,
@@ -292,6 +293,9 @@ def _detect_correlation_flags(
     
     comm = bottleneck.comm
     
+    # 获取分析阈值配置
+    thresholds = get_analysis_thresholds()
+    
     # 1. GLOBAL_LOCK_CONTENTION: 全局锁符号 inclusive% > 40%
     if hotspots_report.hotspots:
         for hs in hotspots_report.hotspots:
@@ -299,7 +303,7 @@ def _detect_correlation_flags(
             inclusive_pct = hs.inclusive_percent if hasattr(hs, 'inclusive_percent') else 0
             
             if any(ls in symbol for ls in StringConstants.GLOBAL_LOCK_SYMBOLS) or any(k in symbol.lower() for k in StringConstants.LOCK_KEYWORDS):
-                if inclusive_pct > Thresholds.LOCK_CONTENTION_INCLUSIVE_PCT:
+                if inclusive_pct > thresholds.lock_contention_inclusive_pct:
                     flags.append(CorrelationFlag(
                         flag_type="GLOBAL_LOCK_CONTENTION",
                         target=symbol,
@@ -308,7 +312,7 @@ def _detect_correlation_flags(
                     ))
     
     # 2. SINGLE_CORE_SATURATION: Monopoly > 0.8
-    if bottleneck.monopoly > Thresholds.MONOPOLY_HIGH:
+    if bottleneck.monopoly > thresholds.monopoly_high:
         flags.append(CorrelationFlag(
             flag_type="SINGLE_CORE_SATURATION",
             target=comm,
@@ -317,8 +321,8 @@ def _detect_correlation_flags(
         ))
     
     # 3. THROTTLE_VICTIM: 高 Monopoly 和低 CPU
-    if (bottleneck.monopoly > Thresholds.MONOPOLY_HIGH and 
-        bottleneck.total_cpu < Thresholds.THROTTLE_VICTIM_CPU_MAX):
+    if (bottleneck.monopoly > thresholds.monopoly_high and 
+        bottleneck.total_cpu < thresholds.throttle_victim_cpu_max):
         throttle_rate = 100 - bottleneck.total_cpu
         flags.append(CorrelationFlag(
             flag_type="THROTTLE_VICTIM",
@@ -329,7 +333,7 @@ def _detect_correlation_flags(
     
     # 4. STORM_PATTERN: 进程风暴
     if (bottleneck.diagnosis == DiagnosisType.STORM or 
-        bottleneck.spawn_rate > Thresholds.STORM_SPAWN_RATE):
+        bottleneck.spawn_rate > thresholds.storm_spawn_rate):
         flags.append(CorrelationFlag(
             flag_type="STORM_PATTERN",
             target=comm,
@@ -338,7 +342,7 @@ def _detect_correlation_flags(
         ))
     
     # 5. KERNEL_HEAVY: 内核态占比 > 50%
-    if bottleneck.kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
+    if bottleneck.kernel_ratio > thresholds.kernel_ratio_high:
         flags.append(CorrelationFlag(
             flag_type="KERNEL_HEAVY",
             target=comm,
@@ -347,8 +351,8 @@ def _detect_correlation_flags(
         ))
     
     # 6. UNBALANCED_LOAD: CV > 1.5 且 Monopoly < 0.5
-    if (bottleneck.cv > Thresholds.CV_UNBALANCED_LOAD and 
-        bottleneck.monopoly < Thresholds.MONOPOLY_HIGH):
+    if (bottleneck.cv > thresholds.cv_unbalanced_load and 
+        bottleneck.monopoly < thresholds.monopoly_high):
         flags.append(CorrelationFlag(
             flag_type="UNBALANCED_LOAD",
             target=comm,

@@ -24,6 +24,7 @@ from config.defaults import ImbalanceLevel, Thresholds
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
 from ..core.models import RiskInfo
+from ..core.config_loader import get_analysis_thresholds
 from .models import CoreStat, CoreDistributionResult
 
 
@@ -49,12 +50,6 @@ class CoreDistAnalyzer(BaseAnalyzer):
     分析各 CPU 核心的负载分布，识别负载不均衡。
     """
     
-    # 不均衡阈值 - 使用 config.defaults 中的常量
-    IMBALANCE_CRITICAL = Thresholds.IMBALANCE_RATIO_CRITICAL   # 极不均衡
-    IMBALANCE_HIGH = 5.0        # 严重不均衡
-    IMBALANCE_MEDIUM = 2.0      # 中度不均衡
-    SATURATION_THRESHOLD = Thresholds.CORE_SATURATED_THRESHOLD  # 核心饱和阈值
-    
     def analyze(self, samples: List[Sample], top_n: int = 10) -> CoreDistributionResult:
         """
         分析核心级负载分布
@@ -66,6 +61,9 @@ class CoreDistAnalyzer(BaseAnalyzer):
         Returns:
             CoreDistributionResult dataclass
         """
+        # 获取分析阈值配置
+        thresholds = get_analysis_thresholds()
+        
         if not samples:
             return CoreDistributionResult(
                 cores=[],
@@ -101,17 +99,17 @@ class CoreDistAnalyzer(BaseAnalyzer):
             imbalance_ratio = max_util / avg_util if avg_util > 0 else 0
             
             # 分级判断
-            if imbalance_ratio > self.IMBALANCE_CRITICAL and max_util > Thresholds.CPU_UTIL_MEDIUM:
+            if imbalance_ratio > thresholds.imbalance_ratio_critical and max_util > thresholds.cpu_util_medium:
                 imbalance_level = ImbalanceLevel.CRITICAL
-            elif imbalance_ratio > self.IMBALANCE_HIGH:
+            elif imbalance_ratio > thresholds.imbalance_high:
                 imbalance_level = ImbalanceLevel.HIGH
-            elif imbalance_ratio > self.IMBALANCE_MEDIUM:
+            elif imbalance_ratio > thresholds.imbalance_medium:
                 imbalance_level = ImbalanceLevel.MODERATE
             else:
                 imbalance_level = ImbalanceLevel.NORMAL
             
             # 识别饱和核心
-            saturated_cores = [c for c in cores if c.total_cpu > self.SATURATION_THRESHOLD]
+            saturated_cores = [c for c in cores if c.total_cpu > thresholds.core_saturated_threshold]
             
             # 识别 risk
             if imbalance_level == ImbalanceLevel.CRITICAL:

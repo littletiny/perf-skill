@@ -11,6 +11,7 @@ from collections import defaultdict
 import warnings
 
 from perf_toolkit.cli.decorators import command
+from perf_toolkit.core.config_loader import get_analysis_thresholds
 from perf_toolkit.core.output_models import (
     RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput,
     TraceItem, TracesSummary, TracesOutput, TimeRange
@@ -159,13 +160,13 @@ def cmd_trace_attribution(
         max_depth = getattr(args, 'max_depth', 0) or 5
         
         # 检测聚合符号（unknown_func[module]）占比
-        AGGREGATED_RATIO_THRESHOLD = 50.0  # 聚合符号占比阈值
+        thresholds = get_analysis_thresholds()
         aggregated_symbols = [h for h in hotspots_result.hotspots if h.symbol.startswith('unknown_func[')]
         aggregated_ratio = sum(h.self_pct for h in aggregated_symbols)
         
         # 计算有效总权重：当聚合符号占比过高时，扣除聚合符号权重
         # 这样非聚合符号的调用者比例会被放大，更容易被看到
-        if aggregated_ratio > AGGREGATED_RATIO_THRESHOLD:
+        if aggregated_ratio > thresholds.aggregated_ratio_threshold:
             aggregated_weight = sum(h.self_pct / 100.0 * total_weight for h in aggregated_symbols)
             effective_total_weight = total_weight - aggregated_weight
         else:
@@ -285,7 +286,7 @@ def cmd_trace_attribution(
     min_ratio = getattr(args, 'min_ratio', 0.5)
     
     # 检测聚合符号占比，如果过高则调整权重计算
-    AGGREGATED_RATIO_THRESHOLD = 50.0
+    thresholds = get_analysis_thresholds()
     aggregated_weight = 0.0
     for s in samples:
         if s.stack and len(s.stack) > 0:
@@ -294,7 +295,7 @@ def cmd_trace_attribution(
                 aggregated_weight += engine.get_sample_weight(s)
     
     aggregated_ratio = (aggregated_weight / total_weight * 100) if total_weight > 0 else 0
-    if aggregated_ratio > AGGREGATED_RATIO_THRESHOLD:
+    if aggregated_ratio > thresholds.aggregated_ratio_threshold:
         effective_total_weight = total_weight - aggregated_weight
     else:
         effective_total_weight = total_weight

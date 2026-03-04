@@ -14,7 +14,7 @@ from config.defaults import (
     ImbalanceLevel, CompositeDefaults, RiskDisplayDefaults,
     DiagnosisType
 )
-from perf_toolkit.core.config_loader import get_config
+from perf_toolkit.core.config_loader import get_config, get_analysis_thresholds
 from perf_toolkit.core.callchain_formatter import CallChainFormatter
 
 
@@ -41,6 +41,8 @@ def _calc_impact_score(item: Dict[str, Any]) -> float:
     elif diagnosis == DiagnosisType.UNBALANCED:
         base_score = 20
 
+    # 权重系数是业务逻辑设计，保留硬编码
+    # total: 0.5, kernel: 0.8, cv: 10, mono: 5, spawn_rate: 0.5
     return base_score + (total * 0.5 + kernel * 0.8 + cv * 10 + mono * 5 + spawn_rate * 0.5)
 
 
@@ -378,6 +380,9 @@ class CustomTemplate(Template):
         lines.append("## [ENTITY_DISTRIBUTION_MATRIX]")
         lines.append("")
         
+        # 获取阈值配置
+        thresholds = get_analysis_thresholds()
+        
         # 表头
         lines.append("| Comm_Group | Count | Incl_Saliency | Excl_Saliency | Core_Affinity | Throttle_Rate |")
         lines.append("|------------|-------|---------------|---------------|---------------|---------------|")
@@ -387,21 +392,21 @@ class CustomTemplate(Template):
         for entity in entity_distribution:
             incl_saliency = entity.get('incl_saliency', 0)
             excl_saliency = entity.get('excl_saliency', 0)
-            is_bottleneck = incl_saliency > 0.5 or excl_saliency > 0.5
+            is_bottleneck = incl_saliency > thresholds.impact_score_saliency_threshold or excl_saliency > thresholds.impact_score_saliency_threshold
             
             comm = entity.get('comm', 'N/A')
             comm_str = f"**`{comm}`**" if is_bottleneck else f"`{comm}`"
             
             count_str = str(entity.get('count', 0))
             
-            incl_str = f"**{incl_saliency:.2f}**" if (is_bottleneck and incl_saliency > Thresholds.MONOPOLY_HIGH) else f"{incl_saliency:.2f}"
-            excl_str = f"**{excl_saliency:.2f}**" if (is_bottleneck and excl_saliency > Thresholds.MONOPOLY_HIGH) else f"{excl_saliency:.2f}"
+            incl_str = f"**{incl_saliency:.2f}**" if (is_bottleneck and incl_saliency > thresholds.monopoly_high) else f"{incl_saliency:.2f}"
+            excl_str = f"**{excl_saliency:.2f}**" if (is_bottleneck and excl_saliency > thresholds.monopoly_high) else f"{excl_saliency:.2f}"
             
             affinity = entity.get('core_affinity', 'N/A')
             affinity_str = f"**{affinity}**" if is_bottleneck else affinity
             
             throttle_rate = entity.get('throttle_rate', 0)
-            throttle_str = f"**{throttle_rate:.1f}%**" if (is_bottleneck and throttle_rate > Thresholds.THROTTLE_RATE_MIN) else f"{throttle_rate:.1f}%"
+            throttle_str = f"**{throttle_rate:.1f}%**" if (is_bottleneck and throttle_rate > thresholds.throttle_rate_min) else f"{throttle_rate:.1f}%"
             
             row = f"| {comm_str} | {count_str} | {incl_str} | {excl_str} | {affinity_str} | {throttle_str} |"
             lines.append(row)
@@ -530,10 +535,11 @@ class CustomTemplate(Template):
 
     def _assess_data_quality(self, data: Dict) -> str:
         """评估数据质量: good | fair | poor"""
+        thresholds = get_analysis_thresholds()
         sample_count = data.get('sample_count', 0)
-        if sample_count < 1000:
+        if sample_count < thresholds.min_sample_count_low:
             return "poor"
-        elif sample_count < 5000:
+        elif sample_count < thresholds.min_sample_count_medium:
             return "fair"
         else:
             return "good"

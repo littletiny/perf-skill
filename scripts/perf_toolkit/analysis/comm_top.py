@@ -29,7 +29,7 @@ from config.defaults import (
 from .base import BaseAnalyzer
 from ..core.engine_types import Sample
 from ..core.models import RiskInfo
-from ..core.config_loader import get_config
+from ..core.config_loader import get_config, get_analysis_thresholds
 from .models import (
     CommGroup, CommTopResult, StormAnalysisResult, StormGroupDetail
 )
@@ -46,22 +46,6 @@ class CommTopAnalyzer(BaseAnalyzer):
     - Impact Score (危害指数): 综合排序依据
     """
     
-    # 诊断分级阈值 - 使用 config.defaults 中的常量
-    CV_THRESHOLD = Thresholds.CV_UNBALANCED              # CV > 1.0 认为不均衡
-    MONOPOLY_THRESHOLD = Thresholds.MONOPOLY_HIGH        # Monopoly > 0.8 认为单点瓶颈
-    SPAWN_RATE_THRESHOLD = 10.0                          # > 10/s 认为进程风暴
-    
-    # 显著性判断阈值（用于自动降噪）
-    SIGNIFICANT_CPU_THRESHOLD = Thresholds.CPU_UTIL_LOW     # CPU% > 5 认为显著
-    SIGNIFICANT_CV_THRESHOLD = Thresholds.CV_UNBALANCED     # CV > 1.0 认为显著
-    SIGNIFICANT_MONOPOLY_THRESHOLD = Thresholds.MONOPOLY_HIGH  # Monopoly > 0.8 认为显著
-    SIGNIFICANT_SPAWN_RATE_THRESHOLD = 10.0                 # SpawnRate > 10/s 认为显著
-    
-    # Storm 严重程度分级阈值
-    STORM_SEVERITY_CRITICAL = Thresholds.STORM_SPAWN_RATE   # > 100/s 严重
-    STORM_SEVERITY_HIGH = 50.0                              # > 50/s 高
-    STORM_SEVERITY_MEDIUM = 20.0                            # > 20/s 中等
-    
     def analyze(self, samples: List[Sample], top_n: int = 10,
                 include_metrics: bool = False) -> CommTopResult:
         """
@@ -75,6 +59,9 @@ class CommTopAnalyzer(BaseAnalyzer):
         Returns:
             CommTopResult dataclass
         """
+        # 获取分析阈值配置
+        thresholds = get_analysis_thresholds()
+        
         if not samples:
             result = CommTopResult(
                 groups=[],
@@ -252,13 +239,14 @@ class CommTopAnalyzer(BaseAnalyzer):
             HEALTHY: 健康状态
         """
         config = get_config()
+        thresholds = get_analysis_thresholds()
         
         # 基于配置的 BOTTLENECK 判定
         if config.is_bottleneck(comm, total_cpu, kernel_cpu):
             return DiagnosisType.BOTTLENECK
-        elif spawn_rate > self.SPAWN_RATE_THRESHOLD:
+        elif spawn_rate > thresholds.storm_severity_low:
             return DiagnosisType.STORM
-        elif cv > self.CV_THRESHOLD:
+        elif cv > thresholds.cv_unbalanced:
             return DiagnosisType.UNBALANCED
         else:
             return DiagnosisType.HEALTHY
@@ -346,15 +334,17 @@ class CommTopAnalyzer(BaseAnalyzer):
         Returns:
             (display_groups, folded_groups)
         """
+        thresholds = get_analysis_thresholds()
+        
         display: List[CommGroup] = []
         folded: List[CommGroup] = []
         
         for g in groups:
             is_significant = (
-                g.total_cpu > self.SIGNIFICANT_CPU_THRESHOLD or
-                g.cv > self.SIGNIFICANT_CV_THRESHOLD or
-                g.monopoly > self.SIGNIFICANT_MONOPOLY_THRESHOLD or
-                g.spawn_rate > self.SIGNIFICANT_SPAWN_RATE_THRESHOLD
+                g.total_cpu > thresholds.cpu_util_low or
+                g.cv > thresholds.cv_unbalanced or
+                g.monopoly > thresholds.monopoly_high or
+                g.spawn_rate > thresholds.storm_severity_low
             )
             
             if is_significant:
@@ -373,6 +363,8 @@ class CommTopAnalyzer(BaseAnalyzer):
         Returns:
             StormAnalysisResult 或 None（如果没有风暴）
         """
+        thresholds = get_analysis_thresholds()
+        
         storm_groups = [g for g in groups if g.diagnosis == DiagnosisType.STORM]
         
         if not storm_groups:
@@ -389,11 +381,11 @@ class CommTopAnalyzer(BaseAnalyzer):
             
             # 严重程度分级
             severity = "LOW"
-            if group.spawn_rate > self.STORM_SEVERITY_CRITICAL:
+            if group.spawn_rate > thresholds.storm_spawn_rate:
                 severity = "CRITICAL"
-            elif group.spawn_rate > self.STORM_SEVERITY_HIGH:
+            elif group.spawn_rate > thresholds.storm_severity_high:
                 severity = "HIGH"
-            elif group.spawn_rate > self.STORM_SEVERITY_MEDIUM:
+            elif group.spawn_rate > thresholds.storm_severity_medium:
                 severity = "MEDIUM"
             
             # 获取生命周期信息（创建热点分析）
