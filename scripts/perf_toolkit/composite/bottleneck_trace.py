@@ -24,7 +24,7 @@ from typing import Optional, List, Dict, Tuple
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from config.defaults import DiagnosisType, RiskPattern
+from config.defaults import DiagnosisType, RiskPattern, Thresholds
 
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.risk_aggregator import RiskAggregator
@@ -249,7 +249,7 @@ class BottleneckTracer:
         # 生成 risks
         risks = []
         
-        if target_group.monopoly > 0.8:
+        if target_group.monopoly > Thresholds.MONOPOLY_HIGH:
             risks.append(RiskInfo(
                 level="critical",
                 message=f"{comm} 单核饱和 (Monopoly={target_group.monopoly:.2f})",
@@ -259,7 +259,7 @@ class BottleneckTracer:
                 source="bottleneck"
             ))
 
-        if kernel_ratio > 50:
+        if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
             risks.append(RiskInfo(
                 level="warning",
                 message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",
@@ -399,7 +399,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str, pid: Optiona
     # 生成risks
     risks: list[RiskInfo] = []
 
-    if target_group.monopoly > 0.8:
+    if target_group.monopoly > Thresholds.MONOPOLY_HIGH:
         risks.append(RiskInfo(
             level="critical",
             message=f"{comm} 单核饱和 (Monopoly={target_group.monopoly:.2f})",
@@ -409,7 +409,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str, pid: Optiona
             source="bottleneck"
         ))
 
-    if kernel_ratio > 50:
+    if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
         risks.append(RiskInfo(
             level="warning",
             message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",

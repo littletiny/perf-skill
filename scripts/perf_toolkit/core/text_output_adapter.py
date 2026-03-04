@@ -394,14 +394,14 @@ class CustomTemplate(Template):
             
             count_str = str(entity.get('count', 0))
             
-            incl_str = f"**{incl_saliency:.2f}**" if (is_bottleneck and incl_saliency > 0.5) else f"{incl_saliency:.2f}"
-            excl_str = f"**{excl_saliency:.2f}**" if (is_bottleneck and excl_saliency > 0.5) else f"{excl_saliency:.2f}"
+            incl_str = f"**{incl_saliency:.2f}**" if (is_bottleneck and incl_saliency > Thresholds.MONOPOLY_HIGH) else f"{incl_saliency:.2f}"
+            excl_str = f"**{excl_saliency:.2f}**" if (is_bottleneck and excl_saliency > Thresholds.MONOPOLY_HIGH) else f"{excl_saliency:.2f}"
             
             affinity = entity.get('core_affinity', 'N/A')
             affinity_str = f"**{affinity}**" if is_bottleneck else affinity
             
             throttle_rate = entity.get('throttle_rate', 0)
-            throttle_str = f"**{throttle_rate:.1f}%**" if (is_bottleneck and throttle_rate > 50) else f"{throttle_rate:.1f}%"
+            throttle_str = f"**{throttle_rate:.1f}%**" if (is_bottleneck and throttle_rate > Thresholds.THROTTLE_RATE_MIN) else f"{throttle_rate:.1f}%"
             
             row = f"| {comm_str} | {count_str} | {incl_str} | {excl_str} | {affinity_str} | {throttle_str} |"
             lines.append(row)

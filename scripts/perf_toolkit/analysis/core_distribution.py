@@ -101,7 +101,7 @@ class CoreDistAnalyzer(BaseAnalyzer):
             imbalance_ratio = max_util / avg_util if avg_util > 0 else 0
             
             # 分级判断
-            if imbalance_ratio > self.IMBALANCE_CRITICAL and max_util > 50:
+            if imbalance_ratio > self.IMBALANCE_CRITICAL and max_util > Thresholds.CPU_UTIL_MEDIUM:
                 imbalance_level = ImbalanceLevel.CRITICAL
             elif imbalance_ratio > self.IMBALANCE_HIGH:
                 imbalance_level = ImbalanceLevel.HIGH

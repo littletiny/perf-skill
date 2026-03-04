@@ -629,7 +629,7 @@ def cmd_bottleneck_trace(
         risk = _build_risk_info(primary_analysis, all_correlation_flags)
     else:
         # 多个 bottleneck - 创建聚合 risk
-        critical_count = sum(1 for a in all_analyses if a.monopoly > 0.8)
+        critical_count = sum(1 for a in all_analyses if a.monopoly > Thresholds.MONOPOLY_HIGH)
         warning_count = len(all_analyses) - critical_count
         
         comms_list = [a.comm for a in all_analyses]

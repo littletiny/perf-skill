@@ -57,6 +57,11 @@ class CommTopAnalyzer(BaseAnalyzer):
     SIGNIFICANT_MONOPOLY_THRESHOLD = Thresholds.MONOPOLY_HIGH  # Monopoly > 0.8 认为显著
     SIGNIFICANT_SPAWN_RATE_THRESHOLD = 10.0                 # SpawnRate > 10/s 认为显著
     
+    # Storm 严重程度分级阈值
+    STORM_SEVERITY_CRITICAL = Thresholds.STORM_SPAWN_RATE   # > 100/s 严重
+    STORM_SEVERITY_HIGH = 50.0                              # > 50/s 高
+    STORM_SEVERITY_MEDIUM = 20.0                            # > 20/s 中等
+    
     def analyze(self, samples: List[Sample], top_n: int = 10,
                 include_metrics: bool = False) -> CommTopResult:
         """
@@ -384,11 +389,11 @@ class CommTopAnalyzer(BaseAnalyzer):
             
             # 严重程度分级
             severity = "LOW"
-            if group.spawn_rate > 100:
+            if group.spawn_rate > self.STORM_SEVERITY_CRITICAL:
                 severity = "CRITICAL"
-            elif group.spawn_rate > 50:
+            elif group.spawn_rate > self.STORM_SEVERITY_HIGH:
                 severity = "HIGH"
-            elif group.spawn_rate > 20:
+            elif group.spawn_rate > self.STORM_SEVERITY_MEDIUM:
                 severity = "MEDIUM"
             
             # 获取生命周期信息（创建热点分析）

@@ -172,7 +172,7 @@ def _build_core_distribution(
             kernel_util=c.kernel_cpu
         )
         for c in core_dist.core_stats[:5]
-        if c.total_cpu > 50  # 只显示高负载核心
+        if c.total_cpu > Thresholds.CPU_UTIL_MEDIUM  # 只显示高负载核心
     ]
     
     return CoreDistributionData(
