@@ -615,6 +615,7 @@ class CallPathCluster:
     path: List[str]                 # 调用链符号列表
     hotspot: str                    # 汇聚热点符号
     characteristic: str             # 路径特征标签
+    direction: str = "top_down"     # 调用链方向: "top_down" 或 "bottom_up"
 
 
 @dataclass
@@ -651,6 +652,9 @@ class BottleneckTraceResult:
     sample_count: int = 0
     time_range: Optional[TimeRange] = None
     _template_config: Optional[TemplateConfig] = None
+    
+    # [BIDIRECTIONAL_VIEW] - 双向调用链视图
+    bidirectional_view: str = ""  # 渲染后的双向视图文本
 
     def __init__(self,
                  _risk: RiskInfo,
@@ -664,7 +668,8 @@ class BottleneckTraceResult:
                  top_bottlenecks: Optional[List[str]] = None,
                  duration_sec: float = 0.0,
                  sample_count: int = 0,
-                 time_range: Optional[TimeRange] = None):
+                 time_range: Optional[TimeRange] = None,
+                 bidirectional_view: str = ""):
         self._risk = _risk
         self.entity_distribution = entity_distribution or []
         self.common_hotspot = common_hotspot
@@ -677,6 +682,7 @@ class BottleneckTraceResult:
         self.duration_sec = duration_sec
         self.sample_count = sample_count
         self.time_range = time_range
+        self.bidirectional_view = bidirectional_view
         self._template_config = TemplateConfig(
             template_type="custom",
             custom_renderer="bottleneck_trace_renderer"
