@@ -270,6 +270,69 @@ def _build_v2_bidirectional_view(
     )
 
 
+def _build_multi_hotspot_bidirectional_view(
+    comm: str,
+    hotspots_report: HotspotsReport,
+    all_hotspots_callers: Dict[str, Any],
+    keep_top_n: int = 3
+) -> str:
+    """
+    构建多热点的双向视图。
+    
+    类似 find-callers --auto-target 的输出格式，为每个热点显示其调用来源。
+    
+    Args:
+        comm: 进程名
+        hotspots_report: 热点报告
+        all_hotspots_callers: 每个热点的调用者结果 {symbol: CallersResult}
+        keep_top_n: 每个热点保留的调用链数
+        
+    Returns:
+        渲染后的多热点双向视图字符串
+    """
+    lines: List[str] = []
+    lines.append(f"## [BOTTLENECK: {comm}]")
+    lines.append("")
+    lines.append("### [CALLCHAINS] 热点函数调用链")
+    lines.append("")
+    
+    if not hotspots_report.hotspots:
+        lines.append("*(无热点数据)*")
+        return "\n".join(lines)
+    
+    # 遍历所有热点，为每个热点显示调用链
+    for hotspot in hotspots_report.hotspots[:10]:  # 最多显示前10个热点
+        symbol = hotspot.symbol
+        inclusive_pct = getattr(hotspot, 'inclusive_percent', getattr(hotspot, 'cpu_percent', 0))
+        
+        # 显示热点函数头
+        lines.append(f">>> {symbol} ({inclusive_pct:.2f}%)")
+        
+        # 获取该热点的调用者
+        callers_result = all_hotspots_callers.get(symbol)
+        
+        if callers_result and callers_result.callers:
+            # 显示该热点的调用链
+            for i, caller in enumerate(callers_result.callers[:keep_top_n], 1):
+                # caller.symbol 格式是 "sym1 -> sym2 -> sym3"
+                if ' -> ' in caller.symbol:
+                    path = caller.symbol.split(' -> ')
+                else:
+                    path = [caller.symbol]
+                
+                # 计算该调用链的 CPU 利用率贡献
+                call_ratio = caller.call_ratio if caller.call_ratio <= 100 else caller.call_ratio / 100
+                cpu_contrib = inclusive_pct * call_ratio / 100
+                
+                lines.append(f"  #{i} [{cpu_contrib:.2f}%] {' <- '.join(path)}")
+        else:
+            lines.append("  (无调用链数据)")
+        
+        lines.append("")
+    
+    return "\n".join(lines)
+
+
 def _detect_correlation_flags(
     bottleneck: BottleneckAnalysis,
     hotspots_report: HotspotsReport,
@@ -564,12 +627,26 @@ def cmd_bottleneck_trace(
         hs_report = _convert_hotspots_result(hs_result)
         all_hotspots.append(hs_report)
         
-        # 调用链溯源 (Bottom-Up)
+        # 调用链溯源 (Bottom-Up) - 为所有热点获取调用者
+        all_hotspots_callers: Dict[str, Any] = {}
+        if hs_report.hotspots:
+            for hotspot in hs_report.hotspots:
+                # 跳过聚合符号（unknown_func[module]）
+                if hotspot.symbol.startswith('unknown_func['):
+                    continue
+                callers_result = facade.analyze_callers(
+                    samples, 
+                    target_symbol=hotspot.symbol, 
+                    comm=comm, 
+                    pid=target_pid
+                )
+                all_hotspots_callers[hotspot.symbol] = callers_result
+        
+        # 为兼容性，保留第一个有调用者的结果作为 callers_report
         callers_report: Optional[CallersReport] = None
-        if hs_report.top_symbol:
-            callers_result = facade.analyze_callers(samples, target_symbol=hs_report.top_symbol, comm=comm, pid=target_pid)
-            callers_report = _convert_callers_result(callers_result)
-        all_callers.append(callers_report)
+        if hs_report.top_symbol and hs_report.top_symbol in all_hotspots_callers:
+            callers_report = _convert_callers_result(all_hotspots_callers[hs_report.top_symbol])
+        all_callers.append((callers_report, all_hotspots_callers))
         
         # 路径聚类 (Top-Down)
         path_clusters_result: Optional[Any] = None
@@ -681,23 +758,23 @@ def cmd_bottleneck_trace(
         samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
     )
     
-    # 为每个瓶颈进程生成双向视图 (V2)
+    # 为每个瓶颈进程生成双向视图 (V2) - 多热点模式
     bidirectional_views = []
     for idx, comm in enumerate(target_comms):
         if idx >= len(all_hotspots):
             continue
             
         hs_report = all_hotspots[idx]
-        callers_report = all_callers[idx] if idx < len(all_callers) else None
-        path_clusters_result = all_path_clusters[idx] if idx < len(all_path_clusters) else None
+        callers_info = all_callers[idx] if idx < len(all_callers) else (None, {})
+        all_hotspots_callers = callers_info[1] if isinstance(callers_info, tuple) else {}
         
-        if hs_report and hs_report.top_symbol:
-            view = _build_v2_bidirectional_view(
+        if hs_report and hs_report.hotspots:
+            # 使用多热点视图，类似 find-callers --auto-target 的输出
+            view = _build_multi_hotspot_bidirectional_view(
                 comm=comm,
-                hotspot=hs_report.top_symbol,
-                callers_result=callers_report,
-                path_clusters_result=path_clusters_result,
-                keep_top_n=min(top_n, 10)  # 限制最大10条
+                hotspots_report=hs_report,
+                all_hotspots_callers=all_hotspots_callers,
+                keep_top_n=min(top_n, 5)  # 每个热点显示前5个调用链
             )
             bidirectional_views.append(view)
     
