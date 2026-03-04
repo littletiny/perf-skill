@@ -56,8 +56,8 @@ def register_commands(subparsers):
                    help="Sampling frequency in Hz")
     p.add_argument("--comm", type=str, help="Target process name")
     p.add_argument("--pid", type=int, default=None, help="Target process PID (optional)")
-    p.add_argument("--top-n", "--limit", type=int, default=10,
-                   help="Number of top hotspots")
+    p.add_argument("--top-n", "--limit", type=int, default=3,
+                   help="Number of top paths to show in bidirectional view (rest aggregated)")
     p.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p.add_argument("--start-time", type=str, help="Filter samples after this time")
     p.add_argument("--end-time", type=str, help="Filter samples before this time")

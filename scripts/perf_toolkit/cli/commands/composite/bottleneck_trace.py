@@ -9,7 +9,7 @@ bottleneck-trace 命令实现
 
 import sys
 from pathlib import Path
-from typing import Optional, List, Dict, Any, TYPE_CHECKING
+from typing import Optional, List, Dict, Any, Tuple, TYPE_CHECKING
 
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
@@ -30,12 +30,16 @@ from perf_toolkit.core.output_models import (
     CallPathCluster,
     CorrelationFlag,
 )
+from perf_toolkit.core.bidirectional_view_v2 import (
+    UpstreamBranch, DownstreamEntry, build_and_render_v2
+)
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.models import (
     BottleneckAnalysis, HotspotsReport, CallersReport
 )
 from perf_toolkit.composite.bottleneck_trace import (
     _find_bottleneck_comm,
+    _find_all_bottleneck_comms,
     _analyze_bottleneck,
     _convert_hotspots_result,
     _convert_callers_result,
@@ -131,7 +135,7 @@ def _convert_to_call_path_clusters(
     if not hotspots_report.hotspots:
         return clusters
     
-    # 从热点构建聚类
+    # 从热点构建聚类 - Top-Down 方向
     for i, hs in enumerate(hotspots_report.hotspots[:5]):
         # 推断路径特征
         characteristic = StringConstants.CHAR_COMPUTE
@@ -151,12 +155,13 @@ def _convert_to_call_path_clusters(
             cluster_id=f"hotspot_{i}",
             comm=target_comm,
             weight=hs.inclusive_percent if hasattr(hs, 'inclusive_percent') else hs.cpu_percent,
-            path=[target_comm, hs.symbol],
+            path=[target_comm],
             hotspot=hs.symbol,
-            characteristic=characteristic
+            characteristic=characteristic,
+            direction="top_down"
         ))
     
-    # 从调用者补充聚类
+    # 从调用者补充聚类 - Bottom-Up 方向
     if callers_report and callers_report.callers:
         for i, caller in enumerate(callers_report.callers[:3]):
             path = caller.symbol.split(' -> ') if ' -> ' in caller.symbol else [caller.symbol]
@@ -167,12 +172,101 @@ def _convert_to_call_path_clusters(
                 weight=caller.call_ratio if hasattr(caller, 'call_ratio') else 0.0,
                 path=path,
                 hotspot=callers_report.target if hasattr(callers_report, 'target') else "",
-                characteristic=StringConstants.CHAR_COMPUTE
+                characteristic=StringConstants.CHAR_COMPUTE,
+                direction="bottom_up"
             ))
     
     # 按权重排序，返回前8个
     clusters.sort(key=lambda c: c.weight, reverse=True)
     return clusters[:8]
+
+
+def _build_v2_bidirectional_view(
+    comm: str,
+    hotspot: str,
+    callers_result: Optional[Any],
+    path_clusters_result: Optional[Any],
+    keep_top_n: int = 3
+) -> str:
+    """
+    构建 V2 双向视图。
+    
+    从 callers 和 path_clusters 的结果中提取数据，构建三段式双向视图。
+    
+    Args:
+        comm: 进程名
+        hotspot: 热点函数
+        callers_result: analyze_callers 的结果 (CallersResult)
+        path_clusters_result: cluster_paths 的结果 (PathClustersResult)
+        
+    Returns:
+        渲染后的双向视图字符串
+    """
+    # 1. 构建 Upstream Branches (Bottom-Up)
+    upstream_branches: List[UpstreamBranch] = []
+    if callers_result and callers_result.callers:
+        for i, caller in enumerate(callers_result.callers):
+            # caller.symbol 格式可能是 "sym1 -> sym2 -> sym3"
+            if ' -> ' in caller.symbol:
+                path = caller.symbol.split(' -> ')
+            else:
+                path = [caller.symbol]
+            
+            upstream_branches.append(UpstreamBranch(
+                branch_id=chr(ord('A') + i),  # A, B, C...
+                path=path,
+                weight=caller.call_ratio if caller.call_ratio <= 100 else caller.call_ratio / 100,
+                converges_at=None  # 稍后检测
+            ))
+    
+    # 2. 构建 Downstream Entries (Top-Down)
+    downstream_entries: List[DownstreamEntry] = []
+    if path_clusters_result and path_clusters_result.clusters:
+        for i, cluster in enumerate(path_clusters_result.clusters):
+            # cluster.path_signature 格式: "sym1→sym2→sym3"
+            if hasattr(cluster, 'path_signature') and cluster.path_signature:
+                path = cluster.path_signature.split('→')
+            elif hasattr(cluster, 'get_symbols'):
+                path = cluster.get_symbols()
+            else:
+                path = []
+            
+            weight = cluster.weight if cluster.weight <= 100 else cluster.weight / 100
+            
+            downstream_entries.append(DownstreamEntry(
+                entry_id=f"entry{i+1}",
+                path=path,
+                weight=weight
+            ))
+    
+    # 3. 如果没有足够数据，返回提示信息
+    if not upstream_branches and not downstream_entries:
+        return f"*Insufficient data for bidirectional view of {comm}*"
+    
+    if not upstream_branches:
+        # 只有 Top-Down 数据
+        upstream_branches = [UpstreamBranch(
+            branch_id="A",
+            path=[hotspot],
+            weight=100.0
+        )]
+    
+    if not downstream_entries:
+        # 只有 Bottom-Up 数据
+        downstream_entries = [DownstreamEntry(
+            entry_id="entry1",
+            path=[comm],
+            weight=100.0
+        )]
+    
+    # 4. 构建并渲染 V2 视图（keep_top_n 条不聚合，其余聚合）
+    return build_and_render_v2(
+        comm=comm,
+        hotspot=hotspot,
+        upstream_branches=upstream_branches,
+        downstream_entries=downstream_entries,
+        keep_top_n=keep_top_n
+    )
 
 
 def _detect_correlation_flags(
@@ -348,11 +442,13 @@ def cmd_bottleneck_trace(
     
     # ========== Phase 1: 识别瓶颈 ==========
     
+    # 记录用户是否手动指定了 comm
+    user_specified_comm = target_comm is not None
+    
     # 如果指定了 PID 但没有指定 comm，尝试推导 comm
     if target_pid and not target_comm:
         target_comm = _get_comm_by_pid(samples, target_pid)
         if not target_comm:
-            from perf_toolkit.core.output_models import RiskInfo
             risk = RiskInfo(
                 level="error",
                 message=f"无法找到 PID {target_pid} 对应的进程名",
@@ -376,12 +472,12 @@ def cmd_bottleneck_trace(
                     samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
                 )
             )
+        user_specified_comm = True  # 从 PID 推导出的 comm 视为用户指定
     
     # 如果同时指定了 comm 和 pid，验证 pid 是否属于该 comm
     if target_pid and target_comm:
         derived_comm = _get_comm_by_pid(samples, target_pid)
         if derived_comm and derived_comm != target_comm:
-            from perf_toolkit.core.output_models import RiskInfo
             risk = RiskInfo(
                 level="warning",
                 message=f"PID {target_pid} 对应的进程名是 {derived_comm}，与指定的 --comm {target_comm} 不匹配",
@@ -406,10 +502,13 @@ def cmd_bottleneck_trace(
                 )
             )
     
-    if not target_comm:
-        # 自动识别瓶颈进程
-        target_comm = _find_bottleneck_comm(facade, samples)
-        if not target_comm:
+    # 所有待追踪的 bottleneck 进程列表
+    all_bottleneck_comms: List[str] = []
+    
+    if not user_specified_comm:
+        # 自动识别所有瓶颈进程
+        all_bottleneck_comms = _find_all_bottleneck_comms(facade, samples)
+        if not all_bottleneck_comms:
             # 未发现瓶颈
             risk = RiskInfo(
                 level="info",
@@ -434,78 +533,190 @@ def cmd_bottleneck_trace(
                     samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
                 )
             )
+        # 使用所有检测到的 bottleneck 进行分析
+        target_comms = all_bottleneck_comms
+    else:
+        # 用户指定了特定 comm，只分析该进程
+        target_comms = [target_comm]
     
-    # ========== Phase 2: 瓶颈分析 ==========
+    # 存储所有分析结果
+    all_analyses: List[BottleneckAnalysis] = []
+    all_hotspots: List[HotspotsReport] = []
+    all_callers: List[Optional[CallersReport]] = []
+    all_path_clusters: List[Optional[Any]] = []  # PathClustersResult
+    all_entity_distributions: List[EntityDistribution] = []
+    all_clusters_per_comm: Dict[str, List[CallPathCluster]] = {}
+    all_correlation_flags: List[CorrelationFlag] = []
     
-    bottleneck_analysis = _analyze_bottleneck(facade, samples, target_comm)
+    for comm in target_comms:
+        # 分析瓶颈特征
+        analysis = _analyze_bottleneck(facade, samples, comm)
+        if not analysis.found:
+            continue
+        all_analyses.append(analysis)
+        
+        # 热点分析
+        hs_result = facade.analyze_hotspots(samples, comm=comm, pid=target_pid, top_n=top_n)
+        hs_report = _convert_hotspots_result(hs_result)
+        all_hotspots.append(hs_report)
+        
+        # 调用链溯源 (Bottom-Up)
+        callers_report: Optional[CallersReport] = None
+        if hs_report.top_symbol:
+            callers_result = facade.analyze_callers(samples, target_symbol=hs_report.top_symbol, comm=comm, pid=target_pid)
+            callers_report = _convert_callers_result(callers_result)
+        all_callers.append(callers_report)
+        
+        # 路径聚类 (Top-Down)
+        path_clusters_result: Optional[Any] = None
+        if hs_report.top_symbol:
+            path_clusters_result = facade.cluster_paths(
+                samples, 
+                comm=comm, 
+                pid=target_pid,
+                top_n=5,
+                min_depth=2
+            )
+        all_path_clusters.append(path_clusters_result)
+        
+        # 构建 Entity Distribution
+        entity_dist = _convert_to_entity_distribution(analysis, hs_report)
+        all_entity_distributions.extend(entity_dist)
+        
+        # 构建 Call Path Clusters (兼容旧格式)
+        clusters = _convert_to_call_path_clusters(hs_report, callers_report, comm)
+        all_clusters_per_comm[comm] = clusters
+        
+        # 检测 Correlation Flags
+        flags = _detect_correlation_flags(analysis, hs_report, callers_report)
+        all_correlation_flags.extend(flags)
     
-    # ========== Phase 3: 热点分析 ==========
+    # 如果没有找到任何瓶颈
+    if not all_analyses:
+        risk = RiskInfo(
+            level="info",
+            message="未检测到明显瓶颈进程",
+            hint="尝试运行 sys-audit 进行全面分析"
+        )
+        return BottleneckTraceResult(
+            _risk=risk,
+            entity_distribution=[],
+            common_hotspot="",
+            common_hotspot_weight=0.0,
+            clusters=[],
+            correlation_flags=[],
+            total_pids=0,
+            total_sys_cpu=0.0,
+            top_bottlenecks=[],
+            duration_sec=0.0,
+            sample_count=len(samples),
+            time_range=TimeRange.from_timestamps(
+                samples[0].get('ts') if samples and isinstance(samples[0], dict) else None,
+                samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
+            )
+        )
     
-    hotspots_result = facade.analyze_hotspots(samples, comm=target_comm, pid=target_pid, top_n=top_n)
-    hotspots_report = _convert_hotspots_result(hotspots_result)
-
-    # ========== Phase 4: 调用链溯源 ==========
-
-    callers_report: Optional[CallersReport] = None
-    if hotspots_report.top_symbol:
-        callers_result = facade.analyze_callers(samples, target_symbol=hotspots_report.top_symbol, comm=target_comm, pid=target_pid)
-        callers_report = _convert_callers_result(callers_result)
+    # ========== Phase 5: 构建聚合输出结果 ==========
     
-    # ========== Phase 5: 构建四段式输出结果 ==========
+    # 找到主要 bottleneck（按 impact_score 排序）
+    primary_analysis = max(all_analyses, key=lambda a: a.impact_score)
+    primary_idx = all_analyses.index(primary_analysis)
+    primary_hotspots = all_hotspots[primary_idx]
     
-    # 1. 构建 Entity Distribution
-    entity_distribution = _convert_to_entity_distribution(
-        bottleneck_analysis, hotspots_report
-    )
+    # 构建 RiskInfo - 报告所有发现的 bottleneck
+    if len(all_analyses) == 1:
+        # 只有一个 bottleneck
+        risk = _build_risk_info(primary_analysis, all_correlation_flags)
+    else:
+        # 多个 bottleneck - 创建聚合 risk
+        critical_count = sum(1 for a in all_analyses if a.monopoly > 0.8)
+        warning_count = len(all_analyses) - critical_count
+        
+        comms_list = [a.comm for a in all_analyses]
+        risk_level = "critical" if critical_count > 0 else "warning"
+        risk_message = f"发现 {len(all_analyses)} 个性能瓶颈: {', '.join(comms_list[:3])}"
+        if len(comms_list) > 3:
+            risk_message += f" 等"
+        
+        risk = RiskInfo(
+            level=risk_level,
+            message=risk_message,
+            hint=f"已自动追踪所有 {len(all_analyses)} 个瓶颈进程",
+            patterns=["MULTI_BOTTLENECK_DETECTED"],
+            pending_targets=comms_list,
+            source="bottleneck_trace"
+        )
     
-    # 2. 构建 Call Path Clusters
-    clusters = _convert_to_call_path_clusters(
-        hotspots_report, callers_report, target_comm
-    )
+    # 计算总 PIDs 和 Sys CPU
+    total_pids = sum(a.pid_count for a in all_analyses)
+    total_sys_cpu = sum(a.total_cpu for a in all_analyses)
     
-    # 3. 检测 Correlation Flags
-    correlation_flags = _detect_correlation_flags(
-        bottleneck_analysis, hotspots_report, callers_report
-    )
+    # 收集所有 top hotspots
+    all_top_hotspots: List[str] = []
+    for hs_report in all_hotspots:
+        if hs_report.hotspots:
+            all_top_hotspots.extend([hs.symbol for hs in hs_report.hotspots[:2]])
     
-    # 4. 构建 RiskInfo
-    risk = _build_risk_info(bottleneck_analysis, correlation_flags)
+    # 去重并保持顺序
+    seen = set()
+    unique_hotspots = []
+    for h in all_top_hotspots:
+        if h not in seen:
+            seen.add(h)
+            unique_hotspots.append(h)
     
-    # 5. 计算摘要数据
-    top_bottlenecks = [hs.symbol for hs in hotspots_report.hotspots[:3]] if hotspots_report else []
-    
+    # 计算时间范围
     duration_sec = 0.0
     if samples:
         timestamps = [s.get('ts') for s in samples if isinstance(s, dict) and 'ts' in s]
         if timestamps:
             duration_sec = max(timestamps) - min(timestamps)
     
-    # 6. 构建时间范围
     time_range = TimeRange.from_timestamps(
         samples[0].get('ts') if samples and isinstance(samples[0], dict) else None,
         samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
     )
     
-    # 记录到 Trace（如果有严重风险）
-    if risk.level in ["critical", "warning"]:
-        builder.record_risk(
-            risk.level,
-            f"[{target_comm}] {risk.message}",
-            risk.hint
-        )
+    # 为每个瓶颈进程生成双向视图 (V2)
+    bidirectional_views = []
+    for idx, comm in enumerate(target_comms):
+        if idx >= len(all_hotspots):
+            continue
+            
+        hs_report = all_hotspots[idx]
+        callers_report = all_callers[idx] if idx < len(all_callers) else None
+        path_clusters_result = all_path_clusters[idx] if idx < len(all_path_clusters) else None
+        
+        if hs_report and hs_report.top_symbol:
+            view = _build_v2_bidirectional_view(
+                comm=comm,
+                hotspot=hs_report.top_symbol,
+                callers_result=callers_report,
+                path_clusters_result=path_clusters_result,
+                keep_top_n=min(top_n, 10)  # 限制最大10条
+            )
+            bidirectional_views.append(view)
     
-    # 7. 返回四段式结果
+    bidirectional_view = "\n\n---\n\n".join(bidirectional_views)
+    
+    # 收集所有 clusters（保持兼容性）
+    all_clusters: List[CallPathCluster] = []
+    for clusters in all_clusters_per_comm.values():
+        all_clusters.extend(clusters)
+    
+    # 7. 返回聚合结果
     return BottleneckTraceResult(
         _risk=risk,
-        entity_distribution=entity_distribution,
-        common_hotspot=hotspots_report.top_symbol if hotspots_report else "",
-        common_hotspot_weight=hotspots_report.hotspots[0].inclusive_percent if hotspots_report and hotspots_report.hotspots else 0.0,
-        clusters=clusters,
-        correlation_flags=correlation_flags,
-        total_pids=bottleneck_analysis.pid_count if bottleneck_analysis.found else 0,
-        total_sys_cpu=bottleneck_analysis.total_cpu if bottleneck_analysis.found else 0.0,
-        top_bottlenecks=top_bottlenecks,
+        entity_distribution=all_entity_distributions,
+        common_hotspot=primary_hotspots.top_symbol if primary_hotspots else "",
+        common_hotspot_weight=primary_hotspots.hotspots[0].inclusive_percent if primary_hotspots and primary_hotspots.hotspots else 0.0,
+        clusters=all_clusters,
+        correlation_flags=all_correlation_flags,
+        total_pids=total_pids,
+        total_sys_cpu=total_sys_cpu,
+        top_bottlenecks=unique_hotspots[:5],
         duration_sec=duration_sec,
         sample_count=len(samples),
-        time_range=time_range
+        time_range=time_range,
+        bidirectional_view=bidirectional_view
     )

@@ -288,10 +288,28 @@ class BottleneckTracer:
 
 def _find_bottleneck_comm(facade: AnalysisFacade, samples) -> Optional[str]:
     """
-    自动识别瓶颈进程
+    自动识别瓶颈进程（兼容旧接口，返回第一个BOTTLENECK）
     
     策略：通过CommTop获取按危害指数排序的进程组，
     找出第一个BOTTLENECK诊断的进程。
+    """
+    all_bottlenecks = _find_all_bottleneck_comms(facade, samples)
+    return all_bottlenecks[0] if all_bottlenecks else None
+
+
+def _find_all_bottleneck_comms(facade: AnalysisFacade, samples) -> List[str]:
+    """
+    自动识别所有瓶颈进程
+    
+    策略：通过CommTop获取按危害指数排序的进程组，
+    返回所有BOTTLENECK诊断的进程列表。
+    
+    Args:
+        facade: AnalysisFacade 实例
+        samples: 样本数据
+        
+    Returns:
+        List[str]: 所有BOTTLENECK进程的comm列表，按危害指数排序
     """
     from perf_toolkit.analysis.comm_top import CommTopAnalyzer
     
@@ -314,21 +332,19 @@ def _find_bottleneck_comm(facade: AnalysisFacade, samples) -> Optional[str]:
             comm=g["comm"] if isinstance(g, dict) else getattr(g, 'comm', ''),
             total_cpu=g.get("total_cpu", 0.0) if isinstance(g, dict) else getattr(g, 'total_cpu', 0.0),
             diagnosis=g.get("diagnosis", DiagnosisType.HEALTHY) if isinstance(g, dict) else getattr(g, 'diagnosis', DiagnosisType.HEALTHY),
-            monopoly=g.get("monopoly", 0.0) if isinstance(g, dict) else getattr(g, 'monopoly', 0.0)
+            monopoly=g.get("monopoly", 0.0) if isinstance(g, dict) else getattr(g, 'monopoly', 0.0),
+            impact_score=g.get("impact_score", 0.0) if isinstance(g, dict) else getattr(g, 'impact_score', 0.0)
         )
         for g in all_groups_data
     ]
     
-    # 找第一个BOTTLENECK
-    for group in all_groups:
-        if group.diagnosis == DiagnosisType.BOTTLENECK:
-            return group.comm
+    # 按危害指数排序
+    all_groups.sort(key=lambda x: x.impact_score, reverse=True)
     
-    # 如果没有明确的BOTTLENECK，返回危害指数最高的
-    if all_groups:
-        return all_groups[0].comm
+    # 收集所有BOTTLENECK
+    bottlenecks = [g.comm for g in all_groups if g.diagnosis == DiagnosisType.BOTTLENECK]
     
-    return None
+    return bottlenecks
 
 
 def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str, pid: Optional[int] = None) -> BottleneckAnalysis:
