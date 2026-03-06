@@ -263,8 +263,8 @@ class OutputBuilder:
         # 构建错误响应（使用 ErrorData dataclass）
         error_data = ErrorData(
             error="No samples found",
-            message="未找到匹配过滤条件的样本数据",
-            recovery_hint="检查过滤条件或扩大时间范围"
+            message="Not found",
+            recovery_hint="Check configuration"
         )
 
         # 从 config.defaults 导入常量
@@ -273,8 +273,8 @@ class OutputBuilder:
         # 创建风险输出
         risk_info = RiskInfo(
             level=SeverityLevel.MEDIUM.lower(),
-            message="未找到样本数据",
-            hint="[必须] 添加到 Trace: shecr trace add --desc '未找到样本数据' --hint '检查过滤条件'",
+            message="Not found",
+            hint="Check configuration",
             patterns=[RiskPattern.NO_SAMPLES]
         )
 
@@ -327,16 +327,16 @@ class OutputBuilder:
                 # 添加数据质量风险
                 risk_info = RiskInfo(
                     level=SeverityLevel.CRITICAL.lower(),
-                    message="数据质量不足！分析结果完全不可信",
-                    hint="[必须] 添加到 Trace: shecr trace add --desc '数据质量不足！分析结果完全不可信' --hint '使用更长的采样时间重新采集数据'",
+                    message="Data quality insufficient! Results unreliable",
+                    hint="[Required] Add to Trace: shecr trace add --desc 'Data quality insufficient' --hint 'Use longer sampling time'",
                     patterns=[RiskPattern.CRITICAL_DATA_QUALITY]
                 )
 
                 result = self._build_error_result(
                     ErrorData(
                         error="Insufficient data quality for analysis",
-                        message="数据质量不足",
-                        recovery_hint="使用更长的采样时间重新采集数据"
+                        message="Data quality insufficient",
+                        recovery_hint="Use longer sampling time"
                     ),
                     risk_info,
                     data_quality={

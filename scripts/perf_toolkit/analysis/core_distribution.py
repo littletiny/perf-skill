@@ -115,15 +115,15 @@ class CoreDistAnalyzer(BaseAnalyzer):
             if imbalance_level == ImbalanceLevel.CRITICAL:
                 risks.append(self._create_risk(
                     level="critical",
-                    message="负载严重不均衡: 单核满载，其他核心空闲",
-                    hint="使用 sys-audit 进行系统审计",
+                    message="Load severely imbalanced: one core saturated",
+                    hint="Use sys-audit for system audit",
                     patterns=["SINGLE_CORE_SATURATION"]
                 ))
             elif len(saturated_cores) == 1 and len(cores) > 1:
                 risks.append(self._create_risk(
                     level="warning",
-                    message=f"单核满载 (CPU {saturated_cores[0].cpu_id})",
-                    hint="使用 sys-audit 分析负载分布",
+                    message=f"Single-core saturation (CPU {saturated_cores[0].cpu_id})",
+                    hint="Use sys-audit for load distribution analysis",
                     patterns=["SINGLE_CORE_SATURATION"],
                     pending_targets=[f"cpu_{saturated_cores[0].cpu_id}"]
                 ))

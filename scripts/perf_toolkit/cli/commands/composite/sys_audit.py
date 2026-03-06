@@ -262,10 +262,10 @@ def _build_expert_anchors(
             anchors.append(ExpertAnchor(
                 type=ExpertAnchorType.NOISY_NEIGHBOR,
                 target=g.comm,
-                description=f"高频活动进程，可能触发系统级资源竞争",
-                impact="影响其他正常业务进程",
+                description=f"High-frequency process, may trigger resource contention",
+                impact="Impacts other business processes",
                 attention_flag=AttentionFlag.X0,
-                recommendation=f"检查 {g.comm} 的进程创建源头"
+                recommendation=f"Check {g.comm} process spawn source"
             ))
     
     # NOTE: QUOTA_VICTIM 检测已移除
@@ -341,7 +341,7 @@ def cmd_sys_audit(
         primary = diagnosis.primary_suspect
         aggregator.add_risk(RiskInfo(
             level=SeverityLevel.CRITICAL.lower(),
-            message=f"{AttentionFlag.X0} 主要性能瓶颈: {primary.comm}",
+            message=f"{AttentionFlag.X0} Primary bottleneck: {primary.comm}",
             hint=f"{AttentionFlag.XA} bottleneck-trace --comm {primary.comm}",
             patterns=[RiskPattern.PRIMARY_SUSPECT],
             pending_targets=[primary.comm],
@@ -454,13 +454,13 @@ def cmd_sys_audit(
     # 构建建议
     recommendations = []
     if diagnosis.primary_suspect:
-        recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {diagnosis.primary_suspect.comm} 深度分析")
+        recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {diagnosis.primary_suspect.comm}  deep analysis")
     for g in diagnosis.secondary_loads:
         if g.diagnosis == DiagnosisType.BOTTLENECK:
-            recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {g.comm} 深度分析")
+            recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {g.comm}  deep analysis")
         elif g.diagnosis == DiagnosisType.STORM:
-            recommendations.append(f"{AttentionFlag.XA} 检查 {g.comm} 的进程创建源头")
-    recommendations.append(f"{AttentionFlag.XA} trace issues 查看所有待处理 issue")
+            recommendations.append(f"{AttentionFlag.XA} 检查 {g.comm}  process spawn source")
+    recommendations.append(f"{AttentionFlag.XA} trace issues  view all pending issues")
     
     output = SysAuditOutput(
         _risk=risk,

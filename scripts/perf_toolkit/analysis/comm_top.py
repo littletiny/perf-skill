@@ -298,7 +298,7 @@ class CommTopAnalyzer(BaseAnalyzer):
         if group.diagnosis == DiagnosisType.BOTTLENECK:
             return self._create_risk(
                 level="critical",
-                message=f"{group.comm} 达到瓶颈阈值 (CPU={group.total_cpu:.1f}%, Sys={group.kernel_cpu:.1f}%)",
+                message=f"{group.comm} reached bottleneck threshold (CPU={group.total_cpu:.1f}%, Sys={group.kernel_cpu:.1f}%)",
                 hint=f"bottleneck-trace --comm {group.comm}",
                 patterns=[RiskPattern.SINGLE_CORE_SATURATION],
                 pending_targets=[group.comm]
@@ -306,15 +306,15 @@ class CommTopAnalyzer(BaseAnalyzer):
         elif group.diagnosis == DiagnosisType.STORM:
             return self._create_risk(
                 level="warning",
-                message=f"{group.comm} 进程风暴 ({group.spawn_rate:.1f}/s)",
-                hint=f"find-callers --comm {group.comm} 查看创建源头",
+                message=f"{group.comm} process storm ({group.spawn_rate:.1f}/s)",
+                hint=f"find-callers --comm {group.comm} to check spawn source",
                 patterns=[RiskPattern.PROCESS_STORM],
                 pending_targets=[group.comm]
             )
         elif group.diagnosis == DiagnosisType.UNBALANCED:
             return self._create_risk(
                 level="warning",
-                message=f"{group.comm} 负载不均衡 (CV={group.cv:.2f})",
+                message=f"{group.comm} unbalanced load (CV={group.cv:.2f})",
                 hint=f"get-hotspots --comm {group.comm}",
                 patterns=[RiskPattern.UNBALANCED_LOAD],
                 pending_targets=[group.comm]

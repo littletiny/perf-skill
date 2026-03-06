@@ -8,11 +8,12 @@ Symbol Formatter - 统一的符号格式化模块
 - cluster-paths: top-down 风格  
 - bottleneck-trace: 双向视图风格
 
-格式规范：
+格式规范 (AI友好 - 显式标记):
 - 普通符号: sym (无特殊标记)
-- 热点符号: **[sym]**
-- 聚合符号: (sym..)
-- 聚合且热点: **(sym..)**
+- 热点符号: **(hotspot:sym)**
+- 聚合符号: (aggregate:name)
+- 概念/折叠组: (concept:name)
+- 聚合且热点: **(hotspot:aggregate:name)**
 """
 
 from typing import List, Optional, Set
@@ -26,16 +27,20 @@ from dataclasses import dataclass
 class SymbolFormat:
     """符号格式常量"""
     # 热点标记
-    HOTSPOT_PREFIX = "**["
-    HOTSPOT_SUFFIX = "]**"
+    HOTSPOT_PREFIX = "**(hotspot:"
+    HOTSPOT_SUFFIX = ")**"
     
     # 聚合标记
-    AGGREGATED_PREFIX = "("
-    AGGREGATED_SUFFIX = "..)"
+    AGGREGATED_PREFIX = "(aggregate:"
+    AGGREGATED_SUFFIX = ")"
     
-    # 聚合且热点
-    AGG_HOTSPOT_PREFIX = "**("
-    AGG_HOTSPOT_SUFFIX = "..)**"
+    # 概念/折叠组标记
+    CONCEPT_PREFIX = "(concept:"
+    CONCEPT_SUFFIX = ")"
+    
+    # 聚合且热点 (复合标记)
+    AGG_HOTSPOT_PREFIX = "**(hotspot:aggregate:"
+    AGG_HOTSPOT_SUFFIX = ")**"
     
     # 分隔符
     SEP_TOP_DOWN = " → "      # 正向: 入口 → 热点
@@ -54,7 +59,7 @@ class SymbolFormatter:
     """
     
     @staticmethod
-    def format_symbol(symbol: str, is_hotspot: bool = False, is_aggregated: bool = False) -> str:
+    def format_symbol(symbol: str, is_hotspot: bool = False, is_aggregated: bool = False, is_concept: bool = False) -> str:
         """
         格式化单个符号
         
@@ -62,6 +67,7 @@ class SymbolFormatter:
             symbol: 符号名
             is_hotspot: 是否是热点符号
             is_aggregated: 是否是聚合符号
+            is_concept: 是否是概念/折叠组
             
         Returns:
             格式化后的符号字符串
@@ -70,16 +76,25 @@ class SymbolFormatter:
             >>> SymbolFormatter.format_symbol("func", False, False)
             'func'
             >>> SymbolFormatter.format_symbol("func", True, False)
-            '**[func]**'
+            '**(hotspot:func)**'
             >>> SymbolFormatter.format_symbol("module", False, True)
-            '(module..)'
+            '(aggregate:module)'
+            >>> SymbolFormatter.format_symbol("syscall", False, False, True)
+            '(concept:syscall)'
             >>> SymbolFormatter.format_symbol("module", True, True)
-            '**(module..)**'
+            '**(hotspot:aggregate:module)**'
         """
+        # 如果 symbol 本身已经是聚合格式，提取内部名称
+        if symbol.startswith('(aggregate:') and symbol.endswith(')'):
+            symbol = symbol[len('(aggregate:'):-1]
+            is_aggregated = True
+        
         if is_hotspot and is_aggregated:
             return f"{SymbolFormat.AGG_HOTSPOT_PREFIX}{symbol}{SymbolFormat.AGG_HOTSPOT_SUFFIX}"
         elif is_hotspot:
             return f"{SymbolFormat.HOTSPOT_PREFIX}{symbol}{SymbolFormat.HOTSPOT_SUFFIX}"
+        elif is_concept:
+            return f"{SymbolFormat.CONCEPT_PREFIX}{symbol}{SymbolFormat.CONCEPT_SUFFIX}"
         elif is_aggregated:
             return f"{SymbolFormat.AGGREGATED_PREFIX}{symbol}{SymbolFormat.AGGREGATED_SUFFIX}"
         else:
@@ -90,6 +105,7 @@ class SymbolFormatter:
         symbols: List[str],
         hotspots: Optional[Set[str]] = None,
         aggregated: Optional[Set[str]] = None,
+        concepts: Optional[Set[str]] = None,
         direction: str = "bottom_up"
     ) -> str:
         """
@@ -99,6 +115,7 @@ class SymbolFormatter:
             symbols: 符号列表
             hotspots: 热点符号集合
             aggregated: 聚合符号集合
+            concepts: 概念/折叠组集合
             direction: 方向 "bottom_up" (热点 <- 入口) 或 "top_down" (入口 → 热点)
             
         Returns:
@@ -106,12 +123,13 @@ class SymbolFormatter:
             
         Examples:
             >>> SymbolFormatter.format_callchain(["main", "func"], {"func"}, set())
-            '**[func]** <- main'
+            '**(hotspot:func)** <- main'
             >>> SymbolFormatter.format_callchain(["entry", "mod"], set(), {"mod"})
-            'entry → (mod..)'
+            'entry → (aggregate:mod)'
         """
         hotspots = hotspots or set()
         aggregated = aggregated or set()
+        concepts = concepts or set()
         
         separator = SymbolFormat.SEP_BOTTOM_UP if direction == "bottom_up" else SymbolFormat.SEP_TOP_DOWN
         
@@ -119,69 +137,80 @@ class SymbolFormatter:
         for sym in symbols:
             is_hot = sym in hotspots
             is_agg = sym in aggregated
-            formatted_parts.append(SymbolFormatter.format_symbol(sym, is_hot, is_agg))
+            is_con = sym in concepts
+            formatted_parts.append(SymbolFormatter.format_symbol(sym, is_hot, is_agg, is_con))
         
         return separator.join(formatted_parts)
     
     @staticmethod
     def parse_formatted_symbol(formatted: str) -> tuple:
         """
-        解析格式化后的符号，返回 (原始符号, is_hotspot, is_aggregated)
+        解析格式化后的符号，返回 (原始符号, is_hotspot, is_aggregated, is_concept)
         
         Args:
             formatted: 格式化后的符号字符串
             
         Returns:
-            (原始符号, 是否热点, 是否聚合)
+            (原始符号, 是否热点, 是否聚合, 是否概念)
             
         Examples:
-            >>> SymbolFormatter.parse_formatted_symbol("**[func]**")
-            ('func', True, False)
-            >>> SymbolFormatter.parse_formatted_symbol("(module..)")
-            ('module', False, True)
-            >>> SymbolFormatter.parse_formatted_symbol("**(mod..)**")
-            ('mod', True, True)
+            >>> SymbolFormatter.parse_formatted_symbol("**(hotspot:func)**")
+            ('func', True, False, False)
+            >>> SymbolFormatter.parse_formatted_symbol("(aggregate:module)")
+            ('module', False, True, False)
+            >>> SymbolFormatter.parse_formatted_symbol("**(hotspot:aggregate:mod)**")
+            ('mod', True, True, False)
+            >>> SymbolFormatter.parse_formatted_symbol("(concept:syscall)")
+            ('syscall', False, False, True)
             >>> SymbolFormatter.parse_formatted_symbol("func")
-            ('func', False, False)
+            ('func', False, False, False)
         """
-        # 聚合且热点: **(sym..)**
+        # 聚合且热点: **(hotspot:aggregate:name)**
         if formatted.startswith(SymbolFormat.AGG_HOTSPOT_PREFIX) and formatted.endswith(SymbolFormat.AGG_HOTSPOT_SUFFIX):
             inner = formatted[len(SymbolFormat.AGG_HOTSPOT_PREFIX):-len(SymbolFormat.AGG_HOTSPOT_SUFFIX)]
-            if inner.endswith(".."):
-                inner = inner[:-2]
-            return (inner, True, True)
+            return (inner, True, True, False)
         
-        # 热点: **[sym]**
+        # 热点: **(hotspot:name)**
         if formatted.startswith(SymbolFormat.HOTSPOT_PREFIX) and formatted.endswith(SymbolFormat.HOTSPOT_SUFFIX):
             inner = formatted[len(SymbolFormat.HOTSPOT_PREFIX):-len(SymbolFormat.HOTSPOT_SUFFIX)]
-            return (inner, True, False)
+            # 检查是否是聚合热点 (hotspot:aggregate:name)
+            if inner.startswith("aggregate:"):
+                name = inner[len("aggregate:"):]
+                return (name, True, True, False)
+            return (inner, True, False, False)
         
-        # 聚合: (sym..)
+        # 聚合: (aggregate:name)
         if formatted.startswith(SymbolFormat.AGGREGATED_PREFIX) and formatted.endswith(SymbolFormat.AGGREGATED_SUFFIX):
             inner = formatted[len(SymbolFormat.AGGREGATED_PREFIX):-len(SymbolFormat.AGGREGATED_SUFFIX)]
-            return (inner, False, True)
+            return (inner, False, True, False)
+        
+        # 概念: (concept:name)
+        if formatted.startswith(SymbolFormat.CONCEPT_PREFIX) and formatted.endswith(SymbolFormat.CONCEPT_SUFFIX):
+            inner = formatted[len(SymbolFormat.CONCEPT_PREFIX):-len(SymbolFormat.CONCEPT_SUFFIX)]
+            return (inner, False, False, True)
         
         # 普通符号
-        return (formatted, False, False)
+        return (formatted, False, False, False)
 
 
 # =============================================================================
 # Helper Functions
 # =============================================================================
 
-def format_sym(symbol: str, is_hotspot: bool = False, is_aggregated: bool = False) -> str:
+def format_sym(symbol: str, is_hotspot: bool = False, is_aggregated: bool = False, is_concept: bool = False) -> str:
     """便捷函数: 格式化单个符号"""
-    return SymbolFormatter.format_symbol(symbol, is_hotspot, is_aggregated)
+    return SymbolFormatter.format_symbol(symbol, is_hotspot, is_aggregated, is_concept)
 
 
 def format_chain(
     symbols: List[str],
     hotspots: Optional[Set[str]] = None,
     aggregated: Optional[Set[str]] = None,
+    concepts: Optional[Set[str]] = None,
     direction: str = "bottom_up"
 ) -> str:
     """便捷函数: 格式化调用链"""
-    return SymbolFormatter.format_callchain(symbols, hotspots, aggregated, direction)
+    return SymbolFormatter.format_callchain(symbols, hotspots, aggregated, concepts, direction)
 
 
 # =============================================================================
@@ -252,10 +281,10 @@ class HotspotContext:
             if total > 0 and weight / total >= min_ratio:
                 hotspots.add(sym)
         
-        # 检测聚合符号 (unknown_func[module] 格式)
+        # 检测聚合符号 (aggregate:name 格式)
         aggregated = set()
         for sym in hotspots:
-            if sym.startswith('unknown_func['):
+            if sym.startswith('(aggregate:'):
                 aggregated.add(sym)
         
         return cls(hotspots=hotspots, aggregated=aggregated)
@@ -286,16 +315,18 @@ if __name__ == "__main__":
     print("=== Symbol Format Tests ===")
     
     test_cases = [
-        ("func", False, False),
-        ("func", True, False),
-        ("module", False, True),
-        ("module", True, True),
+        ("func", False, False, False),
+        ("func", True, False, False),
+        ("module", False, True, False),
+        ("module", True, True, False),
+        ("syscall", False, False, True),
+        ("syscall", True, False, True),
     ]
     
-    for sym, is_hot, is_agg in test_cases:
-        formatted = SymbolFormatter.format_symbol(sym, is_hot, is_agg)
+    for sym, is_hot, is_agg, is_con in test_cases:
+        formatted = SymbolFormatter.format_symbol(sym, is_hot, is_agg, is_con)
         parsed = SymbolFormatter.parse_formatted_symbol(formatted)
-        print(f"format({sym}, hot={is_hot}, agg={is_agg}) = {formatted}")
+        print(f"format({sym}, hot={is_hot}, agg={is_agg}, con={is_con}) = {formatted}")
         print(f"  parse({formatted}) = {parsed}")
         print()
     
@@ -305,8 +336,8 @@ if __name__ == "__main__":
     hotspots = {"hotfunc"}
     aggregated = set()
     
-    chain = SymbolFormatter.format_callchain(symbols, hotspots, aggregated, "bottom_up")
+    chain = SymbolFormatter.format_callchain(symbols, hotspots, aggregated, None, "bottom_up")
     print(f"bottom_up: {chain}")
     
-    chain = SymbolFormatter.format_callchain(symbols, hotspots, aggregated, "top_down")
+    chain = SymbolFormatter.format_callchain(symbols, hotspots, aggregated, None, "top_down")
     print(f"top_down: {chain}")

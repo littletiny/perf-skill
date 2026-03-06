@@ -420,21 +420,21 @@ class Trace:
         if not open_issues:
             return FinalizeResult(
                 status="ready",
-                message="所有问题已处理，可以生成报告",
+                message="All issues resolved, ready to generate report",
                 resolved_count=len(self.get_resolved_issues())
             )
 
         if accept_risk:
             return FinalizeResult(
                 status="accepted",
-                message=f"已接受风险: {accept_risk}",
+                message=f"Accepted risk: {accept_risk}",
                 open_count=len(open_issues),
                 resolved_count=len(self.get_resolved_issues())
             )
 
         return FinalizeResult(
             status="blocked",
-            message=f"存在 {len(open_issues)} 个未处理问题",
+            message=f"Found {len(open_issues)} open issues",
             open_issues=open_issues
         )
 

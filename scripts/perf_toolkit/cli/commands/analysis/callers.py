@@ -169,8 +169,8 @@ def cmd_trace_attribution(
             return TracesOutput(
                 _risk=RiskInfo(
                     level="warning",
-                    message="未找到热点函数，无法自动选择目标",
-                    hint="[必须] 手动指定目标: --target <symbol> 或检查输入数据",
+                    message="Not found",
+                    hint="Check configuration",
                     patterns=["NO_HOTSPOTS_FOUND"]
                 ),
                 traces=[],
@@ -182,9 +182,9 @@ def cmd_trace_attribution(
         # auto-target 模式下默认使用 max_depth=5，避免完整调用链过长导致权重分散
         max_depth = getattr(args, 'max_depth', 0) or 5
         
-        # 检测聚合符号（unknown_func[module]）占比
+        # 检测聚合符号（(aggregate:module)）占比
         thresholds = get_analysis_thresholds()
-        aggregated_symbols = [h for h in hotspots_result.hotspots if h.symbol.startswith('unknown_func[')]
+        aggregated_symbols = [h for h in hotspots_result.hotspots if h.symbol.startswith('(aggregate:')]
         aggregated_ratio = sum(h.self_pct for h in aggregated_symbols)
         
         # 计算有效总权重：当聚合符号占比过高时，扣除聚合符号权重
@@ -196,7 +196,7 @@ def cmd_trace_attribution(
             effective_total_weight = total_weight
         
         # 过滤掉聚合符号，只追踪可分析的非聚合符号
-        traceable_hotspots = [h for h in hotspots_result.hotspots if not h.symbol.startswith('unknown_func[')]
+        traceable_hotspots = [h for h in hotspots_result.hotspots if not h.symbol.startswith('(aggregate:')]
         
         # 为每个可追踪的热点追踪调用者
         traces = []
@@ -219,8 +219,8 @@ def cmd_trace_attribution(
         if not traces:
             risk = RiskInfo(
                 level="warning",
-                message="热点函数均无调用者（可能都位于调用链根部）",
-                hint="尝试降低 --min-ratio 阈值，或使用 get-hotspots 查看热点详情",
+                message="Hotspots have no callers (may be at root)",
+                hint="Try lower --min-ratio or use get-hotspots",
                 patterns=["NO_CALLERS_FOUND"]
             )
         else:
@@ -237,8 +237,8 @@ def cmd_trace_attribution(
         return AttributionsOutput(
             _risk=RiskInfo(
                 level="warning",
-                message="未指定目标函数",
-                hint="[必须] 使用 --target <symbol> 指定目标函数，或使用 --auto-target 自动选择热点函数",
+                message="No target specified",
+                hint="[Required] Use --target <symbol> or --auto-target to select target",
                 patterns=["NO_TARGET_SPECIFIED"]
             ),
             attributions=[],
@@ -268,8 +268,8 @@ def cmd_trace_attribution(
         return AttributionsOutput(
             _risk=RiskInfo(
                 level="warning",
-                message=f"未找到匹配函数 '{target}'",
-                hint=f"[必须] 检查函数名拼写，或查看可用函数: get-hotspots --show-all",
+                message=f"Not found",
+                hint=f"[Required] Check function name or use: get-hotspots --show-all",
                 patterns=["NO_MATCHING_SYMBOL"]
             ),
             attributions=[],
@@ -323,7 +323,7 @@ def cmd_trace_attribution(
     for s in samples:
         if s.stack and len(s.stack) > 0:
             first_sym = s.stack.get_normalized_names()[0]
-            if first_sym.startswith('unknown_func['):
+            if first_sym.startswith('(aggregate:'):
                 aggregated_weight += engine.get_sample_weight(s)
     
     aggregated_ratio = (aggregated_weight / total_weight * 100) if total_weight > 0 else 0
@@ -351,20 +351,20 @@ def cmd_trace_attribution(
     if target_weight < 0.01:
         risk = RiskInfo(
             level="warning",
-            message=f"目标函数 '{target}' 几乎无 CPU 活动",
-            hint=f"[必须] 添加到 Trace: shecr trace add --desc '目标函数 {target} 几乎无 CPU 活动' --hint '检查目标函数名称是否正确'",
+            message=f"Target '{target}' has minimal CPU activity",
+            hint=f"[Required] Add to Trace: shecr trace add --desc 'Target {target} has minimal CPU activity' --hint 'Check target function name'",
             patterns=["LOW_TARGET_ACTIVITY"]
         )
     elif not attribution:
         # 区分是 auto-target 还是手动指定
         is_auto = getattr(args, 'auto_target', False)
         if is_auto:
-            hint_msg = f"该热点函数位于调用链根部（entry point）。建议手动指定其他热点：--target <function>，或使用更低的 --min-ratio 阈值"
+            hint_msg = f"Hotspot is at callchain root. Try: --target <function> or lower --min-ratio"
         else:
-            hint_msg = f"该函数位于调用链根部，通常是用户态程序入口或中断处理起点。建议分析其被谁调度：get-hotspots --comm {getattr(args, 'comm', '<comm>')} 查看整体热点分布"
+            hint_msg = f"Function is at callchain root. Analyze schedulers: get-hotspots --comm "{getattr(args, 'comm', '<comm>')} 查看整体热点分布"
         risk = RiskInfo(
             level="warning",
-            message=f"目标函数 '{target}' 是调用链起点，无调用者",
+            message=f"Target '{target}' is callchain entry, no callers",
             hint=hint_msg,
             patterns=["TARGET_IS_CALL_CHAIN_ROOT"]
         )
@@ -372,12 +372,12 @@ def cmd_trace_attribution(
         # 有调用者数据但被 min_ratio 过滤掉了
         is_auto = getattr(args, 'auto_target', False)
         if is_auto:
-            hint_msg = f"该热点函数的调用者占比低于 --min-ratio={min_ratio}% 阈值。建议降低阈值：--min-ratio 0.1，或手动指定其他热点：--target <function>"
+            hint_msg = f"Hotspot caller ratio below --min-ratio={min_ratio}%. Try: --min-ratio 0.1 or --target <function>"
         else:
-            hint_msg = f"目标函数的调用者占比低于 --min-ratio={min_ratio}% 阈值。建议降低阈值：--min-ratio 0.1"
+            hint_msg = f"Target caller ratio below --min-ratio={min_ratio}%. Try: --min-ratio 0.1"
         risk = RiskInfo(
             level="warning",
-            message=f"目标函数 '{target}' 的调用者占比过低",
+            message=f"Target '{target}' caller ratio too low",
             hint=hint_msg,
             patterns=["CALLERS_BELOW_THRESHOLD"]
         )
@@ -436,8 +436,8 @@ def _find_matching_symbol(target: str, normalized_names: Set[str]) -> Optional[s
     best_match = min(partial_matches, key=len)
     
     warnings.warn(
-        f"目标 '{target}' 匹配到多个函数，选择最精确的匹配: '{best_match}'. "
-        f"其他匹配: {', '.join(m for m in partial_matches if m != best_match)}",
+        f"Target '{target}' matches multiple, selected best: '{best_match}'. "
+        f"Other matches: "{', '.join(m for m in partial_matches if m != best_match)}",
         UserWarning
     )
     

@@ -271,6 +271,11 @@ class Thresholds:
     CORE_SATURATED_THRESHOLD = 50.0  # 核心饱和阈值
     
     # -------------------------------------------------------------------------
+    # CPU Overview Display Thresholds
+    # -------------------------------------------------------------------------
+    CPU_OVERVIEW_MIN_UTIL = 40.0     # CPU Overview 最小显示阈值 (低于此值不展示)
+    
+    # -------------------------------------------------------------------------
     # Z-Score Thresholds (Anomaly Detection)
     # -------------------------------------------------------------------------
     Z_SCORE_MEDIUM = 2.0            # 中等异常 Z-Score
@@ -604,7 +609,13 @@ class SymbolRules:
         """返回默认规则"""
         return cls(
             hidden=['__clone', 'clone', 'start_thread', 'execute_native_thread_routine'],
-            collapse_groups={},
+            collapse_groups={
+                'python_interpreter': {
+                    'name': 'python_interpreter',
+                    'symbols': ['_Py*', 'Py*'],
+                    'display': '(python_interp)'
+                }
+            },
             skip_runtime_at_bottom=True,
             runtime_patterns=['__clone', 'start_thread', 'execute_native_thread_routine'],
             anchor_offset_from_bottom=3
@@ -743,6 +754,8 @@ class SymbolRules:
         - "parameter_server::optimizer::AdamOptimizer::Optimize" -> "AdamOptimizer::Optimize"
         - "func" -> "func" (无 :: 的不变)
         - "[syscall]" -> "[syscall]" (折叠组标记不变)
+        - "(aggregate:module)" -> "(aggregate:module)" (聚合标记不变)
+        - "(concept:name)" -> "(concept:name)" (概念标记不变)
         
         Args:
             symbol: 原始符号名
@@ -750,8 +763,14 @@ class SymbolRules:
         Returns:
             截断后的符号名
         """
-        # 保留折叠组标记
+        # 保留折叠组标记 [name]
         if symbol.startswith('[') and symbol.endswith(']'):
+            return symbol
+        
+        # 保留聚合标记 (aggregate:name) 和概念标记 (concept:name)
+        if symbol.startswith('(aggregate:') and symbol.endswith(')'):
+            return symbol
+        if symbol.startswith('(concept:') and symbol.endswith(')'):
             return symbol
         
         if '::' not in symbol:
@@ -840,6 +859,17 @@ class ProcessedStack:
             else:
                 processed.append(sym)
                 i += 1
+        
+        # 阶段2.5: 折叠连续的相同聚合符号（如多个 unknown_func[module]）
+        # 这些符号在 sample parse 阶段被聚合成相同字符串，展示时需进一步折叠
+        deduped = []
+        for sym in processed:
+            # 如果当前符号与前一个相同，跳过（折叠）
+            if deduped and deduped[-1] == sym:
+                collapsed_count += 1
+                continue
+            deduped.append(sym)
+        processed = deduped
         
         # 阶段3: 规范化 symbol name（只保留 classname::method）
         if normalize:

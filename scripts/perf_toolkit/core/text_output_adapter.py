@@ -206,7 +206,7 @@ class NestedTemplate(Template):
         attributions = _get_attr(item, 'attributions', [])
         
         # 检测目标是否是聚合符号
-        is_target_agg = target.startswith('unknown_func[')
+        is_target_agg = target.startswith('(aggregate:')
         # 目标在 find-callers 中总是作为热点处理
         formatted_target = SymbolFormatter.format_symbol(target, is_hotspot=True, is_aggregated=is_target_agg)
         
@@ -363,6 +363,9 @@ class CustomTemplate(Template):
         # [RESOURCE_UTILIZATION] - 被诊断进程/进程组资源利用率
         lines.extend(self._build_resource_utilization_section(data_dict))
         
+        # [CPU_OVERVIEW] - 全局 CPU 视角
+        lines.extend(self._build_cpu_overview_section(data_dict))
+        
         # [BIDIRECTIONAL_VIEW] - 双向调用链视图
         lines.extend(self._build_bidirectional_view_section(data_dict))
         
@@ -398,11 +401,72 @@ class CustomTemplate(Template):
             lines.append(f"  Monopoly:    {monopoly:.2f} (threshold=0.8){monopoly_warning}")
             
             # Coefficient of Variation 警告标记 (>1.0 分布不均)
-            cv_warning = " ⚠️ 分布不均" if cv > 1.0 else ""
+            cv_warning = "⚠️ Uneven Distribution" if cv > 1.0 else ""
             lines.append(f"  Coefficient_of_Variation: {cv:.2f} (threshold=1.0){cv_warning}")
             
             lines.append(f"  Impact:      {impact_score:.1f}")
             lines.append(f"  Diagnosis:   {diagnosis}")
+            lines.append("")
+        
+        return lines
+
+    def _build_cpu_overview_section(self, data: Dict) -> List[str]:
+        """构建 [CPU_OVERVIEW] 段 - 全局 CPU 视角"""
+        lines = []
+        cpu_overview = data.get('cpu_overview')
+        
+        if not cpu_overview:
+            return lines
+        
+        lines.append("## [CPU_OVERVIEW] Global CPU View")
+        lines.append("")
+        
+        # 不均衡信息
+        imbalance_level = cpu_overview.get('imbalance_level', 'NORMAL')
+        imbalance_message = cpu_overview.get('imbalance_message', '')
+        
+        from config.defaults import ImbalanceLevel, AttentionFlag
+        if imbalance_level in (ImbalanceLevel.CRITICAL, ImbalanceLevel.HIGH):
+            attention = AttentionFlag.X0
+        elif imbalance_level == ImbalanceLevel.MODERATE:
+            attention = AttentionFlag.X1
+        else:
+            attention = ""
+        
+        if attention:
+            lines.append(f"{attention} {imbalance_message}")
+            lines.append("")
+        
+        # Top CPU 列表
+        top_cpus = cpu_overview.get('top_cpus', [])
+        if top_cpus:
+            lines.append("### Top CPU by Utilization")
+            lines.append("")
+            
+            for i, cpu_info in enumerate(top_cpus, 1):
+                cpu_id = cpu_info.get('cpu_id', 'N/A')
+                total_util = cpu_info.get('total_util', 0.0)
+                kernel_util = cpu_info.get('kernel_util', 0.0)
+                user_util = cpu_info.get('user_util', 0.0)
+                
+                lines.append(f"#{i} CPU {cpu_id}: {total_util:.2f}% (usr: {user_util:.2f}%, sys: {kernel_util:.2f}%)")
+                
+                # 该 CPU 的热点
+                hotspots = cpu_info.get('hotspots', [])
+                if hotspots:
+                    lines.append("   Hotspots:")
+                    for hs in hotspots:
+                        symbol = hs.get('symbol', 'N/A')
+                        self_pct = hs.get('self_pct', 0.0)
+                        inclusive_pct = hs.get('inclusive_pct', 0.0)
+                        lines.append(f"   - [{symbol}] {self_pct:.2f}% self, {inclusive_pct:.2f}% inclusive")
+                else:
+                    lines.append("   Hotspots: (无数据)")
+                lines.append("")
+            
+            total_cores = cpu_overview.get('total_cores', 0)
+            shown_cores = cpu_overview.get('shown_cores', 0)
+            lines.append(f"  Showing {shown_cores} / {total_cores} cores")
             lines.append("")
         
         return lines
@@ -473,7 +537,7 @@ class CustomTemplate(Template):
         if common_hotspot:
             lines.append(f"### **COMMON_HOTSPOT: `{common_hotspot}` {common_hotspot_weight:.1f}%**")
             lines.append("")
-            lines.append("*所有聚类共享的热点符号，通常是瓶颈汇聚点*")
+            lines.append("*Shared hotspot across clusters, likely convergence point*")
             lines.append("")
             lines.append("---")
             lines.append("")
@@ -530,7 +594,7 @@ class CustomTemplate(Template):
         lines = []
         lines.append("## [CORRELATION_FLAGS]")
         lines.append("")
-        lines.append("*跨维度关联检测，自动标记系统性问题*")
+        lines.append("*Cross-dimension correlation, auto-marking systemic issues*")
         lines.append("")
         
         correlation_flags = data.get('correlation_flags', [])
@@ -544,7 +608,7 @@ class CustomTemplate(Template):
             lines.append(flag_line)
         
         if not correlation_flags:
-            lines.append("*(未检测到关联标志)*")
+            lines.append("*(No correlation flags)*")
         
         lines.append("")
         return lines
@@ -554,7 +618,7 @@ class CustomTemplate(Template):
         lines = []
         lines.append("## [DATA_SUMMARY]")
         lines.append("")
-        lines.append("*诊断会话元数据摘要*")
+        lines.append("*Session metadata summary*")
         lines.append("")
         
         # YAML 格式
@@ -591,7 +655,7 @@ class CustomTemplate(Template):
         data_dict = asdict(data) if is_dataclass(data) else data
         lines = []
         lines.append(OutputDefaults.SYS_AUDIT_TITLE)
-        lines.append("> 策略: 自动降噪 + 危害排序，识别真瓶颈")
+        lines.append("> Strategy: Auto noise-reduction + impact ranking")
         lines.append("")
         fingerprint = data_dict.get('system_fingerprint', {})
         if fingerprint:
@@ -600,14 +664,14 @@ class CustomTemplate(Template):
                 lines.extend(["### 系统指纹 (System Fingerprint)", "", f"State: {pressure_state}", ""])
         sensitive_events = data_dict.get('sensitive_events', [])
         if sensitive_events:
-            lines.append("### 特殊事件检测 (Sensitive Events)")
+            lines.append("### Sensitive Event Detection")
             lines.append("")
             for event in sensitive_events:
                 flag = event.get('flag', '<X1>')
                 category, message, count = event.get('category', ''), event.get('message', ''), event.get('count', 0)
                 processes = event.get('processes', [])
                 lines.append(f"{flag} [{category}] {message}")
-                lines.append(f"  检测到 {count} 个相关进程:")
+                lines.append(f"  Detected {count} related processes:")
                 for proc in processes[:5]:
                     comm = proc.get('comm', '')
                     total, kernel = proc.get('total_cpu', 0), proc.get('kernel_cpu', 0)
@@ -628,7 +692,7 @@ class CustomTemplate(Template):
         shown_cpu = sum(item.get('total_cpu', 0) for item in top_by_total if item.get('comm', '') in shown_comms)
         hidden_cpu = total_all_cpu - shown_cpu
         if filtered:
-            lines.append("### Top 进程 (按危害指数排序)")
+            lines.append("### Top Processes (by impact)")
             lines.append("")
             for i, (item, score) in enumerate(filtered[:TOP_N_DISPLAY], 1):
                 comm = item.get('comm', 'N/A')
@@ -640,8 +704,8 @@ class CustomTemplate(Template):
                 diag_str = f" [{diagnosis}]" if diagnosis else ""
                 lines.append(f"  {i:2d}. {attention_str:<4} {comm:20s}: {total:6.2f}% (sys: {kernel:6.2f}%) score: {score:.1f}{diag_str}")
             lines.append("")
-            lines.append(f"  共显示 {min(TOP_N_DISPLAY, len(filtered))} / {len(filtered)} 个进程")
-            lines.append(f"  未显示进程 CPU: {hidden_cpu:.2f}% / {total_all_cpu:.2f}%")
+            lines.append(f"  Showing {min(TOP_N_DISPLAY, len(filtered))} / {len(filtered)} processes")
+            lines.append(f"  Hidden processes CPU: {hidden_cpu:.2f}% / {total_all_cpu:.2f}%")
             lines.append("")
         core_dist = data_dict.get('core_distribution', {})
         if core_dist:
@@ -651,7 +715,7 @@ class CustomTemplate(Template):
                 lines.append(OutputDefaults.CORE_DISTRIBUTION_HEADER)
                 lines.append("")
                 attention = AttentionFlag.X0 if imbalance in (ImbalanceLevel.CRITICAL, ImbalanceLevel.HIGH) else AttentionFlag.X1
-                lines.append(f"{attention} 负载不均衡:")
+                lines.append(f"{attention} Load imbalanced:")
                 lines.append(f"  - Imbalance Level: {imbalance}")
                 if saturated:
                     lines.append(f"  {AttentionFlag.X0} Saturated Cores: {', '.join(map(str, saturated))}")

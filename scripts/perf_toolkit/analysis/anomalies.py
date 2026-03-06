@@ -134,8 +134,8 @@ class AnomaliesAnalyzer(BaseAnalyzer):
         if spike_count > 0:
             risks.append(self._create_risk(
                 level="warning",
-                message=f"检测到 {spike_count} 个 CPU 利用率异常尖峰",
-                hint="查看异常时间点，分析对应时间段",
+                message=f"Detected {spike_count} CPU utilization spikes",
+                hint="Check anomaly timestamps for analysis",
                 patterns=["CPU_SPIKE"]
             ))
         

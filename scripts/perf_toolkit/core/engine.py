@@ -208,10 +208,10 @@ class PerfExpertEngine:
             # Create Symbol object - it will automatically detect kernel symbols
             symbol = Symbol.parse(sym_str, module)
             
-            # 如果是未解析符号（如 0x424266），聚合成 unknown_func[module]
+            # 如果是未解析符号（如 0x424266），聚合成 (aggregate:module)
             if self._UNRESOLVED_SYMBOL_PATTERN.match(symbol.normalized_name):
                 if module:
-                    aggregated_name = f"unknown_func[{module}]"
+                    aggregated_name = f"(aggregate:{module})"
                     return Symbol(
                         raw_name=aggregated_name,
                         normalized_name=aggregated_name,

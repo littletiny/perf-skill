@@ -643,6 +643,34 @@ class ResourceUtilization:
 
 
 @dataclass
+class CPUHotspotItem:
+    """CPU 上的热点函数项"""
+    symbol: str
+    self_pct: float
+    inclusive_pct: float
+
+
+@dataclass
+class CPUOverviewItem:
+    """CPU 全貌数据项"""
+    cpu_id: int
+    total_util: float
+    kernel_util: float
+    user_util: float
+    hotspots: List[CPUHotspotItem] = field(default_factory=list)
+
+
+@dataclass
+class CPUOverview:
+    """CPU Overview full data - [CPU_OVERVIEW] Global CPU View"""
+    imbalance_level: str                           # NORMAL/MODERATE/HIGH/CRITICAL
+    imbalance_message: str                         # 风险描述
+    top_cpus: List[CPUOverviewItem] = field(default_factory=list)
+    total_cores: int = 0
+    shown_cores: int = 0
+
+
+@dataclass
 class BottleneckTraceResult:
     """bottleneck-trace 完整四段式输出结果"""
     # 风险信息（置顶）
@@ -673,6 +701,9 @@ class BottleneckTraceResult:
     
     # [BIDIRECTIONAL_VIEW] - 双向调用链视图
     bidirectional_view: str = ""  # 渲染后的双向视图文本
+    
+    # [CPU_OVERVIEW] - Global CPU View (top 5 CPUs and hotspots)
+    cpu_overview: Optional[CPUOverview] = None
 
     def __init__(self,
                  _risk: RiskInfo,
@@ -688,7 +719,8 @@ class BottleneckTraceResult:
                  duration_sec: float = 0.0,
                  sample_count: int = 0,
                  time_range: Optional[TimeRange] = None,
-                 bidirectional_view: str = ""):
+                 bidirectional_view: str = "",
+                 cpu_overview: Optional[CPUOverview] = None):
         self._risk = _risk
         self.target_resource_util = target_resource_util
         self.entity_distribution = entity_distribution or []
@@ -703,6 +735,7 @@ class BottleneckTraceResult:
         self.sample_count = sample_count
         self.time_range = time_range
         self.bidirectional_view = bidirectional_view
+        self.cpu_overview = cpu_overview
         self._template_config = TemplateConfig(
             template_type="custom",
             custom_renderer="bottleneck_trace_renderer"

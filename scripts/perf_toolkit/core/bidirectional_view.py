@@ -390,7 +390,7 @@ def _render_global_section(view: BidirectionalViewV2) -> List[str]:
     from perf_toolkit.core.symbol_formatter import SymbolFormatter
     
     lines = [
-        "### [CALLCHAINS] 热点函数调用链 | 热点标记 **[sym]** | 聚合栈热点 **(sym..)** | 聚合概念 (sym..) | 折叠 ..",
+        "### [CALLCHAINS] Legend | Hotspot: **(hotspot:name)** | Aggregate: (aggregate:name) | Hotspot+Aggregate: **(hotspot:aggregate:name)** | Collapsed: (concept:name) | Omitted: ..",
         "",
     ]
     

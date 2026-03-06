@@ -40,8 +40,8 @@ class KeyPoint:
     def __str__(self) -> str:
         if self.type == "hotspot":
             if self.is_aggregated:
-                return f"**({self.symbol}..)**"
-            return f"**[{self.symbol}]**"
+                return f"**(hotspot:aggregate:{self.symbol})**"
+            return f"**(hotspot:{self.symbol})**"
         return self.symbol  # 普通符号不包裹
 
 
@@ -320,17 +320,22 @@ class SmartCallchainExtractor:
         # target 符号也需要规范化（只保留 classname::method），如果是热点则加 **[sym]** 或 **(sym..)** 标记
         target_display = self.symbol_rules.normalize_symbol(target_symbol)
         if self.is_hotspot(target_symbol):
-            # 检测是否是聚合符号
-            is_agg = target_symbol.startswith('unknown_func[')
+            # 检测是否是聚合符号 (aggregate:name 格式)
+            is_agg = target_symbol.startswith('(aggregate:')
             if is_agg:
-                target_display = f"**({target_display}..)**"
+                # 提取模块名
+                inner = target_symbol[len('(aggregate:'):-1]
+                target_display = f"**(hotspot:aggregate:{inner})**"
             else:
-                target_display = f"**[{target_display}]**"
+                target_display = f"**(hotspot:{target_display})**"
         # 非热点不加标记，保持原样
         trajectory_parts = [target_display]
         prev_idx = target_idx
         folded_count = 0
         hotspot_chain = [target_symbol]
+        
+        # 跟踪已标记的聚合符号，避免在调用链中重复标记
+        seen_aggregated: Set[str] = set()
         
         for kp in key_points:
             gap = kp.idx - prev_idx - 1
@@ -338,15 +343,22 @@ class SmartCallchainExtractor:
                 trajectory_parts.append("..")
                 folded_count += gap
             
-            # 热点用 **[sym]** 或 **(sym..)** 标记，非热点不包裹（symbol 已经通过 process_stack 规范化过了）
+            # 热点用 **(hotspot:name)** 或 **(hotspot:aggregate:name)** 标记，非热点不包裹
             display_symbol = kp.symbol  # 已经规范化
             if kp.type == "hotspot":
-                # 检测是否是聚合符号
-                is_agg = display_symbol.startswith('unknown_func[')
+                # 检测是否是聚合符号 (aggregate:name 格式)
+                is_agg = display_symbol.startswith('(aggregate:')
                 if is_agg:
-                    display_name = f"**({display_symbol}..)**"
+                    # 提取模块名
+                    inner = display_symbol[len('(aggregate:'):-1]
+                    # 聚合符号只标记第一次出现，后续相同的聚合符号作为普通符号处理
+                    if display_symbol in seen_aggregated:
+                        display_name = display_symbol  # 已出现过，作为普通符号
+                    else:
+                        seen_aggregated.add(display_symbol)
+                        display_name = f"**(hotspot:aggregate:{inner})**"
                 else:
-                    display_name = f"**[{display_symbol}]**"
+                    display_name = f"**(hotspot:{display_symbol})**"
                 hotspot_chain.append(kp.symbol)
             else:
                 display_name = display_symbol  # 普通符号不包裹

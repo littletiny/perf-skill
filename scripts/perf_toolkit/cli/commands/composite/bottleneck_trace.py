@@ -31,6 +31,9 @@ from perf_toolkit.core.output_models import (
     CallPathCluster,
     CorrelationFlag,
     ResourceUtilization,
+    CPUOverview,
+    CPUOverviewItem,
+    CPUHotspotItem,
 )
 from perf_toolkit.core.bidirectional_view import (
     UpstreamBranch, DownstreamEntry, build_and_render_v2
@@ -330,11 +333,9 @@ def _build_multi_hotspot_bidirectional_view(
     lines: List[str] = []
     lines.append(f"## [BOTTLENECK: {comm}]")
     lines.append("")
-    lines.append("### [CALLCHAINS] 热点函数调用链 | 热点标记 **[sym]** | 聚合栈热点 **(sym..)** | 聚合概念 (sym..) | 折叠 ..")
-    lines.append("")
     
     if not hotspots_report.hotspots:
-        lines.append("*(无热点数据)*")
+        lines.append("*(No hotspot data)*")
         return "\n".join(lines)
     
     # 遍历所有热点，为每个热点显示调用链
@@ -343,7 +344,7 @@ def _build_multi_hotspot_bidirectional_view(
         inclusive_pct = getattr(hotspot, 'inclusive_percent', getattr(hotspot, 'cpu_percent', 0))
         
         # 格式化热点符号
-        is_agg = symbol.startswith('unknown_func[')
+        is_agg = symbol.startswith('(aggregate:')
         formatted_symbol = SymbolFormatter.format_symbol(symbol, is_hotspot=True, is_aggregated=is_agg)
         
         # 显示热点函数头
@@ -367,11 +368,112 @@ def _build_multi_hotspot_bidirectional_view(
                 
                 lines.append(f"  #{i} [{cpu_contrib:.2f}%] {' <- '.join(path)}")
         else:
-            lines.append("  (无调用链数据)")
+            lines.append("  (No callchain data)")
         
         lines.append("")
     
     return "\n".join(lines)
+
+
+def _build_cpu_overview(
+    samples: List[Dict[str, Any]],
+    engine: 'PerfExpertEngine',
+    facade: AnalysisFacade
+) -> CPUOverview:
+    """
+    构建 CPU Overview 数据 - 全局 CPU 视角
+    
+    展示 top 5 CPU 的利用率及其热点函数
+    
+    Args:
+        samples: 样本数据
+        engine: PerfExpertEngine 实例
+        facade: AnalysisFacade 实例
+        
+    Returns:
+        CPUOverview: CPU 全貌数据
+    """
+    from config.defaults import ImbalanceLevel
+    
+    # 1. 获取所有 CPU 的利用率
+    core_util = engine.get_core_cpu_util(samples)
+    
+    if not core_util:
+        return CPUOverview(
+            imbalance_level=ImbalanceLevel.NORMAL,
+            imbalance_message="No data available",
+            top_cpus=[],
+            total_cores=0,
+            shown_cores=0
+        )
+    
+    # 2. 按 total_pct 排序，过滤低于阈值的，取 top 5
+    thresholds = get_analysis_thresholds()
+    min_util = getattr(thresholds, 'cpu_overview_min_util', 40.0)
+    sorted_cpus = sorted(
+        [(k, v) for k, v in core_util.items() if v.total_pct >= min_util],
+        key=lambda x: x[1].total_pct,
+        reverse=True
+    )[:5]
+    
+    # 3. 为每个 CPU 分析热点
+    top_cpus: List[CPUOverviewItem] = []
+    for cpu_id, util_info in sorted_cpus:
+        # 过滤该 CPU 的样本
+        cpu_samples = [s for s in samples if s.cpu == cpu_id]
+        
+        if not cpu_samples:
+            continue
+        
+        # 分析该 CPU 的热点（top 5）
+        hs_result = facade.analyze_hotspots(cpu_samples, top_n=5, sort_by='self')
+        
+        hotspots = [
+            CPUHotspotItem(
+                symbol=h.symbol,
+                self_pct=h.self_pct,
+                inclusive_pct=h.inclusive_pct
+            )
+            for h in hs_result.hotspots[:5]
+        ]
+        
+        top_cpus.append(CPUOverviewItem(
+            cpu_id=cpu_id,
+            total_util=util_info.total_pct,
+            kernel_util=util_info.kernel_pct,
+            user_util=util_info.user_pct,
+            hotspots=hotspots
+        ))
+    
+    # 4. 计算不均衡等级
+    all_utils = [info.total_pct for info in core_util.values()]
+    max_util = max(all_utils) if all_utils else 0
+    min_util = min(all_utils) if all_utils else 0
+    avg_util = sum(all_utils) / len(all_utils) if all_utils else 0
+    
+    thresholds = get_analysis_thresholds()
+    imbalance_ratio = max_util / avg_util if avg_util > 0 else 0
+    
+    if imbalance_ratio > thresholds.imbalance_ratio_critical and max_util > thresholds.cpu_util_medium:
+        imbalance_level = ImbalanceLevel.CRITICAL
+        imbalance_message = "Load severely imbalanced: one core saturated"
+    elif imbalance_ratio > thresholds.imbalance_high:
+        imbalance_level = ImbalanceLevel.HIGH
+        imbalance_message = "Load highly imbalanced"
+    elif imbalance_ratio > thresholds.imbalance_medium:
+        imbalance_level = ImbalanceLevel.MODERATE
+        imbalance_message = "Load moderately imbalanced"
+    else:
+        imbalance_level = ImbalanceLevel.NORMAL
+        imbalance_message = "Load balanced"
+    
+    return CPUOverview(
+        imbalance_level=imbalance_level,
+        imbalance_message=imbalance_message,
+        top_cpus=top_cpus,
+        total_cores=len(core_util),
+        shown_cores=len(top_cpus)
+    )
 
 
 def _detect_correlation_flags(
@@ -411,7 +513,7 @@ def _detect_correlation_flags(
                     flags.append(CorrelationFlag(
                         flag_type="GLOBAL_LOCK_CONTENTION",
                         target=symbol,
-                        message=f"全局锁 '{symbol}' 占用 {inclusive_pct:.1f}% CPU",
+                        message=f"Global lock '{symbol}' uses {inclusive_pct:.1f}% CPU",
                         severity="critical"
                     ))
     
@@ -420,7 +522,7 @@ def _detect_correlation_flags(
         flags.append(CorrelationFlag(
             flag_type="SINGLE_CORE_SATURATION",
             target=comm,
-            message=f"{comm} Monopoly={bottleneck.monopoly:.2f}，单核饱和",
+            message=f"{comm} Monopoly={bottleneck.monopoly:.2f}, single-core saturation",
             severity="critical"
         ))
     
@@ -431,7 +533,7 @@ def _detect_correlation_flags(
         flags.append(CorrelationFlag(
             flag_type="THROTTLE_VICTIM",
             target=comm,
-            message=f"{comm} 可能被节流 (推断节流率 {throttle_rate:.1f}%)",
+            message=f"{comm} may be throttled ({throttle_rate:.1f}% estimated)",
             severity="warning"
         ))
     
@@ -441,7 +543,7 @@ def _detect_correlation_flags(
         flags.append(CorrelationFlag(
             flag_type="STORM_PATTERN",
             target=comm,
-            message=f"{comm} 进程风暴 (Spawn_Rate={bottleneck.spawn_rate:.1f}/s)",
+            message=f"{comm} process storm ({bottleneck.spawn_rate:.1f}/s)",
             severity="warning"
         ))
     
@@ -450,7 +552,7 @@ def _detect_correlation_flags(
         flags.append(CorrelationFlag(
             flag_type="KERNEL_HEAVY",
             target=comm,
-            message=f"{comm} 高内核态占比 ({bottleneck.kernel_ratio:.1f}%)",
+            message=f"{comm} high kernel ratio ({bottleneck.kernel_ratio:.1f}%)",
             severity="warning"
         ))
     
@@ -460,7 +562,7 @@ def _detect_correlation_flags(
         flags.append(CorrelationFlag(
             flag_type="UNBALANCED_LOAD",
             target=comm,
-            message=f"{comm} 负载不均衡 (CV={bottleneck.cv:.2f}, Monopoly={bottleneck.monopoly:.2f})",
+            message=f"{comm} unbalanced load (CV={bottleneck.cv:.2f}, Monopoly={bottleneck.monopoly:.2f})",
             severity="info"
         ))
     
@@ -484,8 +586,8 @@ def _build_risk_info(
     if not bottleneck.found:
         return RiskInfo(
             level="info",
-            message="未检测到明显瓶颈进程",
-            hint="尝试使用 sys-audit 进行全景扫描",
+            message="Not detected",
+            hint="Try sys-audit for system-wide scan",
             patterns=["NO_BOTTLENECK_FOUND"],
             pending_targets=[],
             source="bottleneck_trace"
@@ -500,7 +602,7 @@ def _build_risk_info(
     if critical_flags:
         return RiskInfo(
             level="critical",
-            message=f"发现关键性能瓶颈: {comm}",
+            message=f"Critical bottleneck found: {comm}",
             hint=f"{comm} Monopoly={bottleneck.monopoly:.2f}, Impact={bottleneck.impact_score:.1f}",
             patterns=patterns,
             pending_targets=[comm],
@@ -509,8 +611,8 @@ def _build_risk_info(
     elif warning_flags:
         return RiskInfo(
             level="warning",
-            message=f"发现潜在性能问题: {comm}",
-            hint=f"{comm} 需要进一步分析",
+            message=f"Potential issue found: {comm}",
+            hint=f"{comm} needs further analysis",
             patterns=patterns,
             pending_targets=[comm],
             source="bottleneck_trace"
@@ -518,7 +620,7 @@ def _build_risk_info(
     else:
         return RiskInfo(
             level="info",
-            message=f"{comm} 分析完成，未发现严重问题",
+            message=f"{comm} analysis complete, no critical issues found",
             hint="",
             patterns=patterns,
             pending_targets=[],
@@ -559,8 +661,8 @@ def cmd_bottleneck_trace(
         if not target_comm:
             risk = RiskInfo(
                 level="error",
-                message=f"无法找到 PID {target_pid} 对应的进程名",
-                hint="请检查 PID 是否正确，或同时使用 --comm 指定进程名"
+                message=f"Cannot find PID {target_pid} comm",
+                hint="Check configuration"
             )
             
             return BottleneckTraceResult(
@@ -588,8 +690,8 @@ def cmd_bottleneck_trace(
         if derived_comm and derived_comm != target_comm:
             risk = RiskInfo(
                 level="warning",
-                message=f"PID {target_pid} 对应的进程名是 {derived_comm}，与指定的 --comm {target_comm} 不匹配",
-                hint="请检查 PID 和进程名是否正确"
+                message=f"PID {target_pid} comm {derived_comm} does not match --comm {target_comm}",
+                hint="Check configuration"
             )
             
             return BottleneckTraceResult(
@@ -620,8 +722,8 @@ def cmd_bottleneck_trace(
             # 未发现瓶颈
             risk = RiskInfo(
                 level="info",
-                message="未检测到明显瓶颈进程",
-                hint="尝试运行 sys-audit 进行全面分析"
+                message="Not detected",
+                hint="Try sys-audit for comprehensive analysis"
             )
             
             return BottleneckTraceResult(
@@ -672,8 +774,8 @@ def cmd_bottleneck_trace(
         all_hotspots_callers: Dict[str, Any] = {}
         if hs_report.hotspots:
             for hotspot in hs_report.hotspots:
-                # 跳过聚合符号（unknown_func[module]）
-                if hotspot.symbol.startswith('unknown_func['):
+                # 跳过聚合符号（(aggregate:module)）
+                if hotspot.symbol.startswith('(aggregate:'):
                     continue
                 callers_result = facade.analyze_callers(
                     samples, 
@@ -717,8 +819,8 @@ def cmd_bottleneck_trace(
     if not all_analyses:
         risk = RiskInfo(
             level="info",
-            message="未检测到明显瓶颈进程",
-            hint="尝试运行 sys-audit 进行全面分析"
+            message="Not detected",
+            hint="Try sys-audit for comprehensive analysis"
         )
         return BottleneckTraceResult(
             _risk=risk,
@@ -756,14 +858,14 @@ def cmd_bottleneck_trace(
         
         comms_list = [a.comm for a in all_analyses]
         risk_level = "critical" if critical_count > 0 else "warning"
-        risk_message = f"发现 {len(all_analyses)} 个性能瓶颈: {', '.join(comms_list[:3])}"
+        risk_message = f"Found {len(all_analyses)} bottlenecks: {', '.join(comms_list[:3])}"
         if len(comms_list) > 3:
-            risk_message += f" 等"
+            risk_message += f" etc"
         
         risk = RiskInfo(
             level=risk_level,
             message=risk_message,
-            hint=f"已自动追踪所有 {len(all_analyses)} 个瓶颈进程",
+            hint=f"Auto-traced all {len(all_analyses)} bottleneck processes",
             patterns=["MULTI_BOTTLENECK_DETECTED"],
             pending_targets=comms_list,
             source="bottleneck_trace"
@@ -819,7 +921,9 @@ def cmd_bottleneck_trace(
             )
             bidirectional_views.append(view)
     
-    bidirectional_view = "\n\n---\n\n".join(bidirectional_views)
+    # Global legend for AI parsing (output once at the top)
+    legend = "### [CALLCHAINS] Legend | Hotspot: **(hotspot:name)** | Aggregate: (aggregate:name) | Hotspot+Aggregate: **(hotspot:aggregate:name)** | Collapsed: (concept:name) | Omitted: .."
+    bidirectional_view = legend + "\n\n---\n\n" + "\n\n---\n\n".join(bidirectional_views)
     
     # 收集所有 clusters（保持兼容性）
     all_clusters: List[CallPathCluster] = []
@@ -831,6 +935,9 @@ def cmd_bottleneck_trace(
     if all_analyses:
         primary_analysis = max(all_analyses, key=lambda a: a.impact_score)
         target_resource_util = _convert_to_resource_utilization(primary_analysis)
+    
+    # 构建 CPU Overview（全局 CPU 视角）
+    cpu_overview = _build_cpu_overview(samples, engine, facade)
     
     # 7. 返回聚合结果
     return BottleneckTraceResult(
@@ -847,5 +954,6 @@ def cmd_bottleneck_trace(
         duration_sec=duration_sec,
         sample_count=len(samples),
         time_range=time_range,
-        bidirectional_view=bidirectional_view
+        bidirectional_view=bidirectional_view,
+        cpu_overview=cpu_overview
     )

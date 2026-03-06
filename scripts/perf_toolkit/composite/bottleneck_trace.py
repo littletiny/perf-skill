@@ -99,8 +99,8 @@ class BottleneckTracer:
                     found=False,
                     risks=[RiskInfo(
                         level="info",
-                        message="未检测到明显瓶颈进程",
-                        hint="尝试使用 sys-audit 进行全景扫描"
+                        message="No obvious bottleneck detected",
+                        hint="Try sys-audit for system-wide scan"
                     )]
                 ),
                 HotspotsReport(),
@@ -237,8 +237,8 @@ class BottleneckTracer:
                 comm=comm,
                 risks=[RiskInfo(
                     level="warning",
-                    message=f"未找到进程 {comm}",
-                    hint="执行 get-comm-top 查看可用进程",
+                    message=f"Process {comm} not found",
+                    hint="Run get-comm-top to list available processes",
                     patterns=["COMM_NOT_FOUND"]
                 )]
             )
@@ -252,7 +252,7 @@ class BottleneckTracer:
         if target_group.monopoly > Thresholds.MONOPOLY_HIGH:
             risks.append(RiskInfo(
                 level="critical",
-                message=f"{comm} 单核饱和 (Monopoly={target_group.monopoly:.2f})",
+                message=f"{comm} single-core saturation (Monopoly={target_group.monopoly:.2f})",
                 hint=f"get-hotspots --comm {comm}",
                 patterns=["SINGLE_CORE_SATURATION"],
                 pending_targets=[comm],
@@ -262,7 +262,7 @@ class BottleneckTracer:
         if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
             risks.append(RiskInfo(
                 level="warning",
-                message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",
+                message=f"{comm} high kernel ratio ({kernel_ratio:.1f}%)",
                 hint=f"cluster-paths --comm {comm}",
                 patterns=[RiskPattern.HIGH_KERNEL],
                 pending_targets=[comm],
@@ -387,7 +387,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str, pid: Optiona
             comm=comm,
             risks=[RiskInfo(
                 level="warning",
-                message=f"未找到进程 {comm}",
+                message=f"Process {comm} not found",
                 hint="get-comm-top",
                 patterns=["COMM_NOT_FOUND"]
             )]
@@ -402,7 +402,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str, pid: Optiona
     if target_group.monopoly > Thresholds.MONOPOLY_HIGH:
         risks.append(RiskInfo(
             level="critical",
-            message=f"{comm} 单核饱和 (Monopoly={target_group.monopoly:.2f})",
+            message=f"{comm} single-core saturation (Monopoly={target_group.monopoly:.2f})",
             hint=f"get-hotspots --comm {comm}",
             patterns=["SINGLE_CORE_SATURATION"],
             pending_targets=[comm],
@@ -412,7 +412,7 @@ def _analyze_bottleneck(facade: AnalysisFacade, samples, comm: str, pid: Optiona
     if kernel_ratio > Thresholds.KERNEL_RATIO_HIGH:
         risks.append(RiskInfo(
             level="warning",
-            message=f"{comm} 高内核态 ({kernel_ratio:.1f}%)",
+            message=f"{comm} high kernel ratio ({kernel_ratio:.1f}%)",
             hint=f"cluster-paths --comm {comm}",
             patterns=["HIGH_KERNEL"],
             pending_targets=[comm],

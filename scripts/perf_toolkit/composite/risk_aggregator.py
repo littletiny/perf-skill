@@ -135,7 +135,7 @@ class RiskAggregator:
             AggregatedRisk: 聚合后的 risk 结果
         """
         if not self._target_map:
-            return AggregatedRisk(level="none", message="未发现明显风险")
+            return AggregatedRisk(level="none", message="No significant risks found")
         
         # 分类统计
         critical_targets: List[Tuple[str, RiskItem]] = []
@@ -173,7 +173,7 @@ class RiskAggregator:
             
             return AggregatedRisk(
                 level="critical",
-                message=f"发现 {len(critical_targets)} 个关键性能瓶颈: {targets_str}",
+                message=f"Found {len(critical_targets)} critical bottlenecks: {targets_str}",
                 hint="; ".join(hints) if hints else "",
                 patterns=list(all_patterns),
                 pending_targets=list(self._target_map.keys()),
@@ -192,7 +192,7 @@ class RiskAggregator:
             
             return AggregatedRisk(
                 level="warning",
-                message=f"发现 {len(warning_targets)} 个潜在风险: {targets_str}",
+                message=f"Found {len(warning_targets)} potential risks: {targets_str}",
                 hint="; ".join(hints) if hints else "",
                 patterns=list(all_patterns),
                 pending_targets=list(self._target_map.keys()),
@@ -205,7 +205,7 @@ class RiskAggregator:
         elif info_targets:
             return AggregatedRisk(
                 level="info",
-                message=f"发现 {len(info_targets)} 个提示信息",
+                message=f"Found {len(info_targets)} informational items",
                 hint="",
                 patterns=list(all_patterns),
                 pending_targets=[],
@@ -215,7 +215,7 @@ class RiskAggregator:
                 target_details=target_details
             )
         
-        return AggregatedRisk(level="none", message="未发现明显风险")
+        return AggregatedRisk(level="none", message="No significant risks found")
     
     # 别名方法，兼容 aggregate() 调用
     def aggregate(self) -> AggregatedRisk:

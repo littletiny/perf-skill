@@ -110,7 +110,7 @@ class HotspotsAnalyzer(BaseAnalyzer):
         if top_kernel_ratio > self.KERNEL_HOTSPOT_THRESHOLD:
             risks.append(self._create_risk(
                 level="warning",
-                message=f"热点函数 {top_kernel_hotspot} 内核态占比 {top_kernel_ratio:.2f}%",
+                message=f"Hotspot {top_kernel_hotspot} kernel ratio {top_kernel_ratio:.2f}%",
                 hint=f"find-callers --target {top_kernel_hotspot}",
                 patterns=[RiskPattern.HIGH_KERNEL_HOTSPOT],
                 pending_targets=[top_kernel_hotspot]

@@ -11,7 +11,7 @@
 
 ```
 S - Systematic  │ 三层架构分析：系统→时间→实体→函数→模式
-H - Hypothesis  │ 三候选假设：≥3条竞争性假设并行验证
+H - Hypothesis  │ 假设驱动：多条假设并行验证
 E - Evidence    │ 证据驱动：工具输出数据说话
 C - Controlled  │ 受控收敛：<X0>追踪到根因才关闭
 R - Reasoning   │ 逻辑推理：因果链+第一推动力
@@ -180,9 +180,8 @@ shecr [工具2]
 
 ### 参考文档
 
-- [methodology.md](references/methodology.md): SHECR 分析方法论（三层架构驱动）
+- [methodology.md](references/methodology.md): SHECR 分析方法论
 - [tools.md](references/tools.md): 工具命令详细说明
-- [data-format.md](references/data-format.md): perf script 格式说明
 
 `````
 

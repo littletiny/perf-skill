@@ -26,7 +26,7 @@ def example_basic_usage():
     print(x2("建议关注内存分配热点"))
     
     # 操作建议
-    print(xa("执行深度分析", "bottleneck-trace --comm myapp"))
+    print(xa("执行 deep analysis", "bottleneck-trace --comm myapp"))
     print()
 
 

@@ -82,32 +82,32 @@ def xa_if(condition: bool, text: str, cmd: str = "", fallback: str = "") -> str:
 # 快捷场景函数（使用 X 标签）
 def alert_lock(lock_func: str) -> str:
     """锁竞争警报"""
-    return x0(f"锁竞争: {lock_func} 热点")
+    return x0(f"Lock Contention: "{lock_func} 热点")
 
 
 def alert_saturation(cpu_id: int, util: float, monopoly: float) -> str:
     """单核饱和警报"""
-    return x0(f"单核饱和: CPU{cpu_id} 利用率 {util:.1f}%, Monopoly {monopoly:.2f}")
+    return x0(f"Single-Core Saturation: "CPU{cpu_id} 利用率 {util:.1f}%, Monopoly {monopoly:.2f}")
 
 
 def alert_high_kernel(ratio: float) -> str:
     """高内核态警报"""
-    return x0(f"高内核态: 内核占比 {ratio:.1f}%")
+    return x0(f"High Kernel Ratio: "内核占比 {ratio:.1f}%")
 
 
 def alert_process_storm(spawn_rate: float) -> str:
     """进程风暴警报"""
-    return x1(f"进程风暴: Spawn Rate {spawn_rate:.1f}/s")
+    return x1(f"Process Storm: "Spawn Rate {spawn_rate:.1f}/s")
 
 
 def hint_find_callers(target: str) -> str:
     """建议执行 find-callers"""
-    return xa("溯源分析", f"find-callers --target {target}")
+    return xa("Trace Analysis", f"find-callers --target {target}")
 
 
 def hint_bottleneck_trace(comm: str) -> str:
     """建议执行 bottleneck-trace"""
-    return xa("深度追踪", f"bottleneck-trace --comm {comm}")
+    return xa("Deep Tracing", f"bottleneck-trace --comm {comm}")
 
 
 # 解析提取（简单实现）

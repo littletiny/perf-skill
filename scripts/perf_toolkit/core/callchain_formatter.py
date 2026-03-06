@@ -8,11 +8,12 @@ CallChain Formatter - 统一的调用链格式化器
 - cluster-paths: top-down 风格，plain 样式
 - bottleneck-trace: top-down 风格，markdown 样式，带热点标记
 
-格式规范：
-- 普通符号: sym
-- 热点符号: **[sym]**
-- 聚合符号: (sym..)
-- 聚合且热点: **(sym..)**
+格式规范 (AI友好 - 显式标记):
+- 普通符号: name
+- 热点符号: **(hotspot:name)**
+- 聚合符号: (aggregate:name)
+- 概念/折叠组: (concept:name)
+- 聚合且热点: **(hotspot:aggregate:name)**
 
 新增功能：
 - LayeredCallchainFormatter: 分层调用链格式化器（简化版）
