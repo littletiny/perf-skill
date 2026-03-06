@@ -40,5 +40,24 @@ def cmd_doc_issues(args):
     
     print(doc.format_issue_list(issues, status_filter, cfg))
     
-    if status_filter in ['all', 'open'] and doc.get_open_issues():
-        print(f"Usage: shecr trace complete --id ISS-001 --result '分析结果'")
+    # XT Protocol: Trace-Todo 联动提示
+    open_issues = doc.get_open_issues()
+    if status_filter in ['all', 'open'] and open_issues:
+        print("")
+        print("=" * 65)
+        print(f"<XT0> 发现 {len(open_issues)} 个待处理问题需要同步到 Todo")
+        print("")
+        print("<XT0> 同步要求: 每个 open issue 必须创建对应 Todo")
+        print("<XT-A> SetTodoList 格式: '[Trace] {ISS-ID}: {简要描述}'")
+        print("")
+        for issue in open_issues[:3]:
+            issue_id = issue.get('id', 'unknown')
+            desc = issue.get('desc', 'No description')[:30]
+            print(f"  <XT-A> {{'title': '[Trace] {issue_id}: {desc}...', 'status': 'pending'}}")
+        if len(open_issues) > 3:
+            print(f"  ... 还有 {len(open_issues) - 3} 个")
+        print("=" * 65)
+    elif not open_issues:
+        print("")
+        print("<XT0> 所有 issues 已解决")
+        print("<XT-A> 确认所有 [Trace] 前缀的 Todo 已标记为 done")

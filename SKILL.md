@@ -3,6 +3,7 @@ name: SHECR-perf-hunter
 description: |
   SHECR: **S**ystematic **H**ypothesis **E**vidence **C**ontrolled **R**easoning performance diagnostic tools
   X0=critical | X1=major | X2=Minor | XA=action
+  XT0=trace-todo-sync | XT1=trace-pending | XT-A=trace-action
 ---
 
 # SHECR 性能诊断
@@ -228,4 +229,74 @@ shecr bottleneck-trace --pid <pid>
 <XA> 执行 find-callers --target <func> --pid <pid> 溯源热点
 <XA> 执行 bottleneck-trace --comm <name> --pid <pid> 深度追踪
 ```
+
+---
+
+## Trace-Todo 联动规范 (XT Protocol)
+
+基于 **Attention Steering** 的 Trace issues 与 Todo list 联动机制。
+
+### XT 标签定义
+
+| 标记 | 全称 | 含义 | 触发动作 |
+|------|------|------|---------|
+| `<XT0>` | eXtra Trace Critical | Trace-Todo 阻塞级同步 | 必须立即创建对应 Todo |
+| `<XT1>` | eXtra Trace Major | Trace-Todo 重要提醒 | 建议更新 Todo 状态 |
+| `<XT-A>` | eXtra Trace Action | Trace-Todo 行动指令 | 具体同步操作命令 |
+
+### 联动触发条件
+
+```
+<XT0> 以下条件触发强制同步：
+- 执行 shecr trace issues 发现 open issues
+- 执行 shecr trace add 创建了新 issue  
+- 工作目录存在 .shecr.json 且有未解决问题
+```
+
+### 同步规则
+
+**Rule 1: Issue → Todo (创建时)**
+```markdown
+<XT0> 每个 open issue 必须对应一个 Todo
+<XT-A> SetTodoList 格式: "[Trace] {ISS-ID}: {简要描述}"
+```
+
+**Rule 2: Todo → Trace (完成时)**
+```markdown
+<XT0> 标记 [Trace] Todo 为 done 前，必须先执行:
+<XT-A> shecr trace complete --id {ISS-ID} --result "分析结论"
+```
+
+**Rule 3: 最终检查**
+```markdown
+<XT0> 所有 Todo 标记为 done 前，必须确认:
+<XT-A> shecr trace issues --status open 返回空
+```
+
+### 典型联动流程
+
+```bash
+# 1. 发现 issues
+shecr trace issues
+# 输出: <XT0> 发现 2 个待处理问题
+#        <XT-A> 创建对应 Todo: [Trace] ISS-001, [Trace] ISS-002
+
+# 2. 创建联动 Todo
+SetTodoList(todos=[
+  {"title": "[Trace] ISS-001: 分析...", "status": "pending"},
+  {"title": "[Trace] ISS-002: 分析...", "status": "pending"}
+])
+
+# 3. 分析并解决
+shecr trace complete --id ISS-001 --result "根因: ..."
+# 输出: <XT1> 对应 Todo 可标记为 done
+
+# 4. 更新 Todo
+SetTodoList(... [Trace] ISS-001 status: done ...)
+
+# 5. 最终确认
+shecr trace finalize
+# 输出: <XT0> 所有 issues 已解决，可以结束诊断
+```
+
 ---

@@ -38,23 +38,27 @@ def cmd_doc_finalize(args):
     print()
     
     if result.status == 'ready':
-        print("[READY] All issues resolved")
+        print("<XT0> [READY] All issues resolved")
         print(f"→ Total resolved: {result.resolved_count}")
+        print()
+        print("<XT0> Trace 审计通过")
+        print("<XT-A> 确认所有 [Trace] 前缀的 Todo 已标记为 done")
         print()
         print("=" * 65)
         print("Report can be generated")
         print("=" * 65)
 
     elif result.status == 'accepted':
-        print(f"[ACCEPTED] Risk accepted: {args.accept_risk}")
+        print(f"<XT1> [ACCEPTED] Risk accepted: {args.accept_risk}")
         print(f"→ Resolved: {result.resolved_count}, Accepted: {result.open_count}")
         print()
+        print("<XT1> 风险已接受，可以生成报告")
         print("=" * 65)
         print("Report can be generated")
         print("=" * 65)
 
     else:  # blocked
-        print(f"[BLOCKED] {len(result.open_issues)} open issues remaining")
+        print(f"<XT0> [BLOCKED] {len(result.open_issues)} open issues remaining")
         print()
         print("Note: This is NOT an audit. Use 'shecr trace audit' for quality review.")
         print()
@@ -69,7 +73,9 @@ def cmd_doc_finalize(args):
                 print(f"→ {issue['hint']}")
             print()
         print("-" * 65)
-        print("[A] Continue analysis (recommended)")
-        print("[B] Accept risk and finalize: --accept-risk 'reason'")
+        print("<XT0> 存在未解决的 Trace issues")
+        print("<XT-A> 选项1: 继续分析并执行 trace complete")
+        print("<XT-A> 选项2: 接受风险: --accept-risk '原因'")
+        print("<XT-A> 选项3: 创建对应 Todo 跟踪: '[Trace] ISS-XXX: ...'")
         print("=" * 65)
         sys.exit(1)
