@@ -7,6 +7,7 @@ V3 版本（三层架构）：
 - 提取 PathClustersAnalyzer 纯逻辑类
 - 支持调用路径聚类
 - Task-2.6.1: 返回 PathClustersResult dataclass
+- V4: 集成 Symbol Processing，自动应用 hidden/merge/collapse/normalize 规则
 """
 
 from dataclasses import dataclass
@@ -37,24 +38,36 @@ class PathClusterTrieNode:
 
 
 class PathClusterTrie:
-    """Trie-based path clustering for stack samples"""
+    """Trie-based path clustering for stack samples with symbol processing"""
 
-    def __init__(self, min_depth: int = 2, min_weight: float = 0.01):
+    def __init__(self, min_depth: int = 2, min_weight: float = 0.01, symbol_rules=None):
         self.min_depth = min_depth
         self.min_weight = min_weight
         self.root = PathClusterTrieNode()
+        self.symbol_rules = symbol_rules
 
     def add_sample(self, stack, weight=0):
         if not stack:
             return
+        
+        # 获取调用栈符号列表
+        names = stack.get_normalized_names()
+        
+        # 应用 symbol processing（hidden/merge/collapse/normalize）
+        if self.symbol_rules:
+            processed = self.symbol_rules.process_stack(names)
+            names = processed.processed_stack
+        
+        if not names:
+            return
 
         node = self.root
-        for func in reversed(stack.get_normalized_names()):
+        for func in reversed(names):
             if func not in node.children:
                 node.children[func] = PathClusterTrieNode()
             node = node.children[func]
             node.weight += weight
-            node.samples.append((stack.get_normalized_names(), weight))
+            node.samples.append((names, weight))
 
     def extract_clusters(self, node=None, path=None, clusters=None) -> List[PathCluster]:
         if node is None:
@@ -88,11 +101,25 @@ class PathClustersAnalyzer(BaseAnalyzer):
     路径聚类分析器
     
     使用 Trie 对调用路径进行聚类，识别共同前缀模式。
+    自动应用 symbol processing（hidden/merge/collapse/normalize）。
     """
     
+    def __init__(self, engine):
+        super().__init__(engine)
+        # 延迟加载 symbol rules
+        self._symbol_rules = None
+    
+    @property
+    def symbol_rules(self):
+        """获取 symbol rules（延迟加载）"""
+        if self._symbol_rules is None:
+            from config.defaults import get_symbol_rules
+            self._symbol_rules = get_symbol_rules()
+        return self._symbol_rules
+    
     def analyze(self, samples: List[Sample],
-                min_depth: int = 2,
-                min_samples: int = 5,
+                min_depth: Optional[int] = None,
+                min_samples: Optional[int] = None,
                 top_n: int = 10,
                 comm: Optional[str] = None,
                 pid: Optional[int] = None) -> PathClustersResult:
@@ -101,8 +128,8 @@ class PathClustersAnalyzer(BaseAnalyzer):
         
         Args:
             samples: 样本数据
-            min_depth: 最小调用深度
-            min_samples: 最小样本数
+            min_depth: 最小调用深度（默认从配置文件读取）
+            min_samples: 最小样本数（默认从配置文件读取）
             top_n: 返回前 N 个聚类
             comm: 可选，按进程名过滤
             pid: 可选，按 PID 过滤
@@ -110,6 +137,12 @@ class PathClustersAnalyzer(BaseAnalyzer):
         Returns:
             PathClustersResult dataclass
         """
+        # 从配置文件读取默认值
+        clustering_config = self.symbol_rules.clustering
+        if min_depth is None:
+            min_depth = clustering_config.get('min_depth', 2)
+        if min_samples is None:
+            min_samples = clustering_config.get('min_samples', 5)
         if not samples:
             return PathClustersResult(
                 clusters=[],
@@ -131,9 +164,13 @@ class PathClustersAnalyzer(BaseAnalyzer):
         total_weight, _ = self._engine.get_total_core_per_sec(filtered_samples)
         duration = self._engine.get_duration(filtered_samples)
         
-        # 3. 构建聚类
+        # 3. 构建聚类（应用 symbol processing）
         min_weight = min_samples * 0.001
-        cluster_builder = PathClusterTrie(min_depth=min_depth, min_weight=min_weight)
+        cluster_builder = PathClusterTrie(
+            min_depth=min_depth, 
+            min_weight=min_weight,
+            symbol_rules=self.symbol_rules
+        )
         
         for s in filtered_samples:
             if s.stack and len(s.stack) > 0:

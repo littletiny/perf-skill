@@ -213,7 +213,6 @@ cli/
 |------|------|
 | `sys_audit.py` | 系统全景扫描 |
 | `bottleneck_trace.py` | 瓶颈深度追踪 |
-| `bottleneck_tracer.py` | 瓶颈追踪器实现 |
 | `risk_aggregator.py` | Risk 聚合器 |
 | `models.py` | 组合诊断数据模型 |
 
@@ -242,9 +241,7 @@ tests/
 │   ├── test_facade_interfaces.py
 │   ├── test_composite_commands.py
 │   ├── test_three_tier_e2e.py
-│   ├── test_risk_integration.py
-│   ├── test_trace_boundary.py
-│   └── test_bottleneck_tracer.py
+│   └── test_risk_integration.py
 ├── risk/                  # Risk 配置测试
 │   └── test_risk_display_config.py
 ├── shecr_wrap/            # CLI 包装测试
@@ -279,7 +276,6 @@ tests/
 │  scripts/perf_toolkit/composite/                         │
 │  - sys_audit.py                                          │
 │  - bottleneck_trace.py                                   │
-│  - bottleneck_tracer.py                                  │
 ├─────────────────────────────────────────────────────────┤
 │  Analysis Layer (分析层)                                   │
 │  scripts/perf_toolkit/analysis/                          │

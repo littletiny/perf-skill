@@ -14,8 +14,7 @@
 | `test_trace_boundary.py` | Trace边界 | Composite调用不污染timeline | 10+ |
 | `test_risk_integration.py` | Risk集成 | 三层risk流转与聚合 | 14+ |
 | `test_three_tier_e2e.py` | 端到端测试 | 完整诊断流程 | 8+ |
-| `test_bottleneck_tracer.py` | 瓶颈追踪 | 瓶颈识别与追踪逻辑 | 10+ |
-| **总计** | | | **80+** |
+| **总计** | | | **70+** |
 
 ---
 
@@ -57,9 +56,6 @@ python3 tests/integration/test_risk_integration.py
 
 # 端到端测试
 python3 tests/integration/test_three_tier_e2e.py
-
-# 瓶颈追踪测试
-python3 tests/integration/test_bottleneck_tracer.py
 ```
 
 ### 详细输出模式
@@ -133,9 +129,9 @@ python3 tests/integration/test_core_interfaces.py -v
 - Trace边界验证
 - 错误处理
 
-### 瓶颈追踪测试 (`test_bottleneck_tracer.py`)
+### 端到端测试 (`test_three_tier_e2e.py`)
 
-**测试目标**: 瓶颈识别与追踪
+**测试目标**: 完整诊断流程
 
 - 瓶颈检测算法
 - 调用链追踪

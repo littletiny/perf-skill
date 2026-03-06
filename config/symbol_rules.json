@@ -1,0 +1,248 @@
+{
+  "_comment": "Symbol Processing Rules - 符号处理规则配置文件",
+  "description": "Symbol processing rules for callstack analysis (used by find-callers, cluster-paths, bottleneck-trace)",
+  "version": "2.1",
+  "_doc": {
+    "overview": "此配置文件控制 perf-hunter 如何处理调用栈中的符号",
+    "processing_order": "规则按以下顺序应用: hidden -> merge_down -> merge_up -> collapse -> normalize",
+    "commands_affected": ["find-callers", "cluster-paths", "bottleneck-trace"],
+    "wildcard_support": "支持通配符: * 匹配任意字符, ? 匹配单个字符, [seq] 匹配字符集"
+  },
+  "rules": {
+    "hidden": {
+      "_comment": "完全隐藏的符号 - 从调用栈中移除",
+      "description": "Symbols to hide from callstack (always filtered out)",
+      "examples": [
+        "__clone 会隐藏 __clone, __clone3 等",
+        "start_thread* 会隐藏 start_thread, start_thread_with_rand_seeds 等"
+      ],
+      "patterns": [
+        "__clone",
+        "clone",
+        "start_thread",
+        "start_thread_with_rand_seeds",
+        "execute_native_thread_routine",
+        "_start",
+        "__start",
+        "__libc_start_main_impl",
+        "generic_start_main",
+        "__clone3",
+        "create_thread",
+        "pthread_start_thread"
+      ]
+    },
+    "merge_up": {
+      "_comment": "向上合并 - 将符号合并到其调用者(caller，栈中上方)",
+      "description": "Symbols to merge into their caller (rollup). These are typically intermediate runtime functions.",
+      "examples": [
+        "__libc_start_main -> main: 启动函数合并到 main",
+        "std::thread::_* -> 调用者: C++线程内部函数合并"
+      ],
+      "patterns": [
+        "__libc_start_main",
+        "libc_start_main",
+        "__libc_start_main*",
+        "__pthread_create",
+        "pthread_create",
+        "__pthread_create_2_1",
+        "std::thread::_M_start_thread",
+        "std::thread::_State_impl::_M_run",
+        "std::__execute_native_thread_routine",
+        "std::this_thread::__sleep_for",
+        "tbb::detail::*",
+        "tbb::internal::*"
+      ]
+    },
+    "merge_down": {
+      "_comment": "向下合并 - 将符号合并到其被调用者(callee，栈中下方)",
+      "description": "Symbols to merge into their callee (syscall wrappers, kernel entry points, etc.)",
+      "examples": [
+        "syscall -> vfs_read: syscall 包装器合并到实际系统调用",
+        "entry_SYSCALL_64 -> do_syscall_64: 内核入口合并"
+      ],
+      "patterns": [
+        "syscall",
+        "__syscall",
+        "__syscall*",
+        "__x64_sys_*",
+        "do_syscall_64",
+        "do_syscall_x64",
+        "entry_SYSCALL_64*",
+        "entry_SYSCALL_64_after_hwframe",
+        "__libc_send",
+        "__libc_recv",
+        "__libc_sendto",
+        "__libc_recvfrom",
+        "__GI___*",
+        "__GI_*",
+        "__libc_*",
+        "__wrap_*",
+        "__real_*"
+      ]
+    },
+    "collapse": {
+      "_comment": "折叠组 - 将连续的多个符号折叠为单一代表",
+      "description": "Symbol groups to collapse into a single representative",
+      "examples": [
+        "pthread_mutex_lock + pthread_mutex_unlock -> [pthread_sync]",
+        "malloc + free + calloc -> [memory_ops]"
+      ],
+      "groups": [
+        {
+          "name": "pthread_runtime",
+          "symbols": [
+            "pthread_mutex_lock",
+            "pthread_mutex_unlock",
+            "pthread_mutex_trylock",
+            "pthread_mutex_timedlock",
+            "pthread_rwlock_rdlock",
+            "pthread_rwlock_wrlock",
+            "pthread_rwlock_unlock",
+            "pthread_cond_wait",
+            "pthread_cond_timedwait",
+            "pthread_cond_signal",
+            "pthread_cond_broadcast",
+            "pthread_barrier_wait",
+            "__pthread_mutex_lock",
+            "__pthread_mutex_unlock"
+          ],
+          "display": "[pthread_sync]"
+        },
+        {
+          "name": "memory_alloc",
+          "symbols": [
+            "malloc",
+            "free",
+            "calloc",
+            "realloc",
+            "_malloc",
+            "_free",
+            "__libc_malloc",
+            "__libc_free",
+            "__libc_calloc",
+            "__libc_realloc",
+            "operator new",
+            "operator delete",
+            "operator new[]",
+            "operator delete[]"
+          ],
+          "display": "[memory_ops]"
+        },
+        {
+          "name": "syscall_entry",
+          "symbols": [
+            "__x64_sys_*",
+            "do_syscall_*",
+            "entry_SYSCALL_*",
+            "syscall_enter_from_user_mode",
+            "syscall_exit_to_user_mode"
+          ],
+          "display": "[syscall]"
+        },
+        {
+          "name": "scheduling",
+          "symbols": [
+            "__schedule",
+            "schedule",
+            "finish_task_switch",
+            "switch_mm_irqs_off",
+            "native_safe_halt",
+            "do_nanosleep",
+            "hrtimer_nanosleep",
+            "ktime_get"
+          ],
+          "display": "[scheduler]"
+        },
+        {
+          "name": "spinlock",
+          "symbols": [
+            "_raw_spin_lock",
+            "_raw_spin_unlock",
+            "_raw_spin_trylock",
+            "_raw_read_lock",
+            "_raw_read_unlock",
+            "_raw_write_lock",
+            "_raw_write_unlock",
+            "queue_spin_lock",
+            "queued_spin_lock",
+            "queued_spin_unlock",
+            "queued_rw_spin_lock"
+          ],
+          "display": "[spinlock]"
+        },
+        {
+          "name": "mutex",
+          "symbols": [
+            "mutex_lock",
+            "mutex_unlock",
+            "mutex_trylock",
+            "__mutex_lock",
+            "__mutex_unlock",
+            "__mutex_lock_slowpath",
+            "__mutex_unlock_slowpath"
+          ],
+          "display": "[mutex]"
+        },
+        {
+          "name": "rwsem",
+          "symbols": [
+            "rwsem_down_read",
+            "rwsem_down_write",
+            "rwsem_up_read",
+            "rwsem_up_write",
+            "down_read",
+            "up_read",
+            "down_write",
+            "up_write"
+          ],
+          "display": "[rwsem]"
+        },
+        {
+          "name": "page_fault",
+          "symbols": [
+            "do_page_fault",
+            "handle_mm_fault",
+            "__do_page_fault",
+            "__handle_mm_fault",
+            "handle_pte_fault"
+          ],
+          "display": "[page_fault]"
+        },
+        {
+          "name": "signal",
+          "symbols": [
+            "do_signal",
+            "get_signal",
+            "handle_signal",
+            "__send_signal",
+            "send_signal"
+          ],
+          "display": "[signal]"
+        }
+      ]
+    }
+  },
+  "sampling": {
+    "_comment": "智能调用链提取的采样策略配置",
+    "description": "Sampling strategy preferences for smart callchain extraction",
+    "skip_bottom_runtime": true,
+    "runtime_function_patterns": [
+      "__clone",
+      "clone",
+      "start_thread",
+      "start_thread_with_rand_seeds",
+      "execute_native_thread_routine",
+      "_start",
+      "__start",
+      "pthread_start_thread"
+    ],
+    "anchor_from_bottom": 3
+  },
+  "clustering": {
+    "_comment": "cluster-paths 命令的聚类配置",
+    "description": "Path clustering configuration for cluster-paths command",
+    "enabled": true,
+    "min_depth": 2,
+    "min_samples": 5
+  }
+}

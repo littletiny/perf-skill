@@ -24,6 +24,7 @@ TEST_FILES = [
     # 单元测试
     "tests/unit/test_risk_display_config.py",
     "tests/unit/test_perfdata.py",
+    "tests/unit/test_kernel_awareness.py",
     # 功能测试
     "tests/functional/test_issue_overflow_warning.py",
     "tests/functional/test_trace_audit.py",

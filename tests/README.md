@@ -26,7 +26,6 @@ tests/
 │   ├── test_composite_commands.py
 │   ├── test_trace_boundary.py
 │   ├── test_risk_integration.py
-│   ├── test_bottleneck_tracer.py
 │   └── test_three_tier_e2e.py
 ├── cli/                      # CLI 回归测试
 │   ├── README.md
@@ -74,7 +73,6 @@ Core-Analysis-Composite 三层架构的集成测试。
 | `integration/test_composite_commands.py` | Composite 命令测试 | `python3 tests/integration/test_composite_commands.py` |
 | `integration/test_trace_boundary.py` | Trace 边界测试 | `python3 tests/integration/test_trace_boundary.py` |
 | `integration/test_risk_integration.py` | Risk 集成测试 | `python3 tests/integration/test_risk_integration.py` |
-| `integration/test_bottleneck_tracer.py` | 瓶颈追踪测试 | `python3 tests/integration/test_bottleneck_tracer.py` |
 | `integration/test_three_tier_e2e.py` | 端到端测试 | `python3 tests/integration/test_three_tier_e2e.py` |
 
 运行所有集成测试：

@@ -12,7 +12,7 @@ Default Configuration - 全项目默认常量配置
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 # =============================================================================
@@ -474,6 +474,588 @@ class CallChainFormat:
     STYLE_DEFAULT = "default"         # 标准格式
     STYLE_MARKDOWN = "markdown"       # Markdown 格式 (带 ` 标记)
     STYLE_PLAIN = "plain"             # 纯文本 (无标记)
+
+
+# =============================================================================
+# Kernel Penetration Configuration - 内核穿透配置
+# =============================================================================
+
+class KernelPenetrationConfig:
+    """内核穿透分析配置"""
+    
+    # 需要穿透分析的内核函数白名单
+    KERNEL_PENETRATION_TARGETS = [
+        'finish_task_switch',
+        '__schedule',
+        'schedule',
+        'switch_mm_irqs_off',
+        'native_safe_halt',
+        'do_nanosleep',
+        'hrtimer_nanosleep',
+    ]
+    
+    # 调用链提取配置
+    CALLCHAIN_EXTRACTION = {
+        'default_max_depth': 10,
+        'kernel_penetration_max_depth': 15,
+        'min_kernel_layers': 3,
+    }
+
+
+# =============================================================================
+# Symbol Rules Configuration - 符号处理规则配置
+# =============================================================================
+
+import json
+import os
+from pathlib import Path
+import fnmatch
+
+
+@dataclass
+class SymbolRules:
+    """
+    符号处理规则配置
+    
+    用于控制调用链中符号的显示行为：
+    - hidden: 完全隐藏的符号
+    - merge_up: 向上合并到调用者
+    - merge_down: 向下合并到被调用者
+    - collapse: 折叠为一组的符号
+    
+    支持通配符模式匹配（如 *__x64_sys_*、*.isra.*）
+    """
+    hidden: List[str] = field(default_factory=list)
+    merge_up: List[str] = field(default_factory=list)
+    merge_down: List[str] = field(default_factory=list)
+    collapse_groups: Dict[str, Dict] = field(default_factory=dict)
+    
+    # 运行时函数跳过配置
+    skip_runtime_at_bottom: bool = True
+    runtime_patterns: List[str] = field(default_factory=list)
+    anchor_offset_from_bottom: int = 3
+    
+    # 聚类配置 (用于 cluster-paths)
+    clustering: Dict[str, Any] = field(default_factory=lambda: {
+        'enabled': True,
+        'min_depth': 2,
+        'min_samples': 5
+    })
+    
+    @classmethod
+    def from_file(cls, filepath: Optional[str] = None) -> 'SymbolRules':
+        """
+        从 JSON 文件加载符号规则
+        
+        Args:
+            filepath: 配置文件路径，默认使用 config/symbol_rules.json
+            
+        Returns:
+            SymbolRules 实例
+        """
+        if filepath is None:
+            # 默认路径：当前文件所在目录的 symbol_rules.json
+            config_dir = Path(__file__).parent
+            filepath = config_dir / "symbol_rules.json"
+        
+        if not os.path.exists(filepath):
+            # 返回默认配置
+            return cls._default_rules()
+        
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            rules = data.get('rules', {})
+            sampling = data.get('sampling', {})
+            clustering = data.get('clustering', {})
+            
+            return cls(
+                hidden=rules.get('hidden', {}).get('patterns', []),
+                merge_up=rules.get('merge_up', {}).get('patterns', []),
+                merge_down=rules.get('merge_down', {}).get('patterns', []),
+                collapse_groups={
+                    g['name']: g 
+                    for g in rules.get('collapse', {}).get('groups', [])
+                },
+                skip_runtime_at_bottom=sampling.get('skip_bottom_runtime', True),
+                runtime_patterns=sampling.get('runtime_function_patterns', []),
+                anchor_offset_from_bottom=sampling.get('anchor_from_bottom', 3),
+                clustering={
+                    'enabled': clustering.get('enabled', True),
+                    'min_depth': clustering.get('min_depth', 2),
+                    'min_samples': clustering.get('min_samples', 5)
+                } if clustering else {
+                    'enabled': True,
+                    'min_depth': 2,
+                    'min_samples': 5
+                }
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            print(f"[Warning] Failed to load symbol rules from {filepath}: {e}")
+            return cls._default_rules()
+    
+    @classmethod
+    def _default_rules(cls) -> 'SymbolRules':
+        """返回默认规则"""
+        return cls(
+            hidden=['__clone', 'clone', 'start_thread', 'execute_native_thread_routine'],
+            merge_up=[],
+            merge_down=[],
+            collapse_groups={},
+            skip_runtime_at_bottom=True,
+            runtime_patterns=['__clone', 'start_thread', 'execute_native_thread_routine'],
+            anchor_offset_from_bottom=3
+        )
+    
+    @staticmethod
+    def _match_pattern(symbol: str, pattern: str) -> bool:
+        """
+        使用 fnmatch 进行通配符匹配
+        
+        支持的通配符：
+        - *: 匹配任意字符序列
+        - ?: 匹配单个字符
+        - [seq]: 匹配 seq 中的任意字符
+        
+        Args:
+            symbol: 符号名
+            pattern: 匹配模式
+            
+        Returns:
+            是否匹配
+        """
+        # 完全匹配
+        if symbol == pattern:
+            return True
+        # 通配符匹配
+        return fnmatch.fnmatch(symbol, pattern)
+    
+    def is_hidden(self, symbol: str) -> bool:
+        """
+        检查符号是否在隐藏列表中
+        
+        支持通配符模式匹配
+        """
+        for pattern in self.hidden:
+            if self._match_pattern(symbol, pattern):
+                return True
+        return False
+    
+    def should_merge_up(self, symbol: str) -> bool:
+        """
+        检查符号是否应该向上合并到调用者
+        
+        向上合并：将此符号的 weight 加到调用者上，不显示此符号
+        适用于：libc 启动函数、pthread 创建函数等中间层
+        """
+        for pattern in self.merge_up:
+            if self._match_pattern(symbol, pattern):
+                return True
+        return False
+    
+    def should_merge_down(self, symbol: str) -> bool:
+        """
+        检查符号是否应该向下合并到被调用者
+        
+        向下合并：将此符号视为被调用者的一部分，不单独显示
+        适用于：syscall 包装器、内核入口函数等
+        """
+        for pattern in self.merge_down:
+            if self._match_pattern(symbol, pattern):
+                return True
+        return False
+    
+    def get_collapse_group(self, symbol: str) -> Optional[str]:
+        """
+        检查符号属于哪个折叠组
+        
+        Args:
+            symbol: 符号名
+            
+        Returns:
+            折叠组的 display 名称，如果不属于任何组返回 None
+        """
+        for group_name, group_config in self.collapse_groups.items():
+            symbols = group_config.get('symbols', [])
+            for pattern in symbols:
+                if self._match_pattern(symbol, pattern):
+                    return group_config.get('display', f"[{group_name}]")
+        return None
+    
+    def is_runtime(self, symbol: str) -> bool:
+        """
+        检查符号是否是运行时函数
+        
+        支持通配符模式匹配
+        """
+        for pattern in self.runtime_patterns:
+            if self._match_pattern(symbol, pattern):
+                return True
+        return False
+    
+    def find_meaningful_anchor(self, stack: List[str]) -> int:
+        """
+        从栈底向上找有意义的锚点索引
+        
+        策略：
+        1. 如果栈底不是运行时函数，直接返回栈底
+        2. 如果栈底是运行时函数，向上找第一个非运行时函数
+        3. 如果全是运行时函数，返回栈底
+        
+        Args:
+            stack: 调用栈符号列表
+            
+        Returns:
+            有意义的锚点索引（从0开始）
+        """
+        if not stack:
+            return 0
+        
+        if not self.skip_runtime_at_bottom:
+            return len(stack) - 1
+        
+        # 从栈底向上找，找到第一个非运行时函数
+        for i in range(len(stack) - 1, -1, -1):
+            if not self.is_runtime(stack[i]):
+                return i
+        
+        # 全是运行时函数，返回栈底
+        return len(stack) - 1
+    
+    def filter_stack(self, stack: List[str]) -> List[str]:
+        """
+        过滤调用栈，移除 hidden 符号
+        
+        Args:
+            stack: 原始调用栈
+            
+        Returns:
+            过滤后的调用栈
+        """
+        return [s for s in stack if not self.is_hidden(s)]
+    
+    def process_stack(self, stack: List[str], normalize: bool = True) -> 'ProcessedStack':
+        """
+        处理调用栈，应用所有规则
+        
+        处理流程：
+        1. 移除 hidden 符号
+        2. 应用 merge_up（将符号合并到调用者）
+        3. 应用 merge_down（将符号合并到被调用者）
+        4. 应用 collapse（将组内符号折叠）
+        5. 规范化 symbol name（只保留 classname::method，默认启用）
+        
+        Args:
+            stack: 原始调用栈
+            normalize: 是否规范化 symbol name，默认为 True
+            
+        Returns:
+            ProcessedStack 对象
+        """
+        return ProcessedStack.process(stack, self, normalize=normalize)
+    
+    @staticmethod
+    def normalize_symbol(symbol: str) -> str:
+        """
+        规范化符号名，只保留最后的 ClassName::method 部分
+        
+        转换示例：
+        - "std::vector<int>::push_back" -> "vector<int>::push_back"
+        - "MyClass::MyClass::method" -> "MyClass::method"
+        - "parameter_server::optimizer::AdamOptimizer::Optimize" -> "AdamOptimizer::Optimize"
+        - "func" -> "func" (无 :: 的不变)
+        - "[syscall]" -> "[syscall]" (折叠组标记不变)
+        
+        Args:
+            symbol: 原始符号名
+            
+        Returns:
+            截断后的符号名
+        """
+        # 保留折叠组标记
+        if symbol.startswith('[') and symbol.endswith(']'):
+            return symbol
+        
+        if '::' not in symbol:
+            return symbol
+        
+        parts = symbol.split('::')
+        if len(parts) >= 2:
+            return '::'.join(parts[-2:])
+        return symbol
+
+
+@dataclass
+class StackOperation:
+    """
+    栈操作记录
+    
+    记录对栈的每一次变换操作，用于调试和理解处理过程
+    """
+    operation: str  # "hidden", "merge_up", "merge_down", "collapse"
+    original_symbol: str
+    new_symbol: Optional[str]
+    index: int
+    reason: str
+
+
+@dataclass
+class ProcessedStack:
+    """
+    处理后的调用栈结果
+    
+    包含处理后的栈和变换记录
+    """
+    original_stack: List[str]
+    processed_stack: List[str]
+    operations: List[StackOperation] = field(default_factory=list)
+    
+    # 统计信息
+    hidden_count: int = 0
+    merged_up_count: int = 0
+    merged_down_count: int = 0
+    collapsed_count: int = 0
+    
+    @classmethod
+    def process(cls, stack: List[str], rules: SymbolRules, normalize: bool = True) -> 'ProcessedStack':
+        """
+        处理调用栈，应用所有 symbol 规则
+        
+        处理流程（按优先级）：
+        1. 首先移除所有 hidden 符号
+        2. 应用 merge_down（将符号合并到被调用者）
+        3. 应用 merge_up（将符号合并到调用者）
+        4. 应用 collapse（将连续的组内符号折叠）
+        5. 规范化 symbol name（只保留 classname::method，可选）
+        
+        Args:
+            stack: 原始调用栈（栈顶在索引 0）
+            rules: SymbolRules 实例
+            normalize: 是否规范化 symbol name，默认为 True
+            
+        Returns:
+            ProcessedStack 对象
+            
+        Example:
+            >>> rules = SymbolRules(
+            ...     hidden=['__clone'],
+            ...     merge_down=['syscall'],
+            ...     collapse_groups={'memory': {'symbols': ['malloc', 'free'], 'display': '[memory_ops]'}}
+            ... )
+            >>> stack = ['malloc', 'syscall', '__clone', 'main', 'start_thread']
+            >>> result = ProcessedStack.process(stack, rules)
+            >>> result.processed_stack
+            ['malloc', 'main']
+        """
+        if not stack:
+            return cls(original_stack=[], processed_stack=[], operations=[])
+        
+        operations = []
+        
+        # 阶段1: 移除 hidden 符号
+        filtered = []
+        for i, sym in enumerate(stack):
+            if rules.is_hidden(sym):
+                operations.append(StackOperation(
+                    operation="hidden",
+                    original_symbol=sym,
+                    new_symbol=None,
+                    index=i,
+                    reason=f"Matched hidden pattern"
+                ))
+            else:
+                filtered.append((i, sym))
+        
+        hidden_count = len([op for op in operations if op.operation == "hidden"])
+        
+        # 阶段2: 应用 merge_down
+        # merge_down: 当前符号合并到被调用者（栈中下方，索引更大的位置）
+        # 例如: syscall -> read, syscall 被合并到 read
+        after_merge_down = []
+        merged_down_count = 0
+        
+        filtered_symbols = [sym for _, sym in filtered]
+        i = 0
+        while i < len(filtered):
+            orig_idx, sym = filtered[i]
+            if rules.should_merge_down(sym):
+                # 检查是否有被调用者（索引更大的位置）
+                if i + 1 < len(filtered):
+                    next_idx, next_sym = filtered[i + 1]
+                    operations.append(StackOperation(
+                        operation="merge_down",
+                        original_symbol=sym,
+                        new_symbol=next_sym,
+                        index=orig_idx,
+                        reason=f"Merged into callee: {next_sym}"
+                    ))
+                    merged_down_count += 1
+                    # 不添加当前符号，它被合并到下一个了
+                else:
+                    # 没有 callee，留在原地但标记
+                    operations.append(StackOperation(
+                        operation="merge_down",
+                        original_symbol=sym,
+                        new_symbol=None,
+                        index=orig_idx,
+                        reason="No callee, kept in place"
+                    ))
+                    after_merge_down.append((orig_idx, sym))
+            else:
+                after_merge_down.append((orig_idx, sym))
+            i += 1
+        
+        # 阶段3: 应用 merge_up
+        # merge_up: 当前符号合并到调用者（栈中上方，索引更小的位置）
+        # 例如: __libc_start_main -> main, __libc_start_main 被合并到 main
+        after_merge_up = []
+        merged_up_count = 0
+        
+        i = 0
+        while i < len(after_merge_down):
+            orig_idx, sym = after_merge_down[i]
+            if rules.should_merge_up(sym):
+                # 检查是否有调用者（索引更小的位置）
+                if after_merge_up:
+                    prev_idx, prev_sym = after_merge_up[-1]
+                    operations.append(StackOperation(
+                        operation="merge_up",
+                        original_symbol=sym,
+                        new_symbol=prev_sym,
+                        index=orig_idx,
+                        reason=f"Merged into caller: {prev_sym}"
+                    ))
+                    merged_up_count += 1
+                    # 不添加当前符号，它被合并到前一个了
+                else:
+                    # 没有 caller，留在原地但标记
+                    operations.append(StackOperation(
+                        operation="merge_up",
+                        original_symbol=sym,
+                        new_symbol=None,
+                        index=orig_idx,
+                        reason="No caller, kept in place"
+                    ))
+                    after_merge_up.append((orig_idx, sym))
+            else:
+                after_merge_up.append((orig_idx, sym))
+            i += 1
+        
+        # 阶段4: 应用 collapse（折叠连续的组内符号）
+        processed = []
+        collapsed_count = 0
+        i = 0
+        symbols_only = [sym for _, sym in after_merge_up]
+        
+        while i < len(after_merge_up):
+            orig_idx, sym = after_merge_up[i]
+            collapse_display = rules.get_collapse_group(sym)
+            
+            if collapse_display:
+                # 检查是否是连续的组内符号
+                if processed and processed[-1] == collapse_display:
+                    # 已经是折叠组的一部分，跳过
+                    operations.append(StackOperation(
+                        operation="collapse",
+                        original_symbol=sym,
+                        new_symbol=collapse_display,
+                        index=orig_idx,
+                        reason=f"Merged into existing group: {collapse_display}"
+                    ))
+                    collapsed_count += 1
+                else:
+                    # 开始一个新的折叠组
+                    # 检查后面还有多少连续的同组符号
+                    j = i + 1
+                    consecutive_collapsed = 0
+                    while j < len(after_merge_up):
+                        _, next_sym = after_merge_up[j]
+                        next_display = rules.get_collapse_group(next_sym)
+                        if next_display == collapse_display:
+                            consecutive_collapsed += 1
+                            j += 1
+                        else:
+                            break
+                    
+                    if consecutive_collapsed > 0:
+                        operations.append(StackOperation(
+                            operation="collapse",
+                            original_symbol=sym,
+                            new_symbol=collapse_display,
+                            index=orig_idx,
+                            reason=f"Collapsed {consecutive_collapsed + 1} symbols into {collapse_display}"
+                        ))
+                        collapsed_count += consecutive_collapsed + 1
+                        # 跳过被折叠的符号
+                        i = j - 1
+                    else:
+                        operations.append(StackOperation(
+                            operation="collapse",
+                            original_symbol=sym,
+                            new_symbol=collapse_display,
+                            index=orig_idx,
+                            reason=f"Single symbol collapsed to {collapse_display}"
+                        ))
+                        collapsed_count += 1
+                    
+                    processed.append(collapse_display)
+            else:
+                processed.append(sym)
+            i += 1
+        
+        # 阶段5: 规范化 symbol name（只保留 classname::method）
+        if normalize:
+            processed = [rules.normalize_symbol(sym) for sym in processed]
+        
+        return cls(
+            original_stack=list(stack),
+            processed_stack=processed,
+            operations=operations,
+            hidden_count=hidden_count,
+            merged_up_count=merged_up_count,
+            merged_down_count=merged_down_count,
+            collapsed_count=collapsed_count
+        )
+    
+    def get_summary(self) -> str:
+        """获取处理摘要"""
+        total_ops = self.hidden_count + self.merged_up_count + self.merged_down_count + self.collapsed_count
+        if total_ops == 0:
+            return "No transformations applied"
+        
+        parts = []
+        if self.hidden_count > 0:
+            parts.append(f"{self.hidden_count} hidden")
+        if self.merged_up_count > 0:
+            parts.append(f"{self.merged_up_count} merged_up")
+        if self.merged_down_count > 0:
+            parts.append(f"{self.merged_down_count} merged_down")
+        if self.collapsed_count > 0:
+            parts.append(f"{self.collapsed_count} collapsed")
+        
+        return f"Applied: {', '.join(parts)} ({len(self.original_stack)} -> {len(self.processed_stack)} symbols)"
+    
+    def __len__(self) -> int:
+        return len(self.processed_stack)
+    
+    def __iter__(self):
+        return iter(self.processed_stack)
+    
+    def __getitem__(self, index) -> str:
+        return self.processed_stack[index]
+
+
+# 全局符号规则实例（懒加载）
+_symbol_rules: Optional[SymbolRules] = None
+
+
+def get_symbol_rules() -> SymbolRules:
+    """获取全局符号规则实例"""
+    global _symbol_rules
+    if _symbol_rules is None:
+        _symbol_rules = SymbolRules.from_file()
+    return _symbol_rules
 
 
 # =============================================================================

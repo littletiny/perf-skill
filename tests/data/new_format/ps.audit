@@ -1,0 +1,32 @@
+[RISK-CRITICAL] <X0> 发现 4 个关键性能瓶颈 | #1 parameter_serve: 724.5% CPU (sys: 203.2%/28%, score: 635.2, type: BOTTLENECK); #2 kubelet: 16.3% CPU (sys: 4.4%/27%, score: 92.7, type: UNBALANCED); #3 pingmeshagent: 0.4% CPU (sys: 0.3%/72%, score: 44.6, type: UNBALANCED); #4 [kernel]: 7.0% CPU (sys: 7.0%/100%, score: 44.5, type: UNBALANCED)
+## [SYSTEM_AUDIT]
+> 策略: 自动降噪 + 危害排序，识别真瓶颈
+
+### 系统指纹 (System Fingerprint)
+
+State: CRITICAL_CONTENTION
+
+### Top 进程 (按危害指数排序)
+
+   1. <X0> parameter_serve     : 724.52% (sys: 203.21%) score: 625.8 [BOTTLENECK]
+   2. <X1> kubelet             :  16.31% (sys:   4.41%) score: 36.6 [UNBALANCED]
+   3.      probeagent          :  22.58% (sys:   6.42%) score: 21.4 [HEALTHY]
+   4.      toutiao.infra.t     :  12.03% (sys:   9.07%) score: 18.3 [HEALTHY]
+   5.      cli                 :  10.35% (sys:   3.59%) score: 13.0 [HEALTHY]
+
+  共显示 5 / 7 个进程
+  未显示进程 CPU: 84.80% / 870.59%
+
+### 核心分布 (Core Distribution)
+
+<X0> 负载不均衡:
+  - Imbalance Level: CRITICAL
+  <X0> Saturated Cores: 62
+
+Top Saturated:
+  #1 CPU 62: 103.41% (usr: 101.36%)
+
+<XA> 后续操作:
+  1. <XA> bottleneck-trace --comm parameter_serve 深度分析
+  2. <XA> trace issues 查看所有待处理 issue
+

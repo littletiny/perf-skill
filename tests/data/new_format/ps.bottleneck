@@ -1,0 +1,41 @@
+[RISK-CRITICAL] <X0> 发现关键性能瓶颈: parameter_serve
+  → hint: <XA> parameter_serve Monopoly=1.00, Impact=100.7
+## [RESOURCE_UTILIZATION]
+
+Target: `parameter_serve`
+
+  Total CPU:   145.20%
+  Kernel:      28.86% (19.9%)
+  User:        116.33%
+  Monopoly:    1.00 (threshold=0.8) ⚠️ 单核饱和
+  Coefficient_of_Variation: 0.00 (threshold=1.0)
+  Impact:      100.7
+  Diagnosis:   HEALTHY
+
+
+## [BOTTLENECK: parameter_serve]
+
+### [CALLCHAINS] 热点函数调用链
+
+>>> parameter_server::optimizer::AdamOptimizer::Optimize (70.19%)
+  #1 [49.26%] parameter_server::VecParameter::Update <- parameter_server::Model::PushVecFid <- parameter_server::Model::PushModel <- parameter_server::ParameterServer::PushModels <- parameter_server::ParameterServerHandlerImpl::zero_copy_push
+
+>>> finish_task_switch (11.60%)
+  #1 [1.28%] __schedule <- schedule <- do_nanosleep <- hrtimer_nanosleep <- __x64_sys_nanosleep
+  #2 [0.06%] __schedule <- schedule <- schedule_hrtimeout_range_clock <- ep_poll <- do_epoll_wait
+
+>>> __memcpy_avx_unaligned_erms (3.07%)
+  #1 [0.03%] parameter_server::optimizer::OptimizerBase::Get <- parameter_server::VecParameter::Get <- parameter_server::Model::FetchVec <- parameter_server::ParameterServer::FetchOneModel <- parameter_server::ParameterServer::FetchModels
+  #2 [0.02%] std::__cxx11::basic_string::_M_mutate <- std::__cxx11::basic_string::_M_replace <- apache::thrift::protocol::TVirtualProtocol::readBinary_virt <- neo::ZeroCopyPushRequest::read <- neo::ParameterServerProcessor::process_zero_copy_push
+  #3 [0.02%] apache::thrift::transport::TBufferBase::write <- apache::thrift::transport::TVirtualTransport::write_virt <- apache::thrift::protocol::TVirtualProtocol::writeBinary_virt <- neo::ZeroCopyFetchResponse::write <- neo::ParameterServerProcessor::process_zero_copy_fetch
+
+>>> parameter_server::DoubleHash::FindInTableWithLock (15.55%)
+  #1 [1.24%] parameter_server::DoubleHash::InsertWithProb <- parameter_server::Model::PushVecFid <- parameter_server::Model::PushModel <- parameter_server::ParameterServer::PushModels <- parameter_server::ParameterServerHandlerImpl::zero_copy_push
+  #2 [1.17%] parameter_server::DoubleHash::Find <- parameter_server::Model::FetchVec <- parameter_server::ParameterServer::FetchOneModel <- parameter_server::ParameterServer::FetchModels <- parameter_server::ParameterServerHandlerImpl::zero_copy_fetch
+
+>>> copy_user_enhanced_fast_string (2.09%)
+  #1 [0.02%] copyin <- _copy_from_iter_full <- tcp_sendmsg_locked <- tcp_sendmsg <- sock_sendmsg
+  #2 [0.01%] copyout <- _copy_to_iter <- __skb_datagram_iter <- skb_copy_datagram_iter <- tcp_recvmsg
+  #3 [0.01%] copyout <- _copy_to_iter <- __skb_datagram_iter <- __skb_datagram_iter <- skb_copy_datagram_iter
+
+

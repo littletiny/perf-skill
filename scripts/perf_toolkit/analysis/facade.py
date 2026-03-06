@@ -192,11 +192,18 @@ class AnalysisFacade:
                         comm: Optional[str] = None,
                         pid: Optional[int] = None,
                         min_ratio: float = 0.5,
-                        top_n: int = 10) -> CallersResult:
+                        top_n: int = 10,
+                        use_penetration: bool = True,
+                        use_smart_chain: bool = True,
+                        max_display_length: int = 10) -> CallersResult:
         """
         调用链溯源分析（内部接口，不触发 Trace）
         
-        Task-2.7.1: 返回 CallersResult dataclass
+        支持智能调用链提取 V2：
+        1. 自动学习热点函数（无需配置）
+        2. 保留关键点：栈顶、栈底、热点
+        3. 非连续采样，看清调用轨迹
+        4. 可配置总长度限制
         
         Args:
             samples: 样本数据
@@ -205,6 +212,9 @@ class AnalysisFacade:
             pid: 可选，按 PID 过滤
             min_ratio: 最小占比阈值（百分比）
             top_n: 返回前 N 个调用者
+            use_penetration: 是否启用内核穿透模式（默认 True）
+            use_smart_chain: 是否启用智能调用链 V2（默认 True）
+            max_display_length: 最大显示长度（控制关键点数量，默认 10）
             
         Returns:
             CallersResult dataclass
@@ -229,6 +239,16 @@ class AnalysisFacade:
         # 获取总量用于计算比例
         total_weight, _ = self._engine.get_total_core_per_sec(filtered_samples)
         
+        # 初始化智能提取器
+        smart_extractor = None
+        if use_smart_chain:
+            from .smart_callchain import SmartCallchainExtractor
+            smart_extractor = SmartCallchainExtractor(
+                filtered_samples,
+                max_display_length=max_display_length,
+                get_sample_weight_func=self._engine.get_sample_weight
+            )
+        
         # 溯源分析
         attribution = defaultdict(float)
         target_weight = 0.0
@@ -244,17 +264,39 @@ class AnalysisFacade:
             if target_symbol in normalized_names:
                 target_weight += weight
                 idx = normalized_names.index(target_symbol)
-                caller_stack = normalized_names[idx+1:idx+6]
+                
+                # === 智能调用链提取 V2 ===
+                if smart_extractor:
+                    extracted = smart_extractor.extract(normalized_names, idx, target_symbol)
+                    # 使用轨迹字符串作为调用者符号（保留折叠信息）
+                    caller_str = extracted.trajectory
+                    # 分割为列表
+                    caller_stack = [s.strip() for s in caller_str.split(" <- ") if s.strip() and s != "(no callers)"]
+                elif use_penetration:
+                    # 回退到旧的穿透提取器
+                    try:
+                        from .callchain_extractor import CallchainExtractor
+                        extractor = CallchainExtractor()
+                        extracted = extractor.extract(normalized_names, idx, target_symbol)
+                        caller_stack = (extracted.business_callers 
+                                       if extracted.business_callers 
+                                       else extracted.kernel_path[:5])
+                    except ImportError:
+                        caller_stack = normalized_names[idx+1:idx+6]
+                else:
+                    # 传统硬编码5层
+                    caller_stack = normalized_names[idx+1:idx+6]
+                
                 if caller_stack:
                     attribution[tuple(caller_stack)] += weight
         
         # 构建 callers 列表
         callers: List[CallerAttribution] = []
-        for stack, weight_val in attribution.items():
+        for stack_tuple, weight_val in attribution.items():
             ratio_total = (weight_val / total_weight * 100) if total_weight > 0 else 0
             if ratio_total >= min_ratio:
                 callers.append(CallerAttribution(
-                    symbol=" -> ".join(stack),
+                    symbol=" <- ".join(stack_tuple),
                     call_count=int(weight_val * 100),  # 近似计数
                     call_ratio=ratio_total,
                     total_weight=weight_val

@@ -194,7 +194,6 @@ Impact = (CPU% × 0.3) + (CV × 40) + (Monopoly × 50) + (Mutation_Rate × 30)
 │  │ composite/                                              ││
 │  │   ├── sys_audit.py      (sys-audit 命令)               ││
 │  │   ├── bottleneck_trace.py (bottleneck-trace 命令)      ││
-│  │   ├── bottleneck_tracer.py (BottleneckTracer)          ││
 │  │   └── risk_aggregator.py (Risk聚合)                    ││
 │  └─────────────────────────────────────────────────────────┘│
 │  职责: 编排多个analysis工具，生成综合诊断报告                   │

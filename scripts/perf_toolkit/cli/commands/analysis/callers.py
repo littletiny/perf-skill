@@ -4,6 +4,7 @@
 find-callers 命令实现
 
 从 analysis/trace.py 迁移而来
+V2: 集成 Symbol Processing，自动应用 hidden/merge/collapse/normalize 规则
 """
 
 from typing import List, Dict, Any, Optional, Set, TYPE_CHECKING, Union
@@ -21,6 +22,17 @@ if TYPE_CHECKING:
     from perf_toolkit.core.output_builder import OutputBuilder
     from perf_toolkit.core import PerfExpertEngine
     from argparse import Namespace
+
+# Symbol rules 缓存（延迟加载）
+_symbol_rules = None
+
+def _get_symbol_rules():
+    """获取 symbol rules（延迟加载）"""
+    global _symbol_rules
+    if _symbol_rules is None:
+        from config.defaults import get_symbol_rules
+        _symbol_rules = get_symbol_rules()
+    return _symbol_rules
 
 
 def _trace_single_target(
@@ -66,6 +78,9 @@ def _trace_single_target(
     # Trace attribution
     attribution = defaultdict(float)
     target_weight = 0.0
+    
+    # 获取 symbol rules 用于处理调用者栈
+    symbol_rules = _get_symbol_rules()
 
     for s in samples:
         if not s.stack:
@@ -84,6 +99,12 @@ def _trace_single_target(
                     caller_stack = normalized_names[idx+1:idx+1+max_depth]
                 else:
                     caller_stack = normalized_names[idx+1:]
+                
+                # 应用 symbol processing（hidden/merge/collapse/normalize）
+                if caller_stack:
+                    processed = symbol_rules.process_stack(caller_stack)
+                    caller_stack = processed.processed_stack
+                
                 if caller_stack:
                     attribution[tuple(caller_stack)] += weight
 
@@ -260,6 +281,9 @@ def cmd_trace_attribution(
 
     # 获取最大调用链深度限制（默认0表示无限制）
     max_depth = getattr(args, 'max_depth', 0)
+    
+    # 获取 symbol rules 用于处理调用者栈
+    symbol_rules = _get_symbol_rules()
 
     for s in samples:
         if not s.stack:
@@ -278,6 +302,12 @@ def cmd_trace_attribution(
                     caller_stack = normalized_names[idx+1:idx+1+max_depth]
                 else:
                     caller_stack = normalized_names[idx+1:]
+                
+                # 应用 symbol processing（hidden/merge/collapse/normalize）
+                if caller_stack:
+                    processed = symbol_rules.process_stack(caller_stack)
+                    caller_stack = processed.processed_stack
+                
                 if caller_stack:
                     attribution[tuple(caller_stack)] += weight
 
