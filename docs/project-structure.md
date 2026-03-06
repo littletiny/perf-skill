@@ -45,6 +45,7 @@
 | `design/design-cli-refactoring.md` | CLI 重构设计文档 |
 | `design/design-rationale-consolidated-toolchain.md` | 工具链整合设计 - 从12个到6个核心工具 |
 | `design/design-issue-overflow-warning.md` | Issue 溢出警告设计 |
+| `design/symbol-processing.md` | Symbol Processing 机制设计 |
 
 ### 接口规范（interface/）
 | 文件 | 说明 |
@@ -69,6 +70,9 @@
 | `plan/plan-refactoring.md` | 代码冗余消除重构计划（极简原则版） |
 | `plan/infra-refactoring-plan.md` | 基础设施重构计划 |
 | `plan/plan-absorb-core-distribution.md` | 核心分布分析整合计划 |
+| `plan/simplification-plan.md` | 符号处理机制简化计划 |
+| `plan/plan-fix-callchain-truncation.md` | Callchain 截断问题修复计划 |
+| `plan/plan-auto-hotspot-chain.md` | 自动热点串联与冷函数折叠设计 |
 
 ### 报告与工具设计（report/）
 | 文件 | 说明 |

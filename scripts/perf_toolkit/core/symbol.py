@@ -226,20 +226,8 @@ class KernelAwareness:
     def _get_penetration_targets(cls) -> Set[str]:
         """获取穿透目标白名单（懒加载）"""
         if cls._PENETRATION_TARGETS is None:
-            try:
-                from config.defaults import KernelPenetrationConfig
-                cls._PENETRATION_TARGETS = set(KernelPenetrationConfig.KERNEL_PENETRATION_TARGETS)
-            except ImportError:
-                # 默认白名单
-                cls._PENETRATION_TARGETS = {
-                    'finish_task_switch',
-                    '__schedule',
-                    'schedule',
-                    'do_nanosleep',
-                    'hrtimer_nanosleep',
-                    'switch_mm_irqs_off',
-                    'native_safe_halt',
-                }
+            from config.defaults import KernelPenetrationConfig
+            cls._PENETRATION_TARGETS = set(KernelPenetrationConfig.KERNEL_PENETRATION_TARGETS)
         return cls._PENETRATION_TARGETS
     
     @classmethod

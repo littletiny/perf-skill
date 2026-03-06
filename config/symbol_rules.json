@@ -4,9 +4,9 @@
   "version": "2.1",
   "_doc": {
     "overview": "此配置文件控制 perf-hunter 如何处理调用栈中的符号",
-    "processing_order": "规则按以下顺序应用: hidden -> merge_down -> merge_up -> collapse -> normalize",
+    "processing_order": "规则按以下顺序应用: hidden -> collapse -> normalize",
     "commands_affected": ["find-callers", "cluster-paths", "bottleneck-trace"],
-    "wildcard_support": "支持通配符: * 匹配任意字符, ? 匹配单个字符, [seq] 匹配字符集"
+    "wildcard_support": "支持通配符: * 匹配任意字符"
   },
   "rules": {
     "hidden": {
@@ -29,55 +29,6 @@
         "__clone3",
         "create_thread",
         "pthread_start_thread"
-      ]
-    },
-    "merge_up": {
-      "_comment": "向上合并 - 将符号合并到其调用者(caller，栈中上方)",
-      "description": "Symbols to merge into their caller (rollup). These are typically intermediate runtime functions.",
-      "examples": [
-        "__libc_start_main -> main: 启动函数合并到 main",
-        "std::thread::_* -> 调用者: C++线程内部函数合并"
-      ],
-      "patterns": [
-        "__libc_start_main",
-        "libc_start_main",
-        "__libc_start_main*",
-        "__pthread_create",
-        "pthread_create",
-        "__pthread_create_2_1",
-        "std::thread::_M_start_thread",
-        "std::thread::_State_impl::_M_run",
-        "std::__execute_native_thread_routine",
-        "std::this_thread::__sleep_for",
-        "tbb::detail::*",
-        "tbb::internal::*"
-      ]
-    },
-    "merge_down": {
-      "_comment": "向下合并 - 将符号合并到其被调用者(callee，栈中下方)",
-      "description": "Symbols to merge into their callee (syscall wrappers, kernel entry points, etc.)",
-      "examples": [
-        "syscall -> vfs_read: syscall 包装器合并到实际系统调用",
-        "entry_SYSCALL_64 -> do_syscall_64: 内核入口合并"
-      ],
-      "patterns": [
-        "syscall",
-        "__syscall",
-        "__syscall*",
-        "__x64_sys_*",
-        "do_syscall_64",
-        "do_syscall_x64",
-        "entry_SYSCALL_64*",
-        "entry_SYSCALL_64_after_hwframe",
-        "__libc_send",
-        "__libc_recv",
-        "__libc_sendto",
-        "__libc_recvfrom",
-        "__GI___*",
-        "__GI_*",
-        "__libc_*",
-        "__wrap_*",
-        "__real_*"
       ]
     },
     "collapse": {

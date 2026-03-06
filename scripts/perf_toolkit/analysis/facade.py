@@ -193,7 +193,6 @@ class AnalysisFacade:
                         pid: Optional[int] = None,
                         min_ratio: float = 0.5,
                         top_n: int = 10,
-                        use_penetration: bool = True,
                         use_smart_chain: bool = True,
                         max_display_length: int = 10) -> CallersResult:
         """
@@ -212,7 +211,6 @@ class AnalysisFacade:
             pid: 可选，按 PID 过滤
             min_ratio: 最小占比阈值（百分比）
             top_n: 返回前 N 个调用者
-            use_penetration: 是否启用内核穿透模式（默认 True）
             use_smart_chain: 是否启用智能调用链 V2（默认 True）
             max_display_length: 最大显示长度（控制关键点数量，默认 10）
             
@@ -272,17 +270,6 @@ class AnalysisFacade:
                     caller_str = extracted.trajectory
                     # 分割为列表
                     caller_stack = [s.strip() for s in caller_str.split(" <- ") if s.strip() and s != "(no callers)"]
-                elif use_penetration:
-                    # 回退到旧的穿透提取器
-                    try:
-                        from .callchain_extractor import CallchainExtractor
-                        extractor = CallchainExtractor()
-                        extracted = extractor.extract(normalized_names, idx, target_symbol)
-                        caller_stack = (extracted.business_callers 
-                                       if extracted.business_callers 
-                                       else extracted.kernel_path[:5])
-                    except ImportError:
-                        caller_stack = normalized_names[idx+1:idx+6]
                 else:
                     # 传统硬编码5层
                     caller_stack = normalized_names[idx+1:idx+6]
