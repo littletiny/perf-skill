@@ -361,7 +361,7 @@ def cmd_trace_attribution(
         if is_auto:
             hint_msg = f"Hotspot is at callchain root. Try: --target <function> or lower --min-ratio"
         else:
-            hint_msg = f"Function is at callchain root. Analyze schedulers: get-hotspots --comm "{getattr(args, 'comm', '<comm>')} 查看整体热点分布"
+            hint_msg = f"Function is at callchain root. Analyze schedulers: get-hotspots --comm '{getattr(args, 'comm', '<comm>')}' to view overall hotspot distribution"
         risk = RiskInfo(
             level="warning",
             message=f"Target '{target}' is callchain entry, no callers",
@@ -437,7 +437,7 @@ def _find_matching_symbol(target: str, normalized_names: Set[str]) -> Optional[s
     
     warnings.warn(
         f"Target '{target}' matches multiple, selected best: '{best_match}'. "
-        f"Other matches: "{', '.join(m for m in partial_matches if m != best_match)}",
+        f"Other matches: '{', '.join(m for m in partial_matches if m != best_match)}'",
         UserWarning
     )
     
