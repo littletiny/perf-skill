@@ -35,11 +35,14 @@ class KeyPoint:
     symbol: str
     idx: int  # 在原始栈中的索引
     type: str  # "target" | "entry" | "hotspot" | "anchor" | "sample"
+    is_aggregated: bool = False  # 是否是聚合符号
     
     def __str__(self) -> str:
         if self.type == "hotspot":
-            return f"[{self.symbol}]"
-        return self.symbol
+            if self.is_aggregated:
+                return f"**({self.symbol}..)**"
+            return f"**[{self.symbol}]**"
+        return self.symbol  # 普通符号不包裹
 
 
 @dataclass
@@ -314,10 +317,16 @@ class SmartCallchainExtractor:
         key_points = self._select_key_points(candidates, caller_start, caller_end - 1)
         
         # 阶段3：构建轨迹
-        # target 符号也需要规范化（只保留 classname::method），如果是热点则加 [] 标记
+        # target 符号也需要规范化（只保留 classname::method），如果是热点则加 **[sym]** 或 **(sym..)** 标记
         target_display = self.symbol_rules.normalize_symbol(target_symbol)
         if self.is_hotspot(target_symbol):
-            target_display = f"[{target_display}]"
+            # 检测是否是聚合符号
+            is_agg = target_symbol.startswith('unknown_func[')
+            if is_agg:
+                target_display = f"**({target_display}..)**"
+            else:
+                target_display = f"**[{target_display}]**"
+        # 非热点不加标记，保持原样
         trajectory_parts = [target_display]
         prev_idx = target_idx
         folded_count = 0
@@ -329,13 +338,18 @@ class SmartCallchainExtractor:
                 trajectory_parts.append("..")
                 folded_count += gap
             
-            # 热点用 [] 标记（symbol 已经通过 process_stack 规范化过了）
+            # 热点用 **[sym]** 或 **(sym..)** 标记，非热点不包裹（symbol 已经通过 process_stack 规范化过了）
             display_symbol = kp.symbol  # 已经规范化
             if kp.type == "hotspot":
-                display_name = f"[{display_symbol}]"
+                # 检测是否是聚合符号
+                is_agg = display_symbol.startswith('unknown_func[')
+                if is_agg:
+                    display_name = f"**({display_symbol}..)**"
+                else:
+                    display_name = f"**[{display_symbol}]**"
                 hotspot_chain.append(kp.symbol)
             else:
-                display_name = display_symbol
+                display_name = display_symbol  # 普通符号不包裹
             
             trajectory_parts.append(display_name)
             prev_idx = kp.idx

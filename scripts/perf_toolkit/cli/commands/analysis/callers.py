@@ -5,6 +5,7 @@ find-callers 命令实现
 
 从 analysis/trace.py 迁移而来
 V2: 集成 Symbol Processing，自动应用 hidden/merge/collapse/normalize 规则
+V3: 统一符号格式 - 热点 **[sym]**, 聚合 (sym..), 聚合热点 **(sym..)**
 """
 
 from typing import List, Dict, Any, Optional, Set, TYPE_CHECKING, Union
@@ -17,6 +18,7 @@ from perf_toolkit.core.output_models import (
     RiskInfo, AttributionItem, AttributionSummary, AttributionsOutput,
     TraceItem, TracesSummary, TracesOutput, TimeRange
 )
+from perf_toolkit.core.symbol_formatter import SymbolFormatter, HotspotContext
 
 if TYPE_CHECKING:
     from perf_toolkit.core.output_builder import OutputBuilder

@@ -207,7 +207,8 @@ class DisplayPresets:
     SYMBOL_CLUSTERS_HEADER = "# event_type | pct_of_total (cluster_weight / total_weight)"
     PATH_CLUSTERS_HEADER = "# index,percent,cpu_util,path"
     ATTRIBUTIONS_HEADER = "# index,ratio,callstack"
-    TRACES_HEADER = "# target (cpu_util) <- callstack"
+    TRACES_HEADER = "# target (cpu_util) <- callstack | 热点标记 **[sym]** | 聚合热点 **(sym..)** | 普通聚合 (sym..) | 折叠 .."
+    CALLCHAINS_HEADER = "### [CALLCHAINS] 热点函数调用链 | 热点标记 **[sym]** | 聚合栈热点 **(sym..)** | 聚合概念 (sym..) | 折叠 .."
     CORES_HEADER = "# SATURATED_CORES: index,cpu_id,(usr+sys)/sys"
     PROCESS_VARIETY_HEADER = "# PROCESS_STORM: comm,pids_per_min,cpu_util"
     ANOMALIES_HEADER = "# type,cpu_id,time_range,change,severity"
@@ -462,8 +463,18 @@ class CallChainFormat:
     
     # 标记
     CODE_MARKER = "`"                 # 代码标记: `function`
-    HOTSPOT_PREFIX = "**["           # 热点前缀
-    HOTSPOT_SUFFIX = "]**"           # 热点后缀
+    
+    # 热点标记: **[sym]**
+    HOTSPOT_PREFIX = "**["
+    HOTSPOT_SUFFIX = "]**"
+    
+    # 聚合标记: (sym..)
+    AGGREGATED_PREFIX = "("
+    AGGREGATED_SUFFIX = "..)"
+    
+    # 聚合且热点标记: **(sym..)**
+    AGG_HOTSPOT_PREFIX = "**("
+    AGG_HOTSPOT_SUFFIX = "..)**"
     
     # 默认格式模板
     TEMPLATE_SIMPLE = "{path}"                                    # 纯路径
@@ -787,7 +798,7 @@ class ProcessedStack:
         Example:
             >>> rules = SymbolRules(
             ...     hidden=['__clone'],
-            ...     collapse_groups={'memory': {'symbols': ['malloc', 'free'], 'display': '[memory_ops]'}}
+            ...     collapse_groups={'memory': {'symbols': ['malloc', 'free'], 'display': '(memory_ops)'}}
             ... )
             >>> stack = ['malloc', '__clone', 'main', 'start_thread']
             >>> result = ProcessedStack.process(stack, rules)

@@ -8,14 +8,21 @@ CallChain Formatter - 统一的调用链格式化器
 - cluster-paths: top-down 风格，plain 样式
 - bottleneck-trace: top-down 风格，markdown 样式，带热点标记
 
+格式规范：
+- 普通符号: sym
+- 热点符号: **[sym]**
+- 聚合符号: (sym..)
+- 聚合且热点: **(sym..)**
+
 新增功能：
 - LayeredCallchainFormatter: 分层调用链格式化器（简化版）
 - format_callchain_for_bottleneck: 便捷函数供 facade.py 使用
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Set
 
 from config.defaults import CallChainFormat, StringConstants, OutputDefaults
+from perf_toolkit.core.symbol_formatter import SymbolFormatter, HotspotContext
 
 
 # =============================================================================
@@ -32,18 +39,22 @@ class CallChainFormatter:
         direction: str = "top_down",  # "top_down" | "bottom_up"
         style: str = "markdown",      # "markdown" | "plain"
         ratio: Optional[float] = None,
-        use_hotspot_marker: bool = True
+        use_hotspot_marker: bool = True,
+        hotspots: Optional[Set[str]] = None,
+        aggregated: Optional[Set[str]] = None
     ) -> str:
         """
         格式化调用链
         
         Args:
             path: 调用路径 (函数名列表)
-            hotspot: 热点函数名 (可选)
+            hotspot: 热点函数名 (可选，单热点场景使用)
             direction: 方向 "top_down" (入口->热点) 或 "bottom_up" (热点<-入口)
             style: 样式 "markdown" (带`标记) 或 "plain" (纯文本)
             ratio: 占比百分比 (可选)
             use_hotspot_marker: 是否使用 **[hotspot]** 标记
+            hotspots: 热点函数集合 (可选，多热点场景使用)
+            aggregated: 聚合符号集合 (可选)
             
         Returns:
             格式化后的字符串
@@ -57,14 +68,25 @@ class CallChainFormatter:
         else:
             separator = CallChainFormat.SEPARATOR_TOP_DOWN
         
+        # 构建热点集合和聚合集合
+        hotspot_set = hotspots or set()
+        if hotspot:
+            hotspot_set.add(hotspot)
+        agg_set = aggregated or set()
+        
         # 格式化每个函数名
         formatted_parts = []
         for i, func in enumerate(path):
-            # 检查是否是热点
-            is_hotspot = hotspot and func == hotspot
+            # 检查是否是热点和聚合
+            is_hotspot = func in hotspot_set
+            is_aggregated = func in agg_set
             
             if is_hotspot and use_hotspot_marker:
-                part = f"{CallChainFormat.HOTSPOT_PREFIX}{func}{CallChainFormat.HOTSPOT_SUFFIX}"
+                # 热点：使用统一的 SymbolFormatter
+                part = SymbolFormatter.format_symbol(func, is_hotspot, is_aggregated)
+            elif is_aggregated:
+                # 非热点但聚合：只显示聚合标记 (sym..)
+                part = SymbolFormatter.format_symbol(func, False, True)
             elif style == "markdown":
                 part = f"{CallChainFormat.CODE_MARKER}{func}{CallChainFormat.CODE_MARKER}"
             else:
@@ -111,16 +133,15 @@ class CallChainFormatter:
         
         parts = path_str.split(separator)
         
-        # 去除代码标记
+        # 去除格式标记，使用 SymbolFormatter 解析
         cleaned = []
         for part in parts:
             part = part.strip()
             if part.startswith(CallChainFormat.CODE_MARKER) and part.endswith(CallChainFormat.CODE_MARKER):
                 part = part[1:-1]
-            # 去除热点标记 **[...]**
-            if part.startswith(CallChainFormat.HOTSPOT_PREFIX) and part.endswith(CallChainFormat.HOTSPOT_SUFFIX):
-                part = part[len(CallChainFormat.HOTSPOT_PREFIX):-len(CallChainFormat.HOTSPOT_SUFFIX)]
-            cleaned.append(part)
+            # 使用 SymbolFormatter 解析各种格式
+            original, _, _ = SymbolFormatter.parse_formatted_symbol(part)
+            cleaned.append(original)
         
         return cleaned
 

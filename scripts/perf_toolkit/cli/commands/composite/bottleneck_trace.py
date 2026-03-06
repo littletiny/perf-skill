@@ -325,10 +325,12 @@ def _build_multi_hotspot_bidirectional_view(
     Returns:
         渲染后的多热点双向视图字符串
     """
+    from perf_toolkit.core.symbol_formatter import SymbolFormatter
+    
     lines: List[str] = []
     lines.append(f"## [BOTTLENECK: {comm}]")
     lines.append("")
-    lines.append("### [CALLCHAINS] 热点函数调用链")
+    lines.append("### [CALLCHAINS] 热点函数调用链 | 热点标记 **[sym]** | 聚合栈热点 **(sym..)** | 聚合概念 (sym..) | 折叠 ..")
     lines.append("")
     
     if not hotspots_report.hotspots:
@@ -340,8 +342,12 @@ def _build_multi_hotspot_bidirectional_view(
         symbol = hotspot.symbol
         inclusive_pct = getattr(hotspot, 'inclusive_percent', getattr(hotspot, 'cpu_percent', 0))
         
+        # 格式化热点符号
+        is_agg = symbol.startswith('unknown_func[')
+        formatted_symbol = SymbolFormatter.format_symbol(symbol, is_hotspot=True, is_aggregated=is_agg)
+        
         # 显示热点函数头
-        lines.append(f">>> {symbol} ({inclusive_pct:.2f}%)")
+        lines.append(f">>> {formatted_symbol} ({inclusive_pct:.2f}%)")
         
         # 获取该热点的调用者
         callers_result = all_hotspots_callers.get(symbol)

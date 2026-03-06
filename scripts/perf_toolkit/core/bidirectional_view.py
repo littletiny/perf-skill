@@ -386,9 +386,11 @@ def render_bidirectional_view_v2(view: BidirectionalViewV2) -> str:
 
 
 def _render_global_section(view: BidirectionalViewV2) -> List[str]:
-    """渲染 GLOBAL 部分（路径已聚合）- 使用 CallChainFormatter 统一风格"""
+    """渲染 GLOBAL 部分（路径已聚合）- 使用 SymbolFormatter 统一风格"""
+    from perf_toolkit.core.symbol_formatter import SymbolFormatter
+    
     lines = [
-        "### [CALLCHAINS] 完整调用链",
+        "### [CALLCHAINS] 热点函数调用链 | 热点标记 **[sym]** | 聚合栈热点 **(sym..)** | 聚合概念 (sym..) | 折叠 ..",
         "",
     ]
     
@@ -397,15 +399,20 @@ def _render_global_section(view: BidirectionalViewV2) -> List[str]:
             # 聚合项
             lines.append(f"#{i} [{path.combined_weight:.2f}%] {path.full_path[0]}")
         else:
-            # 使用 CallChainFormatter 统一格式化
+            # 使用 SymbolFormatter 统一格式化
             # full_path 顺序是 [entry, ..., hotspot]，需要反转使热点在前
             # bottom_up 方向: 热点 <- caller <- entry
             reversed_path = list(reversed(path.full_path))
+            
+            # 最后一个元素是热点
+            hotspot = reversed_path[0] if reversed_path else None
+            
             path_str = CallChainFormatter.format(
                 path=reversed_path,
+                hotspot=hotspot,
                 direction="bottom_up",  # 热点 <- caller <- entry
                 style="plain",          # 纯文本，无 markdown 标记
-                use_hotspot_marker=False
+                use_hotspot_marker=True
             )
             lines.append(f"#{i} [{path.combined_weight:.2f}%] {path_str}")
     

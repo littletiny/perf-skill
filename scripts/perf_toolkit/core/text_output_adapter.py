@@ -199,10 +199,18 @@ class NestedTemplate(Template):
         return lines
 
     def _format_trace_item(self, item: Any) -> List[str]:
+        from perf_toolkit.core.symbol_formatter import SymbolFormatter
+        
         target = _get_attr(item, 'target', 'N/A')
         target_ratio = _get_attr(item, 'target_ratio_pct', '0%')
         attributions = _get_attr(item, 'attributions', [])
-        lines = [f">>> {target} ({target_ratio})"]
+        
+        # 检测目标是否是聚合符号
+        is_target_agg = target.startswith('unknown_func[')
+        # 目标在 find-callers 中总是作为热点处理
+        formatted_target = SymbolFormatter.format_symbol(target, is_hotspot=True, is_aggregated=is_target_agg)
+        
+        lines = [f">>> {formatted_target} ({target_ratio})"]
         try:
             target_ratio_val = float(target_ratio.rstrip('%'))
         except (ValueError, AttributeError):
