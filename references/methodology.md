@@ -66,31 +66,22 @@ shecr bottleneck-trace --comm <瓶颈进程名>
 
 ---
 
-## 3. 三层架构与工具映射
+## 3.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 3: Composite（综合诊断层）                                │
-│  ├─ sys-audit        → 系统全景扫描，输出诊断摘要和建议          │
-│  └─ bottleneck-trace → 多维度聚合分析，定位 CPU 瓶颈根因         │
-│                       （输出: ENTITY_DISTRIBUTION_MATRIX,        │
-│                        CONVERGENCE_TRACE, CORRELATION_FLAGS）    │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓ 调用 Analysis Facade
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 2: Analysis（分析层）                                     │
-│  ├─ detect-anomalies      → 时间级异常检测                       │
-│  ├─ analyze-core-distribution → 系统级核心分布                   │
-│  ├─ get-comm-top          → 实体级进程组分析                     │
-│  ├─ get-hotspots          → 函数级热点识别                       │
-│  ├─ find-callers          → 关系级调用溯源                       │
-│  └─ cluster-paths         → 模式级路径聚类                       │
-└─────────────────────────────────────────────────────────────────┘
-                              ↓ 调用 Core Engine
-┌─────────────────────────────────────────────────────────────────┐
-│  Layer 1: Core（核心层）                                         │
-│  └─ engine.py → 数据解析、样本可靠性评估、基础查询接口            │
-└─────────────────────────────────────────────────────────────────┘
+  Composite（全景图+自动诊断）:
+   sys-audit         系统全景扫描，输出诊断摘要和建议
+   bottleneck-trace  多维度聚合分析，定位 CPU 瓶颈根因
+                       （输出: ENTITY_DISTRIBUTION_MATRIX,
+                        CONVERGENCE_TRACE, CORRELATION_FLAGS）
+
+  Analysis（分析层，针对特定场景具体分析）
+   detect-anomalies       时间级异常检测
+   analyze-core-distribution  系统级核心分布
+   get-comm-top           实体级进程组分析
+   get-hotspots           函数级热点识别
+   find-callers           关系级调用溯源
+   cluster-paths          模式级路径聚类
 ```
 
 **使用原则**：
@@ -133,7 +124,7 @@ app_worker      12%     10       ← 平庸...
 **表现**：看到一条证据立即下结论。
 
 **对策**：
-- 强制执行"三候选假说"（见第 5 节）
+- 对每个工具提示的<X0>高风险issues都跟踪到底，彻底分析可能风险
 - 每 2-3 个工具后执行 `shecr trace issues` 检查待办问题
 - 生成报告前执行 `shecr trace finalize` 确认完整性
 
@@ -153,7 +144,7 @@ app_worker      12%     10       ← 平庸...
 
 ### 陷阱：强制单根因
 
-**表现**：发现锁竞争就停止分析，忽略同时存在的配置问题或资源瓶颈。将复杂问题强行归因于单一因素。
+**表现**：发现单一资源竞争就停止分析，忽略同时存在的配置问题或其他资源瓶颈。将复杂问题强行归因于单一因素。
 
 **认知本质**：这是对问题复杂性的过度简化，忽视系统性能往往是多因素叠加的结果。
 
@@ -161,16 +152,15 @@ app_worker      12%     10       ← 平庸...
 
 - 允许多因素叠加的结论形式
 - 区分**主因**（解决后收益最大）和**辅因**（恶化主因或独立存在）
-- 使用 `sys-audit` 的 Impact Score 判断优化优先级
 - 在诊断文档中明确记录："主因是 X，同时存在 Y 和 Z 的次要影响"
 
 ---
 
-## 5. 三候选假说（强制执行）
+## 5. Hypothesis
 
-**原则**：任何分析必须同时维护 ≥3 条竞争性假设，延迟收敛。
+**原则**：推测符号语义，推测领域知识，根据风险点构建假设空间，进行根因分析
 
-### 5.2 假说格式
+### 5.1 文档格式
 
 在诊断文档中记录：
 ```yaml
@@ -184,7 +174,7 @@ app_worker      12%     10       ← 平庸...
 证伪条件: "负载均匀分布，各核心利用率差异小"
 ```
 
-### 5.3 驱动力分析
+### 5.2 驱动力分析
 
 识别性能问题的第一推动力，帮助选择验证优先级：
 - **系统资源驱动**: 内核瓶颈、资源争抢 → 系统级优化
@@ -194,8 +184,7 @@ app_worker      12%     10       ← 平庸...
 
 ## 6. 待验证假设（需外部信息）
 
-以下假设无法仅通过 perf 采样完全验证，建议分析时询问用户：
-
+无法判断问题是，需要询问更多信息
 | 假设 | 需确认信息 | 何时询问 |
 |------|-----------|---------|
 | **突发限流** | Cgroup CPU burst 配置、throttle 次数 | 业务延迟异常但无明确热点时 |
@@ -218,27 +207,22 @@ app_worker      12%     10       ← 平庸...
 
 ---
 
-## 附录 B：bottleneck-trace 深度解析
+## 附录 A：bottleneck-trace 深度解析
 
-### B.1 工具定位
+### A.1 工具定位
 
 `bottleneck-trace` 是 Composite 层的核心诊断工具，通过 **Bottom-Up + Top-Down 双视角聚合**，揭示瓶颈的完整上下文。
 
 **与相关工具的关系**：
 
 ```
-sys-audit (入口)
-    │
-    ├──▶ 发现瓶颈进程 app_B
-    │
-    ▼
-bottleneck-trace --comm app_B (深度分析)
-    │
-    ├──▶ 热点: _raw_spin_lock
-    │
-    ├──▶ find-callers --target _raw_spin_lock --comm app_B
-    │
-    └──▶ cluster-paths --comm app_B
+1. sys-audit (入口)
+     发现瓶颈进程 app_B
+2. bottleneck-trace --comm app_B (深度分析)
+     发现热点: _raw_spin_lock, ut_delay
+3. find-callers --target _raw_spin_lock --comm app_B
+   find-callers --auto-target --comm app_B # 全局热点追踪
+   cluster-paths --comm app_B
 ```
 
 | 场景 | 推荐工具 | 说明 |
@@ -248,83 +232,46 @@ bottleneck-trace --comm app_B (深度分析)
 | 已知热点函数 | `find-callers` | 精确溯源 |
 | 业务逻辑分析 | `cluster-paths` | 调用模式识别 |
 
-### B.2 四阶段分析流程
+### A.2 四阶段分析流程
 
 ```
 Phase 1: 预处理阶段
-─────────────────
-  ┌─────────────────┐
-  │ get-comm-top    │  → 提取 hot_comms（按 impact_score 排序）
-  └────────┬────────┘
-           │ CommTopResult.groups[]
-           ▼
-  ┌─────────────────┐
-  │ analyze-core-   │  → 提取 busy_cores（total_cpu > threshold）
-  │ distribution    │
-  └────────┬────────┘
-           │ CoreDistributionResult.saturated_cores[]
-           ▼
-  ┌─────────────────────────────────────────────────────────┐
-  │ Saturation(comm, pid) = hot_comms ∩ busy_cores(comm, pid) │
-  │ （在忙核心上运行的热点进程，即真正瓶颈）                    │
-  └─────────────────────────────────────────────────────────┘
+
+   1. get-comm-top    提取 hot_comms（按 impact_score 排序）
+   2. analyze-core-dstribution   提取 busy_cores（total_cpu > threshold）
+     Saturation(comm, pid) = hot_comms ∩ busy_cores(comm, pid)
+     （在忙核心上运行的热点进程，即真正瓶颈）
 
 Phase 2: 热点分析阶段
-─────────────────────
-  ┌─────────────────┐
-  │ get-hotspots    │  → 提取 hot_funcs（针对每个 hot_comm）
-  │ (hot_comm,      │     sort-by=self（自耗时排序）
-  │  sort-by=self)  │
-  └────────┬────────┘
-           │ HotspotsResult.hotspots[]
-           │
-           ├──▶ Top N Self% 热点符号（CPU 消耗点）
-           └──▶ 资源标签：LOCK / SYSCALL / SCHED / MEMORY / IO / COMPUTE
+
+   get-hotspots(hot_comm, sort-by=self)
+     提取 hot_funcs（针对每个 hot_comm）
+     Top N Self% 热点符号（CPU 消耗点）
+     **热点标签：LOCK / SYSCALL / SCHED / MEMORY / IO / COMPUTE**
+
 
 Phase 3: 调用链分析阶段
-───────────────────────
-  ┌─────────────────┐
-  │ find-callers    │  → 获取 bottomup_callchains
-  │ (hot_comm,      │     （谁调用了热点函数 - Bottom-Up 视角）
-  │  hot_funcs,     │
-  │  sort-by=       │
-  │  inclusive)     │
-  └────────┬────────┘
-           │ CallersResult.callers[]
-           │
-           └──▶ Top N 调用者路径（按 inclusive 占比排序）
+   find-callers(hot_comm,hot_funcs,sort=inclusive)
+     获取 bottomup_callchains (谁调用了热点函数 - Bottom-Up 视角)
+     Top N 调用者路径（按 inclusive 占比排序）
 
-  ┌─────────────────┐
-  │ cluster-paths   │  → 获取 topdown_callchains
-  │ (hot_comm,      │     （从入口到热点的完整路径 - Top-Down 视角）
-  │  hot_funcs,     │
-  │  sort-by=       │
-  │  inclusive)     │
-  └────────┬────────┘
-           │ PathClustersResult.clusters[]
-           │
-           └──▶ Top N 调用路径聚类（按 inclusive 占比排序）
+     cluster-paths(hot_comm, hot_funcs, sort-by=inclusive)
+       获取 topdown_callchains（从入口到热点的完整路径 - Top-Down 视角）
+       Top N 调用路径聚类（按 inclusive 占比排序）
 
 Phase 4: 聚合输出阶段
-─────────────────────
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │ CONVERGENCE: 模糊匹配聚合 Top-Down 与 Bottom-Up                          │
-  │                                                                         │
-  │  - 识别 COMMON_HOTSPOT（共享热点符号）                                    │
-  │  - 区分不同 Comm_Group 的调用路径特征                                     │
-  │  - 标注 Path_Characteristic（路径特征标签）                               │
-  └─────────────────────────────────────────────────────────────────────────┘
+   CONVERGENCE: 模糊匹配聚合 Top-Down 与 Bottom-Up
 
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │ AFFINITY_PATTERN 判定（基于分布熵 Entropy）                              │
-  │                                                                         │
-  │  - Fixed:    核心绑定（高熵）                                             │
-  │  - Uniform:  均匀分布（低熵）                                             │
-  │  - Scattered: 分散无规律                                                  │
-  └─────────────────────────────────────────────────────────────────────────┘
+     识别 COMMON_HOTSPOT（共享热点符号）
+     区分不同 Comm_Group 的调用路径特征
+     标注 Path_Characteristic（路径特征标签）
+     AFFINITY_PATTERN 判定（基于分布熵 Entropy）
+      - Fixed:    核心绑定（高熵）
+      - Uniform:  均匀分布（低熵）
+      - Scattered: 分散无规律
 ```
 
-### B.3 输出格式详解
+### A.3 输出格式详解
 
 #### [ENTITY_DISTRIBUTION_MATRIX]
 
@@ -391,7 +338,7 @@ Phase 4: 聚合输出阶段
 | sample_count | 总样本数 | Core 层 |
 | data_quality | 数据质量评估 | OutputBuilder |
 
-### B.4 命令参数
+### A.4 命令参数
 
 ```bash
 # 基础用法
@@ -423,7 +370,7 @@ shecr bottleneck-trace --comm <name> --verbose
 
 ---
 
-## 附录 D：启发式规则
+## 附录 C：启发式规则
 
 ### 五大认知闭包
 
@@ -455,26 +402,26 @@ ELSE IF (症状局限于单个进程):
 
 ---
 
-## 附录 E：诊断流程检查清单
+## 附录 D：诊断流程检查清单
 
 ### 分析前
 - [ ] 创建诊断文档（基于 templates.md）
-- [ ] 初始化 Trace：`shecr trace init --data <file>`
-- [ ] 提出 ≥3 条竞争性假说
+- [ ] 初始化：`shecr init --data <file>`
+- [ ] 提出多条有足够搜索空间的假说
   - **代码维度**: 算法/实现层（热点函数、调用路径）
   - **架构维度**: 并发/调度层（锁竞争、调度干扰、资源争抢）
   - **环境维度**: 系统/外部层（资源限制、依赖延迟）
 
 ### 分析中
 - [ ] 发现风险立即记录：`shecr trace add --desc "..."`
-- [ ] 冰山一角：Top1 问题不一定是全部，其他高 Impact 进程也要记录
+- [ ] 冰山一角：Top1 问题不一定是全部，其他高风险也要跟进
 - [ ] 检查样本可靠性等级
 
 ### 分析后（生成报告前）
 - [ ] 执行 `shecr trace finalize` 确认完整性
 - [ ] 全局一致性检查：
   - [ ] 是否解释了所有观测到的异常？
-  - [ ] 三候选假说是否都经过验证？
+  - [ ] 所有搜索空间是否都完成了验证?
   - [ ] 是否排除了反向证据？
   - [ ] 所有发现的风险是否都已记录为 issues？
   - [ ] 是否符合领域应有表现？

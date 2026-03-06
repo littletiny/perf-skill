@@ -31,7 +31,7 @@ shecr find-callers --target pthread_mutex_lock
 
 ---
 
-## 🔍 典型场景速查
+## 典型场景速查
 
 | 如果你看到... | 立即执行 |
 |--------------|---------|
@@ -45,7 +45,7 @@ shecr find-callers --target pthread_mutex_lock
 
 ---
 
-## 📚 相关文档
+## 相关文档
 
 - **分析方法论** [methodology.md](./references/methodology.md), topdown-bottomup架构驱动的完整方法论
 - **工具参考**: [tools.md](./references/tools.md), 参数速查
@@ -53,7 +53,7 @@ shecr find-callers --target pthread_mutex_lock
 
 ---
 
-## 🎯 核心原则（SHECR 五原则）
+## 核心原则（SHECR 五原则）
 
 ### S - Systematic（系统性）
 **topdown-bottomup结合**：
@@ -103,7 +103,7 @@ shecr find-callers --target pthread_mutex_lock
 
 ---
 
-## 📝 文档规范（SHECR 强制执行）
+## 文档规范（SHECR 强制执行）
 
 基于 **SHECR** 五原则的双文档体系：
 
@@ -150,13 +150,13 @@ shecr trace issues --status open
 shecr trace finalize
 
 # 导出最终报告
-# 整理最终的 debug/*.md 文档
 shecr trace export --format markdown --output report.md
+# 整理最终的 debug/*.md 文档
 ```
 
 ---
 
-## 🛠️ 核心工具速查
+## 核心工具速查
 
 ### 原子工具
 
@@ -168,7 +168,7 @@ shecr trace export --format markdown --output report.md
 | `find-callers` | 关系级 | 热点溯源 | `--target <func>` |
 | `cluster-paths` | 模式级 | 调用路径聚类 | 业务逻辑定位 |
 
-### 2个综合诊断入口
+### **2个综合诊断入口**
 
 不知道从何入手？两个都来一轮：
 
@@ -183,7 +183,7 @@ shecr bottleneck-trace --pid <pid>
 
 ---
 
-## ⚠️ 典型陷阱
+## **典型陷阱**
 
 | 陷阱 | 表现 | 自检问题 |
 |------|------|---------|
@@ -194,7 +194,7 @@ shecr bottleneck-trace --pid <pid>
 
 ---
 
-## 🎯 诊断关注点（SHECR Attention Flags）
+## 诊断关注点（SHECR Attention Flags）
 
 基于 **SHECR** 方法论的注意力引导机制：
 
