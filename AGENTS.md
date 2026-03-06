@@ -181,23 +181,6 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 详见设计文档: `docs/design/design-attention-steering.md`
 - `docs/design/design-trace.md` - Trace 机制设计（数据格式、CLI接口、自动记录）
 - `docs/design/design-output.md` - 输出系统设计（格式规范、核心指标计算）
-- `docs/design/design-trace-todo-attention-steering.md` - Trace-Todo 联动 Attention Steering 方案
-
-#### XT Protocol (Trace-Todo 联动)
-
-当前目录 Trace 状态检测：
-
-```
-检查: .shecr.json 存在 → <XT0> Trace-Todo 联动激活
-```
-
-**当前 XT 状态**: 需执行 `shecr trace issues` 查看最新状态
-
-**联动检查清单**:
-- [ ] 执行 `shecr trace issues` 查看 open issues
-- [ ] 为每个 open issue 创建 `[Trace] ISS-XXX: ...` 格式 Todo
-- [ ] 完成分析后先执行 `shecr trace complete` 再标记 Todo done
-- [ ] 结束前执行 `shecr trace finalize` 确认所有 issues 已解决
 
 ---
 
