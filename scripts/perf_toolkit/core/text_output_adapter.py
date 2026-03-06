@@ -36,8 +36,6 @@ def _calc_impact_score(item: Dict[str, Any]) -> float:
     base_score = 0
     if diagnosis == DiagnosisType.BOTTLENECK:
         base_score = 100
-    elif diagnosis == DiagnosisType.STORM:
-        base_score = 50
     elif diagnosis == DiagnosisType.UNBALANCED:
         base_score = 20
 
@@ -49,7 +47,7 @@ def _calc_impact_score(item: Dict[str, Any]) -> float:
 def _get_attention_flag(diagnosis: str, monopoly: float, spawn_rate: float) -> str:
     if diagnosis == DiagnosisType.BOTTLENECK:
         return AttentionFlag.X0
-    elif diagnosis in (DiagnosisType.STORM, DiagnosisType.UNBALANCED):
+    elif diagnosis == DiagnosisType.UNBALANCED:
         return AttentionFlag.X1
     return ""
 
@@ -242,7 +240,6 @@ class CustomTemplate(Template):
             "cpu_usage": self._render_cpu_usage,
             "sys_audit_renderer": self._render_sys_audit,
             "bottleneck_trace_renderer": self._render_bottleneck_trace,
-            "storm_trace_renderer": self._render_storm_trace,
             "sys_audit_renderer_v2": self._render_sys_audit_v2,
         }
 
@@ -324,33 +321,6 @@ class CustomTemplate(Template):
         comm_top = details.get('comm_top', {})
         if comm_top:
             lines.append(f"Process Groups: {comm_top.get('groups_count', 0)} shown, {comm_top.get('folded_count', 0)} folded")
-        return lines
-
-    def _render_storm_trace(self, data: Any) -> List[str]:
-        data_dict = asdict(data) if is_dataclass(data) else data
-        lines, target_comm = [], data_dict.get('target_comm', 'N/A')
-        lines.extend([f"Target Process: {target_comm}", ""])
-        storm = data_dict.get('storm_analysis', {})
-        if storm:
-            lines.extend([
-                "=== Storm Analysis ===",
-                f"  Spawn Rate: {storm.get('spawn_rate', 0):.1f} procs/sec",
-                f"  Severity: {storm.get('severity', 'N/A')}",
-                f"  Total CPU: {storm.get('total_cpu', 0):.2f}%",
-            ])
-        lifecycle = data_dict.get('lifecycle', {})
-        if lifecycle:
-            lines.extend(["", "=== Lifecycle Analysis ===",
-                         f"  Sample Count: {lifecycle.get('sample_count', 0)}",
-                         f"  Time Range: {lifecycle.get('time_range_sec', 0):.1f} sec"])
-        callers = data_dict.get('callers')
-        if callers:
-            lines.extend(["", "=== Callers ===", f"Target: {callers.get('target', 'N/A')}"])
-            caller_list = callers.get('callers', [])
-            if caller_list:
-                lines.append("\nTop Callers:")
-                for i, caller in enumerate(caller_list[:3], 1):
-                    lines.append(f"  #{i} {caller.get('symbol', 'N/A')}: {caller.get('call_ratio', 0):.1f}%")
         return lines
 
     def _render_bottleneck_trace(self, data: Any) -> List[str]:

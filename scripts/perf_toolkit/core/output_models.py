@@ -195,8 +195,6 @@ class PathClusterSummary(BaseSummary):
 class ProcessVarietySummary(BaseSummary):
     """进程多样性摘要"""
     total_processes: int = 0
-    storm_detected: bool = False
-    storm_count: int = 0
 
 
 @dataclass
@@ -935,36 +933,6 @@ class SysAuditOutput(BaseOutput):
         )
 
 
-@dataclass
-class StormTraceSummary(BaseSummary):
-    """进程风暴追踪摘要"""
-    target_comm: str = ""
-    spawn_rate: float = 0.0
-    severity: str = "NONE"
-
-
-@dataclass
-class StormTraceOutput(BaseOutput):
-    """storm-trace 输出结构"""
-    target_comm: str = ""
-    storm_analysis: Dict = field(default_factory=dict)
-    lifecycle: Dict = field(default_factory=dict)
-    callers: Optional[Dict] = None
-
-    def __init__(self, _risk: RiskInfo, target_comm: str,
-                 storm_analysis: Dict, lifecycle: Dict,
-                 callers: Optional[Dict] = None, time_range: Optional[TimeRange] = None):
-        super().__init__(_risk=_risk, summary=None, time_range=time_range)
-        self.target_comm = target_comm
-        self.storm_analysis = storm_analysis
-        self.lifecycle = lifecycle
-        self.callers = callers
-        self._template_config = TemplateConfig(
-            template_type="custom",
-            custom_renderer="storm_trace_renderer"
-        )
-
-
 # =============================================================================
 # Trace Module Data Models (Dict Refactor)
 # =============================================================================
@@ -1092,7 +1060,6 @@ class IssueCategories:
     """Issue 分类统计 - output_builder.py _categorize_issues"""
     kernel_anomaly: int = 0
     lock_contention: int = 0
-    process_storm: int = 0
 
 
 # =============================================================================

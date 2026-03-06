@@ -33,7 +33,7 @@ class CommGroup:
     cv: float = 0.0                     # 变异系数
     monopoly: float = 0.0               # 核心独占率
     spawn_rate: float = 0.0             # 产生速率
-    diagnosis: str = DiagnosisType.HEALTHY          # BOTTLENECK/STORM/UNBALANCED/HEALTHY
+    diagnosis: str = DiagnosisType.HEALTHY          # BOTTLENECK/UNBALANCED/HEALTHY
     impact_score: float = 0.0           # 危害指数
 
 
@@ -97,7 +97,7 @@ class ProcessVariety:
     comm: str
     pids_per_min: int
     cpu_util: float
-    behavior: str                     # "normal" | "process_storm"
+    behavior: str = "normal"
     pid_count: int = 0
     samples_per_pid: float = 0.0
 
@@ -129,34 +129,12 @@ class AnomaliesResult:
 
 
 @dataclass
-class StormGroupDetail:
-    """风暴组详情 - StormAnalysisResult 子结构"""
-    comm: str
-    spawn_rate: float
-    pid_count: int
-    total_cpu: float
-    severity: str
-    top_creators: List[dict] = field(default_factory=list)
-    short_lived_count: int = 0
-    leaked_count: int = 0
-
-
-@dataclass
-class StormAnalysisResult:
-    """进程风暴分析结果"""
-    storm_groups: List[StormGroupDetail]
-    total_storm_comms: int
-    max_spawn_rate: float
-
-
-@dataclass
 class CommTopResult:
     """进程组分析结果"""
     groups: List[CommGroup]  # 按 impact_score 排序（综合危害）
     folded_count: int
     total_groups: int
     risks: List[RiskInfo] = field(default_factory=list)
-    storm_analysis: Optional[StormAnalysisResult] = None
     metrics: Optional[dict] = None
     groups_by_total_cpu: Optional[List[CommGroup]] = None  # 按 total_cpu 排序
     groups_by_sys_cpu: Optional[List[CommGroup]] = None    # 按 kernel_cpu 排序

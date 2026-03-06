@@ -11,10 +11,9 @@ Composite Layer - 组合分析层
 Commands:
     sys-audit: 系统审计组合命令
     bottleneck-trace: 瓶颈追踪命令
-    storm-trace: 进程风暴追踪命令
 
 Usage:
-    from perf_toolkit.composite import SysAuditOutput, BottleneckTraceOutput, StormTraceOutput
+    from perf_toolkit.composite import SysAuditOutput, BottleneckTraceOutput
     from perf_toolkit.composite.risk_aggregator import RiskAggregator
     from perf_toolkit.core.models import RiskInfo
     from perf_toolkit.composite.models import (
@@ -25,12 +24,10 @@ Usage:
 
 from ..core.output_models import (
     SysAuditOutput,
-    BottleneckTraceResult,
-    StormTraceOutput
+    BottleneckTraceResult
 )
 
 __all__ = [
     'SysAuditOutput',
-    'BottleneckTraceResult', 
-    'StormTraceOutput',
+    'BottleneckTraceResult',
 ]

@@ -537,17 +537,7 @@ def _detect_correlation_flags(
             severity="warning"
         ))
     
-    # 4. STORM_PATTERN: 进程风暴
-    if (bottleneck.diagnosis == DiagnosisType.STORM or 
-        bottleneck.spawn_rate > thresholds.storm_spawn_rate):
-        flags.append(CorrelationFlag(
-            flag_type="STORM_PATTERN",
-            target=comm,
-            message=f"{comm} process storm ({bottleneck.spawn_rate:.1f}/s)",
-            severity="warning"
-        ))
-    
-    # 5. KERNEL_HEAVY: 内核态占比 > 50%
+    # 4. KERNEL_HEAVY: kernel ratio > 50%
     if bottleneck.kernel_ratio > thresholds.kernel_ratio_high:
         flags.append(CorrelationFlag(
             flag_type="KERNEL_HEAVY",

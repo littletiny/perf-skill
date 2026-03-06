@@ -41,4 +41,4 @@ def cmd_doc_issues(args):
     print(doc.format_issue_list(issues, status_filter, cfg))
     
     if status_filter in ['all', 'open'] and doc.get_open_issues():
-        print(f"Usage: shecr trace complete --id ISS-001 --result '分析结果'")
+        print(f"Usage: shecr trace complete --id ISS-001 --result 'analysis result'")

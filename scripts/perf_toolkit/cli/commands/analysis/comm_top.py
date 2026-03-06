@@ -61,8 +61,6 @@ def cmd_get_comm_top(
         # 构建 event 描述
         if g.diagnosis == DiagnosisType.BOTTLENECK:
             event = f"{DiagnosisType.BOTTLENECK}(M={g.monopoly:.4f})"
-        elif g.diagnosis == DiagnosisType.STORM:
-            event = f"{DiagnosisType.STORM}({g.spawn_rate:.1f}/s)"
         elif g.diagnosis == DiagnosisType.UNBALANCED:
             event = f"{DiagnosisType.UNBALANCED}(CV={g.cv:.4f})"
         else:
@@ -105,8 +103,8 @@ def cmd_get_comm_top(
 
 
 def _print_enhanced_metrics(result) -> None:
-    """打印增强指标（CV, Monopoly, SpawnRate, ImpactScore）"""
-    print("\n# Enhanced Metrics (CV=变异系数, M=独占率, SR=产生速率, IS=危害指数)")
+    """Print enhanced metrics (CV, Monopoly, SpawnRate, ImpactScore)"""
+    print("\n# Enhanced Metrics (CV=Coefficient of Variation, M=Monopoly, SR=Spawn Rate, IS=Impact Score)")
     print("# comm,CV,Monopoly,SpawnRate,ImpactScore")
     
     # 获取 metrics 中的数据

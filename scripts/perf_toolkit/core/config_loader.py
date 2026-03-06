@@ -89,12 +89,6 @@ class AnalysisThresholds:
     imbalance_high: float = 5.0
     imbalance_medium: float = 2.0
     
-    # Storm 检测阈值
-    storm_spawn_rate: float = 100.0
-    storm_severity_high: float = 50.0
-    storm_severity_medium: float = 20.0
-    storm_severity_low: float = 10.0
-    
     # Correlation Flags 阈值
     lock_contention_inclusive_pct: float = 40.0
     throttle_victim_cpu_max: float = 80.0
@@ -354,10 +348,6 @@ class UnifiedConfig:
             imbalance_ratio_critical=at_cfg.get('imbalance_ratio_critical', 10.0),
             imbalance_high=at_cfg.get('imbalance_high', 5.0),
             imbalance_medium=at_cfg.get('imbalance_medium', 2.0),
-            storm_spawn_rate=at_cfg.get('storm_spawn_rate', 100.0),
-            storm_severity_high=at_cfg.get('storm_severity_high', 50.0),
-            storm_severity_medium=at_cfg.get('storm_severity_medium', 20.0),
-            storm_severity_low=at_cfg.get('storm_severity_low', 10.0),
             lock_contention_inclusive_pct=at_cfg.get('lock_contention_inclusive_pct', 40.0),
             throttle_victim_cpu_max=at_cfg.get('throttle_victim_cpu_max', 80.0),
             throttle_rate_min=at_cfg.get('throttle_rate_min', 50.0),

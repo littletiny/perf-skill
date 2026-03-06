@@ -13,47 +13,47 @@ from perf_toolkit.core.attention_tags import (
 
 
 def example_basic_usage():
-    """基础用法示例"""
-    print("=== 基础标签用法 ===")
+    """Basic usage example"""
+    print("=== Basic Tag Usage ===")
     
-    # 阻塞级问题
-    print(x0("检测到锁竞争: pthread_mutex_lock"))
+    # Critical issue
+    print(x0("Lock contention detected: pthread_mutex_lock"))
     
-    # 重要级提示
-    print(x1("单核饱和度超过 80%"))
+    # Important hint
+    print(x1("Single-core saturation exceeds 80%"))
     
-    # 一般提示
-    print(x2("建议关注内存分配热点"))
+    # General hint
+    print(x2("Consider monitoring memory allocation hotspots"))
     
-    # 操作建议
-    print(xa("执行 deep analysis", "bottleneck-trace --comm myapp"))
+    # Action suggestion
+    print(xa("Execute deep analysis", "bottleneck-trace --comm myapp"))
     print()
 
 
 def example_conditional_tags():
-    """条件标签示例"""
-    print("=== 条件标签用法 ===")
+    """Conditional tag example"""
+    print("=== Conditional Tag Usage ===")
     
     cpu_util = 85
     
-    # 只在条件满足时添加标签
-    message = x0_if(cpu_util > 80, f"CPU 利用率过高: {cpu_util}%")
+    # Only add tag when condition is met
+    message = x0_if(cpu_util > 80, f"High CPU utilization: {cpu_util}%")
     print(message)
     
-    # 带 fallback 的条件标签
+    # Conditional tag with fallback
     kernel_ratio = 30
     msg = x1_if(
         kernel_ratio > 50,
-        f"内核态占比异常: {kernel_ratio}%",
-        fallback=f"系统状态正常 (内核态 {kernel_ratio}%)"
+        f"Abnormal kernel ratio: {kernel_ratio}%",
+        fallback=f"System normal (kernel ratio {kernel_ratio}%)"
     )
     print(msg)
     print()
 
 
 def example_prebuilt_alerts():
-    """预置警报函数示例"""
-    print("=== 预置警报函数 ===")
+    """Prebuilt alert functions example"""
+    print("=== Prebuilt Alert Functions ===")
     
     print(alert_lock("pthread_mutex_lock"))
     print(alert_saturation(cpu_id=3, util=92.5, monopoly=0.85))
@@ -62,21 +62,21 @@ def example_prebuilt_alerts():
 
 
 def example_real_world():
-    """实际诊断场景示例"""
-    print("=== 实际诊断场景 ===")
+    """Real-world diagnostic scenario example"""
+    print("=== Real-World Diagnostic Scenarios ===")
     
-    # 模拟分析结果
+    # Simulated analysis results
     issues = []
     
-    # 检测锁竞争
+    # Detect lock contention
     lock_hotspot = True
     if lock_hotspot:
-        issues.append(x0("锁竞争: __pthread_mutex_lock 占用 45% CPU"))
+        issues.append(x0("Lock contention: __pthread_mutex_lock uses 45% CPU"))
     
-    # 检测单核饱和
+    # Detect single-core saturation
     cpu_saturation = True
     if cpu_saturation:
-        issues.append(x0("单核饱和: CPU7 利用率 95%"))
+        issues.append(x0("Single-core saturation: CPU7 utilization 95%"))
     
     # 检测内存分配热点
     mem_alloc_heavy = True

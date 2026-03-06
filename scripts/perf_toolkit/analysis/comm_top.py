@@ -9,7 +9,6 @@ V3 版本（三层架构）：
 - 自动降噪，区分"值得关注"和"背景噪音"
 - 危害指数排序，解决"A掩盖B"问题
 - Task-2.3.1: 返回 CommTopResult dataclass
-- Task-2.3.2: _analyze_storms 返回 StormAnalysisResult dataclass
 
 常量定义统一从 config.defaults 导入。
 """
@@ -17,7 +16,7 @@ V3 版本（三层架构）：
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
-from collections import defaultdict
+
 
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -30,9 +29,7 @@ from .base import BaseAnalyzer
 from ..core.engine_types import Sample
 from ..core.models import RiskInfo
 from ..core.config_loader import get_config, get_analysis_thresholds
-from .models import (
-    CommGroup, CommTopResult, StormAnalysisResult, StormGroupDetail
-)
+from .models import CommGroup, CommTopResult
 
 
 class CommTopAnalyzer(BaseAnalyzer):
@@ -68,7 +65,6 @@ class CommTopAnalyzer(BaseAnalyzer):
                 folded_count=0,
                 total_groups=0,
                 risks=[],
-                storm_analysis=None,
                 metrics={} if include_metrics else None
             )
             return result
@@ -130,9 +126,6 @@ class CommTopAnalyzer(BaseAnalyzer):
         # 4. 自动降噪：区分"值得关注"和"背景噪音"
         display_groups, folded_groups = self._auto_filter(groups)
         
-        # 5. Storm 详细分析（对所有 STORM 诊断的进程）
-        storm_analysis = self._analyze_storms(samples, groups)
-        
         # 构建 metrics
         metrics = None
         if include_metrics:
@@ -151,7 +144,7 @@ class CommTopAnalyzer(BaseAnalyzer):
                         pid_count=g.pid_count,
                         pids=list(g.pids) if g.pids else [],
                         cv=g.cv,
-                        monopoly=g.monopoly,
+                                    monopoly=g.monopoly,
                         spawn_rate=g.spawn_rate,
                         diagnosis=g.diagnosis,
                         impact_score=g.impact_score
@@ -181,7 +174,6 @@ class CommTopAnalyzer(BaseAnalyzer):
             folded_count=len(folded_groups),
             total_groups=len(groups),
             risks=risks,
-            storm_analysis=storm_analysis,
             metrics=metrics,
             groups_by_total_cpu=groups_by_total[:top_n],
             groups_by_sys_cpu=groups_by_sys[:top_n]
@@ -234,7 +226,6 @@ class CommTopAnalyzer(BaseAnalyzer):
         
         Returns:
             BOTTLENECK: 达到配置阈值
-            STORM: 进程风暴（SpawnRate 高）
             UNBALANCED: 负载不均衡（CV 高）
             HEALTHY: 健康状态
         """
@@ -244,8 +235,6 @@ class CommTopAnalyzer(BaseAnalyzer):
         # 基于配置的 BOTTLENECK 判定
         if config.is_bottleneck(comm, total_cpu, kernel_cpu):
             return DiagnosisType.BOTTLENECK
-        elif spawn_rate > thresholds.storm_severity_low:
-            return DiagnosisType.STORM
         elif cv > thresholds.cv_unbalanced:
             return DiagnosisType.UNBALANCED
         else:
@@ -259,7 +248,6 @@ class CommTopAnalyzer(BaseAnalyzer):
         
         新公式:
         - BOTTLENECK 基础分: +100
-        - STORM 基础分: +50
         - UNBALANCED 基础分: +20
         - 加上: total*0.5 + kernel*0.8 + cv*10 + monopoly*5 + spawn_rate*0.5
         
@@ -274,8 +262,6 @@ class CommTopAnalyzer(BaseAnalyzer):
         base_score = 0
         if diagnosis == DiagnosisType.BOTTLENECK:
             base_score = 100
-        elif diagnosis == DiagnosisType.STORM:
-            base_score = 50
         elif diagnosis == DiagnosisType.UNBALANCED:
             base_score = 20
         
@@ -301,14 +287,6 @@ class CommTopAnalyzer(BaseAnalyzer):
                 message=f"{group.comm} reached bottleneck threshold (CPU={group.total_cpu:.1f}%, Sys={group.kernel_cpu:.1f}%)",
                 hint=f"bottleneck-trace --comm {group.comm}",
                 patterns=[RiskPattern.SINGLE_CORE_SATURATION],
-                pending_targets=[group.comm]
-            )
-        elif group.diagnosis == DiagnosisType.STORM:
-            return self._create_risk(
-                level="warning",
-                message=f"{group.comm} process storm ({group.spawn_rate:.1f}/s)",
-                hint=f"find-callers --comm {group.comm} to check spawn source",
-                patterns=[RiskPattern.PROCESS_STORM],
                 pending_targets=[group.comm]
             )
         elif group.diagnosis == DiagnosisType.UNBALANCED:
@@ -343,8 +321,7 @@ class CommTopAnalyzer(BaseAnalyzer):
             is_significant = (
                 g.total_cpu > thresholds.cpu_util_low or
                 g.cv > thresholds.cv_unbalanced or
-                g.monopoly > thresholds.monopoly_high or
-                g.spawn_rate > thresholds.storm_severity_low
+                g.monopoly > thresholds.monopoly_high
             )
             
             if is_significant:
@@ -353,77 +330,3 @@ class CommTopAnalyzer(BaseAnalyzer):
                 folded.append(g)
         
         return display, folded
-    
-    def _analyze_storms(self, samples: List[Sample], groups: List[CommGroup]) -> Optional[StormAnalysisResult]:
-        """
-        分析所有 STORM 诊断的进程组的详细信息
-        
-        Task-2.3.2: 返回 StormAnalysisResult dataclass
-        
-        Returns:
-            StormAnalysisResult 或 None（如果没有风暴）
-        """
-        thresholds = get_analysis_thresholds()
-        
-        storm_groups = [g for g in groups if g.diagnosis == DiagnosisType.STORM]
-        
-        if not storm_groups:
-            return None
-        
-        # 按 spawn_rate 排序
-        storm_groups.sort(key=lambda x: x.spawn_rate, reverse=True)
-        
-        storm_details: List[StormGroupDetail] = []
-        max_spawn_rate = 0.0
-        
-        for group in storm_groups:
-            max_spawn_rate = max(max_spawn_rate, group.spawn_rate)
-            
-            # 严重程度分级
-            severity = "LOW"
-            if group.spawn_rate > thresholds.storm_spawn_rate:
-                severity = "CRITICAL"
-            elif group.spawn_rate > thresholds.storm_severity_high:
-                severity = "HIGH"
-            elif group.spawn_rate > thresholds.storm_severity_medium:
-                severity = "MEDIUM"
-            
-            # 获取生命周期信息（创建热点分析）
-            lifecycle = self._engine.get_process_lifecycle(samples, group.comm)
-            
-            # 分析创建热点（哪些函数在创建进程）
-            creator_symbols: Dict[str, int] = defaultdict(int)
-            for event in lifecycle.spawn_events:
-                # LifecycleEvent 是 dataclass，stack 是 List[str]
-                if event.stack:
-                    creator_symbols[event.stack[0]] += 1
-            
-            top_creators = [
-                {"symbol": s, "count": c}
-                for s, c in sorted(creator_symbols.items(), key=lambda x: x[1], reverse=True)[:3]
-            ]
-            
-            # 生命周期统计
-            spawn_count = len(lifecycle.spawn_events)
-            exit_count = len(lifecycle.exit_events)
-            leaked = max(0, spawn_count - exit_count)
-            
-            # 短生命周期估计（从 lifecycle_stats 获取）
-            short_lived = getattr(lifecycle.lifecycle_stats, 'short_lived_count', 0)
-            
-            storm_details.append(StormGroupDetail(
-                comm=group.comm,
-                spawn_rate=group.spawn_rate,
-                pid_count=group.pid_count,
-                total_cpu=group.total_cpu,
-                severity=severity,
-                top_creators=top_creators,
-                short_lived_count=short_lived,
-                leaked_count=leaked
-            ))
-        
-        return StormAnalysisResult(
-            storm_groups=storm_details,
-            total_storm_comms=len(storm_groups),
-            max_spawn_rate=max_spawn_rate
-        )

@@ -51,7 +51,7 @@ class ProcessGroup:
     cv: float = 0.0              # 变异系数
     monopoly: float = 0.0        # 独占率
     spawn_rate: float = 0.0      # 产生速率
-    diagnosis: str = DiagnosisType.HEALTHY   # BOTTLENECK/STORM/UNBALANCED/HEALTHY
+    diagnosis: str = DiagnosisType.HEALTHY   # BOTTLENECK/UNBALANCED/HEALTHY
     impact_score: float = 0.0    # 危害指数
 
     @property

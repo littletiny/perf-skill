@@ -372,7 +372,6 @@ class OutputBuilder:
         分类规则:
         - 内核异常: desc 包含 "内核" 或 "kernel"
         - 锁竞争: desc 包含 "锁竞争" 或 {RiskPattern.LOCK_CONTENTION}
-        - 进程风暴: desc 包含 "进程风暴" 或 {RiskPattern.PROCESS_STORM}
         """
         categories = IssueCategories()
 
@@ -383,8 +382,6 @@ class OutputBuilder:
                 categories.kernel_anomaly += 1
             elif '锁竞争' in desc or RiskPattern.LOCK_CONTENTION.lower() in desc:
                 categories.lock_contention += 1
-            elif '进程风暴' in desc or RiskPattern.PROCESS_STORM.lower() in desc:
-                categories.process_storm += 1
 
         return categories
 

@@ -81,24 +81,18 @@ def xa_if(condition: bool, text: str, cmd: str = "", fallback: str = "") -> str:
 
 # 快捷场景函数（使用 X 标签）
 def alert_lock(lock_func: str) -> str:
-    """锁竞争警报"""
-    return x0(f"Lock Contention: "{lock_func} 热点")
+    """Lock contention alert"""
+    return x0(f"Lock Contention: {lock_func} hotspot")
 
 
 def alert_saturation(cpu_id: int, util: float, monopoly: float) -> str:
-    """单核饱和警报"""
-    return x0(f"Single-Core Saturation: "CPU{cpu_id} 利用率 {util:.1f}%, Monopoly {monopoly:.2f}")
+    """Single-core saturation alert"""
+    return x0(f"Single-Core Saturation: CPU{cpu_id} util {util:.1f}%, Monopoly {monopoly:.2f}")
 
 
 def alert_high_kernel(ratio: float) -> str:
-    """高内核态警报"""
-    return x0(f"High Kernel Ratio: "内核占比 {ratio:.1f}%")
-
-
-def alert_process_storm(spawn_rate: float) -> str:
-    """进程风暴警报"""
-    return x1(f"Process Storm: "Spawn Rate {spawn_rate:.1f}/s")
-
+    """High kernel ratio alert"""
+    return x0(f"High Kernel Ratio: {ratio:.1f}%")
 
 def hint_find_callers(target: str) -> str:
     """建议执行 find-callers"""

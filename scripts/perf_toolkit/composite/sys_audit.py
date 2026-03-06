@@ -153,7 +153,7 @@ class SysAuditor:
                     primary = g
                 else:
                     secondary.append(g)
-            elif g.total_cpu > thresholds.cpu_secondary_min or g.diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
+            elif g.total_cpu > thresholds.cpu_secondary_min or g.diagnosis == DiagnosisType.UNBALANCED:
                 secondary.append(g)
             else:
                 background.append(g)
@@ -215,10 +215,7 @@ class SysAuditor:
                 recommendations.append(
                     f"执行 bottleneck-trace --comm {g.comm} 深入分析"
                 )
-            elif g.diagnosis == DiagnosisType.STORM:
-                recommendations.append(
-                    f"进程 {g.comm} 可能存在进程风暴，建议检查进程生命周期"
-                )
+
         
         return recommendations
 
@@ -266,7 +263,7 @@ def _synthesize_diagnosis(anomalies: AnomaliesReport,
                 primary = g
             else:
                 secondary.append(g)
-        elif total_cpu > thresholds.cpu_secondary_min or diagnosis in [DiagnosisType.STORM, DiagnosisType.UNBALANCED]:
+        elif total_cpu > thresholds.cpu_secondary_min or diagnosis == DiagnosisType.UNBALANCED:
             secondary.append(g)
         else:
             background.append(g)

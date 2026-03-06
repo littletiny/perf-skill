@@ -142,8 +142,7 @@ class Trace:
                 categories["内核异常"] += 1
             elif '锁竞争' in desc or 'lock_contention' in desc:
                 categories["锁竞争"] += 1
-            elif '进程风暴' in desc or 'process_storm' in desc:
-                categories["进程风暴"] += 1
+
         
         # 过滤掉数量为0的分类
         return {k: v for k, v in categories.items() if v > 0}

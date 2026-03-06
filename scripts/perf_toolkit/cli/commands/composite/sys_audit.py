@@ -140,7 +140,7 @@ def _build_process_hierarchy(
             total_cpu=g.total_cpu,
             diagnosis=g.diagnosis,
             spawn_rate=g.spawn_rate,
-            attention_flag=AttentionFlag.X1 if g.diagnosis == DiagnosisType.STORM else ""
+            attention_flag=""
         )
         for g in diagnosis.secondary_loads
     ]
@@ -252,27 +252,6 @@ def _build_expert_anchors(
     display_thresh = get_config().get_display_threshold()
     CPU_MIN = display_thresh.display_min
     SYS_MIN = display_thresh.sys_display_min
-    
-    # Noisy Neighbor 检测 - 过滤低负载进程
-    storm_groups = [g for g in comm_top.groups 
-                   if g.diagnosis == DiagnosisType.STORM 
-                   and (g.total_cpu > CPU_MIN or g.kernel_cpu > SYS_MIN)]
-    if storm_groups:
-        for g in storm_groups[:CompositeDefaults.DEFAULT_EXPERT_ANCHORS_LIMIT]:  # 最多显示 2 个
-            anchors.append(ExpertAnchor(
-                type=ExpertAnchorType.NOISY_NEIGHBOR,
-                target=g.comm,
-                description=f"High-frequency process, may trigger resource contention",
-                impact="Impacts other business processes",
-                attention_flag=AttentionFlag.X0,
-                recommendation=f"Check {g.comm} process spawn source"
-            ))
-    
-    # NOTE: QUOTA_VICTIM 检测已移除
-    # 原因：
-    # 1. 无法获取真实 cgroup limit，无法准确判断谁是受害者
-    # 2. 真正的受害者（被抢占 CPU 的进程）已在"进程分层"中体现
-    # 3. 主嫌疑人（如 netstat）实际上是加害人而非受害者
     
     return anchors
 
@@ -458,8 +437,6 @@ def cmd_sys_audit(
     for g in diagnosis.secondary_loads:
         if g.diagnosis == DiagnosisType.BOTTLENECK:
             recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {g.comm}  deep analysis")
-        elif g.diagnosis == DiagnosisType.STORM:
-            recommendations.append(f"{AttentionFlag.XA} 检查 {g.comm}  process spawn source")
     recommendations.append(f"{AttentionFlag.XA} trace issues  view all pending issues")
     
     output = SysAuditOutput(
