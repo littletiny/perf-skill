@@ -2,14 +2,12 @@
 
 ```
                          S.H.E.C.R 方法论
-  S → Systematic     三层架构驱动：系统级→时间级→实体级→函数级→模式级
-  H → Hypothesis     三候选准则：同时维护 ≥3 条竞争性假设，延迟收敛
+  S → Systematic     topdown-bottomup结合：系统级→时间级→实体级→函数级→模式级
+  H → Hypothesis     假设驱动：根据符号语义和风险点构建搜索空间
   E → Evidence       证据驱动：基于工具输出数据验证，拒绝主观臆断
   C → Controlled     受控收敛：<X0>标记必须追踪到根因，禁止过早下结论
   R → Reasoning      逻辑推理：因果追踪，识别第一推动力
 ```
-
-> 基于三层架构（Core - Analysis - Composite）的系统性性能诊断方法论。
 
 ---
 
@@ -21,7 +19,7 @@ SHECR 分析入口：从症状到工具的直达路径：
 symptom                          → 推荐入口命令
 ─────────────────────────────────────────────────────────
 不知道从何入手                    → sys-audit
-单进程/进程组 CPU 异常             → bottleneck-trace --comm <name>
+单进程/进程组 CPU 异常             → bottleneck-trace --comm <name> --pid <pid>
 突发性能下降/异常窗口              → detect-anomalies
 已知热点函数，需调用链             → find-callers --target <func>
 ```

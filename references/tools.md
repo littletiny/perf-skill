@@ -34,10 +34,18 @@ shecr bottleneck-trace --comm <name>
 
 | 命令 | 用途 | 示例 |
 |------|------|------|
-| `init` | 初始化配置 | `shecr init --data-path <perf.data>` |
+| `init` | 初始化配置 | `shecr init --data <perf.data>` |
 | `status` | 显示当前状态 | `shecr status` |
 | `list` | 列出数据文件 | `shecr list` |
 | `use` | 切换数据文件 | `shecr use 1` 或 `shecr use /path/to/perf.data` |
+
+### 2个综合诊断入口
+
+| 工具 | 用途 | 典型场景 |
+|------|------|---------|
+| `sys-audit` | 系统全景扫描 | 快速定位真瓶颈 |
+| `bottleneck-trace` | 瓶颈深度追踪 | 单点性能问题 |
+
 
 ### 核心分析工具（6个）
 
@@ -50,18 +58,25 @@ shecr bottleneck-trace --comm <name>
 | `find-callers` | 关系级 | 热点函数溯源 | 调用链分析 |
 | `cluster-paths` | 模式级 | 调用路径聚类 | 业务逻辑定位 |
 
-### 2个综合诊断入口
-
-| 工具 | 用途 | 典型场景 |
-|------|------|---------|
-| `sys-audit` | 系统全景扫描 | 快速定位真瓶颈 |
-| `bottleneck-trace` | 瓶颈深度追踪 | 单点性能问题 |
-
 ---
 
 ## 系统级工具
 
 ## 工具详情
+
+## 参数矩阵
+
+| 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start-time` | `--end-time` |
+|------|:--------:|:-------:|:--------:|:------------:|:--------------:|:------------:|
+| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
+| `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+
 
 ### analyze-core-distribution
 
@@ -85,7 +100,6 @@ shecr detect-anomalies [options]
 ```
 
 **特有参数**: `--window-size` (滑动窗口秒数), `--spike-threshold` (变化倍数), `--min-utilization` (最小利用率)  
-**检测类型**: `SPIKE`, `DROP`, `LEVEL_SHIFT`, `BURST`
 
 ---
 
@@ -94,11 +108,9 @@ shecr detect-anomalies [options]
 进程组资源分析。识别离群进程
 
 ```bash
+# options = --comm
 shecr get-comm-top [options]
 ```
-
-**特有参数**: `--show-all` (显示全部), `--cv-threshold` (CV异常阈值), `--monopoly-threshold` (核心独占阈值)
-**诊断标签**: `HEALTHY`, `UNBALANCED`, `BOTTLENECK`, `STORM`
 
 ---
 
@@ -107,20 +119,22 @@ shecr get-comm-top [options]
 热点函数识别。
 
 ```bash
+# options = --pid, --comm
 shecr get-hotspots [options]
 ```
 
-**特有参数**: `--sort-by` (inclusive/self)
+**特有参数**: `--sort-by` (inclusive/self, default: self)
 
 ---
 
 ### find-callers
 
-热点函数溯源。
+bottomup热点函数溯源。
 
 ```bash
+# options = --pid, --comm
 shecr find-callers --target <function> [options]
-# 或
+# 自动追踪hotspots self topN
 shecr find-callers --auto-target [options]
 ```
 
@@ -128,18 +142,16 @@ shecr find-callers --auto-target [options]
 
 **--auto-target 行为**:
 - 根据 `get-hotspots --sort-by self` 获取 top N 热点函数
-- 为每个热点函数追踪其调用者（显示前 5 个主要调用路径）
-- 输出包含所有热点函数的调用栈溯源信息
-
-**常用 target**: `schedule`, `pthread_mutex_lock`, `epoll_wait`, `nanosleep`
+- 通过find-callers为每个热点函数追踪其调用者
 
 ---
 
 ### cluster-paths
 
-调用路径聚类。
+topdown的调用路径聚类。
 
 ```bash
+# options = --pid, --comm
 shecr cluster-paths [options]
 ```
 
@@ -154,10 +166,8 @@ shecr cluster-paths [options]
 系统全景扫描。
 
 ```bash
-shecr sys-audit [options]
+shecr sys-audit
 ```
-
-**特有参数**: `--show-all`
 
 ---
 
@@ -166,17 +176,10 @@ shecr sys-audit [options]
 深度分析瓶颈进程。通过多维度聚合分析（Bottom-Up + Top-Down 双视角），定位 CPU 瓶颈根因。
 
 ```bash
-shecr bottleneck-trace --comm <name> [options]
-shecr bottleneck-trace --pid <PID> [options]
-shecr bottleneck-trace --auto-detect
+shecr bottleneck-trace --comm <name>
+shecr bottleneck-trace --pid <PID>
+shecr bottleneck-trace
 ```
-
-**特有参数**: `--comm`, `--pid`, `--auto-detect`, `--hotspots-limit`, `--callers-limit`, `--max-depth`, `--verbose`
-
-**输出板块**: `[ENTITY_DISTRIBUTION_MATRIX]`, `[CONVERGENCE_TRACE]`, `[CORRELATION_FLAGS]`, `[DATA_SUMMARY]`
-
-📘 **详细规范**: [`docs/report/tool-bottleneck-trace.md`](../docs/report/tool-bottleneck-trace.md) - 完整输出格式、数据结构和分析流程
-
 ---
 
 ## Trace 基础命令
@@ -190,29 +193,10 @@ shecr bottleneck-trace --auto-detect
 | `trace issues` | 查看问题列表 | `shecr trace issues [--status open\|resolved]` |
 | `trace finalize` | 结束诊断 | `shecr trace finalize [--accept-risk "..."]` |
 
-📘 **完整 Trace 命令**: [trace-external.md](./trace-external.md) - 包含 timeline、audit、reopen、export 等外部审计命令
-
 ---
 
-## 参数矩阵
-
-| 工具 | `--cpu-id` | `--pid` | `--comm` | `--comm-regex` | `--start-time` | `--end-time` |
-|------|:--------:|:-------:|:--------:|:------------:|:--------------:|:------------:|
-| `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `detect-anomalies` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `get-comm-top` | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| `get-hotspots` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
-
 **说明**:
-- 所有工具支持 `--start-time`/`--end-time` 时间过滤（ISO 8601、Unix 时间戳、日期格式）
+- 所有工具支持 `--start-time`/`--end-time` ISO 8601时间过滤
 - `--comm`: 支持逗号分隔多值，如 `--comm nginx,php-fpm`
-- 完整参数请使用 `shecr <command> --help` 查看
+- 完整参数请使用 `shecr --help && shecr <command> --help` 查看
 
-## 参考文档
-
-- 📗 **分析方法论**: [methodology.md](./methodology.md) - 完整方法论
-- 📋 **文档模板**: [templates.md](./templates.md) - 诊断报告格式
