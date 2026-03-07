@@ -33,15 +33,15 @@ perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-dri
 
 ### 目录与接口文档
 
-📁 **完整目录结构**: `docs/project-structure.md`
+📁 **完整目录结构**: `docs/meta/project-structure.md`
 
 📂 **按内容分类**:
-- `docs/design/` - 架构与机制设计
-- `docs/interface/` - 接口规范
-- `docs/process/` - 流程与方法论
-- `docs/plan/` - 计划与重构
-- `docs/report/` - 报告与工具设计
-- `docs/pipeline/` - Agent 流水线
+- `docs/module/<name>/how/` - 架构与机制设计
+- `docs/module/<name>/what/` - 接口规范与说明
+- `docs/system/how/` - 流程与方法论
+- `docs/task/active/` / `docs/task/backlog/` - 计划与任务
+- `docs/module/<name>/what/` - 报告与工具设计
+- `docs/module/pipeline/` - Agent 流水线
 
 📁 **Pipeline 模块**: `pipeline/README.md`
 
