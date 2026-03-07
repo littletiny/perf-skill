@@ -49,37 +49,12 @@ from perf_toolkit.composite.bottleneck_trace import (
     _convert_hotspots_result,
     _convert_callers_result,
 )
-from perf_toolkit.core.hot_lock_detector import (
-    HotLockDetector, HotLockReport, format_hot_lock_report
-)
-from perf_toolkit.cli.lock_config import load_lock_config, LockConfigManager
+
 
 if TYPE_CHECKING:
     from perf_toolkit.core.output_builder import OutputBuilder
     from perf_toolkit.core import PerfExpertEngine
     from argparse import Namespace
-
-
-def _detect_hot_locks(samples: List[Dict[str, Any]], 
-                      target_comm: Optional[str] = None,
-                      target_pid: Optional[int] = None,
-                      lock_config_path: Optional[str] = None) -> Optional[HotLockReport]:
-    """
-    检测热点锁
-    
-    Args:
-        samples: 样本数据
-        target_comm: 可选，指定目标进程
-        target_pid: 可选，指定目标 PID
-        lock_config_path: 可选，锁配置文件路径
-        
-    Returns:
-        HotLockReport 或 None
-    """
-    config = load_lock_config(lock_config_path)
-    detector = HotLockDetector(config)
-    report = detector.detect(samples, target_comm, target_pid)
-    return report
 
 
 def _get_comm_by_pid(samples: List[Dict[str, Any]], pid: int) -> Optional[str]:
@@ -665,13 +640,7 @@ def cmd_bottleneck_trace(
     target_comm = getattr(args, 'comm', None)
     target_pid = getattr(args, 'pid', None)
     top_n = getattr(args, 'top_n', 10)
-    detect_hot_locks = getattr(args, 'detect_hot_locks', False)
-    lock_config_path = getattr(args, 'lock_config', None)
-    
     facade = AnalysisFacade(engine)
-    
-    # 初始化热点锁报告
-    hot_lock_report = None
     
     # ========== Phase 1: 识别瓶颈 ==========
     
@@ -924,21 +893,6 @@ def cmd_bottleneck_trace(
         samples[-1].get('ts') if len(samples) > 1 and isinstance(samples[-1], dict) else None
     )
     
-    # ========== Phase X: Hot Lock Detection ==========
-    if detect_hot_locks:
-        hot_lock_report = _detect_hot_locks(samples, target_comm, target_pid, lock_config_path)
-        
-        if hot_lock_report and hot_lock_report.risks:
-            all_correlation_flags.extend([
-                CorrelationFlag(
-                    flag_type="HOT_LOCK_CONTENTION",
-                    target=r.message,
-                    message=r.message,
-                    severity="critical" if r.level == "critical" else "warning"
-                )
-                for r in hot_lock_report.risks
-            ])
-    
     # 为每个瓶颈进程生成双向视图 (V2) - 多热点模式
     bidirectional_views = []
     for idx, comm in enumerate(target_comms):
@@ -993,6 +947,5 @@ def cmd_bottleneck_trace(
         sample_count=len(samples),
         time_range=time_range,
         bidirectional_view=bidirectional_view,
-        cpu_overview=cpu_overview,
-        hot_lock_report=hot_lock_report
+        cpu_overview=cpu_overview
     )

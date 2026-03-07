@@ -34,10 +34,7 @@ from perf_toolkit.composite.models import (
     HotspotData, HotspotsDetails, CallerData, CallersDetails,
     HotspotsReport, CallersReport
 )
-from perf_toolkit.core.hot_lock_detector import (
-    HotLockDetector, HotLockReport, format_hot_lock_report
-)
-from perf_toolkit.cli.lock_config import LockConfigManager
+
 
 
 class BottleneckTracer:
@@ -73,12 +70,9 @@ class BottleneckTracer:
     
     def trace(self, samples: List[Dict],
               target_comm: Optional[str] = None,
-              target_pid: Optional[int] = None,
-              detect_hot_locks: bool = False,
-              lock_config_path: Optional[str] = None) -> Tuple[BottleneckAnalysis, 
-                                                              HotspotsReport,
-                                                              Optional[CallersReport],
-                                                              Optional[HotLockReport]]:
+              target_pid: Optional[int] = None) -> Tuple[BottleneckAnalysis, 
+                                                         HotspotsReport,
+                                                         Optional[CallersReport]]:
         """
         执行瓶颈追踪
         
@@ -88,8 +82,8 @@ class BottleneckTracer:
             target_pid: 可选，指定目标 PID。如指定，只分析该 PID 的数据
             
         Returns:
-            Tuple[BottleneckAnalysis, HotspotsReport, Optional[CallersReport], Optional[HotLockReport]]:
-                瓶颈分析结果、热点报告、调用链报告（可选）、热点锁报告（可选）
+            Tuple[BottleneckAnalysis, HotspotsReport, Optional[CallersReport]]:
+                瓶颈分析结果、热点报告、调用链报告（可选）
         """
         # 1. 如果指定了 target_pid，先过滤样本
         if target_pid is not None:
@@ -110,8 +104,7 @@ class BottleneckTracer:
                         hint="Try sys-audit for system-wide scan"
                     )]
                 ),
-                HotspotsReport(),
-                None
+                HotspotsReport()
             )
         
         # 3. 分析瓶颈特征
@@ -137,15 +130,6 @@ class BottleneckTracer:
             )
             callers_report = _convert_callers_result(callers_result)
         
-        # 5. 热点锁检测（如果启用）
-        hot_lock_report: Optional[HotLockReport] = None
-        if detect_hot_locks:
-            config_manager = LockConfigManager(lock_config_path)
-            config = config_manager.get_config()
-            detector = HotLockDetector(config)
-            hot_lock_report = detector.detect(samples, target_comm, target_pid)
-            self._aggregator.add_risks(hot_lock_report.risks, source="hot_locks")
-        
         # 6. 聚合 risks
         self._aggregator.add_risks(bottleneck.risks, source="bottleneck")
         self._aggregator.add_risks(hotspots_report.risks, source="hotspots")
@@ -155,7 +139,7 @@ class BottleneckTracer:
         # 7. 更新 bottleneck risks
         bottleneck.risks = list(self._aggregator._risks)
         
-        return bottleneck, hotspots_report, callers_report, hot_lock_report
+        return bottleneck, hotspots_report, callers_report
     
     def _filter_samples_by_pid(self, samples: List[Dict], pid: int) -> List[Dict]:
         """
