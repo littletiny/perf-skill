@@ -349,4 +349,4 @@ Refs: #<issue-number>
 
 - 代码位置导航: [navigation.md](navigation.md)
 - 文档架构设计: [documentation-architecture.md](documentation-architecture.md)
-- 接口规范: [../interface/](..
+- 接口规范: [../interface/](../interface/)
