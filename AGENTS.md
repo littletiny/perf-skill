@@ -17,6 +17,8 @@ python3 tests/run_tests.py
 
 **所有查找需求请从此开始**: [`docs/meta/navigation.md`](docs/meta/navigation.md)
 
+**多人协同开发流程**: [`docs/meta/development-process.md`](docs/meta/development-process.md) - 从需求到代码的七步流程
+
 > 原则：模糊正确 > 精确过时
 
 ---
