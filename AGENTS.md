@@ -166,6 +166,9 @@ python3 tests/run_tests.py -f
 
 SKILL.md 保持精简，详细内容放 references/ 目录：
 
+> **重要原则**: `references/` 目录是交付给用户的使用文档，只包含与使用相关的信息。
+> 任何与使用无关的内容（如内部设计讨论、实现细节、历史记录、TODO 等）都应放在 `docs/` 目录下。
+
 | 内容类型 | 应放在 | 不应放在 |
 |----------|--------|----------|
 | 文档模板 | `references/templates.md` | SKILL.md 附录 |
