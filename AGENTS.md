@@ -117,6 +117,11 @@ recheck:
 - **修改或新增 CLI 命令时，必须同步更新 SKILL.md 和 references/tools.md**
 - 保持命令参数、输出格式与实际代码一致，避免用户阅读错误信息
 
+**CLI 命令参考**: 开发者应查阅 `references/cli-commands.md` 当：
+- 添加新 CLI 命令时
+- 修改现有命令参数时
+- 查找命令实现文件位置时
+
 
 
 ### 测试相关
@@ -168,6 +173,7 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 | 分析模式 | `references/methodology.md#附录-a典型分析模式` | SKILL.md 场景详解 |
 | 工具命令 | `references/tools.md` | SKILL.md 工具清单 |
 | 数据格式 | `references/data-format.md` | SKILL.md 正文 |
+| CLI 命令参考 | `references/cli-commands.md` | SKILL.md 工具清单 |
 
 引用格式示例：
 ```markdown
