@@ -24,7 +24,7 @@
 | [design/design-three-tier-architecture.md](./design/design-three-tier-architecture.md) | 三层架构设计详解（系统→时间→实体→函数→模式） |
 | [design/design-output.md](./design/design-output.md) | 输出系统设计 - 格式规范、核心指标计算 |
 | [design/analysis-layer-design.md](./design/analysis-layer-design.md) | 分析层设计规范 |
-| [design/design-trace.md](./design/design-trace.md) | Trace 机制设计 - 数据格式、CLI接口、自动记录 |
+| [module/core/how/trace-mechanism.md](./module/core/how/trace-mechanism.md) | Trace 机制设计 - 数据格式、CLI接口、自动记录 |
 | [design/design-attention-steering.md](./design/design-attention-steering.md) | 注意力引导机制设计（`<X0>`/`<X1>`/`<XA>`） |
 | [design/design-analysis-directions.md](./design/design-analysis-directions.md) | 分析方向设计 - Top-Down vs Bottom-Up |
 | [design/design-cli-refactoring.md](./design/design-cli-refactoring.md) | CLI 重构设计 |
@@ -61,7 +61,7 @@
 | 文档 | 说明 |
 |------|------|
 | [report/report-interface.md](./report/report-interface.md) | 接口一致性检查与改造报告 |
-| [report/tool-bottleneck-trace.md](./report/tool-bottleneck-trace.md) | `bottleneck-trace` 工具设计 |
+| [module/composite/what/bottleneck-analyze-tool.md](./module/composite/what/bottleneck-analyze-tool.md) | `bottleneck-analyze` 工具设计 |
 | [report/sys-audit-refactoring-report.md](./report/sys-audit-refactoring-report.md) | `sys-audit` 重构报告 |
 | [report/analysis-implementation-summary.md](./report/analysis-implementation-summary.md) | 分析层实现总结 |
 | [report/risk-display-customization.md](./report/risk-display-customization.md) | 风险展示定制设计 |

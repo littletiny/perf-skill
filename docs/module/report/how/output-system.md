@@ -60,7 +60,7 @@ from perf_toolkit.core import RiskInfo
 risk = RiskInfo(
     level="warning",              # "critical" | "warning" | "info" | "none"
     message="发现性能瓶颈",        # 简短描述
-    hint="执行: bottleneck-trace --comm xxx",  # 建议操作
+    hint="执行: bottleneck-analyze --comm xxx",  # 建议操作
     patterns=["BOTTLENECK"],      # 检测到的模式
     pending_targets=["xxx"],      # 待处理目标
     action_required=True          # 是否需要处理
@@ -208,7 +208,7 @@ time_range = TimeRange.from_timestamps(start_ts, end_ts)
   "_risk": {
     "level": "critical",
     "message": "app_worker 单核饱和 (Monopoly=0.92)",
-    "hint": "bottleneck-trace --comm app_worker",
+    "hint": "bottleneck-analyze --comm app_worker",
     "patterns": ["SINGLE_CORE_SATURATION"],
     "pending_targets": ["app_worker"],
     "action_required": true
@@ -389,7 +389,7 @@ time_range = TimeRange.from_timestamps(start_ts, end_ts)
 
 ## Composite 层输出设计
 
-### bottleneck-trace
+### bottleneck-analyze
 
 瓶颈深度追踪（Composite 层命令）。通过多维度聚合分析定位 CPU 瓶颈根因。
 
@@ -549,7 +549,7 @@ time_range = TimeRange.from_timestamps(start_ts, end_ts)
   "_risk": {
     "level": "critical",
     "message": "<X0> 发现 2 个关键性能瓶颈: kubelet, logcollector",
-    "hint": "<XA> 执行 bottleneck-trace --comm kubelet",
+    "hint": "<XA> 执行 bottleneck-analyze --comm kubelet",
     "patterns": ["BOTTLENECK_DETECTED", "PROCESS_STORM"],
     "pending_targets": ["kubelet", "logcollector", "netstat"],
     "action_required": true
@@ -650,7 +650,7 @@ time_range = TimeRange.from_timestamps(start_ts, end_ts)
     "attention_flag": "<X0>"
   },
   "recommendations": [
-    "<XA> bottleneck-trace --comm lsof_scanner 深度分析",
+    "<XA> bottleneck-analyze --comm lsof_scanner 深度分析",
     "<XA> 检查监控脚本为何创建大量 lsof 进程",
     "考虑调整 Cgroup CPU limit 或隔离 noisy neighbor"
   ],
@@ -1025,7 +1025,7 @@ is_significant = (
 | `find-callers` | `attributions` | ❌ | 目标函数无活动 |
 | `cluster-paths` | `path_clusters` | ✅ | - |
 | `sys-audit` | `diagnosis`, `details` | ✅ | 综合瓶颈检测 |
-| `bottleneck-trace` | `entity_distribution`, `clusters` | ✅ | 瓶颈确认 |
+| `bottleneck-analyze` | `entity_distribution`, `clusters` | ✅ | 瓶颈确认 |
 
 ---
 

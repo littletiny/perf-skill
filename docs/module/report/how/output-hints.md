@@ -110,14 +110,14 @@ risk.message = "<X2> 系统整体健康，未发现明显瓶颈"
 
 ```
 <XA> 后续操作:
-  1. <XA> bottleneck-trace --comm kubelet 深度分析
+  1. <XA> bottleneck-analyze --comm kubelet 深度分析
   2. <XA> 检查 netstat 的进程创建源头
   3. <XA> trace issues 查看所有待处理 issue
 ```
 
 ---
 
-## bottleneck-trace 输出 Hints 规范
+## bottleneck-analyze 输出 Hints 规范
 
 ### 1. Risk Message
 
@@ -218,7 +218,7 @@ risk.message = "<X1> python3 高内核态占比 (kernel=65.3%)"
 | 核心饱和 | Imbalance Level = HIGH/CRITICAL | `<X0>` | 核心分布标题 |
 | Noisy Neighbor | PID Count > 100 且影响其他 | `<X0>` | 专家锚点 |
 
-### bottleneck-trace
+### bottleneck-analyze
 
 | 场景 | 触发条件 | 标签 | 位置 |
 |------|----------|------|------|

@@ -148,7 +148,7 @@ PID    COMM        CPU%
 
 组合层工具（2个）:
 ├── sys-audit                 # 系统审计
-└── bottleneck-trace          # 瓶颈追踪
+└── bottleneck-analyze        # 瓶颈分析
 
 环境命令（4个）:
 ├── init                      # 初始化分析环境
@@ -277,7 +277,7 @@ detect-anomalies → analyze-core-distribution → get-comm-top
 │    COMM: app_worker                                                         │
 │    CPU: 12% | Count: 10 | Monopoly: 0.92                                    │
 │    诊断: 独占 Core #7，单核饱和造成请求排队                                   │
-│    建议: bottleneck-trace --comm app_worker                                │
+│    建议: bottleneck-analyze --comm app_worker                                │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -292,7 +292,7 @@ detect-anomalies → analyze-core-distribution → get-comm-top
 ================================================================================
 ```
 
-#### bottleneck-trace (瓶颈追踪)
+#### bottleneck-analyze (瓶颈分析)
 
 **用途**: 自动定位瓶颈进程并分析其行为
 
@@ -308,7 +308,7 @@ get-comm-top → get-hotspots → cluster-paths
 
 **输出示例**:
 ```
-🔍 瓶颈追踪报告 (bottleneck-trace --comm app_worker)
+🔍 瓶颈分析报告 (bottleneck-analyze --comm app_worker)
 ================================================================================
 [进程画像]
 PID: 5678 | CPU: 98% (Core #7) | Status: Running
@@ -348,7 +348,7 @@ PID: 5678 | CPU: 98% (Core #7) | Status: Running
     "level": "high",
     "message": "Single-core saturation detected on Core #7",
     "hint": "Process app_worker (PID 5678) is monopolizing a single core",
-    "action_required": "Run 'bottleneck-trace --comm app_worker' for detailed analysis"
+    "action_required": "Run 'bottleneck-analyze --comm app_worker' for detailed analysis"
   },
   "groups": [
     {
@@ -364,7 +364,7 @@ PID: 5678 | CPU: 98% (Core #7) | Status: Running
       "outlier_cpu": 98.0,
       "diagnosis": "BOTTLENECK",
       "diagnosis_desc": "Single-core saturation (Core #7)",
-      "suggestion": "bottleneck-trace --comm app_worker"
+      "suggestion": "bottleneck-analyze --comm app_worker"
     },
     {
       "comm": "lsof",
@@ -397,7 +397,7 @@ COMM           CPU%   COUNT   SPAWN/s  CV      MONOPOLY  IMPACT  DIAGNOSIS
 ================================================================================
 app_worker     12.0   10      0.1      0.15    0.92!!    95!!    [BOTTLENECK]
                                                                      └─> PID:5678 occupies Core #7
-                                                                     └─> Suggest: bottleneck-trace --comm app_worker
+                                                                     └─> Suggest: bottleneck-analyze --comm app_worker
 
 lsof           400.0  2000↑   85.0!!   0.02    0.01      45      [BACKGROUND]
                                                                      └─> Uniform load, monitor only
@@ -412,7 +412,7 @@ Legend:
 Level: HIGH
 Message: Single-core saturation detected on Core #7
 Hint: Process app_worker (PID 5678) is monopolizing a single core
-Action: Run 'bottleneck-trace --comm app_worker' for detailed analysis
+Action: Run 'bottleneck-analyze --comm app_worker' for detailed analysis
 ```
 
 ---
@@ -431,7 +431,7 @@ Action: Run 'bottleneck-trace --comm app_worker' for detailed analysis
 ### Phase 2: 组合命令 (1 周)
 
 - [x] 实现 `sys-audit` 命令
-- [x] 实现 `bottleneck-trace` 命令
+- [x] 实现 `bottleneck-analyze` 命令
 
 ### Phase 3: 环境命令与 Trace 系统 (1 周)
 

@@ -26,7 +26,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │  Layer 3: Composite (composite/*.py)                        │
 │  ├─ sys_audit.py         (sys-audit 命令)                  │
-│  └─ bottleneck_trace.py  (bottleneck-trace 命令)           │
+│  └─ bottleneck_analyze.py  (bottleneck-analyze 命令)       │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -67,7 +67,7 @@
 |------|------|------|
 | **环境命令** | 4 | `init`, `use`, `list`, `status` |
 | **分析命令** | 6 | `get-hotspots`, `find-callers`, `detect-anomalies`, `cluster-paths`, `analyze-core-distribution`, `get-comm-top` |
-| **组合命令** | 2 | `sys-audit`, `bottleneck-trace` |
+| **组合命令** | 2 | `sys-audit`, `bottleneck-analyze` |
 | **Trace子命令** | 9 | `init`, `add`, `timeline`, `issues`, `audit`, `complete`, `reopen`, `finalize`, `export` |
 
 **6个核心分析工具**：
@@ -86,7 +86,7 @@
 | 组合命令 | 链式触发 | 用途 |
 |----------|----------|------|
 | `sys-audit` | anomalies → core-dist → comm-top | 系统全景扫描，自动降噪 |
-| `bottleneck-trace` | comm-top → hotspots → cluster-paths | 瓶颈深度追踪 |
+| `bottleneck-analyze` | comm-top → hotspots → cluster-paths | 瓶颈深度分析 |
 
 ### 1.3 具体场景
 
@@ -178,7 +178,7 @@ Impact = (CPU% × 0.3) + (CV × 40) + (Monopoly × 50) + (Mutation_Rate × 30)
 │  │   │   └── get_comm_top.py                               ││
 │  │   ├── composite/      (2个组合命令)                     ││
 │  │   │   ├── sys_audit.py                                  ││
-│  │   │   └── bottleneck_trace.py                           ││
+│  │   │   └── bottleneck_analyze.py                         ││
 │  │   ├── env/            (4个环境命令)                     ││
 │  │   │   ├── init.py, use.py, list.py, status.py           ││
 │  │   └── trace/          (9个trace子命令)                  ││
@@ -193,7 +193,7 @@ Impact = (CPU% × 0.3) + (CV × 40) + (Monopoly × 50) + (Mutation_Rate × 30)
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ composite/                                              ││
 │  │   ├── sys_audit.py      (sys-audit 命令)               ││
-│  │   ├── bottleneck_trace.py (bottleneck-trace 命令)      ││
+│  │   ├── bottleneck_analyze.py (bottleneck-analyze 命令)  ││
 │  │   └── risk_aggregator.py (Risk聚合)                    ││
 │  └─────────────────────────────────────────────────────────┘│
 │  职责: 编排多个analysis工具，生成综合诊断报告                   │
@@ -938,10 +938,10 @@ Trace记录:
    24个组（含log-agent x 2000）| 总CPU: 15% | 状态: Quiet
 
 4. 建议操作
-   [CRITICAL] app_worker独占Core #7，建议执行: bottleneck-trace --comm app_worker
+   [CRITICAL] app_worker独占Core #7，建议执行: bottleneck-analyze --comm app_worker
 ```
 
-### 6.2 bottleneck-trace（瓶颈追踪）
+### 6.2 bottleneck-analyze（瓶颈分析）
 
 **目标**: 深度分析被识别出的瓶颈进程
 
@@ -1003,7 +1003,7 @@ Trace记录:
 
 - [ ] 创建`composite/`目录
 - [ ] 实现`composite/sys_audit.py`（自动降噪 + 危害排序）
-- [ ] 实现`composite/bottleneck_trace.py`（Monopoly驱动深度分析）
+- [ ] 实现`composite/bottleneck_analyze.py`（Monopoly驱动深度分析）
 
 - [ ] 注册composite命令到CLI
 - [ ] 实现自动触发逻辑（sys-audit发现异常自动建议后续命令）
@@ -1146,7 +1146,7 @@ def cmd_sys_audit(builder, engine, args, samples):
         builder.record_risk(
             "critical",
             f"发现主要性能瓶颈: {diagnosis['primary_suspect']['comm']}",
-            f"执行 bottleneck-trace --comm {diagnosis['primary_suspect']['comm']} 深入分析"
+            f"执行 bottleneck-analyze --comm {diagnosis['primary_suspect']['comm']} 深入分析"
         )
     
     # 构建输出
@@ -1261,7 +1261,7 @@ def test_cli_records_to_timeline():
 
 1. **四层架构**: Core（数据）→ Analysis（分析）→ Composite（编排）→ CLI（命令接口）
    - 6个分析命令: get-hotspots, find-callers, detect-anomalies, cluster-paths, analyze-core-distribution, get-comm-top
-   - 2个组合命令: sys-audit, bottleneck-trace
+   - 2个组合命令: sys-audit, bottleneck-analyze
    - 4个环境命令: init, use, list, status
    - 9个trace子命令: init, add, timeline, issues, audit, complete, reopen, finalize, export
 

@@ -6,7 +6,7 @@
 
 ## 修改概述
 
-本次改进基于 `docs/design/design-attention-steering.md` 中定义的 Attention Steering 机制，为 `sys-audit` 和 `bottleneck-trace` 命令设计了合理的 output hints。
+本次改进基于 `docs/design/design-attention-steering.md` 中定义的 Attention Steering 机制，为 `sys-audit` 和 `bottleneck-analyze` 命令设计了合理的 output hints。
 
 ### 核心标签定义
 
@@ -30,14 +30,14 @@
   - `warning` level 自动添加 `<X1>`（如果未包含）
   - hint 自动添加 `<XA>`（如果未包含）
 
-#### 修改2: `_render_bottleneck_trace_v2` - 瓶颈特征
+#### 修改2: `_render_bottleneck_analyze_v2` - 瓶颈特征
 - **位置**: 第 586-643 行
 - **修改内容**: 
   - 添加评估结果标签（单核饱和/高内核态/负载不均衡）
   - 高内核态 (>50%) 标记为 `<X0>`
   - 高负载 (>阈值) 标记为 `<X1>`
 
-#### 修改3: `_render_bottleneck_trace_v2` - 热点函数
+#### 修改3: `_render_bottleneck_analyze_v2` - 热点函数
 - **位置**: 第 645-680 行
 - **修改内容**:
   - 高占比热点 (>40%) 标记为 `<X0>`
@@ -83,14 +83,14 @@
    3. <X0> kubelet         : 114.94% ... [BOTTLENECK]
 ```
 
-### bottleneck-trace 改进前
+### bottleneck-analyze 改进前
 ```
 ### 热点函数
 #1 established_get_first: 44.06% (COMPUTE)
 #2 _raw_spin_lock_bh: 33.27% (LOCK)
 ```
 
-### bottleneck-trace 改进后
+### bottleneck-analyze 改进后
 ```
 ### 热点函数
 <X0> 高占比热点: established_get_first
@@ -114,7 +114,7 @@
 | 敏感事件 | `<X1>` | 敏感进程活动 |
 | 专家建议 | `<XA>` | 所有可执行建议 |
 
-### bottleneck-trace
+### bottleneck-analyze
 
 | 场景 | 标签 | 触发条件 |
 |------|------|----------|

@@ -23,7 +23,7 @@ shecr use <数据文件编号或路径>
 # ========== 分析命令 ==========
 # 两个综合诊断入口
 shecr sys-audit
-shecr bottleneck-trace --comm <name>
+shecr bottleneck-analyze --comm <name>
 ```
 
 ---
@@ -44,7 +44,7 @@ shecr bottleneck-trace --comm <name>
 | 工具 | 用途 | 典型场景 |
 |------|------|---------|
 | `sys-audit` | 系统全景扫描 | 快速定位真瓶颈 |
-| `bottleneck-trace` | 瓶颈深度追踪 | 单点性能问题 |
+| `bottleneck-analyze` | 瓶颈深度分析 | 单点性能问题 |
 
 
 ### 核心分析工具（6个）
@@ -75,7 +75,7 @@ shecr bottleneck-trace --comm <name>
 | `find-callers` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `bottleneck-analyze` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 
 
 ### analyze-core-distribution
@@ -171,14 +171,14 @@ shecr sys-audit
 
 ---
 
-### bottleneck-trace
+### bottleneck-analyze
 
 深度分析瓶颈进程。通过多维度聚合分析（Bottom-Up + Top-Down 双视角），定位 CPU 瓶颈根因。
 
 ```bash
-shecr bottleneck-trace --comm <name>
-shecr bottleneck-trace --pid <PID>
-shecr bottleneck-trace
+shecr bottleneck-analyze --comm <name>
+shecr bottleneck-analyze --pid <PID>
+shecr bottleneck-analyze
 ```
 ---
 

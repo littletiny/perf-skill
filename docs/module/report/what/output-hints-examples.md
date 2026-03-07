@@ -40,7 +40,7 @@ State: CRITICAL_CONTENTION
   - Imbalance Level: MODERATE
 
 <XA> 后续操作:
-  1. <XA> bottleneck-trace --comm netstat 深度分析
+  1. <XA> bottleneck-analyze --comm netstat 深度分析
   2. <XA> trace issues 查看所有待处理 issue
 ```
 
@@ -71,7 +71,7 @@ State: CRITICAL_CONTENTION
 
 ---
 
-## bottleneck-trace 输出示例
+## bottleneck-analyze 输出示例
 
 ### 场景1：锁竞争热点
 
@@ -188,9 +188,9 @@ Top Callers:
 | 核心严重不均衡 | `<X0>` | `<X0> Saturated Cores: [3, 5]` |
 | 核心中度不均衡 | `<X1>` | `<X1> 负载不均衡` |
 | 敏感事件 | `<X1>` | `<X1> [NETWORK_TC] ...` |
-| 专家建议 | `<XA>` | `<XA> bottleneck-trace --comm xxx` |
+| 专家建议 | `<XA>` | `<XA> bottleneck-analyze --comm xxx` |
 
-### bottleneck-trace
+### bottleneck-analyze
 
 | 场景 | 标签 | 示例 |
 |------|------|------|

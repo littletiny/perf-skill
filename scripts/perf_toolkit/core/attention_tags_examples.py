@@ -26,7 +26,7 @@ def example_basic_usage():
     print(x2("Consider monitoring memory allocation hotspots"))
     
     # Action suggestion
-    print(xa("Execute deep analysis", "bottleneck-trace --comm myapp"))
+    print(xa("Execute deep analysis", "bottleneck-analyze --comm myapp"))
     print()
 
 

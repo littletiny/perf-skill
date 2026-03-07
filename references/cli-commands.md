@@ -38,7 +38,7 @@
 | `analyze-core-distribution` | Analysis | 核心负载分布分析 |
 | `get-comm-top` | Analysis | 进程组资源分析 |
 | `sys-audit` | Composite | 系统全景扫描 |
-| `bottleneck-trace` | Composite | 瓶颈深度追踪 |
+| `bottleneck-analyze` | Composite | 瓶颈深度追踪 |
 | `trace` | Trace | 问题追踪管理 |
 
 ---
@@ -308,13 +308,13 @@ shecr sys-audit --data perf.data.txt --top-n 30
 
 ---
 
-### bottleneck-trace
+### bottleneck-analyze
 
 瓶颈深度追踪。通过多维度聚合分析（Bottom-Up + Top-Down 双视角），定位 CPU 瓶颈根因。
 
 **源码信息**
-- 文件：`scripts/perf_toolkit/cli/commands/composite/bottleneck_trace.py`
-- 函数：`cmd_bottleneck_trace`
+- 文件：`scripts/perf_toolkit/cli/commands/composite/bottleneck_analyze.py`
+- 函数：`cmd_bottleneck_analyze`
 
 **参数列表**
 
@@ -333,13 +333,13 @@ shecr sys-audit --data perf.data.txt --top-n 30
 
 ```bash
 # 自动识别并追踪瓶颈
-shecr bottleneck-trace --data perf.data.txt
+shecr bottleneck-analyze --data perf.data.txt
 
 # 追踪指定进程
-shecr bottleneck-trace --data perf.data.txt --comm myapp
+shecr bottleneck-analyze --data perf.data.txt --comm myapp
 
 # 通过 PID 追踪
-shecr bottleneck-trace --data perf.data.txt --pid 1234
+shecr bottleneck-analyze --data perf.data.txt --pid 1234
 ```
 
 ---
@@ -599,9 +599,9 @@ shecr trace audit --format json --output audit.json
 |--------|----------|------|
 | `--data` | 所有 Analysis/Composite | perf script 输出文件路径 |
 | `--freq` | 所有 Analysis/Composite | 采样频率（Hz） |
-| `--cpu-id` | 除 `bottleneck-trace` 外大部分 | 按 CPU ID 过滤 |
-| `--pid` | `get-hotspots`, `find-callers`, `cluster-paths`, `analyze-core-distribution`, `bottleneck-trace` | 按进程 ID 过滤 |
-| `--comm` | `get-hotspots`, `find-callers`, `detect-anomalies`, `cluster-paths`, `analyze-core-distribution`, `bottleneck-trace` | 按进程名过滤 |
+| `--cpu-id` | 除 `bottleneck-analyze` 外大部分 | 按 CPU ID 过滤 |
+| `--pid` | `get-hotspots`, `find-callers`, `cluster-paths`, `analyze-core-distribution`, `bottleneck-analyze` | 按进程 ID 过滤 |
+| `--comm` | `get-hotspots`, `find-callers`, `detect-anomalies`, `cluster-paths`, `analyze-core-distribution`, `bottleneck-analyze` | 按进程名过滤 |
 | `--comm-regex` | 大部分 Analysis | 按进程名正则过滤 |
 | `--start-time` | 大部分 | 按起始时间过滤（ISO 8601） |
 | `--end-time` | 大部分 | 按结束时间过滤（ISO 8601） |
@@ -627,7 +627,7 @@ shecr trace audit --format json --output audit.json
 | `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `get-comm-top` | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | `sys-audit` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| `bottleneck-trace` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
+| `bottleneck-analyze` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ |
 
 ---
 
@@ -675,7 +675,7 @@ COMMAND_MAP = {
 ```python
 COMMAND_MAP = {
     'sys-audit': 'perf_toolkit.cli.commands.composite.sys_audit',
-    'bottleneck-trace': 'perf_toolkit.cli.commands.composite.bottleneck_trace',
+    'bottleneck-analyze': 'perf_toolkit.cli.commands.composite.bottleneck_analyze',
 }
 ```
 

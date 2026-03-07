@@ -407,7 +407,7 @@ perf-hunter 包装脚本 - 多数据文件全局跟踪
 
 组合子命令:
   sys-audit               系统审计 - 自动编排分析工具
-  bottleneck-trace        瓶颈追踪 - CPU瓶颈深度分析
+  bottleneck-analyze      瓶颈分析 - CPU瓶颈深度分析
 
 Trace 管理命令:
   trace init --data <path> [--path <file>]  初始化诊断文档

@@ -1,6 +1,6 @@
-# Tool: `bottleneck-trace`
+# Tool: `bottleneck-analyze`
 
-> 瓶颈深度追踪工具 - Composite Layer 组合诊断命令
+> 瓶颈深度分析工具 - Composite Layer 组合诊断命令
 > 
 > 职责：通过多维度聚合分析，定位并解释 CPU 瓶颈根因
 
@@ -8,7 +8,7 @@
 
 ## 概述
 
-`bottleneck-trace` 是 perf-hunter 的核心组合诊断工具，整合多个 Analysis 层分析器，通过 **Bottom-Up + Top-Down 双视角聚合**，揭示瓶颈的完整上下文。
+`bottleneck-analyze` 是 perf-hunter 的核心组合诊断工具，整合多个 Analysis 层分析器，通过 **Bottom-Up + Top-Down 双视角聚合**，揭示瓶颈的完整上下文。
 
 ### 核心能力
 
@@ -27,7 +27,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           BOTTLECK-TRACE 分析管线                             │
+│                           BOTTLENECK-ANALYZE 分析管线                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 Phase 1: 预处理阶段
@@ -237,7 +237,7 @@ data_quality: "good"
 
 ## 数据结构定义
 
-### BottleneckTraceResult (Composite 层)
+### BottleneckAnalyzeResult (Composite 层)
 
 ```python
 @dataclass
@@ -272,8 +272,8 @@ class CorrelationFlag:
 
 
 @dataclass
-class BottleneckTraceResult:
-    """bottleneck-trace 完整输出"""
+class BottleneckAnalyzeResult:
+    """bottleneck-analyze 完整输出"""
     
     # 风险信息（置顶）
     _risk: RiskInfo
@@ -308,29 +308,29 @@ class BottleneckTraceResult:
 
 ```bash
 # 自动检测并分析瓶颈进程
-shecr bottleneck-trace --auto-detect
+shecr bottleneck-analyze --auto-detect
 
 # 分析指定进程
-shecr bottleneck-trace --comm app_B
+shecr bottleneck-analyze --comm app_B
 
 # 分析指定 PID
-shecr bottleneck-trace --pid 1234
+shecr bottleneck-analyze --pid 1234
 
 # 时间范围限定
-shecr bottleneck-trace --comm app_B --start-time "2026-03-01T10:00:00" --end-time "2026-03-01T10:05:00"
+shecr bottleneck-analyze --comm app_B --start-time "2026-03-01T10:00:00" --end-time "2026-03-01T10:05:00"
 ```
 
 ### 高级用法
 
 ```bash
 # 调整热点分析数量
-shecr bottleneck-trace --comm app_B --hotspots-limit 30
+shecr bottleneck-analyze --comm app_B --hotspots-limit 30
 
 # 调整调用链深度
-shecr bottleneck-trace --comm app_B --callers-limit 20 --max-depth 10
+shecr bottleneck-analyze --comm app_B --callers-limit 20 --max-depth 10
 
 # 详细输出（包含中间指标）
-shecr bottleneck-trace --comm app_B --verbose
+shecr bottleneck-analyze --comm app_B --verbose
 ```
 
 ---
@@ -343,7 +343,7 @@ sys-audit (入口)
     ├──▶ 发现瓶颈进程 app_B
     │
     ▼
-bottleneck-trace --comm app_B (深度分析)
+bottleneck-analyze --comm app_B (深度分析)
     │
     ├──▶ 热点: _raw_spin_lock
     │
@@ -355,7 +355,7 @@ bottleneck-trace --comm app_B (深度分析)
 | 场景 | 推荐工具 | 说明 |
 |------|----------|------|
 | 不知道从何入手 | `sys-audit` | 全景扫描，自动识别瓶颈 |
-| 已知瓶颈进程 | `bottleneck-trace` | 深度分析，调用链追踪 |
+| 已知瓶颈进程 | `bottleneck-analyze` | 深度分析，调用链追踪 |
 | 已知热点函数 | `find-callers` | 精确溯源 |
 | 业务逻辑分析 | `cluster-paths` | 调用模式识别 |
 
@@ -364,8 +364,8 @@ bottleneck-trace --comm app_B (深度分析)
 ## 接口调用关系
 
 ```python
-# Composite 层: BottleneckTracer.trace()
-def trace(self, samples, target_comm=None):
+# Composite 层: BottleneckAnalyzer.analyze()
+def analyze(self, samples, target_comm=None):
     
     # Phase 1: 预处理
     comm_top = self._facade.analyze_comm_top(samples)
@@ -414,7 +414,7 @@ def trace(self, samples, target_comm=None):
 
 ## 相关文档
 
-- [Composite Layer 接口](interface-composite.md) - BottleneckTracer 类定义
+- [Composite Layer 接口](interface-composite.md) - BottleneckAnalyzer 类定义
 - [Analysis Layer 接口](interface-analysis.md) - Facade 接口说明
 - [Core Layer 接口](interface-core.md) - Engine 数据接口
 - [分析方法论](../references/methodology.md) - SHECR 方法论

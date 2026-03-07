@@ -31,39 +31,18 @@ perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-dri
 
 ## 项目结构
 
-### 目录与接口文档
+各目录的详细说明参见对应子目录的 AGENTS.md：
+
+| 目录 | 说明 | 详细文档 |
+|------|------|----------|
+| `scripts/` | 工具脚本和核心模块 | [scripts/AGENTS.md](scripts/AGENTS.md) |
+| `tests/` | 测试套件 | [tests/AGENTS.md](tests/AGENTS.md) |
+| `pipeline/` | Agent 流水线 | [pipeline/AGENTS.md](pipeline/AGENTS.md) |
+| `docs/` | 内部文档 | [docs/AGENTS.md](docs/AGENTS.md) |
+| `config/` | 配置文件 | [config/AGENTS.md](config/AGENTS.md) |
+| `references/` | 用户参考文档 | [references/AGENTS.md](references/AGENTS.md) |
 
 📁 **完整目录结构**: `docs/meta/project-structure.md`
-
-📂 **按内容分类**:
-- `docs/module/<name>/how/` - 架构与机制设计
-- `docs/module/<name>/what/` - 接口规范与说明
-- `docs/system/how/` - 流程与方法论
-- `docs/task/active/` / `docs/task/backlog/` - 计划与任务
-- `docs/module/<name>/what/` - 报告与工具设计
-- `docs/module/pipeline/` - Agent 流水线
-
-📁 **Pipeline 模块**: `pipeline/README.md`
-
-简化版 Code Agent 流水线，支持 YAML 配置、变量替换、条件执行：
-
-```yaml
-pipeline: diagnose - audit - recheck
-
-vars:
-  WORK_DIR: "./output"
-
-audit:
-  agent:
-    default_permissions: "read-only"
-  vars:
-    input.report: "{{diagnose.output.report}}"
-
-recheck:
-  when: "{{audit.status}} == 'failed'"
-  vars:
-    input.audit: "{{audit.output.report}}"
-```
 
 📘 **分层接口规范**:
 - `docs/interface/interface-core.md` - Core Layer 接口
@@ -117,16 +96,22 @@ recheck:
 - **修改或新增 CLI 命令时，必须同步更新 SKILL.md 和 references/tools.md**
 - 保持命令参数、输出格式与实际代码一致，避免用户阅读错误信息
 
+**开发者快速查找指南**: 查阅 `references/developer-guide.md`
+- 命令实现文件位置
+- 模块架构了解
+- 接口规范查询
+- 常见误区规避
+
 **CLI 命令参考**: 开发者应查阅 `references/cli-commands.md` 当：
 - 添加新 CLI 命令时
 - 修改现有命令参数时
-- 查找命令实现文件位置时
+- **查找命令实现文件位置时**（首选，包含精确文件路径+函数名+参数）
 
 
 
 ### 测试相关
 
-⚠️ **重要**: 添加新测试必须符合 `tests/` 目录结构，详见 `tests/README.md`
+⚠️ **重要**: 添加新测试必须符合 `tests/` 目录结构，详见 [tests/AGENTS.md](tests/AGENTS.md)
 
 **测试路径规范**（必须放在正确位置）：
 
@@ -188,8 +173,11 @@ SKILL.md 保持精简，详细内容放 references/ 目录：
 ### Attention Steering (SHECR 核心机制)
 
 详见设计文档: `docs/design/design-attention-steering.md`
-- `docs/design/design-trace.md` - Trace 机制设计（数据格式、CLI接口、自动记录）
 - `docs/design/design-output.md` - 输出系统设计（格式规范、核心指标计算）
+
+> **Trace 机制设计文档**: `docs/module/core/how/trace-mechanism.md` - Trace 机制设计（数据格式、CLI接口、自动记录机制）
+> 
+> **bottleneck-analyze 工具文档**: `docs/module/composite/what/bottleneck-analyze-tool.md`
 
 ---
 

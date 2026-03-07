@@ -206,7 +206,7 @@ python3 tests/run_tests.py
 # 2. 验证核心命令仍能工作
 python3 -m scripts.perf_toolkit find-callers --help
 python3 -m scripts.perf_toolkit cluster-paths --help
-python3 -m scripts.perf_toolkit bottleneck-trace --help
+python3 -m scripts.perf_toolkit bottleneck-analyze --help
 
 # 3. 验证 demo 能运行
 python3 scripts/demo_symbol_processor.py

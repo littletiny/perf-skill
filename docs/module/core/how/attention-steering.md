@@ -151,7 +151,7 @@ description: |
 <P1> 负载不均衡：CV > 1.5
 
 <HINT> 执行 find-callers --target <func> 溯源热点
-<HINT> 执行 bottleneck-trace --comm <name> 深度追踪
+<HINT> 执行 bottleneck-analyze --comm <name> 深度分析
 ```
 
 ### 在工具输出中使用
@@ -210,7 +210,7 @@ description: |
 risk = {
     "level": "warning",
     "message": "<X0> 单核饱和 (CPU5 利用率 95%)",
-    "hint": "<XA> 执行 bottleneck-trace --comm worker",
+    "hint": "<XA> 执行 bottleneck-analyze --comm worker",
     "patterns": ["SINGLE_CORE_SATURATION"]
 }
 ```

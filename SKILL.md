@@ -36,7 +36,7 @@ shecr find-callers --target pthread_mutex_lock
 | 如果你看到... | 立即执行 |
 |--------------|---------|
 | 不知道从何入手 | `sys-audit` |
-| 某 PID CPU 异常高 | `bottleneck-trace --comm <name> --pid<pid> ` |
+| 某 PID CPU 异常高 | `bottleneck-analyze --comm <name> --pid<pid> ` |
 | 整个系统都很慢 | `sys-audit` |
 | 单核满载其他空闲 | `analyze-core-distribution` |
 | kernel 开销高 | `cluster-paths, get-hotspots` |
@@ -60,7 +60,7 @@ shecr find-callers --target pthread_mutex_lock
 
 | 层级 | 工具 | 关注点 |
 |------|------|--------|
-| 系统级 | `sys-audit, bottleneck-trace` | 系统异常追踪 |
+| 系统级 | `sys-audit, bottleneck-analyze` | 系统异常追踪 |
 | 时间级 | `detect-anomalies` | 时序异常、突发变化 |
 | 实体级 | `get-comm-top` | 进程组、聚合分析 |
 | 函数级 | `get-hotspots`, `find-callers` | 热点函数、调用关系 |
@@ -130,7 +130,7 @@ shecr trace init --data perf.data
 
 # H - Hypothesis: 根据符号语义和风险点构建搜索空间
 shecr sys-audit           # 系统级假设验证
-shecr bottleneck-trace [--pid <pid>]  # 深度假设追踪
+shecr bottleneck-analyze [--pid <pid>]  # 深度假设追踪
 # 按照template.md规范更新debug/*.md，记录问题，猜想，推论
 
 # E - Evidence: 自动/手动记录 issues（基于证据）
@@ -177,8 +177,8 @@ shecr trace export --format markdown --output report.md
 shecr sys-audit
 
 # 第二轮：深度追踪瓶颈进程（根据原始问题/第一轮输出选择）
-shecr bottleneck-trace --comm <瓶颈进程名>
-shecr bottleneck-trace --pid <pid>
+shecr bottleneck-analyze --comm <瓶颈进程名>
+shecr bottleneck-analyze --pid <pid>
 ```
 
 ---
@@ -226,6 +226,6 @@ shecr bottleneck-trace --pid <pid>
 <X1> 负载不均衡：CV > 1.5
 
 <XA> 执行 find-callers --target <func> --pid <pid> 溯源热点
-<XA> 执行 bottleneck-trace --comm <name> --pid <pid> 深度追踪
+<XA> 执行 bottleneck-analyze --comm <name> --pid <pid> 深度追踪
 ```
 ---

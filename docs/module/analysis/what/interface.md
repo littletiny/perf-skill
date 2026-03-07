@@ -15,7 +15,7 @@ Analysis Layer 是 perf-hunter 三层架构的中间层，作为 Core 层（数�
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Layer 3: Composite (组合层)                                  │
-│  - sys_audit.py, bottleneck_trace.py                        │
+│  - sys_audit.py, bottleneck_analyze.py                      │
 │  - 通过 AnalysisFacade 调用下层                              │
 └──────────────────────┬──────────────────────────────────────┘
                        │
@@ -654,11 +654,11 @@ def clear_facade_cache():
 | Analysis 层类型 | Composite 层使用场景 |
 |-----------------|----------------------|
 | `AnomaliesResult` | `sys_audit` 检测系统突变 |
-| `CommTopResult` | `sys_audit` / `bottleneck_trace` 识别瓶颈进程 |
+| `CommTopResult` | `sys_audit` / `bottleneck_analyze` 识别瓶颈进程 |
 | `CoreDistributionResult` | `sys_audit` 分析核心负载均衡 |
-| `HotspotsResult` | `bottleneck_trace` 深度分析热点函数 |
-| `PathClustersResult` | `bottleneck_trace` 业务逻辑聚类 |
-| `CallersResult` | `bottleneck_trace` 热点溯源 |
+| `HotspotsResult` | `bottleneck_analyze` 深度分析热点函数 |
+| `PathClustersResult` | `bottleneck_analyze` 业务逻辑聚类 |
+| `CallersResult` | `bottleneck_analyze` 热点溯源 |
 
 ### 6.3 输入类型演进说明
 
@@ -743,7 +743,7 @@ def cmd_sys_audit(builder, engine, args, samples):
         builder.record_risk(
             level="critical",
             message=f"发现性能瓶颈: {primary_suspect.comm}",
-            hint=f"执行: bottleneck-trace --comm {primary_suspect.comm}"
+            hint=f"执行: bottleneck-analyze --comm {primary_suspect.comm}"
         )
     
     # 5. 构建输出

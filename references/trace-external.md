@@ -75,7 +75,7 @@ shecr trace timeline [--format text|json]
 [1] 2024-01-15 10:30:00  sys-audit
     发现: CPU 利用率 85%, 主要消耗在 nginx
 
-[2] 2024-01-15 10:35:00  bottleneck-trace --comm nginx
+[2] 2024-01-15 10:35:00  bottleneck-analyze --comm nginx
     发现: 热点函数为 ssl_encrypt
 ```
 

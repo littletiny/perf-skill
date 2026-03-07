@@ -307,7 +307,7 @@ class TestE2ERiskFlow(unittest.TestCase):
         aggregated_risk = {
             "level": "critical",
             "message": "发现1个关键性能瓶颈: app_worker",
-            "hint": "bottleneck-trace --comm app_worker",
+            "hint": "bottleneck-analyze --comm app_worker",
             "pending_targets": ["app_worker"]
         }
         

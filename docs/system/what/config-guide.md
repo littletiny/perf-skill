@@ -466,5 +466,5 @@ python3 tests/unit/test_risk_display_config.py
 |------|------|
 | `docs/report/risk-display-customization.md` | Risk 显示自定义设计详解 |
 | `docs/design/design-output.md` | 输出系统设计 |
-| `docs/design/design-trace.md` | Trace 机制设计 |
+| `docs/module/core/how/trace-mechanism.md` | Trace 机制设计 |
 | `docs/process/commands-three-tier.md` | 命令行参数说明 |

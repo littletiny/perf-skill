@@ -590,7 +590,7 @@ class CoreDistributionOutput(BaseOutput):
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
-# Four-Section Markdown Output Models for bottleneck-trace
+# Four-Section Markdown Output Models for bottleneck-analyze
 # -----------------------------------------------------------------------------
 
 @dataclass
@@ -627,7 +627,7 @@ class CorrelationFlag:
 
 @dataclass
 class ResourceUtilization:
-    """资源利用率数据 - 用于 bottleneck-trace 展示被诊断进程/进程组 [RESOURCE_UTILIZATION]"""
+    """资源利用率数据 - 用于 bottleneck-analyze 展示被诊断进程/进程组 [RESOURCE_UTILIZATION]"""
     comm: str                    # 进程组名称
     pid_count: int               # PID 数量
     total_cpu: float             # 总 CPU 利用率 (%)
@@ -669,8 +669,8 @@ class CPUOverview:
 
 
 @dataclass
-class BottleneckTraceResult:
-    """bottleneck-trace 完整四段式输出结果"""
+class BottleneckAnalyzeResult:
+    """bottleneck-analyze 完整四段式输出结果"""
     # 风险信息（置顶）
     _risk: RiskInfo
     
@@ -736,7 +736,7 @@ class BottleneckTraceResult:
         self.cpu_overview = cpu_overview
         self._template_config = TemplateConfig(
             template_type="custom",
-            custom_renderer="bottleneck_trace_renderer"
+            custom_renderer="bottleneck_analyze_renderer"
         )
 
 

@@ -114,7 +114,7 @@ class TestRiskInfoDataClass(unittest.TestCase):
             risk = RiskInfo(
                 level="critical",
                 message="单核饱和",
-                hint="bottleneck-trace --comm app",
+                hint="bottleneck-analyze --comm app",
                 patterns=["SINGLE_CORE_SATURATION"],
                 pending_targets=["app"]
             )
@@ -249,7 +249,7 @@ class TestCompositeRiskAggregation(unittest.TestCase):
             {
                 "level": "critical",
                 "message": "单核饱和",
-                "hint": "bottleneck-trace --comm app",
+                "hint": "bottleneck-analyze --comm app",
                 "patterns": ["BOTTLENECK"],
                 "pending_targets": ["app"]
             }
@@ -273,7 +273,7 @@ class TestCompositeRiskAggregation(unittest.TestCase):
             {
                 "level": "critical",
                 "message": "app_worker 单核饱和",
-                "hint": "bottleneck-trace --comm app_worker",
+                "hint": "bottleneck-analyze --comm app_worker",
                 "pending_targets": ["app_worker"]
             },
             {
@@ -311,13 +311,13 @@ class TestCompositeRiskAggregation(unittest.TestCase):
             {
                 "level": "critical",
                 "message": "app_worker 单核饱和",
-                "hint": "bottleneck-trace --comm app_worker",
+                "hint": "bottleneck-analyze --comm app_worker",
                 "pending_targets": ["app_worker"]
             },
             {
                 "level": "critical",
                 "message": "lsof 单核饱和",
-                "hint": "bottleneck-trace --comm lsof",
+                "hint": "bottleneck-analyze --comm lsof",
                 "pending_targets": ["lsof"]
             }
         ]
@@ -343,7 +343,7 @@ class TestRiskFlowAcrossLayers(unittest.TestCase):
                 {
                     "level": "critical",
                     "message": "发现性能瓶颈",
-                    "hint": "bottleneck-trace --comm app",
+                    "hint": "bottleneck-analyze --comm app",
                     "pending_targets": ["app"]
                 }
             ]

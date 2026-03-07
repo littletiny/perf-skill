@@ -88,7 +88,7 @@ class TestCLITracesToTimeline(TestTraceBoundary):
             
             trace = Trace(str(self.trace_file))
             trace.begin_command("get-comm-top --data test.data")
-            issue_id = trace.record_risk("critical", "单核饱和", "bottleneck-trace --comm app")
+            issue_id = trace.record_risk("critical", "单核饱和", "bottleneck-analyze --comm app")
             trace.end_command()
             
             # 验证issue创建
@@ -119,7 +119,7 @@ class TestCompositeDoesNotPolluteTimeline(TestTraceBoundary):
             # 注意：这里模拟的是理想情况，实际实现中Composite应该控制不调用begin_command
             
             # 只记录综合risk
-            trace.record_risk("critical", "发现性能瓶颈", "bottleneck-trace --comm app")
+            trace.record_risk("critical", "发现性能瓶颈", "bottleneck-analyze --comm app")
             trace.end_command()
             
             # 验证timeline只有一条记录
@@ -152,7 +152,7 @@ class TestCompositeDoesNotPolluteTimeline(TestTraceBoundary):
             trace.record_risk(
                 "critical",
                 "发现2个性能瓶颈: app_worker, lsof",
-                "1. bottleneck-trace --comm app_worker; 2. storm-trace --comm lsof"
+                "1. bottleneck-analyze --comm app_worker; 2. storm-trace --comm lsof"
             )
             trace.end_command()
             
@@ -332,7 +332,7 @@ class TestTraceBoundaryViolationDetection(unittest.TestCase):
         normal_timeline = [
             {"seq": 1, "type": "command", "command": "sys-audit"},
             {"seq": 1, "type": "command_end"},
-            {"seq": 2, "type": "command", "command": "bottleneck-trace"},
+            {"seq": 2, "type": "command", "command": "bottleneck-analyze"},
             {"seq": 2, "type": "command_end"}
         ]
         

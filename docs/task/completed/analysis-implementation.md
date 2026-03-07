@@ -189,7 +189,7 @@ def cmd_sys_audit(builder, engine, args, samples):
 | 命令 | 编排工具 | 状态 |
 |------|----------|------|
 | `sys-audit` | detect-anomalies + analyze-core-distribution + get-comm-top | 待人员C实现 |
-| `bottleneck-trace` | get-comm-top + get-hotspots + find-callers | 待人员C实现 |
+| `bottleneck-analyze` | get-comm-top + get-hotspots + find-callers | 待人员C实现 |
 | `storm-trace` | count-process-variety + get-comm-top | 待人员C实现 |
 
 ---
@@ -218,7 +218,7 @@ get_sample_weight(sample) -> float
 
 1. 创建 `composite/` 目录
 2. 实现 `sys_audit.py`
-3. 实现 `bottleneck_trace.py`
+3. 实现 `bottleneck_analyze.py`
 4. 实现 `storm_trace.py`
 5. 注册命令到 CLI
 

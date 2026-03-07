@@ -39,7 +39,7 @@
 | `design/design-three-tier-architecture.md` | 三层架构设计 - Core/Analysis/Composite 分层架构 |
 | `design/analysis-layer-design.md` | 分析层设计文档 |
 | `design/design-output.md` | 输出系统设计 - 格式规范、核心指标计算、Attention Flags |
-| `design/design-trace.md` | Trace 机制设计 - 数据格式、CLI接口、自动记录机制 |
+| `module/core/how/trace-mechanism.md` | Trace 机制设计 - 数据格式、CLI接口、自动记录机制 |
 | `design/design-attention-steering.md` | Attention Steering 设计 - 基于 Flag 的诊断关注点引导 |
 | `design/design-analysis-directions.md` | 分析方向性设计 - Top-Down vs Bottom-Up |
 | `design/design-cli-refactoring.md` | CLI 重构设计文档 |
@@ -78,7 +78,7 @@
 | 文件 | 说明 |
 |------|------|
 | `report/report-interface.md` | 接口一致性检查与改造报告 |
-| `report/tool-bottleneck-trace.md` | bottleneck-trace 工具文档 |
+| `module/composite/what/bottleneck-analyze-tool.md` | bottleneck-analyze 工具文档 |
 | `report/sys-audit-refactoring-report.md` | sys-audit 重构报告 |
 | `report/analysis-implementation-summary.md` | 分析层实现总结 |
 | `report/risk-display-customization.md` | Risk 消息展示自定义设计 |
@@ -156,7 +156,7 @@ cli/
 │   ├── composite/         # 组合命令 (2个)
 │   │   ├── __init__.py
 │   │   ├── sys_audit.py   # sys-audit
-│   │   └── bottleneck_trace.py # bottleneck-trace
+│   │   └── bottleneck_analyze.py # bottleneck-analyze
 │   ├── env/               # 环境命令 (4个)
 │   │   ├── __init__.py
 │   │   ├── init.py        # env init
@@ -216,7 +216,7 @@ cli/
 | 文件 | 说明 |
 |------|------|
 | `sys_audit.py` | 系统全景扫描 |
-| `bottleneck_trace.py` | 瓶颈深度追踪 |
+| `bottleneck_analyze.py` | 瓶颈深度分析 |
 | `risk_aggregator.py` | Risk 聚合器 |
 | `models.py` | 组合诊断数据模型 |
 
@@ -279,7 +279,7 @@ tests/
 │  Composite Layer (组合诊断层)                              │
 │  scripts/perf_toolkit/composite/                         │
 │  - sys_audit.py                                          │
-│  - bottleneck_trace.py                                   │
+│  - bottleneck_analyze.py                                 │
 ├─────────────────────────────────────────────────────────┤
 │  Analysis Layer (分析层)                                   │
 │  scripts/perf_toolkit/analysis/                          │

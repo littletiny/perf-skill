@@ -243,9 +243,9 @@ def test_tool_sys_audit(env, data_file):
     assert result.returncode == 0, f"工具失败: {result.stderr}"
 
 
-def test_tool_bottleneck_trace(env, data_file):
-    """测试: bottleneck-trace"""
-    result = env.run_shecr("bottleneck-trace", data_file=data_file, check=False)
+def test_tool_bottleneck_analyze(env, data_file):
+    """测试: bottleneck-analyze"""
+    result = env.run_shecr("bottleneck-analyze", data_file=data_file, check=False)
     assert result.returncode == 0, f"工具失败: {result.stderr}"
 
 
@@ -276,7 +276,7 @@ TEST_TOOLS = [
     ("find-callers", test_find_callers),
     ("detect-anomalies", test_tool_detect_anomalies),
     ("sys-audit", test_tool_sys_audit),
-    ("bottleneck-trace", test_tool_bottleneck_trace),
+    ("bottleneck-analyze", test_tool_bottleneck_analyze),
     ("comm-top-storm", test_tool_comm_top_storm),
 ]
 

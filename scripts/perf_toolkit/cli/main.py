@@ -125,7 +125,7 @@ def create_parser() -> argparse.ArgumentParser:
   shecr sys-audit --data perf.data.txt
   
   # Bottleneck trace - deep analysis of bottleneck processes
-  shecr bottleneck-trace --data perf.data.txt --comm myapp
+  shecr bottleneck-analyze --data perf.data.txt --comm myapp
 
 Use '<command> --help' for detailed help on each subcommand."""
     )
@@ -175,7 +175,7 @@ def get_composite_handler(command_name: str) -> Callable:
     获取组合命令处理函数
     
     Args:
-        command_name: 命令名称，如 'sys-audit' 或 'bottleneck-trace'
+        command_name: 命令名称，如 'sys-audit' 或 'bottleneck-analyze'
         
     Returns:
         装饰后的命令处理函数，签名为 (engine, args) -> BaseOutput
@@ -247,7 +247,7 @@ def main():
     # B 负责处理分析和组合命令（需要 engine）
     analysis_commands = ['get-hotspots', 'find-callers', 'detect-anomalies', 
                          'cluster-paths', 'analyze-core-distribution', 'get-comm-top']
-    composite_commands = ['sys-audit', 'bottleneck-trace']
+    composite_commands = ['sys-audit', 'bottleneck-analyze']
     
     if args.command in analysis_commands or args.command in composite_commands:
         try:

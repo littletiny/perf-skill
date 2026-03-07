@@ -1,4 +1,4 @@
-# bottleneck-trace 与 sys-audit Risk 集成设计
+# bottleneck-analyze 与 sys-audit Risk 集成设计
 
 > 版本: 1.0  
 > 日期: 2026-03-04  
@@ -16,8 +16,8 @@ shecr sys-audit --data perf.data
 # 输出: [X0] 发现 4 个关键性能瓶颈: netstat, python3, containerd-shim, kubelet
 #       自动创建 ISS-001
 
-# 2. 执行 bottleneck-trace（自动识别模式）
-shecr bottleneck-trace --data perf.data
+# 2. 执行 bottleneck-analyze（自动识别模式）
+shecr bottleneck-analyze --data perf.data
 # 问题: 重新自动识别，只分析 netstat（危害指数最高）
 # 忽略了 ISS-001 中记录的另外 3 个瓶颈
 ```
@@ -26,8 +26,8 @@ shecr bottleneck-trace --data perf.data
 
 | 问题 | 说明 |
 |------|------|
-| 信息孤岛 | sys-audit 发现的多个瓶颈，bottleneck-trace 不知道 |
-| 重复识别 | bottleneck-trace 重新计算，可能得到不同结果 |
+| 信息孤岛 | sys-audit 发现的多个瓶颈，bottleneck-analyze 不知道 |
+| 重复识别 | bottleneck-analyze 重新计算，可能得到不同结果 |
 | 遗漏分析 | 用户可能忘记分析其他瓶颈进程 |
 | 违背延迟收敛 | 没有引导用户完成所有 pending issues |
 
@@ -35,7 +35,7 @@ shecr bottleneck-trace --data perf.data
 
 ## 设计目标
 
-1. **无缝继承**: bottleneck-trace 默认继承 sys-audit 发现的待处理 issues
+1. **无缝继承**: bottleneck-analyze 默认继承 sys-audit 发现的待处理 issues
 2. **优先级引导**: 按危害指数排序，引导用户逐个分析
 3. **显式选择**: 支持用户指定分析特定进程
 4. **向后兼容**: 无 Trace 文档时，回退到自动识别模式
@@ -72,7 +72,7 @@ shecr bottleneck-trace --data perf.data
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  Phase 2: bottleneck-trace 继承问题                              │
+│  Phase 2: bottleneck-analyze 继承问题                            │
 └─────────────────────────────────────────────────────────────────┘
                             │
             ┌───────────────┼───────────────┐
@@ -98,14 +98,14 @@ shecr bottleneck-trace --data perf.data
 ### 场景 1: 无参数执行（默认继承）
 
 ```bash
-shecr bottleneck-trace --data perf.data
+shecr bottleneck-analyze --data perf.data
 ```
 
 **新行为**:
 
 ```
 ═══════════════════════════════════════════════════════════════════
-BOTTLENECK-TRACE: 继承 sys-audit 发现的问题
+BOTTLENECK-ANALYZE: 继承 sys-audit 发现的问题
 ═══════════════════════════════════════════════════════════════════
 
 从 ISS-001 发现 4 个待分析瓶颈（按危害指数排序）:
@@ -122,14 +122,14 @@ BOTTLENECK-TRACE: 继承 sys-audit 发现的问题
 
 下一步建议:
   • 标记完成: shecr trace complete --id ISS-001 --result "netstat: ..."
-  • 分析下一个: shecr bottleneck-trace --data perf.data --next
-  • 分析指定: shecr bottleneck-trace --comm python3
+  • 分析下一个: shecr bottleneck-analyze --data perf.data --next
+  • 分析指定: shecr bottleneck-analyze --comm python3
 ```
 
 ### 场景 2: 显式指定进程
 
 ```bash
-shecr bottleneck-trace --data perf.data --comm python3
+shecr bottleneck-analyze --data perf.data --comm python3
 ```
 
 **行为不变**: 直接分析指定进程，不受 issues 影响。
@@ -137,7 +137,7 @@ shecr bottleneck-trace --data perf.data --comm python3
 ### 场景 3: 分析下一个
 
 ```bash
-shecr bottleneck-trace --data perf.data --next
+shecr bottleneck-analyze --data perf.data --next
 ```
 
 **新参数**: `--next` 自动选择 issues 中下一个未分析的 pending target。
@@ -146,7 +146,7 @@ shecr bottleneck-trace --data perf.data --next
 
 ```bash
 # 无 .shecr.json 或 issues 都已解决
-shecr bottleneck-trace --data perf.data
+shecr bottleneck-analyze --data perf.data
 ```
 
 **回退行为**: 按原有逻辑自动识别瓶颈。
@@ -211,7 +211,7 @@ class Issue:
         "diagnosis": "BOTTLENECK"
       }
     },
-    "hint": "执行 bottleneck-trace 逐个分析"
+    "hint": "执行 bottleneck-analyze 逐个分析"
   }
 }
 ```
@@ -260,18 +260,18 @@ class Trace:
         return None
 ```
 
-### 2. bottleneck-trace 命令修改
+### 2. bottleneck-analyze 命令修改
 
 ```python
-@command("bottleneck-trace")
-def cmd_bottleneck_trace(
+@command("bottleneck-analyze")
+def cmd_bottleneck_analyze(
     builder: 'OutputBuilder',
     engine: 'PerfExpertEngine',
     args: 'Namespace',
     samples: List[Dict[str, Any]]
-) -> BottleneckTraceResult:
+) -> BottleneckAnalyzeResult:
     """
-    [Composite] 瓶颈追踪命令 - 支持从 sys-audit 继承 issues
+    [Composite] 瓶颈分析命令 - 支持从 sys-audit 继承 issues
     
     Args:
         --comm: 指定目标进程（可选，优先级最高）
@@ -332,7 +332,7 @@ def cmd_bottleneck_trace(
         # 如果还有 pending targets，提示用户
         if selected_issue.pending_targets:
             next_target = selected_issue.pending_targets[0]
-            builder.print_info(f"下一步: shecr bottleneck-trace --comm {next_target}")
+            builder.print_info(f"下一步: shecr bottleneck-analyze --comm {next_target}")
     
     return result
 
@@ -341,7 +341,7 @@ def _print_pending_targets_summary(builder: 'OutputBuilder', issue: Issue):
     """打印待分析目标摘要"""
     lines = [
         "═══════════════════════════════════════════════════════════════════",
-        f"BOTTLENECK-TRACE: 从 {issue.id} 继承 {len(issue.pending_targets)} 个待分析瓶颈",
+        f"BOTTLENECK-ANALYZE: 从 {issue.id} 继承 {len(issue.pending_targets)} 个待分析瓶颈",
         "═══════════════════════════════════════════════════════════════════",
         "",
         "按危害指数排序:",
@@ -407,7 +407,7 @@ def _create_bottleneck_issue(builder, diagnosis: DiagnosisReport) -> str:
     issue_id = builder.trace.add(
         desc=f"发现 {len(all_bottlenecks)} 个关键性能瓶颈",
         level="critical",
-        hint="执行 bottleneck-trace 逐个分析",
+        hint="执行 bottleneck-analyze 逐个分析",
         pending_targets=pending_targets,
         metrics=metrics
     )
@@ -420,12 +420,12 @@ def _create_bottleneck_issue(builder, diagnosis: DiagnosisReport) -> str:
 ## CLI 参数扩展
 
 ```python
-# cli/commands/composite/bottleneck_trace.py
+# cli/commands/composite/bottleneck_analyze.py
 
 def register_commands(subparsers):
     p = subparsers.add_parser(
-        'bottleneck-trace',
-        help='瓶颈深度追踪（支持从 sys-audit 继承问题）'
+        'bottleneck-analyze',
+        help='瓶颈深度分析（支持从 sys-audit 继承问题）'
     )
     
     # 原有参数
@@ -463,10 +463,10 @@ shecr sys-audit --data case_huge_samples.data
 #       自动创建 ISS-001
 
 # 2. 分析第一个瓶颈（自动继承 netstat）
-shecr bottleneck-trace --data case_huge_samples.data
+shecr bottleneck-analyze --data case_huge_samples.data
 # 输出: 
 #   ═══════════════════════════════════════════════════════════════════
-#   BOTTLENECK-TRACE: 从 ISS-001 继承 4 个待分析瓶颈
+#   BOTTLENECK-ANALYZE: 从 ISS-001 继承 4 个待分析瓶颈
 #   ═══════════════════════════════════════════════════════════════════
 #   按危害指数排序:
 #     [1] netstat          Score: 431.0  CPU: 243.9%  ⚠️  高内核态 95%
@@ -478,14 +478,14 @@ shecr bottleneck-trace --data case_huge_samples.data
 #   ═══════════════════════════════════════════════════════════════════
 #   [分析结果...]
 #   
-#   下一步: shecr bottleneck-trace --comm python3
+#   下一步: shecr bottleneck-analyze --comm python3
 
 # 3. 标记完成或继续分析
 shecr trace complete --id ISS-001 --result "netstat: spinlock竞争..."
 # 或
-shecr bottleneck-trace --data case_huge_samples.data --next
+shecr bottleneck-analyze --data case_huge_samples.data --next
 # 或
-shecr bottleneck-trace --data case_huge_samples.data --comm python3
+shecr bottleneck-analyze --data case_huge_samples.data --comm python3
 
 # 4. 分析完所有 4 个瓶颈后
 shecr trace issues
@@ -518,7 +518,7 @@ shecr trace finalize
 - [ ] **Phase 2**: sys-audit 修改
   - [ ] 创建 issue 时填充 pending_targets 和 metrics
   
-- [ ] **Phase 3**: bottleneck-trace 修改
+- [ ] **Phase 3**: bottleneck-analyze 修改
   - [ ] 添加 `--next`, `--issue-id`, `--auto` 参数
   - [ ] 实现继承逻辑（优先检查 issues）
   - [ ] 添加目标选择提示输出
@@ -538,7 +538,7 @@ shecr trace finalize
 
 ## 相关文档
 
-- [Trace 机制设计](design-trace.md) - Trace 数据结构基础
-- [Composite 层接口](interface-composite.md) - BottleneckTracer 类定义
+- [Trace 机制设计](../../core/how/trace-mechanism.md) - Trace 数据结构基础
+- [Composite 层接口](interface-composite.md) - BottleneckAnalyzer 类定义
 - [CLI 层接口](interface-cli.md) - 命令注册规范
-- [工具: bottleneck-trace](../report/tool-bottleneck-trace.md) - 工具详细说明
+- [工具: bottleneck-analyze](../report/tool-bottleneck-analyze.md) - 工具详细说明

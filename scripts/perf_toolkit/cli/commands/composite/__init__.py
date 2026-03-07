@@ -4,7 +4,7 @@ Composite 命令注册模块
 
 注册 2 个组合命令：
 - sys-audit
-- bottleneck-trace
+- bottleneck-analyze
 """
 
 from typing import Dict, Callable
@@ -12,7 +12,7 @@ from typing import Dict, Callable
 
 COMMAND_MAP: Dict[str, str] = {
     'sys-audit': 'perf_toolkit.cli.commands.composite.sys_audit',
-    'bottleneck-trace': 'perf_toolkit.cli.commands.composite.bottleneck_trace',
+    'bottleneck-analyze': 'perf_toolkit.cli.commands.composite.bottleneck_analyze',
 }
 
 
@@ -26,7 +26,7 @@ def get_command_handler(command_name: str) -> Callable:
     
     handler_map = {
         'sys-audit': 'cmd_sys_audit',
-        'bottleneck-trace': 'cmd_bottleneck_trace',
+        'bottleneck-analyze': 'cmd_bottleneck_analyze',
     }
     
     handler_name = handler_map[command_name]
@@ -48,9 +48,9 @@ def register_commands(subparsers):
     p.add_argument("--start-time", type=str, help="Filter samples after this time")
     p.add_argument("--end-time", type=str, help="Filter samples before this time")
     
-    # bottleneck-trace
-    p = subparsers.add_parser('bottleneck-trace',
-                              help="[Composite] Bottleneck trace - deep analysis of CPU bottlenecks")
+    # bottleneck-analyze
+    p = subparsers.add_parser('bottleneck-analyze',
+                              help="[Composite] Bottleneck analyze - deep analysis of CPU bottlenecks")
     p.add_argument("--data", required=True, help="Path to perf script output file")
     p.add_argument("--freq", type=int, default=19, metavar="HZ",
                    help="Sampling frequency in Hz")

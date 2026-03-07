@@ -321,7 +321,7 @@ def cmd_sys_audit(
         aggregator.add_risk(RiskInfo(
             level=SeverityLevel.CRITICAL.lower(),
             message=f"{AttentionFlag.X0} Primary bottleneck: {primary.comm}",
-            hint=f"{AttentionFlag.XA} bottleneck-trace --comm {primary.comm}",
+            hint=f"{AttentionFlag.XA} bottleneck-analyze --comm {primary.comm}",
             patterns=[RiskPattern.PRIMARY_SUSPECT],
             pending_targets=[primary.comm],
             source="sys_audit"
@@ -433,10 +433,10 @@ def cmd_sys_audit(
     # 构建建议
     recommendations = []
     if diagnosis.primary_suspect:
-        recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {diagnosis.primary_suspect.comm}  deep analysis")
+        recommendations.append(f"{AttentionFlag.XA} bottleneck-analyze --comm {diagnosis.primary_suspect.comm}  deep analysis")
     for g in diagnosis.secondary_loads:
         if g.diagnosis == DiagnosisType.BOTTLENECK:
-            recommendations.append(f"{AttentionFlag.XA} bottleneck-trace --comm {g.comm}  deep analysis")
+            recommendations.append(f"{AttentionFlag.XA} bottleneck-analyze --comm {g.comm}  deep analysis")
     recommendations.append(f"{AttentionFlag.XA} trace issues  view all pending issues")
     
     output = SysAuditOutput(

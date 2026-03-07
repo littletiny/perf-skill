@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-bottleneck-trace 命令实现
+bottleneck-analyze 命令实现
 
-从 composite/bottleneck_trace.py 迁移而来
+从 composite/bottleneck_analyze.py 迁移而来
 使用 V2 强类型输出模型（无裸 Dict）
 """
 
@@ -26,7 +26,7 @@ from perf_toolkit.cli.decorators import command
 from perf_toolkit.core.config_loader import get_analysis_thresholds
 from perf_toolkit.core.models import RiskInfo, TimeRange
 from perf_toolkit.core.output_models import (
-    BottleneckTraceResult,
+    BottleneckAnalyzeResult,
     EntityDistribution,
     CallPathCluster,
     CorrelationFlag,
@@ -42,7 +42,7 @@ from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.composite.models import (
     BottleneckAnalysis, HotspotsReport, CallersReport
 )
-from perf_toolkit.composite.bottleneck_trace import (
+from perf_toolkit.composite.bottleneck_analyze import (
     _find_bottleneck_comm,
     _find_all_bottleneck_comms,
     _analyze_bottleneck,
@@ -581,7 +581,7 @@ def _build_risk_info(
             hint="Try sys-audit for system-wide scan",
             patterns=["NO_BOTTLENECK_FOUND"],
             pending_targets=[],
-            source="bottleneck_trace"
+            source="bottleneck_analyze"
         )
     
     patterns = [f.flag_type for f in correlation_flags]
@@ -597,7 +597,7 @@ def _build_risk_info(
             hint=f"{comm} Monopoly={bottleneck.monopoly:.2f}, Impact={bottleneck.impact_score:.1f}",
             patterns=patterns,
             pending_targets=[comm],
-            source="bottleneck_trace"
+            source="bottleneck_analyze"
         )
     elif warning_flags:
         return RiskInfo(
@@ -606,7 +606,7 @@ def _build_risk_info(
             hint=f"{comm} needs further analysis",
             patterns=patterns,
             pending_targets=[comm],
-            source="bottleneck_trace"
+            source="bottleneck_analyze"
         )
     else:
         return RiskInfo(
@@ -615,19 +615,19 @@ def _build_risk_info(
             hint="",
             patterns=patterns,
             pending_targets=[],
-            source="bottleneck_trace"
+            source="bottleneck_analyze"
         )
 
 
-@command("bottleneck-trace")
-def cmd_bottleneck_trace(
+@command("bottleneck-analyze")
+def cmd_bottleneck_analyze(
     builder: 'OutputBuilder',
     engine: 'PerfExpertEngine',
     args: 'Namespace',
     samples: List[Dict[str, Any]]
-) -> BottleneckTraceResult:
+) -> BottleneckAnalyzeResult:
     """
-    [Composite] 瓶颈追踪命令
+    [Composite] 瓶颈分析命令
     
     自动识别CPU瓶颈进程并进行深度分析
     如未指定--comm，自动识别最主要的瓶颈进程。
@@ -657,7 +657,7 @@ def cmd_bottleneck_trace(
                 hint="Check configuration"
             )
             
-            return BottleneckTraceResult(
+            return BottleneckAnalyzeResult(
                 _risk=risk,
                 entity_distribution=[],
                 common_hotspot="",
@@ -686,7 +686,7 @@ def cmd_bottleneck_trace(
                 hint="Check configuration"
             )
             
-            return BottleneckTraceResult(
+            return BottleneckAnalyzeResult(
                 _risk=risk,
                 entity_distribution=[],
                 common_hotspot="",
@@ -704,7 +704,7 @@ def cmd_bottleneck_trace(
                 )
             )
     
-    # 所有待追踪的 bottleneck 进程列表
+    # 所有待分析的 bottleneck 进程列表
     all_bottleneck_comms: List[str] = []
     
     if not user_specified_comm:
@@ -718,7 +718,7 @@ def cmd_bottleneck_trace(
                 hint="Try sys-audit for comprehensive analysis"
             )
             
-            return BottleneckTraceResult(
+            return BottleneckAnalyzeResult(
                 _risk=risk,
                 entity_distribution=[],
                 common_hotspot="",
@@ -814,7 +814,7 @@ def cmd_bottleneck_trace(
             message="Not detected",
             hint="Try sys-audit for comprehensive analysis"
         )
-        return BottleneckTraceResult(
+        return BottleneckAnalyzeResult(
             _risk=risk,
             entity_distribution=[],
             common_hotspot="",
@@ -857,10 +857,10 @@ def cmd_bottleneck_trace(
         risk = RiskInfo(
             level=risk_level,
             message=risk_message,
-            hint=f"Auto-traced all {len(all_analyses)} bottleneck processes",
+            hint=f"Auto-analyzed all {len(all_analyses)} bottleneck processes",
             patterns=["MULTI_BOTTLENECK_DETECTED"],
             pending_targets=comms_list,
-            source="bottleneck_trace"
+            source="bottleneck_analyze"
         )
     
     # 计算总 PIDs 和 Sys CPU
@@ -932,7 +932,7 @@ def cmd_bottleneck_trace(
     cpu_overview = _build_cpu_overview(samples, engine, facade)
     
     # 7. 返回聚合结果
-    return BottleneckTraceResult(
+    return BottleneckAnalyzeResult(
         _risk=risk,
         target_resource_util=target_resource_util,
         entity_distribution=all_entity_distributions,

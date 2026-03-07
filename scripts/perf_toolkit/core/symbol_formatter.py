@@ -6,7 +6,7 @@ Symbol Formatter - 统一的符号格式化模块
 为所有调用链相关命令提供一致的符号格式化风格：
 - find-callers: bottom-up 风格
 - cluster-paths: top-down 风格  
-- bottleneck-trace: 双向视图风格
+- bottleneck-analyze: 双向视图风格
 
 格式规范 (AI友好 - 显式标记):
 - 普通符号: sym (无特殊标记)

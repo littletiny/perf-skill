@@ -158,7 +158,7 @@ class DiagnosisReport:
 
 
 # =============================================================================
-# Bottleneck Trace Models
+# Bottleneck Analyze Models
 # =============================================================================
 
 @dataclass
@@ -205,7 +205,7 @@ class BottleneckAnalysis:
     """
     瓶颈分析结果
     
-    bottleneck-trace 命令的核心输出。
+    bottleneck-analyze 命令的核心输出。
     """
     found: bool = False
     comm: str = ""

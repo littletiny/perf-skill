@@ -285,7 +285,7 @@ class CommTopAnalyzer(BaseAnalyzer):
             return self._create_risk(
                 level="critical",
                 message=f"{group.comm} reached bottleneck threshold (CPU={group.total_cpu:.1f}%, Sys={group.kernel_cpu:.1f}%)",
-                hint=f"bottleneck-trace --comm {group.comm}",
+                hint=f"bottleneck-analyze --comm {group.comm}",
                 patterns=[RiskPattern.SINGLE_CORE_SATURATION],
                 pending_targets=[group.comm]
             )

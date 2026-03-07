@@ -213,7 +213,7 @@ print(result.trajectory)
 |------|----------|----------|
 | `find-callers` | 调用者栈处理 | `symbol_rules.json` |
 | `cluster-paths` | 完整栈处理 + 聚类参数 | `symbol_rules.json` |
-| `bottleneck-trace` | 调用链提取 | `symbol_rules.json` |
+| `bottleneck-analyze` | 调用链提取 | `symbol_rules.json` |
 
 ## 验证配置
 

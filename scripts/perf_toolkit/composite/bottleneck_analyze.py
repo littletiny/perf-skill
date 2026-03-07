@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Bottleneck Trace - 瓶颈追踪命令
+Bottleneck Analyze - 瓶颈分析命令
 
 自动识别CPU瓶颈进程并进行深度分析。
 
@@ -11,8 +11,8 @@ Bottleneck Trace - 瓶颈追踪命令
 3. 调用链溯源
 4. 生成诊断报告
 
-注意：CLI 命令已迁移到 cli/commands/composite/bottleneck_trace.py
-本文件保留辅助函数和 BottleneckTracer 类供 CLI 命令使用
+注意：CLI 命令已迁移到 cli/commands/composite/bottleneck_analyze.py
+本文件保留辅助函数和 BottleneckAnalyzer 类供 CLI 命令使用
 
 常量定义统一从 config.defaults 导入。
 """
@@ -37,9 +37,9 @@ from perf_toolkit.composite.models import (
 
 
 
-class BottleneckTracer:
+class BottleneckAnalyzer:
     """
-    瓶颈追踪器
+    瓶颈分析器
     
     自动识别 CPU 瓶颈进程并进行深度分析。
     
@@ -52,15 +52,15 @@ class BottleneckTracer:
     使用示例：
         engine = PerfExpertEngine()
         facade = AnalysisFacade(engine)
-        tracer = BottleneckTracer(facade)
+        analyzer = BottleneckAnalyzer(facade)
         
         samples = engine.get_filtered_samples()
-        analysis, hotspots, callers = tracer.trace(samples, target_comm="my_app")
+        analysis, hotspots, callers = analyzer.analyze(samples, target_comm="my_app")
     """
     
     def __init__(self, facade: AnalysisFacade):
         """
-        初始化追踪器
+        初始化分析器
         
         Args:
             facade: AnalysisFacade 实例
@@ -68,13 +68,13 @@ class BottleneckTracer:
         self._facade = facade
         self._aggregator = RiskAggregator()
     
-    def trace(self, samples: List[Dict],
+    def analyze(self, samples: List[Dict],
               target_comm: Optional[str] = None,
               target_pid: Optional[int] = None) -> Tuple[BottleneckAnalysis, 
                                                          HotspotsReport,
                                                          Optional[CallersReport]]:
         """
-        执行瓶颈追踪
+        执行瓶颈分析
         
         Args:
             samples: 样本数据
@@ -284,7 +284,7 @@ class BottleneckTracer:
         )
 
 
-# 以下辅助函数保留供 cli/commands/composite/bottleneck_trace.py 使用
+# 以下辅助函数保留供 cli/commands/composite/bottleneck_analyze.py 使用
 
 def _find_bottleneck_comm(facade: AnalysisFacade, samples) -> Optional[str]:
     """

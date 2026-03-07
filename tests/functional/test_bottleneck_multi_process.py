@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-测试: bottleneck-trace 多 BOTTLENECK 进程识别
+测试: bottleneck-analyze 多 BOTTLENECK 进程识别
 
 验证点:
 1. _find_all_bottleneck_comms 能找到所有 BOTTLENECK 进程
 2. sys-audit 的 recommendations 包含所有 BOTTLENECK 的追踪建议
-3. bottleneck-trace 的 risk hint 提示其他待追踪的瓶颈
+3. bottleneck-analyze 的 risk hint 提示其他待追踪的瓶颈
 """
 
 import sys
@@ -21,7 +21,7 @@ sys.path.insert(0, str(project_root / "scripts"))
 from config.defaults import DiagnosisType
 from perf_toolkit.analysis.facade import AnalysisFacade
 from perf_toolkit.core.engine import PerfExpertEngine
-from perf_toolkit.composite.bottleneck_trace import _find_all_bottleneck_comms
+from perf_toolkit.composite.bottleneck_analyze import _find_all_bottleneck_comms
 
 
 class TestBottleneckMultiProcess(unittest.TestCase):
@@ -75,8 +75,8 @@ class TestBottleneckMultiProcess(unittest.TestCase):
         recommendations = output.recommendations
         self.assertIsNotNone(recommendations, "recommendations 不应为 None")
         
-        # 查找所有包含 "bottleneck-trace" 的推荐
-        trace_recommendations = [r for r in recommendations if 'bottleneck-trace' in r]
+        # 查找所有包含 "bottleneck-analyze" 的推荐
+        trace_recommendations = [r for r in recommendations if 'bottleneck-analyze' in r]
         
         # 验证至少有为 netstat 的推荐
         netstat_recs = [r for r in trace_recommendations if 'netstat' in r]
@@ -89,7 +89,7 @@ class TestBottleneckMultiProcess(unittest.TestCase):
         for comm in all_bottlenecks:
             comm_recs = [r for r in trace_recommendations if comm in r]
             self.assertGreaterEqual(len(comm_recs), 1,
-                f"进程 {comm} 应该有对应的 bottleneck-trace 推荐")
+                f"进程 {comm} 应该有对应的 bottleneck-analyze 推荐")
         
         print(f"✓ sys-audit 生成了 {len(trace_recommendations)} 个追踪推荐")
         for rec in trace_recommendations:
@@ -121,15 +121,15 @@ class TestBottleneckMultiProcess(unittest.TestCase):
         
         print(f"✓ pending_targets 包含 {len(pending_targets)} 个目标: {pending_targets}")
 
-    def test_bottleneck_trace_shows_other_bottlenecks(self):
-        """测试 bottleneck-trace 自动追踪所有检测到的瓶颈"""
-        from perf_toolkit.cli.commands.composite.bottleneck_trace import cmd_bottleneck_trace
+    def test_bottleneck_analyze_shows_other_bottlenecks(self):
+        """测试 bottleneck-analyze 自动追踪所有检测到的瓶颈"""
+        from perf_toolkit.cli.commands.composite.bottleneck_analyze import cmd_bottleneck_analyze
         from argparse import Namespace
         
         # 不带 --comm，自动识别所有 bottleneck (@command 装饰器会自动处理)
         args = Namespace(comm=None, pid=None, top_n=10, data=self.data_file)
         
-        output = cmd_bottleneck_trace(self.engine, args)
+        output = cmd_bottleneck_analyze(self.engine, args)
         
         # 获取 risk
         risk = output._risk
@@ -153,15 +153,15 @@ class TestBottleneckMultiProcess(unittest.TestCase):
         self.assertIn(str(len(all_bottlenecks)), risk.message,
             f"Risk message 应该包含瓶颈数量 {len(all_bottlenecks)}")
         
-        print(f"✓ bottleneck-trace 自动追踪了 {len(all_bottlenecks)} 个瓶颈")
+        print(f"✓ bottleneck-analyze 自动追踪了 {len(all_bottlenecks)} 个瓶颈")
         print(f"  - 所有瓶颈: {all_bottlenecks}")
         print(f"  - Entity count: {len(output.entity_distribution)}")
         print(f"  - Risk message: {risk.message}")
         print(f"  - Hint: {risk.hint}")
 
-    def test_bottleneck_trace_creates_issues_for_all_bottlenecks(self):
-        """测试 bottleneck-trace 为所有 bottleneck 创建一个聚合 issue"""
-        from perf_toolkit.cli.commands.composite.bottleneck_trace import cmd_bottleneck_trace
+    def test_bottleneck_analyze_creates_issues_for_all_bottlenecks(self):
+        """测试 bottleneck-analyze 为所有 bottleneck 创建一个聚合 issue"""
+        from perf_toolkit.cli.commands.composite.bottleneck_analyze import cmd_bottleneck_analyze
         from perf_toolkit.core.trace import Trace
         from argparse import Namespace
         import os
@@ -178,9 +178,9 @@ class TestBottleneckMultiProcess(unittest.TestCase):
                 trace = Trace()
                 trace.init(str(self.data_file))
                 
-                # 执行 bottleneck-trace
+                # 执行 bottleneck-analyze
                 args = Namespace(comm=None, pid=None, top_n=10, data=self.data_file)
-                output = cmd_bottleneck_trace(self.engine, args)
+                output = cmd_bottleneck_analyze(self.engine, args)
                 
                 # 重新加载 trace 查看创建的 issues
                 trace = Trace()
@@ -215,7 +215,7 @@ class TestBottleneckMultiProcess(unittest.TestCase):
 
 
 class TestBottleneckTraceIntegration(unittest.TestCase):
-    """集成测试: 完整的 bottleneck-trace 流程"""
+    """集成测试: 完整的 bottleneck-analyze 流程"""
 
     @classmethod
     def setUpClass(cls):
@@ -226,9 +226,9 @@ class TestBottleneckTraceIntegration(unittest.TestCase):
         if not cls.data_file.exists():
             raise FileNotFoundError(f"测试数据不存在: {cls.data_file}")
 
-    def test_bottleneck_trace_with_specific_comm(self):
+    def test_bottleneck_analyze_with_specific_comm(self):
         """测试指定 comm 时只分析该进程"""
-        from perf_toolkit.cli.commands.composite.bottleneck_trace import cmd_bottleneck_trace
+        from perf_toolkit.cli.commands.composite.bottleneck_analyze import cmd_bottleneck_analyze
         from perf_toolkit.core.engine import PerfExpertEngine
         from argparse import Namespace
         
@@ -236,7 +236,7 @@ class TestBottleneckTraceIntegration(unittest.TestCase):
         
         args = Namespace(comm='python3', pid=None, top_n=10, data=self.data_file)
         
-        output = cmd_bottleneck_trace(engine, args)
+        output = cmd_bottleneck_analyze(engine, args)
         
         # 验证分析了指定的进程
         risk = output._risk

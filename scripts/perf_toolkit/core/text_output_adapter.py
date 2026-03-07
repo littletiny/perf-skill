@@ -239,7 +239,7 @@ class CustomTemplate(Template):
             "bottleneck": self._render_bottleneck,
             "cpu_usage": self._render_cpu_usage,
             "sys_audit_renderer": self._render_sys_audit,
-            "bottleneck_trace_renderer": self._render_bottleneck_trace,
+            "bottleneck_analyze_renderer": self._render_bottleneck_analyze,
             "sys_audit_renderer_v2": self._render_sys_audit_v2,
         }
 
@@ -323,9 +323,9 @@ class CustomTemplate(Template):
             lines.append(f"Process Groups: {comm_top.get('groups_count', 0)} shown, {comm_top.get('folded_count', 0)} folded")
         return lines
 
-    def _render_bottleneck_trace(self, data: Any) -> List[str]:
+    def _render_bottleneck_analyze(self, data: Any) -> List[str]:
         """
-        渲染 bottleneck-trace 输出 - 包含资源利用率和双向调用链
+        渲染 bottleneck-analyze 输出 - 包含资源利用率和双向调用链
         """
         data_dict = asdict(data) if is_dataclass(data) else data
         lines = []

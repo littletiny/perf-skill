@@ -211,7 +211,7 @@ Bottom-Up (find-callers):
 
 ```
 Composite Layer:
-  bottleneck-trace (内部组合: hotspots + find-callers topN)
+  bottleneck-analyze (内部组合: hotspots + find-callers topN)
   
 Analysis Layer:
   ├─ cluster-paths → Top-Down 路径聚类
@@ -219,7 +219,7 @@ Analysis Layer:
   └─ find-callers → Bottom-Up 溯源
 
 汇聚检查点 (Convergence Point):
-  当 bottleneck-trace 无法明确根因时，
+  当 bottleneck-analyze 无法明确根因时，
   使用 cluster-paths 补充全局视角
 ```
 
@@ -260,7 +260,7 @@ Top-Down (假设生成)          Bottom-Up (证据聚合)
 **默认工作流**（覆盖 90% 场景）：
 ```bash
 # Composite 层一键诊断
-shecr bottleneck-trace --comm <name>
+shecr bottleneck-analyze --comm <name>
 # 内部自动执行: hotspots → find-callers(top1)
 ```
 

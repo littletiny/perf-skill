@@ -1,10 +1,10 @@
-# Plan: Absorb analyze-core-distribution into sys-audit and bottleneck-trace
+# Plan: Absorb analyze-core-distribution into sys-audit and bottleneck-analyze
 
 ## 背景
 
 根据需求，`analyze-core-distribution` 独立接口将被删除，其功能拆分吸收到：
 1. **sys-audit**: 作为全局指纹的一部分（检测核心倾斜、单核爆满）
-2. **bottleneck-trace**: 检测并报告 Affinity Conflict（亲和性冲突）
+2. **bottleneck-analyze**: 检测并报告 Affinity Conflict（亲和性冲突）
 
 ## 改动范围
 
@@ -121,11 +121,11 @@ def _build_system_fingerprint(
     )
 ```
 
-### 3. 吸收到 bottleneck-trace（系统级瓶颈检测 + Affinity Conflict）
+### 3. 吸收到 bottleneck-analyze（系统级瓶颈检测 + Affinity Conflict）
 
 #### 3.1 系统级瓶颈检测类型
 
-根据 Hierarchical Driver 模型（L1-L2），bottleneck-trace 需要支持以下系统级瓶颈类型：
+根据 Hierarchical Driver 模型（L1-L2），bottleneck-analyze 需要支持以下系统级瓶颈类型：
 
 | 类型 | 检测依据 | 输出字段 |
 |------|----------|----------|
@@ -214,7 +214,7 @@ class RootCauseAnalysis:
 
 #### 3.3 检测逻辑实现
 
-**文件**: `scripts/perf_toolkit/composite/bottleneck_trace.py`
+**文件**: `scripts/perf_toolkit/composite/bottleneck_analyze.py`
 
 新增系统级瓶颈检测函数 `_analyze_system_wide_bottleneck`：
 
@@ -572,7 +572,7 @@ class BottleneckAnalysis:
 
 #### 3.5 CLI 层更新
 
-**文件**: `scripts/perf_toolkit/cli/commands/composite/bottleneck_trace.py`
+**文件**: `scripts/perf_toolkit/cli/commands/composite/bottleneck_analyze.py`
 
 更新 `_build_root_cause` 函数，支持系统级瓶颈类型：
 
@@ -650,7 +650,7 @@ bottleneck_profile = BottleneckProfile(
 
 ### 4. 保留的 Core Distribution 分析能力
 
-注意：`analyze_core_distribution` 分析能力本身保留在 Analysis 层（`analysis/core_distribution.py` 和 `facade.py`），只是移除了独立的 CLI 命令。sys-audit 和 bottleneck-trace 仍通过 Facade 调用该分析能力。
+注意：`analyze_core_distribution` 分析能力本身保留在 Analysis 层（`analysis/core_distribution.py` 和 `facade.py`），只是移除了独立的 CLI 命令。sys-audit 和 bottleneck-analyze 仍通过 Facade 调用该分析能力。
 
 ### 5. 测试更新
 
@@ -661,14 +661,14 @@ bottleneck_profile = BottleneckProfile(
 
 **需要新增的测试**:
 - sys-audit 中核心分布指纹检测的测试
-- bottleneck-trace 中亲和性冲突检测的测试
+- bottleneck-analyze 中亲和性冲突检测的测试
 
 ## 实施顺序
 
 1. **Phase 1**: 修改数据模型（output_models.py, composite/models.py）
-2. **Phase 2**: 修改 bottleneck-trace 系统级检测逻辑（composite/bottleneck_trace.py）
+2. **Phase 2**: 修改 bottleneck-analyze 系统级检测逻辑（composite/bottleneck_analyze.py）
 3. **Phase 3**: 修改 sys-audit 构建逻辑（cli/commands/composite/sys_audit.py）
-4. **Phase 4**: 修改 CLI 层 bottleneck-trace（cli/commands/composite/bottleneck_trace.py）
+4. **Phase 4**: 修改 CLI 层 bottleneck-analyze（cli/commands/composite/bottleneck_analyze.py）
 5. **Phase 5**: 删除 analyze-core-distribution CLI 命令
 6. **Phase 6**: 更新文档
 7. **Phase 7**: 运行测试验证
@@ -680,20 +680,20 @@ bottleneck_profile = BottleneckProfile(
 | 命令 | 新增能力 | 说明 |
 |------|----------|------|
 | `sys-audit` | 核心分布指纹 | `system_fingerprint` 新增 `core_imbalance_detected`, `single_core_saturation` 等字段 |
-| `bottleneck-trace` | 系统级瓶颈分类 | 新增 `bottleneck_type` 字段，区分 SINGLE_CORE_SELF/SYSTEM_WIDE/AFFINITY_CONFLICT/RESOURCE_CONTENTION |
-| `bottleneck-trace` | 亲和性冲突检测 | 新增 `affinity_conflict`, `conflict_core_id`, `conflict_description` 字段 |
-| `bottleneck-trace` | 系统级压力检测 | 新增 `system_wide_pressure`, `contention_detected` 字段 |
+| `bottleneck-analyze` | 系统级瓶颈分类 | 新增 `bottleneck_type` 字段，区分 SINGLE_CORE_SELF/SYSTEM_WIDE/AFFINITY_CONFLICT/RESOURCE_CONTENTION |
+| `bottleneck-analyze` | 亲和性冲突检测 | 新增 `affinity_conflict`, `conflict_core_id`, `conflict_description` 字段 |
+| `bottleneck-analyze` | 系统级压力检测 | 新增 `system_wide_pressure`, `contention_detected` 字段 |
 
 ### 删除内容
 
 | 内容 | 说明 |
 |------|------|
-| `analyze-core-distribution` CLI 命令 | 功能被完全吸收到 sys-audit 和 bottleneck-trace |
+| `analyze-core-distribution` CLI 命令 | 功能被完全吸收到 sys-audit 和 bottleneck-analyze |
 
 ### 向后兼容性
 
-- **Breaking Change**: `analyze-core-distribution` 命令将被删除，用户需改用 `sys-audit` 或 `bottleneck-trace`
-- **数据格式**: `bottleneck-trace` 输出新增字段，现有字段保持不变
+- **Breaking Change**: `analyze-core-distribution` 命令将被删除，用户需改用 `sys-audit` 或 `bottleneck-analyze`
+- **数据格式**: `bottleneck-analyze` 输出新增字段，现有字段保持不变
 
 ## 风险评估
 
@@ -707,7 +707,7 @@ bottleneck_profile = BottleneckProfile(
 
 1. `shecr analyze-core-distribution` 命令不存在（返回未知命令错误）
 2. `shecr sys-audit` 输出包含 `system_fingerprint.core_imbalance_detected` 等字段
-3. `shecr bottleneck-trace --comm <name>` 输出包含：
+3. `shecr bottleneck-analyze --comm <name>` 输出包含：
    - `bottleneck_type`: SINGLE_CORE_SELF/SYSTEM_WIDE/AFFINITY_CONFLICT/RESOURCE_CONTENTION
    - `affinity_conflict`: true/false
    - `conflict_description`: 如 "Core #4 is saturated by lsof_cluster"

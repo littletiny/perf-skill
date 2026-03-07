@@ -8,7 +8,7 @@ Default Configuration - 全项目默认常量配置
     from config.defaults import OutputDefaults, DiagnosisType, RiskPattern
     
     if diagnosis == DiagnosisType.BOTTLENECK:
-        print(OutputDefaults.BOTTLENECK_TRACE_TITLE)
+        print(OutputDefaults.BOTTLENECK_ANALYZE_TITLE)
 """
 
 from dataclasses import dataclass, field
@@ -128,7 +128,7 @@ class OutputDefaults:
     # -------------------------------------------------------------------------
     # Composite 输出标题
     # -------------------------------------------------------------------------
-    BOTTLENECK_TRACE_TITLE = "## [BOTTLENECK_TRACE]"
+    BOTTLENECK_ANALYZE_TITLE = "## [BOTTLENECK_ANALYZE]"
     SYS_AUDIT_TITLE = "## [SYSTEM_AUDIT]"
     
     # -------------------------------------------------------------------------
@@ -290,7 +290,7 @@ class Thresholds:
     AFFINITY_THROTTLE_INFER_CPU_MAX = 90.0  # 节流推断: CPU < 90
     
     # -------------------------------------------------------------------------
-    # Correlation Flags 阈值 (bottleneck-trace)
+    # Correlation Flags 阈值 (bottleneck-analyze)
     # -------------------------------------------------------------------------
     LOCK_CONTENTION_INCLUSIVE_PCT = 40.0    # GLOBAL_LOCK_CONTENTION 阈值
     THROTTLE_VICTIM_CPU_MAX = 80.0          # THROTTLE_VICTIM: CPU < 80

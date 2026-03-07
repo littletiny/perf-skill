@@ -19,7 +19,7 @@ SHECR 分析入口：从症状到工具的直达路径：
 symptom                          → 推荐入口命令
 ─────────────────────────────────────────────────────────
 不知道从何入手                    → sys-audit
-单进程/进程组 CPU 异常             → bottleneck-trace --comm <name> --pid <pid>
+单进程/进程组 CPU 异常             → bottleneck-analyze --comm <name> --pid <pid>
 突发性能下降/异常窗口              → detect-anomalies
 已知热点函数，需调用链             → find-callers --target <func>
 ```
@@ -33,7 +33,7 @@ symptom                          → 推荐入口命令
 shecr sys-audit
 
 # 第二轮：深度追踪瓶颈进程（根据第一轮输出选择）
-shecr bottleneck-trace --comm <瓶颈进程名>
+shecr bottleneck-analyze --comm <瓶颈进程名>
 ```
 
 ---
@@ -71,7 +71,7 @@ shecr bottleneck-trace --comm <瓶颈进程名>
 ```
   Composite（全景图+自动诊断）:
    sys-audit         系统全景扫描，输出诊断摘要和建议
-   bottleneck-trace  多维度聚合分析，定位 CPU 瓶颈根因
+   bottleneck-analyze 多维度聚合分析，定位 CPU 瓶颈根因
                        （输出: ENTITY_DISTRIBUTION_MATRIX,
                         CONVERGENCE_TRACE, CORRELATION_FLAGS）
 
@@ -207,18 +207,18 @@ app_worker      12%     10       ← 平庸...
 
 ---
 
-## 附录 A：bottleneck-trace 深度解析
+## 附录 A：bottleneck-analyze 深度解析
 
 ### A.1 工具定位
 
-`bottleneck-trace` 是 Composite 层的核心诊断工具，通过 **Bottom-Up + Top-Down 双视角聚合**，揭示瓶颈的完整上下文。
+`bottleneck-analyze` 是 Composite 层的核心诊断工具，通过 **Bottom-Up + Top-Down 双视角聚合**，揭示瓶颈的完整上下文。
 
 **与相关工具的关系**：
 
 ```
 1. sys-audit (入口)
      发现瓶颈进程 app_B
-2. bottleneck-trace --comm app_B (深度分析)
+2. bottleneck-analyze --comm app_B (深度分析)
      发现热点: _raw_spin_lock, ut_delay
 3. find-callers --target _raw_spin_lock --comm app_B
    find-callers --auto-target --comm app_B # 全局热点追踪
@@ -228,7 +228,7 @@ app_worker      12%     10       ← 平庸...
 | 场景 | 推荐工具 | 说明 |
 |------|----------|------|
 | 不知道从何入手 | `sys-audit` | 全景扫描，自动识别瓶颈 |
-| 已知瓶颈进程 | `bottleneck-trace` | 深度分析，调用链追踪 |
+| 已知瓶颈进程 | `bottleneck-analyze` | 深度分析，调用链追踪 |
 | 已知热点函数 | `find-callers` | 精确溯源 |
 | 业务逻辑分析 | `cluster-paths` | 调用模式识别 |
 
@@ -342,14 +342,14 @@ Phase 4: 聚合输出阶段
 
 ```bash
 # 基础用法
-shecr bottleneck-trace --auto-detect
-shecr bottleneck-trace --comm <name>
-shecr bottleneck-trace --pid <PID>
+shecr bottleneck-analyze --auto-detect
+shecr bottleneck-analyze --comm <name>
+shecr bottleneck-analyze --pid <PID>
 
 # 高级用法
-shecr bottleneck-trace --comm <name> --hotspots-limit 30
-shecr bottleneck-trace --comm <name> --callers-limit 20 --max-depth 10
-shecr bottleneck-trace --comm <name> --verbose
+shecr bottleneck-analyze --comm <name> --hotspots-limit 30
+shecr bottleneck-analyze --comm <name> --callers-limit 20 --max-depth 10
+shecr bottleneck-analyze --comm <name> --verbose
 ```
 
 **参数说明**：
@@ -366,7 +366,7 @@ shecr bottleneck-trace --comm <name> --verbose
 | `--start-time` | 开始时间（ISO 8601） | - |
 | `--end-time` | 结束时间（ISO 8601） | - |
 
-📘 **详细规范**: [`docs/report/tool-bottleneck-trace.md`](../docs/report/tool-bottleneck-trace.md)
+📘 **详细规范**: [`docs/report/tool-bottleneck-analyze.md`](../docs/report/tool-bottleneck-analyze.md)
 
 ---
 

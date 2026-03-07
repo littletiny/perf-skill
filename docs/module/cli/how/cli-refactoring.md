@@ -26,7 +26,7 @@
 │  Layer 3: Analysis (分析层)  ← 清理 @command 装饰器          │
 │  ├─ analysis/facade.py                                     │
 │  ├─ analysis/{comm_top,hotspots,trace,anomalies,...}.py    │
-│  └─ composite/{sys_audit,bottleneck_trace}.py              │
+│  └─ composite/{sys_audit,bottleneck_analyze}.py            │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 2: Core (核心层)      ← 清理 CLI 代码                 │
 │  ├─ core/engine.py                                         │
@@ -515,7 +515,7 @@ python3 tests/run_tests.py
 | `analysis/core_distribution.py` (CLI) | `cli/commands/analysis/core_dist.py` | B | 移动 |
 | `analysis/comm_top.py` (CLI) | `cli/commands/analysis/comm_top.py` | B | 移动 |
 | `composite/sys_audit.py` (CLI) | `cli/commands/composite/sys_audit.py` | B | 移动 |
-| `composite/bottleneck_trace.py` (CLI) | `cli/commands/composite/bottleneck_trace.py` | B | 移动 |
+| `composite/bottleneck_analyze.py` (CLI) | `cli/commands/composite/bottleneck_analyze.py` | B | 移动 |
 | `shecr_wrap.py` | `cli/commands/env/*.py` | C | 拆分后删除 |
 | `shecr.py` | `shecr.py` | A | 重写为简单入口 |
 

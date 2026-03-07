@@ -136,7 +136,7 @@ def command(name: str, filters: Optional[List[str]] = None) -> Callable[[Analysi
 | find-callers | `AttributionsOutput` |
 | cluster-paths | `PathClustersOutput` |
 | sys-audit | `SysAuditOutput` |
-| bottleneck-trace | `BottleneckTraceOutput` |
+| bottleneck-analyze | `BottleneckAnalyzeOutput` |
 
 ---
 

@@ -94,7 +94,7 @@ python3 tests/integration/test_core_interfaces.py -v
 **测试目标**: `composite/*.py` 组合命令
 
 - `sys-audit` 系统审计流程
-- `bottleneck-trace` 瓶颈追踪
+- `bottleneck-analyze` 瓶颈追踪
 - `storm-trace` 风暴溯源
 - Risk聚合算法
 - 输出格式验证

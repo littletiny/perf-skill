@@ -4,7 +4,7 @@ Composite命令测试
 
 验证组合命令的功能:
 - sys-audit: 系统审计流程
-- bottleneck-trace: 瓶颈追踪流程
+- bottleneck-analyze: 瓶颈追踪流程
 - storm-trace: 风暴溯源流程
 
 运行: python3 tests/three_tier/test_composite_commands.py
@@ -57,14 +57,14 @@ class MockAnalyzer:
                 {
                     "level": "critical",
                     "message": "app_worker 单核饱和",
-                    "hint": "bottleneck-trace --comm app_worker"
+                    "hint": "bottleneck-analyze --comm app_worker"
                 }
             ],
             "risks": [
                 {
                     "level": "critical",
                     "message": "app_worker 单核饱和 (Monopoly=0.92)",
-                    "hint": "bottleneck-trace --comm app_worker",
+                    "hint": "bottleneck-analyze --comm app_worker",
                     "patterns": ["SINGLE_CORE_SATURATION"],
                     "pending_targets": ["app_worker"]
                 }
@@ -165,7 +165,7 @@ class TestSysAuditComposite(unittest.TestCase):
                 {
                     "level": "critical",
                     "message": "app_worker 单核饱和",
-                    "hint": "bottleneck-trace --comm app_worker",
+                    "hint": "bottleneck-analyze --comm app_worker",
                     "pending_targets": ["app_worker"]
                 },
                 {
@@ -191,7 +191,7 @@ class TestSysAuditComposite(unittest.TestCase):
             # 验证聚合结果
             self.assertEqual(result.level, "critical")  # 最高级别
             self.assertIn("app_worker", result.message)
-            self.assertIn("bottleneck-trace", result.hint)
+            self.assertIn("bottleneck-analyze", result.hint)
             
         except ImportError:
             self.skipTest("sys-audit或_aggregate_risks尚未实现")
@@ -250,21 +250,21 @@ class TestSysAuditComposite(unittest.TestCase):
             self.skipTest("sys-audit或_synthesize尚未实现")
 
 
-class TestBottleneckTraceComposite(unittest.TestCase):
-    """bottleneck-trace组合命令测试"""
+class TestBottleneckAnalyzeComposite(unittest.TestCase):
+    """bottleneck-analyze组合命令测试"""
     
-    def test_bottleneck_trace_command_exists(self):
-        """测试bottleneck-trace命令存在"""
+    def test_bottleneck_analyze_command_exists(self):
+        """测试bottleneck-analyze命令存在"""
         try:
-            from perf_toolkit.composite.bottleneck_trace import cmd_bottleneck_trace
-            self.assertTrue(callable(cmd_bottleneck_trace))
+            from perf_toolkit.composite.bottleneck_analyze import cmd_bottleneck_analyze
+            self.assertTrue(callable(cmd_bottleneck_analyze))
         except ImportError:
-            self.skipTest("bottleneck-trace尚未实现")
+            self.skipTest("bottleneck-analyze尚未实现")
     
     def test_bottleneck_detection_logic(self):
         """测试瓶颈检测逻辑"""
         try:
-            from perf_toolkit.composite.bottleneck_trace import _find_bottleneck_comm as _find_bottleneck
+            from perf_toolkit.composite.bottleneck_analyze import _find_bottleneck_comm as _find_bottleneck
             
             # 模拟CommTop结果
             comm_top = {
@@ -312,7 +312,7 @@ class TestBottleneckTraceComposite(unittest.TestCase):
             self.assertGreater(bottleneck.monopoly, 0.9)
             
         except ImportError:
-            self.skipTest("bottleneck-trace或_find_bottleneck尚未实现")
+            self.skipTest("bottleneck-analyze或_find_bottleneck尚未实现")
 
 
 class TestStormTraceComposite(unittest.TestCase):
@@ -475,7 +475,7 @@ def run_tests():
     
     suite.addTests(loader.loadTestsFromTestCase(TestCompositeCommands))
     suite.addTests(loader.loadTestsFromTestCase(TestSysAuditComposite))
-    suite.addTests(loader.loadTestsFromTestCase(TestBottleneckTraceComposite))
+    suite.addTests(loader.loadTestsFromTestCase(TestBottleneckAnalyzeComposite))
     suite.addTests(loader.loadTestsFromTestCase(TestStormTraceComposite))
     suite.addTests(loader.loadTestsFromTestCase(TestCompositeRiskAggregation))
     suite.addTests(loader.loadTestsFromTestCase(TestCompositeOutputFormat))

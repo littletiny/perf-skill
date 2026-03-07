@@ -15,7 +15,7 @@
 │  Layer 3: Composite (组合层)             │
 │  ┌───────────────────────────────────┐  │
 │  │  • SysAuditor                     │  │
-│  │  • BottleneckTracer               │  │
+│  │  • BottleneckAnalyzer             │  │
 │  │  • RiskAggregator                 │  │
 │  └───────────────────────────────────┘  │
 └──────────────────┬──────────────────────┘
@@ -49,7 +49,7 @@
 | 命令 | 文件路径 | 编排的分析器 | 输出类型 |
 |------|----------|--------------|----------|
 | `sys-audit` | `cli/commands/composite/sys_audit.py` | detect-anomalies → analyze-core-distribution → get-comm-top | `SysAuditOutput` |
-| `bottleneck-trace` | `cli/commands/composite/bottleneck_trace.py` | get-comm-top → get-hotspots → find-callers | `BottleneckTraceOutput` |
+| `bottleneck-analyze` | `cli/commands/composite/bottleneck_analyze.py` | get-comm-top → get-hotspots → find-callers | `BottleneckAnalyzeOutput` |
 
 ---
 
@@ -355,13 +355,13 @@ class SysAuditOutput:
     time_range: Optional[TimeRange] = None
 ```
 
-### BottleneckTraceOutput - bottleneck-trace 输出
+### BottleneckAnalyzeOutput - bottleneck-analyze 输出
 
 ```python
 @dataclass
 class BottleneckTraceOutput:
     """
-    bottleneck-trace 输出结构 - V2 强类型版本
+    bottleneck-analyze 输出结构 - V2 强类型版本
     
     字段：
     - _risk: RiskInfo                    # 风险信息（置顶）
@@ -801,12 +801,12 @@ output = builder.build_sys_audit_output(diagnosis, aggregated_risk)
 print(builder.format_output(output))
 ```
 
-### bottleneck-trace 完整流程
+### bottleneck-analyze 完整流程
 
 ```python
 from perf_toolkit.core.engine import PerfExpertEngine
 from perf_toolkit.analysis.facade import AnalysisFacade
-from perf_toolkit.composite.bottleneck_trace import BottleneckTracer
+from perf_toolkit.composite.bottleneck_analyze import BottleneckAnalyzer
 
 # 1. 初始化
 engine = PerfExpertEngine()

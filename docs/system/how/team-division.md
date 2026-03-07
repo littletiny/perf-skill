@@ -101,7 +101,7 @@ Risk接口与Trace类似，贯穿三层架构，但职责不同：
 │  │ Output: _risk = {                                                   │   │
 │  │   level: "critical",                                                │   │
 │  │   message: "发现2个性能瓶颈: app_B(单核饱和), lsof(进程风暴)",        │   │
-│  │   hint: "1. bottleneck-trace --comm app_B; 2. storm-trace --comm lsof │   │
+│  │   hint: "1. bottleneck-analyze --comm app_B; 2. storm-trace --comm lsof │   │
 │  │ }                                                                   │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                    ▲                                        │
@@ -208,7 +208,7 @@ class CommTopAnalyzer(BaseAnalyzer):
                 risks.append(self._create_risk(
                     level="critical",
                     message=f"{group.comm} 单核饱和 (Monopoly={group.monopoly:.2f})",
-                    hint=f"bottleneck-trace --comm {group.comm}",
+                    hint=f"bottleneck-analyze --comm {group.comm}",
                     patterns=["SINGLE_CORE_SATURATION"],
                     pending_targets=[group.comm]
                 ))
@@ -284,7 +284,7 @@ Timeline不记录（子分析的内部risk）:
 Issues记录（聚合后的risk）:
 ─────────────────────────────────────────
 ISS-001: [critical] 发现2个性能瓶颈: app_B, lsof
-  Hint: 1. bottleneck-trace --comm app_B; 2. storm-trace --comm lsof
+  Hint: 1. bottleneck-analyze --comm app_B; 2. storm-trace --comm lsof
   Status: open
 ```
 
@@ -615,7 +615,7 @@ class CommTopAnalyzer(BaseAnalyzer):
 | RiskAggregator | `composite/risk_aggregator.py` | 能正确聚合去重risk |
 | 数据模型 | `composite/models.py` | RiskItem等模型定义 |
 | sys-audit命令 | `composite/sys_audit.py` | 能正确编排多个analysis工具 |
-| bottleneck-trace命令 | `composite/bottleneck_trace.py` | 能自动识别瓶颈并深度分析 |
+| bottleneck-analyze命令 | `composite/bottleneck_analyze.py` | 能自动识别瓶颈并深度分析 |
 | storm-trace命令 | `composite/storm_trace.py` | 能追溯进程风暴来源 |
 | CLI注册 | `scripts/shecr.py` | 新命令可用 |
 
@@ -737,7 +737,7 @@ def _auto_filter(self, groups: List[CommGroup]) -> Tuple[List[CommGroup], List[C
 | composite目录搭建 | 2h | 包结构、__init__.py |
 | RiskAggregator实现 | 4h | risk聚合与去重逻辑 |
 | sys-audit实现 | 8h | 最复杂的组合逻辑 |
-| bottleneck-trace实现 | 6h | 自动识别+深度分析 |
+| bottleneck-analyze实现 | 6h | 自动识别+深度分析 |
 | storm-trace实现 | 4h | 相对简单 |
 | CLI注册 | 2h | shecr.py修改 |
 | Enhanced功能 | 8h | CV/Monopoly/降噪/评分 |

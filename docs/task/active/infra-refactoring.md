@@ -721,8 +721,8 @@ def create_parser() -> argparse.ArgumentParser:
   # System audit - comprehensive analysis with auto noise reduction
   shecr sys-audit --data perf.data.txt
   
-  # Bottleneck trace - deep analysis of bottleneck processes
-  shecr bottleneck-trace --data perf.data.txt --comm myapp
+  # Bottleneck analyze - deep analysis of bottleneck processes
+  shecr bottleneck-analyze --data perf.data.txt --comm myapp
 
 Use '<command> --help' for detailed help on each subcommand."""
     )

@@ -49,9 +49,9 @@
 **预期**: 移除或替换为实际命令
 **文件**: `references/tools.md`, `SKILL.md`
 
-#### 7. bottleneck-trace 信息展示
+#### 7. bottleneck-analyze 信息展示
 **问题**: 信息展示格式需要调整（需要更多细节确认）
-**文件**: `scripts/perf_toolkit/cli/commands/composite/bottleneck_trace.py`
+**文件**: `scripts/perf_toolkit/cli/commands/composite/bottleneck_analyze.py`
 
 ---
 
@@ -96,7 +96,7 @@ git commit -m "fix: 修复scenario/ps下发现的7个问题
 - find-callers分叉展示修复
 - detect-anomalies支持--pid/--comm
 - 移除show-cpu-usage文档引用
-- bottleneck-trace信息展示优化"
+- bottleneck-analyze信息展示优化"
 
 git push
 ```

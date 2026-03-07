@@ -1,13 +1,13 @@
-# bottleneck-trace --pid 示例输出
+# bottleneck-analyze --pid 示例输出
 
 ## 命令使用
 
 ```bash
 # Trace 指定 PID 的性能瓶颈
-$ perf-hunter composite bottleneck-trace --pid 3657995 --data case_test.data
+$ perf-hunter composite bottleneck-analyze --pid 3657995 --data case_test.data
 
 # 或同时指定进程名和 PID
-$ perf-hunter composite bottleneck-trace --comm python3 --pid 3657995 --data case_test.data
+$ perf-hunter composite bottleneck-analyze --comm python3 --pid 3657995 --data case_test.data
 ```
 
 ## 输出示例
@@ -77,10 +77,10 @@ $ perf-hunter analysis comm-top --data case_test.data | grep python3
   python3(2776459)  2.15%  NORMAL
 
 # Trace 特定 PID
-$ perf-hunter composite bottleneck-trace --pid 3657995 --data case_test.data
+$ perf-hunter composite bottleneck-analyze --pid 3657995 --data case_test.data
 
 # Trace 另一个 PID
-$ perf-hunter composite bottleneck-trace --pid 3614904 --data case_test.data
+$ perf-hunter composite bottleneck-analyze --pid 3614904 --data case_test.data
 ```
 
 ## 技术实现细节
@@ -114,7 +114,7 @@ class BottleneckTracer:
     def trace(self, samples, target_comm=None, target_pid=None): ...
 
 # CLI 接口
-$ bottleneck-trace [--comm NAME] [--pid PID]
+$ bottleneck-analyze [--comm NAME] [--pid PID]
 ```
 
 ### 3. 与 --comm 的区别

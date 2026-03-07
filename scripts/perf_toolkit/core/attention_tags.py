@@ -99,9 +99,9 @@ def hint_find_callers(target: str) -> str:
     return xa("Trace Analysis", f"find-callers --target {target}")
 
 
-def hint_bottleneck_trace(comm: str) -> str:
-    """建议执行 bottleneck-trace"""
-    return xa("Deep Tracing", f"bottleneck-trace --comm {comm}")
+def hint_bottleneck_analyze(comm: str) -> str:
+    """建议执行 bottleneck-analyze"""
+    return xa("Deep Tracing", f"bottleneck-analyze --comm {comm}")
 
 
 # 解析提取（简单实现）

@@ -207,13 +207,13 @@ class SysAuditor:
         
         if primary:
             recommendations.append(
-                f"执行 bottleneck-trace --comm {primary.comm} 深入分析"
+                f"执行 bottleneck-analyze --comm {primary.comm} 深入分析"
             )
         
         for g in secondary:
             if g.diagnosis == DiagnosisType.BOTTLENECK:
                 recommendations.append(
-                    f"执行 bottleneck-trace --comm {g.comm} 深入分析"
+                    f"执行 bottleneck-analyze --comm {g.comm} 深入分析"
                 )
 
         

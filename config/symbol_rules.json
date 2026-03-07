@@ -1,11 +1,11 @@
 {
   "_comment": "Symbol Processing Rules - 符号处理规则配置文件",
-  "description": "Symbol processing rules for callstack analysis (used by find-callers, cluster-paths, bottleneck-trace)",
+  "description": "Symbol processing rules for callstack analysis (used by find-callers, cluster-paths, bottleneck-analyze)",
   "version": "2.1",
   "_doc": {
     "overview": "此配置文件控制 perf-hunter 如何处理调用栈中的符号",
     "processing_order": "规则按以下顺序应用: hidden -> collapse -> normalize",
-    "commands_affected": ["find-callers", "cluster-paths", "bottleneck-trace"],
+    "commands_affected": ["find-callers", "cluster-paths", "bottleneck-analyze"],
     "wildcard_support": "支持通配符: * 匹配任意字符"
   },
   "rules": {

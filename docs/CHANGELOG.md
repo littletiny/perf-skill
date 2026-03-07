@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `BOTTLENECK` → `<X0>` (critical)
     - `STORM`/`UNBALANCED` → `<X1>` (major)
     - 所有可操作建议 → `<XA>` (action)
-  - 为 `bottleneck-trace` 输出添加 steering 标签
+  - 为 `bottleneck-analyze` 输出添加 steering 标签
     - 关键热点和根因标记为 `<X0>`
     - 关键路径标记为 `<X1>`
   - 新增设计文档：
@@ -152,7 +152,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 新增命令设计文档 `docs/commands-three-tier.md`
 - 新增分析层实现总结 `docs/analysis-implementation-summary.md`
 - 新增三层架构分析层设计文档 `docs/analysis-layer-design.md`
-- perfdata测试新增4个工具的测试：detect-anomalies、sys-audit、bottleneck-trace、storm-trace
+- perfdata测试新增4个工具的测试：detect-anomalies、sys-audit、bottleneck-analyze、storm-trace
 
 ### Fixed
 - 修复 `storm_trace.py` 中生命周期数据访问方式（从字典改为对象属性）

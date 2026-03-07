@@ -411,7 +411,7 @@ Composite 层通过编排多个 Analysis 工具，生成综合诊断报告。内
 | 命令 | 用途 | 编排工具 |
 |------|------|----------|
 | `sys-audit` | 系统全面审计 | detect-anomalies + analyze-core-distribution + get-comm-top |
-| `bottleneck-trace` | 瓶颈追踪分析 | get-comm-top + get-hotspots + find-callers |
+| `bottleneck-analyze` | 瓶颈分析 | get-comm-top + get-hotspots + find-callers |
 
 ---
 
@@ -455,7 +455,7 @@ shecr sys-audit \
     "_risk": {
         "level": "critical",
         "message": "发现主要性能瓶颈: netstat",
-        "hint": "执行 bottleneck-trace --comm netstat 深入分析"
+        "hint": "执行 bottleneck-analyze --comm netstat 深入分析"
     },
     "diagnosis": {
         "primary_suspect": {
@@ -470,12 +470,12 @@ shecr sys-audit \
 
 ---
 
-### bottleneck-trace
+### bottleneck-analyze
 
 瓶颈追踪分析，深度定位性能瓶颈。
 
 ```bash
-shecr bottleneck-trace \
+shecr bottleneck-analyze \
   --data <perf.script.txt> \
   [--comm <name>] \
   [--top-n <N>] \
@@ -492,10 +492,10 @@ shecr bottleneck-trace \
 **使用场景**:
 ```bash
 # 场景 1: 已知瓶颈进程
-shecr bottleneck-trace --comm netstat
+shecr bottleneck-analyze --comm netstat
 
 # 场景 2: 自动检测瓶颈（不指定 --comm）
-shecr bottleneck-trace --data <perf.script.txt>
+shecr bottleneck-analyze --data <perf.script.txt>
 ```
 
 ---
@@ -660,7 +660,7 @@ shecr trace timeline [--format text|json]
 | `analyze-core-distribution` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `cluster-paths` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `sys-audit` | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| `bottleneck-trace` | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
+| `bottleneck-analyze` | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ |
 
 ---
 
@@ -741,7 +741,7 @@ shecr find-callers --target pthread_mutex_lock
 shecr sys-audit
 
 # 2. 如发现瓶颈，深度追踪
-shecr bottleneck-trace --comm <target>
+shecr bottleneck-analyze --comm <target>
 
 # 3. 查看诊断记录
 shecr trace timeline

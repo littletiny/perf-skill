@@ -6,7 +6,7 @@ CallChain Formatter - 统一的调用链格式化器
 提供统一的调用链格式化功能，支持三种命令的不同输出风格：
 - find-callers: bottom-up 风格，plain 样式
 - cluster-paths: top-down 风格，plain 样式
-- bottleneck-trace: top-down 风格，markdown 样式，带热点标记
+- bottleneck-analyze: top-down 风格，markdown 样式，带热点标记
 
 格式规范 (AI友好 - 显式标记):
 - 普通符号: name

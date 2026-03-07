@@ -161,7 +161,7 @@ from argparse import _SubParsersAction
 # 组合命令映射
 COMMAND_MAP: Dict[str, str] = {
     'sys-audit': 'perf_toolkit.cli.commands.composite.sys_audit',
-    'bottleneck-trace': 'perf_toolkit.cli.commands.composite.bottleneck_trace',
+    'bottleneck-analyze': 'perf_toolkit.cli.commands.composite.bottleneck_analyze',
 }
 
 
@@ -180,7 +180,7 @@ def get_command_handler(command_name: str) -> CompositeCommandHandler:
     获取组合命令处理函数
     
     Args:
-        command_name: 'sys-audit' 或 'bottleneck-trace'
+        command_name: 'sys-audit' 或 'bottleneck-analyze'
         
     Returns:
         组合命令的处理函数
@@ -379,7 +379,7 @@ BaseOutput (core/output_models.py)
     ├── anomaly_summary: AnomalySummaryOutput
     └── root_cause_chain: RootCauseChain
 
-    BottleneckTraceOutput            # bottleneck-trace (Composite)
+    BottleneckAnalyzeOutput          # bottleneck-analyze (Composite)
     ├── target_comm: str
     ├── profile: BottleneckProfile
     ├── hotspots: HotspotsOutputData
@@ -449,7 +449,7 @@ class OutputBuilder:
 | 命令 | 链式触发 | 输出类型 | 所在文件 |
 |------|----------|----------|----------|
 | `sys-audit` | detect-anomalies→analyze-core-distribution→get-comm-top | `SysAuditOutput` | `cli/commands/composite/sys_audit.py` |
-| `bottleneck-trace` | get-comm-top→get-hotspots→find-callers | `BottleneckTraceOutput` | `cli/commands/composite/bottleneck_trace.py` |
+| `bottleneck-analyze` | get-comm-top→get-hotspots→find-callers | `BottleneckAnalyzeOutput` | `cli/commands/composite/bottleneck_analyze.py` |
 
 ### 6.3 Trace 命令（9个）
 
@@ -523,7 +523,7 @@ def cmd_sys_audit(builder, engine, args, samples):
         builder.record_risk(
             "critical",
             f"发现主要性能瓶颈: {diagnosis['primary_suspect']['comm']}",
-            f"执行 bottleneck-trace --comm {diagnosis['primary_suspect']['comm']}"
+            f"执行 bottleneck-analyze --comm {diagnosis['primary_suspect']['comm']}"
         )
     
     return SysAuditOutput(_risk=risk, system_fingerprint=..., ...)

@@ -397,7 +397,7 @@ shecr trace add --desc <desc> [--level <level>] [--risk <risk>] [--hint <hint>]
 ```
 [ADDED] ISS-001
 → Desc: containerd-shim 高内核态 89.9%
-→ Hint: bottleneck-trace --comm containerd-shim
+→ Hint: bottleneck-analyze --comm containerd-shim
 ```
 
 ### timeline - 查看诊断时间线
@@ -469,7 +469,7 @@ shecr trace issues [--status <status>] [--risk-config <path>] [--risk-style <sty
 [创建] app_worker 核心独占率 0.92 → [解决] spinlock_wait 85%
 
 [OPEN] [ISS-002] [WARNING] containerd-shim 高内核态 89.9%
-→ bottleneck-trace --comm containerd-shim
+→ bottleneck-analyze --comm containerd-shim
 ```
 
 ### audit - 审计已解决问题质量
@@ -609,7 +609,7 @@ FINALIZE - Ready to generate report?
 Note: This is NOT an audit. Use 'shecr trace audit' for quality review.
 
 [WARNING] ISS-002: containerd-shim 高内核态 89.9%
-→ bottleneck-trace --comm containerd-shim
+→ bottleneck-analyze --comm containerd-shim
 
 -----------------------------------------------------------------
 [A] Continue analysis (recommended)
@@ -667,7 +667,7 @@ shecr trace export [--format <format>] [--output <path>]
 
 | 层级 | 调用方式 | 是否记录 | 示例 |
 |------|----------|----------|------|
-| Composite | CLI命令 | ✅ 记录 | `sys-audit`, `bottleneck-trace` |
+| Composite | CLI命令 | ✅ 记录 | `sys-audit`, `bottleneck-analyze` |
 | Analysis | CLI命令 | ✅ 记录 | `get-comm-top`, `get-hotspots` |
 | Analysis | 内部调用（Facade） | ❌ 不记录 | `facade.analyze_comm_top()` |
 | Analysis | 内部调用Core | ❌ 不记录 | `engine.get_comm_cpu_util()` |
@@ -725,7 +725,7 @@ def cmd_sys_audit(builder, engine, args, samples):
         builder.record_risk(
             "critical",
             f"主要性能瓶颈: {diagnosis['primary_suspect']['comm']}",
-            f"执行 bottleneck-trace --comm {diagnosis['primary_suspect']['comm']} 深入分析"
+            f"执行 bottleneck-analyze --comm {diagnosis['primary_suspect']['comm']} 深入分析"
         )
     
     return output
@@ -763,9 +763,9 @@ shecr trace timeline
 # 输出: 显示命令执行顺序和发现
 
 # 5. 深度分析主要瓶颈
-shecr bottleneck-trace --comm app_worker --data netstat_perf.data
+shecr bottleneck-analyze --comm app_worker --data netstat_perf.data
 # 输出: spinlock_wait 85% - 数据库查询触发锁竞争
-# 自动记录到timeline: bottleneck-trace
+# 自动记录到timeline: bottleneck-analyze
 shecr trace complete --id ISS-001 --result "spinlock_wait 85% - 数据库查询触发锁竞争"
 
 # 6. 分析进程风暴源头
