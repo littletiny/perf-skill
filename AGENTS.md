@@ -1,192 +1,49 @@
-# AGENTS.md - perf-hunter Skill 开发指南
+# AGENTS.md - perf-hunter 开发入口
 
-## 项目简介
-
-perf-hunter 是基于 **SHECR**（**S**ystematic **H**ypothesis **E**vidence-driven **C**ontrolled **R**easoning）方法论的性能诊断工具集，用于分析 Linux 性能数据。
+perf-hunter 是基于 **SHECR** 方法论的性能诊断工具集。
 
 ---
 
-## 核心原则
+## 🚀 快速开始
 
-- **修改前确认**: 任何代码改动都简要说明方案，人工确认后再修改
-- **简单优先**: let it crash，不做复杂错误处理
-- **AI 友好**: 工具的输出格式便于AI阅读
-- **先设计再编码, 强制静态类型，不使用python的动态类型**
-- **静态类型**: 如果一个Dict可以被dataclass替代，那么绝对不使用Dict
-- **禁止硬编码**: 任何硬编码都要改成可配置
-- **并行开发**: 所有的方案要设计要尽量分层，拆分清晰的接口，方便多人并行开发，避免多人改动同一个文件
-- **禁止多版本共存**: 不要写 `v1`/`v2` 或多版本兼容代码，改动一次做完，直接替换旧代码
-
-### 输出设计原则
-
-**AI 友好**: 工具的输出格式便于AI阅读，非特殊情况不使用json/yaml这些复杂结构
-
-**时间格式**
-时间字段统一用 ISO 8601 字符串格式，如 "2026-03-02T10:30:00+08:00"。不要自定义格式。
-
-**命名直接**
-字段名用直白英文，如 symbol/comm/pid/util。不要用缩写或前缀，如 sym/c/p/util_pct 等。
-
----
-
-## 项目结构
-
-各目录的详细说明参见对应子目录的 AGENTS.md：
-
-| 目录 | 说明 | 详细文档 |
-|------|------|----------|
-| `scripts/` | 工具脚本和核心模块 | [scripts/AGENTS.md](scripts/AGENTS.md) |
-| `tests/` | 测试套件 | [tests/AGENTS.md](tests/AGENTS.md) |
-| `pipeline/` | Agent 流水线 | [pipeline/AGENTS.md](pipeline/AGENTS.md) |
-| `docs/` | 内部文档 | [docs/AGENTS.md](docs/AGENTS.md) |
-| `config/` | 配置文件 | [config/AGENTS.md](config/AGENTS.md) |
-| `references/` | 用户参考文档 | [references/AGENTS.md](references/AGENTS.md) |
-
-📁 **完整目录结构**: `docs/meta/project-structure.md`
-
-📘 **分层接口规范**:
-- `docs/interface/interface-core.md` - Core Layer 接口
-- `docs/interface/interface-analysis.md` - Analysis Layer 接口
-- `docs/interface/interface-composite.md` - Composite Layer 接口
-- `docs/interface/interface-cli.md` - CLI Layer 接口
-- `docs/report/report-interface.md` - 接口一致性检查与改造报告
-
-> 开发前请先阅读上述文档，了解代码组织、文件命名和层间接口约定。
->
-> **重要原则**：禁止在层间传递裸 `dict`/`List[Dict]`，必须使用强类型 `dataclass`。
-
----
-
-## 开发约定
-
-### 章节编号规范
-- **禁止使用数字编号**（如 `### 1. xxx`），避免章节变动时连锁修改
-- 统一使用标题文字本身作为标识
-
-### 文档维护规范
-
-**版本更新流程：**
-
-1. 修改 `$repo/version` 文件
-2. 更新 `docs/CHANGELOG.md`（Keep a Changelog 格式）
-3. **如需要**，更新 `docs/LESSONS.md`（重大设计决策）
-4. **如新增 `docs/` 文档**，同步更新 `docs/project-structure.md`
-5. git commit
-
-**CHANGELOG 格式：**
-```markdown
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added/Changed/Fixed/Removed
-- 一句话描述变更
-
-**Changed files**: `file1`, `file2`
-```
-
-**重要原则：**
-- 版本信息**不要**记录在 SKILL.md 或脚本中
-- LESSONS.md 按**主题**组织（方法论、架构、踩坑记录），不按版本
-- docs/ 下文件清单维护在 `docs/project-structure.md`
-
-### 代码规范
-- 不要用regex
-- 修改工具代码后**必须**同步更新相关文档
-
-### 命令与文档同步规范
-- **修改或新增 CLI 命令时，必须同步更新 SKILL.md 和 references/tools.md**
-- 保持命令参数、输出格式与实际代码一致，避免用户阅读错误信息
-
-**开发者快速查找指南**: 查阅 `references/developer-guide.md`
-- 命令实现文件位置
-- 模块架构了解
-- 接口规范查询
-- 常见误区规避
-
-**CLI 命令参考**: 开发者应查阅 `references/cli-commands.md` 当：
-- 添加新 CLI 命令时
-- 修改现有命令参数时
-- **查找命令实现文件位置时**（首选，包含精确文件路径+函数名+参数）
-
-
-
-### 测试相关
-
-⚠️ **重要**: 添加新测试必须符合 `tests/` 目录结构，详见 [tests/AGENTS.md](tests/AGENTS.md)
-
-**测试路径规范**（必须放在正确位置）：
-
-| 测试类型 | 正确路径 | 示例 |
-|---------|---------|------|
-| 单元测试 | `tests/unit/` | `tests/unit/test_risk_display_config.py` |
-| 功能测试 | `tests/functional/` | `tests/functional/test_issue_overflow_warning.py` |
-| 集成测试 | `tests/integration/` | `tests/integration/test_core_interfaces.py` |
-| CLI 测试 | `tests/cli/` | `tests/cli/test_shecr_wrap.py` |
-| 场景测试 | `tests/scenario/<name>/` | `tests/scenario/ns/` |
-
-**测试数据**: `tests/data/new_format/case_test.data`
-
-**开发后必做**（添加新功能或修改功能后）：
-```bash
-# 运行所有自动化测试（不包括 scenario/ 人工验证）
-python3 tests/unit/test_risk_display_config.py
-python3 tests/unit/test_perfdata.py
-python3 tests/functional/test_issue_overflow_warning.py
-python3 tests/functional/test_trace_audit.py
-python3 tests/cli/test_shecr_wrap.py
-```
-
-**统一测试入口**：使用 `tests/run_tests.py` 运行所有自动化测试
 ```bash
 # 运行所有测试
 python3 tests/run_tests.py
-
-# 详细输出
-python3 tests/run_tests.py -v
-
-# 失败时停止
-python3 tests/run_tests.py -f
-```
-
-### 文档引用准则
-
-SKILL.md 保持精简，详细内容放 references/ 目录：
-
-> **重要原则**: `references/` 目录是交付给用户的使用文档，只包含与使用相关的信息。
-> 任何与使用无关的内容（如内部设计讨论、实现细节、历史记录、TODO 等）都应放在 `docs/` 目录下。
-
-| 内容类型 | 应放在 | 不应放在 |
-|----------|--------|----------|
-| 文档模板 | `references/templates.md` | SKILL.md 附录 |
-| 分析方法论 | `references/methodology.md` | SKILL.md 标准工作流 |
-| 分析模式 | `references/methodology.md#附录-a典型分析模式` | SKILL.md 场景详解 |
-| 工具命令 | `references/tools.md` | SKILL.md 工具清单 |
-| 数据格式 | `references/data-format.md` | SKILL.md 正文 |
-| CLI 命令参考 | `references/cli-commands.md` | SKILL.md 工具清单 |
-
-引用格式示例：
-```markdown
-📗 **分析方法论**: `references/methodology.md` - 三层架构驱动的完整方法论
 ```
 
 ---
 
-### Attention Steering (SHECR 核心机制)
+## 📍 开发导航
 
-详见设计文档: `docs/design/design-attention-steering.md`
-- `docs/design/design-output.md` - 输出系统设计（格式规范、核心指标计算）
+**所有查找需求请从此开始**: [`docs/meta/navigation.md`](docs/meta/navigation.md)
 
-> **Trace 机制设计文档**: `docs/module/core/how/trace-mechanism.md` - Trace 机制设计（数据格式、CLI接口、自动记录机制）
-> 
-> **bottleneck-analyze 工具文档**: `docs/module/composite/what/bottleneck-analyze-tool.md`
+> 原则：模糊正确 > 精确过时
 
 ---
 
-## 输入数据格式
+## 📁 目录速览
 
-详见 `references/data-format.md`
+| 目录 | 用途 |
+|------|------|
+| `scripts/` | 工具脚本和核心模块 |
+| `tests/` | 测试套件 |
+| `docs/` | 内部文档 |
+| `references/` | 用户参考文档 |
+| `pipeline/` | Agent 流水线 |
 
 ---
 
-## 重构与优化计划
+## ⚡ 核心约定
 
-- `docs/plan/plan-refactoring.md` - 代码冗余消除重构计划（极简原则版）
+- **静态类型**: 禁用裸 `dict`，使用 `dataclass`
+- **禁止硬编码**: 配置优先
+- **修改前确认**: 方案说明 → 人工确认 → 修改
+- **简单优先**: let it crash
+
+---
+
+## 📎 快速链接
+
+- 接口规范: `docs/interface/`
+- CLI 命令参考: `references/cli-commands.md`
+- 数据格式: `references/data-format.md`
