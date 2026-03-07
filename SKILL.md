@@ -1,5 +1,5 @@
 ---
-name: SHECR-perf-hunter
+name: systematic-hypothesis-evidence-controlled-reasoning
 description: |
   SHECR: **S**ystematic **H**ypothesis **E**vidence **C**ontrolled **R**easoning performance diagnostic tools
   X0=critical | X1=major | X2=Minor | XA=action
