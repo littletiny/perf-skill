@@ -23,13 +23,13 @@ python3 tests/run_tests.py
 
 ## 📁 目录速览
 
-| 目录 | 用途 |
-|------|------|
-| `scripts/` | 工具脚本和核心模块 |
-| `tests/` | 测试套件 |
-| `docs/` | 内部文档 |
-| `references/` | 用户参考文档 |
-| `pipeline/` | Agent 流水线 |
+| 目录 | 用途 | 详细文档 |
+|------|------|----------|
+| `scripts/` | 工具脚本和核心模块 | [scripts/AGENTS.md](scripts/AGENTS.md) |
+| `tests/` | 测试套件 | [tests/AGENTS.md](tests/AGENTS.md) |
+| `docs/` | 内部文档 | [docs/AGENTS.md](docs/AGENTS.md) |
+| `references/` | 用户参考文档 | [references/AGENTS.md](references/AGENTS.md) |
+| `pipeline/` | Agent 流水线 | [pipeline/AGENTS.md](pipeline/AGENTS.md) |
 
 ---
 
@@ -39,6 +39,12 @@ python3 tests/run_tests.py
 - **禁止硬编码**: 配置优先
 - **修改前确认**: 方案说明 → 人工确认 → 修改
 - **简单优先**: let it crash
+
+### 本文档约定
+
+> AGENTS.md 只放"必须立即知道"的内容，其他外链到 `docs/`。
+> 
+> 详见: [docs/meta/documentation-architecture.md](docs/meta/documentation-architecture.md)
 
 ---
 
