@@ -122,33 +122,31 @@ Step 7: Commit 拆分
 
 ### 3.2 接口契约文档
 
-`docs/design/<feature>-interfaces.md`:
+`docs/design/<feature>-interfaces.md` 示例内容：
 
-```markdown
-## 模块间接口
+    ## 模块间接口
 
-### DataCollector → Analyzer
-```python
-@dataclass
-class RawData:
-    samples: List[Sample]
-    metadata: DataMeta
+    ### DataCollector → Analyzer
+    ```python
+    @dataclass
+    class RawData:
+        samples: List[Sample]
+        metadata: DataMeta
 
-class DataCollector:
-    def collect(self, source: str) -> RawData: ...
-```
+    class DataCollector:
+        def collect(self, source: str) -> RawData: ...
+    ```
 
-### Analyzer → Formatter
-```python
-@dataclass  
-class AnalysisResult:
-    hotspots: List[HotSpot]
-    score: float
+    ### Analyzer → Formatter
+    ```python
+    @dataclass  
+    class AnalysisResult:
+        hotspots: List[HotSpot]
+        score: float
 
-class Analyzer:
-    def analyze(self, data: RawData) -> AnalysisResult: ...
-```
-```
+    class Analyzer:
+        def analyze(self, data: RawData) -> AnalysisResult: ...
+    ```
 
 ### 3.3 公共基础库
 
