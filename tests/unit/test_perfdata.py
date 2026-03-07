@@ -125,7 +125,7 @@ class TestEnv:
 
     def init_data(self, data_file):
         """初始化数据文件"""
-        self.run_shecr("init", "--data-path", str(data_file))
+        self.run_shecr("init", "--data", str(data_file))
 
 
 def get_data_info(data_file):

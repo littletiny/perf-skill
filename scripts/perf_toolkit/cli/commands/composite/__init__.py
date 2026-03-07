@@ -61,3 +61,7 @@ def register_commands(subparsers):
     p.add_argument("--cpu-id", type=int, help="Filter by CPU ID")
     p.add_argument("--start-time", type=str, help="Filter samples after this time")
     p.add_argument("--end-time", type=str, help="Filter samples before this time")
+    p.add_argument("--detect-hot-locks", action="store_true",
+                   help="Enable hot lock detection")
+    p.add_argument("--lock-config", type=str, default=None,
+                   help="Path to lock config file (default: ~/.config/shecr/lock-config.yaml)")

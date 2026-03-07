@@ -701,16 +701,19 @@ class BottleneckTraceResult:
     bidirectional_view: str = ""  # 渲染后的双向视图文本
     
     # [CPU_OVERVIEW] - Global CPU View (top 5 CPUs and hotspots)
-    cpu_overview: Optional[CPUOverview] = None
+    cpu_overview: Optional['CPUOverview'] = None
+    
+    # [HOT_LOCK_DETECTION] - 热点锁检测报告
+    hot_lock_report: Optional[Any] = None
 
     def __init__(self,
                  _risk: RiskInfo,
-                 target_resource_util: Optional[ResourceUtilization] = None,
-                 entity_distribution: Optional[List[EntityDistribution]] = None,
+                 target_resource_util: Optional['ResourceUtilization'] = None,
+                 entity_distribution: Optional[List['EntityDistribution']] = None,
                  common_hotspot: str = "",
                  common_hotspot_weight: float = 0.0,
-                 clusters: Optional[List[CallPathCluster]] = None,
-                 correlation_flags: Optional[List[CorrelationFlag]] = None,
+                 clusters: Optional[List['CallPathCluster']] = None,
+                 correlation_flags: Optional[List['CorrelationFlag']] = None,
                  total_pids: int = 0,
                  total_sys_cpu: float = 0.0,
                  top_bottlenecks: Optional[List[str]] = None,
@@ -718,7 +721,8 @@ class BottleneckTraceResult:
                  sample_count: int = 0,
                  time_range: Optional[TimeRange] = None,
                  bidirectional_view: str = "",
-                 cpu_overview: Optional[CPUOverview] = None):
+                 cpu_overview: Optional['CPUOverview'] = None,
+                 hot_lock_report: Optional[Any] = None):
         self._risk = _risk
         self.target_resource_util = target_resource_util
         self.entity_distribution = entity_distribution or []
@@ -734,6 +738,7 @@ class BottleneckTraceResult:
         self.time_range = time_range
         self.bidirectional_view = bidirectional_view
         self.cpu_overview = cpu_overview
+        self.hot_lock_report = hot_lock_report
         self._template_config = TemplateConfig(
             template_type="custom",
             custom_renderer="bottleneck_trace_renderer"
@@ -1161,8 +1166,6 @@ class ProfileConfig:
     init_time: str
     script_path: str
     freq: Optional[str] = None
-    risk_config: Optional[str] = None
-    rules_file: Optional[str] = None
 
 
 

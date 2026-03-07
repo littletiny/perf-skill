@@ -339,6 +339,69 @@ class CustomTemplate(Template):
         # [BIDIRECTIONAL_VIEW] - 双向调用链视图
         lines.extend(self._build_bidirectional_view_section(data_dict))
         
+        # [HOT_LOCK_DETECTION] - 热点锁检测
+        lines.extend(self._build_hot_lock_section(data_dict))
+        
+        return lines
+    
+    def _build_hot_lock_section(self, data: Dict) -> List[str]:
+        """构建 [HOT_LOCK_DETECTION] 段 - 热点锁检测报告"""
+        lines = []
+        hot_lock_report = data.get('hot_lock_report')
+        
+        if not hot_lock_report:
+            return lines
+        
+        results = hot_lock_report.get('results', [])
+        if not results:
+            lines.append("## [HOT LOCK DETECTION]")
+            lines.append("")
+            lines.append("✅ 未发现热点锁")
+            lines.append("")
+            return lines
+        
+        lines.append("## [HOT LOCK DETECTION]")
+        lines.append("")
+        
+        for result in results:
+            # 锁名称和严重程度
+            severity = result.get('severity', 'INFO')
+            severity_emoji = "🔴" if severity == "CRITICAL" else "🟡"
+            lock_name = result.get('lock_name', 'Unknown')
+            lines.append(f"{severity_emoji} 热点锁: {lock_name}")
+            lines.append("")
+            
+            # 路径分析
+            hotspot = result.get('hotspot', 'Unknown')
+            ratio = result.get('ratio', 0.0)
+            lines.append("路径分析:")
+            lines.append(f"┌─ {hotspot} ({ratio*100:.0f}% CPU)")
+            
+            # 显示调用路径
+            call_path = result.get('call_path', {})
+            path = call_path.get('path', [])
+            indent = "│   "
+            for i, node in enumerate(path[1:] if len(path) > 1 else path, 1):
+                is_last = (i == len(path) - 1) or (len(path) == 1)
+                connector = "└─ " if is_last else "├─ "
+                symbol = f"{node} 🔴" if is_last else node
+                lines.append(f"{indent * i}{connector}{symbol}")
+            
+            lines.append("│")
+            other_compute = result.get('other_compute', 0.0)
+            lines.append(f"└─ 路径其他计算: {other_compute*100:.0f}%")
+            lines.append("")
+            
+            # 严重程度和建议
+            lines.append(f"严重程度: {severity} (超过 {ratio*100:.0f}% 阈值)")
+            
+            if severity == "CRITICAL":
+                lines.append("建议: 锁拆分或缩短临界区")
+            else:
+                lines.append("建议: 审查锁使用模式")
+            
+            lines.append("")
+        
         return lines
 
     def _build_resource_utilization_section(self, data: Dict) -> List[str]:

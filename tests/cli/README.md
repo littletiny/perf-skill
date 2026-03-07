@@ -143,15 +143,15 @@ shecr trace --data x --freq 99 timeline  # 错误，trace 不需要这些
 
 ```bash
 # 1. 初始化第一个数据文件
-shecr init --data-path ./perf1.data
+shecr init --data ./perf1.data
 # 验证: .shecr_env 创建，default=perf1，trace 创建
 
 # 2. 初始化第二个（带 freq）
-shecr init --data-path ./perf2.data --freq 99
+shecr init --data ./perf2.data --freq 99
 # 验证: default=perf2，profiles 包含两个，profiles_used 包含两个
 
 # 3. 重复 init 第一个（修改 freq）
-shecr init --data-path ./perf1.data --freq 199
+shecr init --data ./perf1.data --freq 199
 # 验证: perf1 的 freq 更新，profile 数量仍为 2
 ```
 

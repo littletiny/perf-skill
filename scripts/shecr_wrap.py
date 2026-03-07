@@ -55,8 +55,7 @@ def load_env() -> EnvironmentConfig:
                     init_time=pdata.get("init_time", ""),
                     script_path=pdata.get("script_path", ""),
                     freq=pdata.get("freq"),
-                    risk_config=pdata.get("risk_config"),
-                    rules_file=pdata.get("rules_file")
+
                 )
                 for name, pdata in profiles_data.items()
             }
@@ -128,7 +127,7 @@ def init_global_trace(data_path: str) -> Tuple[bool, Optional[TraceConfig]]:
 
 def cmd_init(args):
     """初始化配置"""
-    data_path = Path(args.data_path).resolve()
+    data_path = Path(args.data).resolve()
     if not data_path.exists():
         print(f"Error: 数据文件不存在: {data_path}")
         sys.exit(1)
@@ -148,8 +147,7 @@ def cmd_init(args):
         init_time=datetime.now().isoformat(),
         script_path=str(script_path),
         freq=args.freq,
-        risk_config=getattr(args, 'risk_config', None),
-        rules_file=getattr(args, 'rules_file', None)
+
     )
 
     is_new = data_path_str not in env.profiles
@@ -176,7 +174,7 @@ def cmd_init(args):
 
 def cmd_use(args):
     """切换默认数据文件"""
-    data_path = Path(args.data_path).resolve()
+    data_path = Path(args.data).resolve()
     data_path_str = str(data_path)
 
     env = load_env()
@@ -191,7 +189,7 @@ def cmd_use(args):
                 break
         else:
             print(f"Error: 数据文件未配置: {data_path}")
-            print("请先运行: shecr init --data-path", data_path)
+            print("请先运行: shecr init --data", data_path)
             sys.exit(1)
 
     env.default = data_path_str
@@ -202,10 +200,6 @@ def cmd_use(args):
     print(f"  初始化时间: {profile.init_time}")
     if profile.freq:
         print(f"  采样频率: {profile.freq}Hz")
-    if profile.risk_config:
-        print(f"  Risk配置: {profile.risk_config}")
-    if profile.rules_file:
-        print(f"  规则配置: {profile.rules_file}")
 
 
 def cmd_list():
@@ -214,7 +208,7 @@ def cmd_list():
 
     if not env.profiles:
         print("未配置任何数据文件")
-        print("请运行: shecr init --data-path <path>")
+        print("请运行: shecr init --data <path>")
         return
 
     # 读取全局 trace，获取使用统计
@@ -239,10 +233,6 @@ def cmd_list():
         print(f"{marker} [{i}] {display_path} [{used}]")
         if profile.freq:
             print(f"       Freq: {profile.freq}Hz")
-        if profile.risk_config:
-            print(f"       Risk: {profile.risk_config}")
-        if profile.rules_file:
-            print(f"       Rules: {profile.rules_file}")
         print()
 
     print("图例: ▶ 当前默认  ✓ 已在 trace 中使用")
@@ -261,7 +251,7 @@ def cmd_status():
     print()
 
     if not env.profiles:
-        print("未初始化。请运行: shecr init --data-path <path>")
+        print("未初始化。请运行: shecr init --data <path>")
         return
 
     default_path = env.default
@@ -292,10 +282,6 @@ def cmd_status():
         print(f"{marker}{display_path}")
         if profile.freq:
             print(f"    Freq: {profile.freq}Hz")
-        if profile.risk_config:
-            print(f"    Risk: {profile.risk_config}")
-        if profile.rules_file:
-            print(f"    Rules: {profile.rules_file}")
         print()
 
     if default_path:
@@ -327,7 +313,7 @@ def cmd_exec(subcommand: str, args: list):
                 print("Error: 未配置数据文件路径")
                 print()
                 print("请运行以下命令初始化:")
-                print("  shecr init --data-path <path_to_perf.data.txt>")
+                print("  shecr init --data <path_to_perf_script_output>")
                 sys.exit(1)
 
         # 确定脚本路径（优先从 profile 读取）
@@ -342,7 +328,7 @@ def cmd_exec(subcommand: str, args: list):
 
         # 构建命令
         # trace 命令格式: shecr.py trace <subcommand> [options]
-        # --risk-config 需要在子命令之后
+
         cmd = ["python3", str(script_path), "trace"]
 
         # 提取子命令（如果有）
@@ -353,10 +339,7 @@ def cmd_exec(subcommand: str, args: list):
             other_args = args[1:]
             cmd.append(trace_subcommand)
 
-        # 自动注入 risk_config（如果 profile 有配置且用户未显式指定）
-        if profile and profile.risk_config:
-            if not any(arg.startswith("--risk-config") for arg in args):
-                cmd.extend(["--risk-config", profile.risk_config])
+
 
         cmd.extend(other_args)
         os.execvp(cmd[0], cmd)
@@ -367,7 +350,7 @@ def cmd_exec(subcommand: str, args: list):
         print("Error: 未配置数据文件路径")
         print()
         print("请运行以下命令初始化:")
-        print("  shecr init --data-path <path_to_perf.data.txt>")
+        print("  shecr init --data <path_to_perf_script_output>")
         sys.exit(1)
 
     # 确定脚本路径
@@ -392,11 +375,7 @@ def cmd_exec(subcommand: str, args: list):
     if freq and "--freq" not in args:
         cmd.extend(["--freq", freq])
 
-    # 自动注入 rules_file（仅限 cluster-symbols 命令）
-    if subcommand == "cluster-symbols":
-        if profile and profile.rules_file:
-            if not any(arg.startswith("--rules-file") for arg in args):
-                cmd.extend(["--rules-file", profile.rules_file])
+
 
     cmd.extend(args)
 
@@ -411,7 +390,7 @@ def show_help():
 perf-hunter 包装脚本 - 多数据文件全局跟踪
 
 管理命令:
-  init --data-path <path> [--freq <hz>]    添加并切换到新数据文件
+  init --data <path> [--freq <hz>]        添加并切换到新数据文件
   use <path|index>                         切换默认数据文件
   list                                     列出所有配置的数据文件
   status                                   显示当前配置和 trace 状态
@@ -419,32 +398,32 @@ perf-hunter 包装脚本 - 多数据文件全局跟踪
   --version, -v                            显示版本
 
 分析子命令:
-  check-cpu-bottleneck    检查资源限制和单核饱和
   get-hotspots            识别热点函数
-  cluster-symbols         按专家规则聚类符号
   find-callers            热点溯源，调用链分析
   detect-anomalies        检测时序异常
   analyze-core-distribution  核心级负载分布分析
-  get-process-top         进程 CPU 排行
   get-comm-top            按进程组统计 CPU
-  cluster-comm            按进程名聚类
   cluster-paths           按调用路径聚类
-  count-process-variety   检测进程风暴
-  trace                   Trace 诊断追踪管理
+
+组合子命令:
+  sys-audit               系统审计 - 自动编排分析工具
+  bottleneck-trace        瓶颈追踪 - CPU瓶颈深度分析
 
 Trace 管理命令:
-  trace timeline          查看完整 timeline（跨所有数据文件）
-  trace issues            查看待处理 issues
-  trace complete          标记 issue 完成
-  trace finalize          最终审计
-  trace export            导出报告
+  trace init --data <path> [--path <file>]  初始化诊断文档
+  trace add --desc <text> [--level <level>] 手动添加 issue
+  trace timeline [--format text|json]       查看完整 timeline
+  trace issues [--status open|resolved|all] 查看 issues 状态
+  trace complete --id <id> --result <text>  标记 issue 完成
+  trace finalize [--format text|json]       最终审计并关闭文档
+  trace export [--format text|json]         导出报告
 
 用法示例:
   # 添加第一个数据文件（自动设为默认）
-  shecr init --data-path ./perf.data.txt
+  shecr init --data ./perf.data.txt
 
   # 添加第二个数据文件（用于同一问题的对比分析）
-  shecr init --data-path ./perf2.data.txt --freq 99
+  shecr init --data ./perf2.data.txt --freq 99
 
   # 查看已配置的数据文件列表
   shecr list
@@ -488,21 +467,19 @@ def main():
 
     if command == "init":
         parser = argparse.ArgumentParser(prog="shecr init", add_help=False)
-        parser.add_argument("--data-path", required=True)
+        parser.add_argument("--data", required=True)
         parser.add_argument("--script-path")
         parser.add_argument("--freq")
-        parser.add_argument("--risk-config", help="Risk display config file for trace commands")
-        parser.add_argument("--rules-file", help="Expert rules file for cluster-symbols command")
+
         parser.add_argument("-h", "--help", action="store_true")
 
         args = parser.parse_args(remaining)
         if args.help:
-            print("usage: shecr init --data-path <path> [--script-path <path>] [--freq <hz>] [--risk-config <path>] [--rules-file <path>]")
+            print("usage: shecr init --data <path> [--script-path <path>] [--freq <hz>]")
             print("\n添加新的数据文件，并设为默认")
             print("所有数据文件的分析都记录在同一个全局 timeline 中")
             print("\n选项:")
-            print("  --risk-config    Risk display config file for trace commands")
-            print("  --rules-file     Expert rules file for cluster-symbols command")
+
             return
         cmd_init(args)
         return
@@ -532,7 +509,7 @@ def main():
         class Args:
             pass
         args = Args()
-        args.data_path = data_arg
+        args.data = data_arg
         cmd_use(args)
         return
 

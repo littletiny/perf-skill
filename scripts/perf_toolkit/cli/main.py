@@ -56,17 +56,9 @@ def register_trace_commands(subparsers):
 def register_env_commands(subparsers):
     """
     注册环境管理命令
-    C 实现
+    env 命令由 shecr_wrap.py 处理，此处不注册
     """
-    from .commands.env.init import register_init_parser
-    from .commands.env.use import register_use_parser
-    from .commands.env.list import register_list_parser
-    from .commands.env.status import register_status_parser
-    
-    register_init_parser(subparsers)
-    register_use_parser(subparsers)
-    register_list_parser(subparsers)
-    register_status_parser(subparsers)
+    pass
 
 
 def handle_trace_command(args):
@@ -102,25 +94,9 @@ def handle_trace_command(args):
 def handle_env_command(args):
     """
     处理环境命令
-    C 实现
+    env 命令由 shecr_wrap.py 处理，shecr.py 不直接处理
     """
-    handlers = {
-        'init': ('perf_toolkit.cli.commands.env.init', 'cmd_init'),
-        'use': ('perf_toolkit.cli.commands.env.use', 'cmd_use'),
-        'list': ('perf_toolkit.cli.commands.env.list', 'cmd_list'),
-        'status': ('perf_toolkit.cli.commands.env.status', 'cmd_status'),
-    }
-    
-    module_path, func_name = handlers.get(args.command)
-    import importlib
-    module = importlib.import_module(module_path)
-    handler = getattr(module, func_name)
-    
-    # 部分命令需要 args 参数
-    if args.command in ['init', 'use']:
-        handler(args)
-    else:
-        handler()
+    pass
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -261,11 +237,6 @@ def main():
     
     if not args.command:
         parser.print_help()
-        return
-    
-    # C 负责处理环境命令（不需要 engine）
-    if args.command in ['init', 'use', 'list', 'status']:
-        handle_env_command(args)
         return
     
     # C 负责处理 Trace 子命令

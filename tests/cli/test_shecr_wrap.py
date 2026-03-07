@@ -167,7 +167,7 @@ def test_init_new_profile():
         data1 = te.data_path("data1.data")
 
         class Args:
-            data_path = data1
+            data = data1
             script_path = None
             freq = None
 
@@ -186,7 +186,7 @@ def test_init_with_freq():
         data1 = te.data_path("data1.data")
 
         class Args:
-            data_path = data1
+            data = data1
             script_path = None
             freq = "99"
 
@@ -203,12 +203,12 @@ def test_init_multiple_profiles():
         data2 = te.data_path("data2.data")
 
         class Args1:
-            data_path = data1
+            data = data1
             script_path = None
             freq = None
 
         class Args2:
-            data_path = data2
+            data = data2
             script_path = None
             freq = "199"
 
@@ -234,7 +234,7 @@ def test_use_switch_profile():
         # 先初始化两个
         class Args:
             def __init__(self, dp, fq=None):
-                self.data_path = dp
+                self.data = dp
                 self.script_path = None
                 self.freq = fq
 
@@ -243,7 +243,7 @@ def test_use_switch_profile():
 
         # 切换到 data1
         class UseArgs:
-            data_path = data1
+            data = data1
 
         sw.cmd_use(UseArgs())
 
@@ -259,7 +259,7 @@ def test_use_by_index():
 
         class Args:
             def __init__(self, dp, fq=None):
-                self.data_path = dp
+                self.data = dp
                 self.script_path = None
                 self.freq = fq
 
@@ -272,7 +272,7 @@ def test_use_by_index():
         target = profiles[0]  # 索引 1 对应第一个
 
         class UseArgs:
-            data_path = target
+            data = target
 
         sw.cmd_use(UseArgs())
 
@@ -289,7 +289,7 @@ def test_freq_follows_data():
         # data1: no freq, data2: freq=99
         class Args:
             def __init__(self, dp, fq=None):
-                self.data_path = dp
+                self.data = dp
                 self.script_path = None
                 self.freq = fq
 
@@ -304,7 +304,7 @@ def test_freq_follows_data():
 
         # 切换到 data1
         class UseArgs:
-            data_path = data1
+            data = data1
         sw.cmd_use(UseArgs())
 
         env = sw.load_env()
@@ -321,7 +321,7 @@ def test_get_active_config():
 
         class Args:
             def __init__(self, dp, fq=None):
-                self.data_path = dp
+                self.data = dp
                 self.script_path = None
                 self.freq = fq
 
@@ -342,7 +342,7 @@ def test_cmd_build_no_freq():
         data1 = te.data_path("data1.data")
 
         class Args:
-            data_path = data1
+            data = data1
             script_path = None
             freq = None
 
@@ -366,7 +366,7 @@ def test_cmd_build_with_freq():
         data1 = te.data_path("data1.data")
 
         class Args:
-            data_path = data1
+            data = data1
             script_path = None
             freq = "99"
 
@@ -390,7 +390,7 @@ def test_cmd_build_trace_no_freq():
         data1 = te.data_path("data1.data")
 
         class Args:
-            data_path = data1
+            data = data1
             script_path = None
             freq = "99"
 
@@ -411,7 +411,7 @@ def test_global_trace_profiles_used():
 
         class Args:
             def __init__(self, dp, fq=None):
-                self.data_path = dp
+                self.data = dp
                 self.script_path = None
                 self.freq = fq
 
@@ -434,7 +434,7 @@ def test_re_init_updates_profile():
 
         class Args:
             def __init__(self, dp, fq=None):
-                self.data_path = dp
+                self.data = dp
                 self.script_path = None
                 self.freq = fq
 
@@ -452,126 +452,6 @@ def test_re_init_updates_profile():
         assert len(env.profiles) == 1, "不应创建重复 profile"
 
 
-def test_init_with_risk_config():
-    """测试: 初始化带 risk_config"""
-    with TestEnv() as te:
-        data1 = te.data_path("data1.data")
-
-        class Args:
-            data_path = data1
-            script_path = None
-            freq = None
-            risk_config = "./my-risk.json"
-            rules_file = None
-
-        sw.cmd_init(Args())
-
-        env = sw.load_env()
-        assert env.profiles[data1].risk_config == "./my-risk.json", "risk_config 应保存"
-
-
-def test_init_with_rules_file():
-    """测试: 初始化带 rules_file"""
-    with TestEnv() as te:
-        data1 = te.data_path("data1.data")
-
-        class Args:
-            data_path = data1
-            script_path = None
-            freq = None
-            risk_config = None
-            rules_file = "./my-rules.json"
-
-        sw.cmd_init(Args())
-
-        env = sw.load_env()
-        assert env.profiles[data1].rules_file == "./my-rules.json", "rules_file 应保存"
-
-
-def test_init_with_all_configs():
-    """测试: 初始化带所有配置"""
-    with TestEnv() as te:
-        data1 = te.data_path("data1.data")
-
-        class Args:
-            data_path = data1
-            script_path = None
-            freq = "99"
-            risk_config = "./risk.json"
-            rules_file = "./rules.json"
-
-        sw.cmd_init(Args())
-
-        env = sw.load_env()
-        profile = env.profiles[data1]
-        assert profile.freq == "99", "freq 应保存"
-        assert profile.risk_config == "./risk.json", "risk_config 应保存"
-        assert profile.rules_file == "./rules.json", "rules_file 应保存"
-
-
-def test_risk_config_follows_data():
-    """测试: risk_config 跟随 data 文件"""
-    with TestEnv() as te:
-        data1 = te.data_path("data1.data")
-        data2 = te.data_path("data2.data")
-
-        class Args:
-            def __init__(self, dp, fq=None, rc=None, rf=None):
-                self.data_path = dp
-                self.script_path = None
-                self.freq = fq
-                self.risk_config = rc
-                self.rules_file = rf
-
-        # data1: 有 risk_config, data2: 无
-        sw.cmd_init(Args(data1, None, "./risk1.json", None))
-        sw.cmd_init(Args(data2, None, None, None))
-
-        # 默认是 data2
-        env = sw.load_env()
-        dp, profile = sw.get_active_config(env)
-        assert dp == data2
-        assert profile.risk_config is None, "data2 应无 risk_config"
-
-        # 切换到 data1
-        class UseArgs:
-            data_path = data1
-        sw.cmd_use(UseArgs())
-
-        env = sw.load_env()
-        dp, profile = sw.get_active_config(env)
-        assert dp == data1
-        assert profile.risk_config == "./risk1.json", "data1 应有 risk_config"
-
-
-def test_rules_file_follows_data():
-    """测试: rules_file 跟随 data 文件"""
-    with TestEnv() as te:
-        data1 = te.data_path("data1.data")
-        data2 = te.data_path("data2.data")
-
-        class Args:
-            def __init__(self, dp, fq=None, rc=None, rf=None):
-                self.data_path = dp
-                self.script_path = None
-                self.freq = fq
-                self.risk_config = rc
-                self.rules_file = rf
-
-        # data1: 有 rules_file, data2: 无
-        sw.cmd_init(Args(data1, None, None, "./rules1.json"))
-        sw.cmd_init(Args(data2, None, None, None))
-
-        # 切换到 data1
-        class UseArgs:
-            data_path = data1
-        sw.cmd_use(UseArgs())
-
-        env = sw.load_env()
-        dp, profile = sw.get_active_config(env)
-        assert profile.rules_file == "./rules1.json", "data1 应有 rules_file"
-
-
 # ═════════════════════════════════════════════════════════════════════════════
 # 测试运行器
 # ═════════════════════════════════════════════════════════════════════════════
@@ -581,15 +461,10 @@ TEST_CASES = [
     test_migrate_old_env,
     test_init_new_profile,
     test_init_with_freq,
-    test_init_with_risk_config,
-    test_init_with_rules_file,
-    test_init_with_all_configs,
     test_init_multiple_profiles,
     test_use_switch_profile,
     test_use_by_index,
     test_freq_follows_data,
-    test_risk_config_follows_data,
-    test_rules_file_follows_data,
     test_get_active_config,
     test_cmd_build_no_freq,
     test_cmd_build_with_freq,

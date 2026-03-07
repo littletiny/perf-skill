@@ -41,8 +41,7 @@ def load_env() -> EnvironmentConfig:
                     init_time=pdata.get("init_time", ""),
                     script_path=pdata.get("script_path", ""),
                     freq=pdata.get("freq"),
-                    risk_config=pdata.get("risk_config"),
-                    rules_file=pdata.get("rules_file")
+
                 )
                 for name, pdata in profiles_data.items()
             }
